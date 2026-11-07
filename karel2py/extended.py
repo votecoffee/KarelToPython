@@ -1498,6 +1498,16 @@ def _path_record_kind(target,source,*,model):
     return None
 
 
+def path_conversion_layout(target,source,*,model):
+    if (type(target) is not tuple or type(source) is not tuple or len(target)!=3 or len(source)!=3
+            or target[0]!=source[0] or target[0]!='PATH'):
+        return None
+    default=runtime().PREDEFINED_STRUCTURES['STD_PTH_NODE']
+    node=_path_record_kind(target[1] or default,source[1] or default,model=model)
+    header=_path_record_kind(target[2],source[2],model=model)
+    return (node,header) if node is not None and header is not None else None
+
+
 class PathValue:
     def __init__(self,spec): self.spec=spec; self.nodes=[]; self.data=runtime().initial_value(spec[2]) if spec[2] else None
     @property
@@ -2853,18 +2863,11 @@ class ExecutionContext:
         if name=='COPY_PATH':
             source,start,end,destination,status,convert=args
             convert=rt.boolean(convert,line)
-            header=source.spec[2];target_header=destination.spec[2]
-            node=source.node_spec
-            target_node=destination.spec[1] or rt.PREDEFINED_STRUCTURES['STD_PTH_NODE']
-            node_kind=header_kind='exact'
-            if source.spec!=destination.spec:
-                if not convert:
-                    status.set(3,line); return
-                node_kind=_path_record_kind(target_node,node,model=rt._pythonic())
-                header_kind=_path_record_kind(target_header,header,model=rt._pythonic())
-                if node_kind is None or header_kind is None:
-                    status.set(3,line); return
-            modeled='kinematic' in (node_kind,header_kind)
+            layout=('exact','exact') if source.spec==destination.spec else (
+                path_conversion_layout(destination.spec,source.spec,model=rt._pythonic()) if convert else None)
+            if layout is None:
+                status.set(3,line); return
+            modeled='kinematic' in layout
             receiver=destination.raw() if modeled else None
             if type(source.nodes) is not list or len(source.nodes)>32767:
                 fail('COPY_PATH requires a bounded node list',line)
@@ -2876,29 +2879,8 @@ class ExecutionContext:
             else:
                 direction=1 if end>=start else -1
                 indices=range(start-1,end-1+direction,direction)
-            nodes=[source.nodes[index] for index in indices]
-            data=source.data
-            if header is None and data is not None:
-                fail('Headerless PATH cannot contain header data',line)
-            node_cost=rt._validate_data_schema(source.node_spec,line) if nodes else 0
-            header_cost=rt._validate_data_schema(header,line) if header is not None else 0
-            if nodes and target_node!=node:node_cost+=rt._validate_data_schema(target_node,line)
-            if target_header!=header:header_cost+=rt._validate_data_schema(target_header,line)
-            for _ in range(header_cost+len(nodes)*node_cost):
-                state.tick(line)
-            def prepare(expected,actual,value,kind):
-                if kind=='exact':return rt._aggregate_value(expected,value,line),()
-                if kind=='kinematic':return rt.prepare_kinematic_record(expected,value,line,source_spec=actual)
-                return rt.convert_record_schema(expected,value,line,source_spec=actual),()
-
-            prepared=[prepare(target_node,node,value,node_kind) for value in nodes]
-            prepared_header=prepare(target_header,header,data,header_kind) if header is not None else (None,())
-            selected=PathValue(destination.spec)
-            selected.nodes=[self._finish_kinematic_record(state,value,plan,line) if plan else value for value,plan in prepared]
-            value,plan=prepared_header
-            selected.data=self._finish_kinematic_record(state,value,plan,line) if plan else value
+            selected=self._copy_path_data(state,destination.spec,source,layout,line,indices=indices)
             if modeled and destination.raw() is not receiver:fail('COPY_PATH destination changed during preparation',line)
-            # The exact destination reference was checked with status before preparation.
             destination.storage[destination.key]=selected
             status.set(0,line); return
         if name=='INTSCT_VL_PL': return intersect_view_lines(state,*args,line=line)
@@ -3205,6 +3187,61 @@ class ExecutionContext:
         queue.buffer=buffer
         count.set(len(page),line)
         status.set(1 if first is None else 0,line)
+    def path_source_value(self,state,target,source,source_spec,line=None):
+        rt=runtime()
+        layout=path_conversion_layout(target,source_spec,model=True)
+        if not rt._pythonic() or layout is None or type(source) is not PathValue or source.spec!=source_spec:
+            fail('PATH conversion requires matching source storage and compatible node/header layouts',line)
+        return self._copy_path_data(state,target,source,layout,line)
+
+    def _copy_path_data(self,state,target,source,layout,line,*,indices=None):
+        rt=runtime()
+        whole=indices is None
+        node,header=source.node_spec,source.spec[2]
+        target_node=target[1] or rt.PREDEFINED_STRUCTURES['STD_PTH_NODE']
+        target_header=target[2]
+        original=source.nodes;data=source.data
+        if type(original) is not list or len(original)>32767:fail('PATH copy requires a bounded node list',line)
+        if header is None and data is not None:fail('Headerless PATH cannot contain header data',line)
+        count=len(original) if whole else len(indices)
+        nodes=original if whole else [original[index] for index in indices]
+        source_node_cost=rt._validate_data_schema(node,line) if count else 0
+        source_header_cost=rt._validate_data_schema(header,line) if header is not None else 0
+        target_node_cost=rt._validate_data_schema(target_node,line) if count else 0
+        target_header_cost=rt._validate_data_schema(target_header,line) if target_header is not None else 0
+        cost=source_header_cost+count*source_node_cost
+        if whole:
+            target_cost=target_header_cost+count*target_node_cost
+            if max(cost,target_cost)>32767:fail('PATH source values are limited to 32767 scalar leaves',line)
+            cost+=target_cost
+        else:
+            if target_node!=node:cost+=count*target_node_cost
+            if target_header!=header:cost+=target_header_cost
+        for _ in range(cost):state.tick(line)
+        if whole:
+            if source.nodes is not original or len(original)!=count or source.data is not data:
+                fail('PATH source changed during conversion preparation',line)
+            source=rt.collection_source_value(source.spec,source,line,source_spec=source.spec)
+            nodes,data=source.nodes,source.data
+
+        def prepare(expected,actual,value,kind):
+            if whole and value is rt.UNINITIALIZED and kind!='kinematic':return value,()
+            if kind=='exact':return rt._aggregate_value(expected,value,line),()
+            if kind=='kinematic':return rt.prepare_kinematic_record(expected,value,line,source_spec=actual)
+            return rt.convert_record_schema(expected,value,line,source_spec=actual),()
+
+        def finish(prepared):
+            value,plan=prepared
+            return self._finish_kinematic_record(state,value,plan,line) if plan else value
+
+        node_kind,header_kind=layout
+        prepared=[prepare(target_node,node,value,node_kind) for value in nodes]
+        prepared_header=prepare(target_header,header,data,header_kind) if header is not None else (None,())
+        selected=PathValue(target)
+        selected.nodes=[finish(row) for row in prepared]
+        selected.data=finish(prepared_header)
+        return selected
+
     def kinematic_record(self,state,target,value,line=None,*,source_spec=None):
         """Preflight a full record tree, then apply sequential scalar model calls."""
         result,pending=runtime().prepare_kinematic_record(target,value,line,source_spec=source_spec)

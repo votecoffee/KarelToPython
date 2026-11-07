@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1107.152647 - 2026-11-07
+
+- Convert compatible scalar PATH layouts at assignment, private argument and
+  function-return boundaries, including explicit model-backed pose fields.
+- Bound and charge the source and target snapshots before conversion. Reuse
+  the same staging logic as COPY_PATH.
+
 ## 26.1107.151150 - 2026-11-07
 
 - Allow explicit model-backed joint and Cartesian conversions for seeded PATH

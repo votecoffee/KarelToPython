@@ -1,6 +1,7 @@
 """Authored scalar logical collection source/lifetime and boundary contracts."""
 from copy import deepcopy
 import unittest
+from unittest.mock import patch
 from karel2py import runtime as rt,translate,translate_project
 from karel2py.lexer import TranslationError
 from tests.test_extended_services import compile_program
@@ -160,6 +161,83 @@ class QueueScalarValueTests(ScalarCases,unittest.TestCase):
     def test_queue_entry_budget_is_bounded(self):
         p,_=self.build();raw(p).sequence=32768;raw(p).entries=[(i,i) for i in range(1,32769)]
         with self.assertRaises(rt.KarelRuntimeError):p.run()
+
+class ConvertedPathValueTests(unittest.TestCase):
+    types=('TYPE joint_node=STRUCTURE point:JOINTPOS1 ENDSTRUCTURE '
+           'pose_node=STRUCTURE point:XYZWPREXT ENDSTRUCTURE '
+           'joint_path=PATH NODEDATA=joint_node pose_path=PATH NODEDATA=pose_node')
+    decl='source:joint_path target:pose_path s:INTEGER'
+    seed='APPEND_NODE(source,s) source[1].point[1]=42 '
+
+    def context(self):
+        return rt.ExecutionContext.from_config({'robot':{'dh':[{'type':'prismatic'}],
+            'current':{'joints':{'type':['JOINTPOS',1],'value':[0.]}}}})
+
+    def test_context_free_assignment_preserves_partial_data_and_header_alias(self):
+        types=('TYPE first=STRUCTURE n:INTEGER text:STRING[4] ENDSTRUCTURE '
+               'second=STRUCTURE text:STRING[8] n:REAL ENDSTRUCTURE '
+               'left=PATH NODEDATA=first PATHHEADER=first right=PATH NODEDATA=second PATHHEADER=second')
+        body='source.n=17 APPEND_NODE(source,s) source[1].n=42 target=source'
+        program,translation=compile_program(body,prefix=types,decl='source:left target:right s:INTEGER')
+        receiver=raw(program,'TARGET');header=receiver.data
+        state=program.run()
+        self.assertIs(raw(program,'TARGET'),receiver)
+        self.assertIs(receiver.data,header)
+        self.assertEqual(state['TARGET'],{'nodes':[{'N':42.,'TEXT':{'uninitialized':True}}],
+                                         'data':{'N':17.,'TEXT':{'uninitialized':True}}})
+        self.assertFalse(translation.report['path_schema_conversions'][0]['model_backed'])
+
+    def test_grouped_argument_converts_before_later_arguments_and_owns_its_nodes(self):
+        routines=('ROUTINE later:INTEGER BEGIN source[1].point[1]=17 RETURN 0 END later '
+                  'ROUTINE take(value:pose_path; ignored:INTEGER) BEGIN '
+                  'seen=value[1].point.z value[1].point.z=5 target=value END take')
+        program,translation=compile_program(self.seed+'take((source),later())',prefix=self.types,
+                decl=self.decl+' seen:REAL',routines=routines,context=self.context())
+        state=program.run()
+        self.assertEqual((state['SEEN'],state['SOURCE']['nodes'][0]['POINT']['axes'],
+                          state['TARGET']['nodes'][0]['POINT']['Z']),(42.,[17.],5.))
+        self.assertEqual(translation.report['path_schema_conversions'][0]['operation'],'ARGUMENT')
+
+    def test_return_conversion_in_compiled_link_and_inverse_assignment(self):
+        sources={
+            'main':f'PROGRAM MAIN {self.types} VAR target:joint_path ROUTINE build:pose_path FROM LIB BEGIN target=build() END MAIN',
+            'lib':f'PROGRAM LIB {self.types} VAR {self.decl} ROUTINE build:pose_path BEGIN {self.seed} RETURN source END build BEGIN END LIB',
+        }
+        project=translate_project(sources).instantiate(context=self.context())
+        project.run('MAIN')
+        main=project.programs['MAIN']
+        self.assertAlmostEqual(raw(main,'TARGET').nodes[0].values['POINT'].values[0],42.,delta=.02)
+
+    def test_bad_later_node_prevents_adapter_and_destination_selection(self):
+        ctx=self.context()
+        body=self.seed+'APPEND_NODE(source,s) visits=0 targets[pick()]=source'
+        routines='ROUTINE pick:INTEGER BEGIN visits=visits+1 RETURN 1 END pick'
+        program,_=compile_program(body,prefix=self.types,decl=self.decl+' targets:ARRAY[1] OF pose_path visits:INTEGER',
+                                  routines=routines,context=ctx)
+        with patch.object(ctx.robot,'forward',wraps=ctx.robot.forward) as adapter:
+            with self.assertRaisesRegex(rt.KarelRuntimeError,'requires initialized axes'):
+                program.run()
+        adapter.assert_not_called()
+        values=program.snapshot()
+        self.assertEqual((values['VISITS'],values['TARGETS'][0]['nodes']),(0,[]))
+
+    def test_schema_budget_precedes_model_and_preserves_receiver(self):
+        ctx=self.context()
+        program,_=compile_program(self.seed+'target=source',prefix=self.types,decl=self.decl,context=ctx)
+        receiver=raw(program,'TARGET');receiver.append()
+        receiver.nodes[0].values['POINT'].values['Z']=17.
+        with patch.object(ctx.robot,'forward',wraps=ctx.robot.forward) as adapter:
+            with self.assertRaisesRegex(rt.KarelRuntimeError,'step budget'):
+                program.run(max_steps=6)
+        adapter.assert_not_called()
+        self.assertIs(raw(program,'TARGET'),receiver)
+        self.assertEqual(receiver.nodes[0].values['POINT'].values['Z'],17.)
+
+    def test_bare_mismatched_argument_does_not_convert(self):
+        with self.assertRaises(TranslationError):
+            compile_program('take(source)',prefix=self.types,decl=self.decl,
+                            routines='ROUTINE take(value:pose_path) BEGIN END take')
+
 
 class ScalarCollectionSchemaTests(unittest.TestCase):
     def test_collection_kinds_do_not_convert(self):

@@ -28,12 +28,17 @@ logical state; invalid IDs, counters, buffers and entries reject before publicat
 
 ## Capture, schemas and ownership
 
-Collection kinds and PATH node/header layouts must match exactly. Named aliases
-resolve through the existing schema rules. There is no collection-field numeric
-coercion, geometry conversion, schema inference or node allocation from a source
-file. Source values are evaluated and validated once before destination selectors
+Collection kinds must match. Scalar PATH assignments, grouped or computed
+arguments, and RETURN can convert layouts whose node and header fields match by
+name under the [record conversion rules](record-schema-conversions.md). Both
+layouts must have a header or both must omit it. Compatible joint and Cartesian
+fields use the calling task's explicit [robot context](kinematic-records.md).
+Source and target each fit the normal scalar leaf bound and both count against
+the step budget. Every node and header validates before the first model call.
+
+Source values are evaluated and validated once before destination selectors
 or later argument expressions. Receiver validation follows selector effects and
-precedes publication; earlier explicit effects are retained on failure.
+precedes publication. Earlier explicit effects are retained on failure.
 
 Existing receiver roots and compatible PATH headers retain their identities.
 Independent nodes replace old node lists, leaving old node aliases detached.
@@ -52,7 +57,8 @@ through generic runtime helpers; whole collection banks and prefixes have their
 ## Routines and lifetime
 
 Bare matching variables, complete indexed cells and explicit BYNAME arguments
-retain borrowed references. Grouped arguments and computed results own independent
+retain borrowed references. A mismatched argument must be grouped or computed
+to request a private conversion. Grouped arguments and computed results own independent
 private storage. They can be mutated, forwarded by exact reference and retained
 by condition handlers. Pause/resume retains them; stop and failed calls unwind
 normal frames without copy-back. Separate private arguments allocate separately.
@@ -75,6 +81,7 @@ Source copying does not publish GET_VAR/SET_VAR cache entries or status outputs.
 Existing typed JSON and logical VR/DRAM persistence store the copied logical data
 and queue sequence; they omit queue buffers, private references, retained handlers
 and suspended frames. DONE guards in the authored examples permit exact saved
-context replay. The report exposes `scalar_collection_source_policy`; the
+context replay. The report exposes `scalar_collection_source_policy` and lists converted sites
+in `path_schema_conversions`. The
 [semantics ledger](semantics/scalar_collection_value_semantics.json) records the
 offline evidence boundary.

@@ -1278,6 +1278,7 @@ class Emitter:
         self.kinematic_interface_uses=[]
         self.kinematic_array_uses=[]
         self.kinematic_record_uses=[]
+        self.path_schema_uses=[]
         self.joint_width_uses=[]
         self.positional_array_uses=[]
         self.numeric_array_uses=[]
@@ -2526,12 +2527,26 @@ class Emitter:
         if self.mode=='pythonic' and rt.joint_axis_access(spec,len(expr.args)-1):return f'_rt.joint_index_reference({base},{index},{spec!r},{line})',selected
         return f'_rt.index_reference({base}, {index}, {line})', selected
 
+    def path_conversion_value(self,expected,actual,value,token,operation):
+        layout=ex.path_conversion_layout(expected,actual,model=True)
+        if layout is None:self.error('E_TYPE','Logical collection values require compatible PATH or identical scalar schemas',token)
+        if 'kinematic' in layout:
+            self.features.add('extended services')
+            if self.current_routine:self.current_routine.may_services=True
+        self.features.add('source PATH schema conversion')
+        self.path_schema_uses.append(dict(operation=operation,body=self.current_routine.name if self.current_routine else self.program.name,
+            line=token.line,column=token.column,source_type_spec=actual,target_type_spec=expected,
+            model_backed='kinematic' in layout,evaluated_once=True,independent_value=True))
+        return f'self._state.path_source_value({expected!r},{value},{token.line},source_spec={actual!r})'
+
     def collection_assignment(self,target,expression,token):
         reference,expected=self.reference(target)
         value,actual=self.expression(expression)
-        if expected!=actual:self.error('E_TYPE','Logical collection copy requires identical scalar schemas',token)
         source=self.fresh();line=token.line
-        self.line(f'{source}=_rt.collection_source_value({actual!r},{value},{line},source_spec={actual!r})',token)
+        if expected==actual:
+            value=f'_rt.collection_source_value({actual!r},{value},{line},source_spec={actual!r})'
+        else:value=self.path_conversion_value(expected,actual,value,token,'ASSIGNMENT')
+        self.line(f'{source}={value}',token)
         self.line(f'_rt.collection_assign({reference},{source},{line})',token)
         self.features.add('logical scalar collection source copy')
 
@@ -3326,7 +3341,9 @@ class Emitter:
                 if actual[0]=='ARRAY' and rt.file_storage_type(actual):
                     self.error('E_FILE_ARRAY_VALUE','FILE ARRAY arguments require borrowed storage without grouping',argument.token)
                 if self.mode=='pythonic' and rt.collection_type(actual):
-                    if expected!=actual:self.error('E_TYPE','Logical collection private argument requires identical scalar schemas',argument.token)
+                    if expected!=actual:
+                        value=self.path_conversion_value(expected,actual,value,argument.token,'ARGUMENT')
+                        actual=expected
                     code=f'_rt.collection_argument({expected!r},{value},{line},source_spec={actual!r})'
                     self.features.add('private logical scalar collection argument')
                 elif self.mode=='pythonic' and rt.collection_array_type(actual):
@@ -4621,8 +4638,10 @@ class Emitter:
                 value, value_type = self.expression(expr)
                 source_type_spec=value_type;cartesian_conversion=False;conversion_kind='none'
                 if self.mode=='pythonic' and rt.collection_type(spec):
-                    if spec!=value_type:self.error('E_TYPE','Logical collection result requires identical scalar schemas',expr.token)
-                    self.line(f'return _rt.collection_source_value({spec!r},{value},{line},source_spec={value_type!r})',token)
+                    if spec==value_type:
+                        value=f'_rt.collection_source_value({spec!r},{value},{line},source_spec={value_type!r})'
+                    else:value=self.path_conversion_value(spec,value_type,value,expr.token,'RETURN')
+                    self.line(f'return {value}',token)
                     self.features.add('logical scalar collection function result');return
                 if self.mode=='pythonic' and rt.collection_array_type(spec):
                     if not rt.collection_array_source_accepts(spec,value_type):self.error('E_ARRAY_RETURN_SOURCE','Collection ARRAY result requires matching component schemas',expr.token)
@@ -5073,7 +5092,7 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict', 
     if array_context is not None:
         from .array_context import check_selected
         check_selected(context_selected,emitter.types,filename)
-    if emitter.kinematic_assignment_uses or emitter.joint_geometry_uses or emitter.kinematic_interface_uses or emitter.kinematic_array_uses or emitter.joint_width_uses: emitter.analyze_routine_effects()
+    if emitter.kinematic_assignment_uses or emitter.joint_geometry_uses or emitter.kinematic_interface_uses or emitter.kinematic_array_uses or emitter.joint_width_uses or emitter.path_schema_uses: emitter.analyze_routine_effects()
     return Translation(generated, dict(
         status='translated', translator_version=__version__, filename=filename,
         cooperative_execution=emitter.cooperative,
@@ -5274,6 +5293,7 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict', 
         config_word_conversions=emitter.config_word_uses,
         numeric_array_conversions=emitter.numeric_array_uses,array_schema_conversions=emitter.array_schema_uses,
         record_schema_conversions=emitter.record_schema_uses,kinematic_record_conversions=emitter.kinematic_record_uses,
+        path_schema_conversions=emitter.path_schema_uses,
         joint_geometry=emitter.joint_geometry_uses,joint_axis_accesses=emitter.joint_axis_uses,
         pulses=emitter.pulse_uses,
         motion_requests=emitter.motion_uses,
@@ -7631,7 +7651,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
     report['path_io_policy']['arrays']='Whole banks and selected rows/planes follow path_array_io_policy; scalar PATH I/O keeps its existing contracts'
     report['scalar_collection_source_policy']=dict(
         source='Pythonic scalar PATH/QUEUE_TYPE assignments, grouped/computed private arguments and internal/compiled linked function results',
-        schemas='Exact collection kinds and PATH node/header layouts; declared source schemas must match; no numeric or geometry coercion',
+        schemas='Exact collection kinds; compatible PATH layouts may convert on assignment, private value arguments and RETURN. Whole source and target snapshots are bounded, with explicit model context for joint/Cartesian fields.',
         capture='Validate and snapshot source once before destination selectors or later arguments; preflight receiver before publication; reject shared owned PATH data',
         publication='Retain receiver root and compatible PATH header aliases; detach old nodes and reset receiver queue buffer links; bare/BYNAME arguments retain borrowing',
         lifetime='Private values and results remain independent across forwarding, retained handlers, pause/resume and normal stop/failure cleanup; no copy-back',

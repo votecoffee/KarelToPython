@@ -4274,6 +4274,9 @@ class State:
         if record_schema_kind(target,value.spec):return convert_record_schema(target,value,line,source_spec=source_spec)
         return convert_array_schema(target,value,line)
 
+    def path_source_value(self,target,value,line=None,*,source_spec):
+        return self.execution.path_source_value(self,target,value,source_spec,line)
+
     def kinematic_array(self,target,value,line=None,*,kind='ASSIGNMENT'):
         """Convert one whole ARRAY under explicit scalar model/adaptor contracts."""
         if not _pythonic():raise KarelRuntimeError('Kinematic ARRAY conversion requires Pythonic mode',line)
