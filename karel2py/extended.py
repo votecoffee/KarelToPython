@@ -230,7 +230,7 @@ OPTIONAL_LAST.update(TPE_OPTIONAL_GROUP)
 OPTIONAL_LAST.add('CREATE_VAR')
 OPTIONAL_REFERENCE = {'PROG_LIST'}
 OPTIONAL_PATH_NODE = {'APPEND_NODE','INSERT_NODE'}
-OPTIONAL_GROUP = {'POS_REG_TYPE':1,'TPE_POS_REG_FRM':1,'TPE_POS_REG_TYPE':1}
+OPTIONAL_GROUP = {'POS_REG_TYPE':1,'CLR_POS_REG':1,'TPE_POS_REG_FRM':1,'TPE_POS_REG_TYPE':1}
 PORT_TYPES = {**{name:'BOOLEAN' for name in ('DIN','DOUT','RDI','RDO','RDIN','RDOUT','OPIN','OPOUT','TPIN','TPOUT')},
               **{name:'INTEGER' for name in ('GIN','GOUT')}, **{name:'REAL' for name in ('AIN','AOUT')}}
 OUTPUT_PORTS = {'DOUT','RDO','RDOUT','GOUT','AOUT','OPOUT','TPOUT'}
@@ -2940,10 +2940,19 @@ class ExecutionContext:
                         following=re.match(r'\[([0-9]+(?:,[0-9]+)*)\]',rest[consumed:])
                         if following is None:break
                         numbers+=tuple(int(x) for x in following[1].split(','));consumed+=following.end()
-                if path_nodes and isinstance(value,PathValue):
-                    if len(numbers)!=1: fail('PATH requires one node index',line)
-                    value.node(numbers[0],line)
-                    reference=rt.Reference(value.node_spec,value.nodes,numbers[0]-1)
+                if path_nodes and reference.spec[0]=='PATH':
+                    if len(numbers)!=1:fail('PATH requires one node index',line)
+                    if (type(value) is not PathValue or value.spec!=reference.spec
+                            or type(value.nodes) is not list or len(value.nodes)>32767):
+                        fail('PATH node lookup requires matching bounded storage',line)
+                    spec=value.node_spec
+                    node=value.node(numbers[0],line)
+                    if node is not rt.UNINITIALIZED:
+                        fields=dict(rt.record_fields(spec))
+                        if (type(node) is not rt.Structure or node.spec!=spec or node.types!=fields
+                                or type(node.values) is not dict or node.values.keys()!=fields.keys()):
+                            fail('PATH node lookup found mismatched NODEDATA storage',line)
+                    reference=rt.Reference(spec,value.nodes,numbers[0]-1)
                 else:
                     selected=numbers[0] if len(numbers)==1 else numbers
                     if rt._pythonic() and rt.collection_array_node_type(reference.spec,len(numbers)) is not None:
@@ -2962,7 +2971,10 @@ class ExecutionContext:
         return reference
     def variable(self,state,name,args,line):
         rt=runtime(); entry,program,path,value,status=args
-        try: target=self.resolve(state,rt.ascii_string(program,line),rt.ascii_string(path,line),line,prefixes=rt._pythonic(),resources='collections' if rt._pythonic() else False,system_transfer=name)
+        pythonic=rt._pythonic()
+        try:
+            target=self.resolve(state,rt.ascii_string(program,line),rt.ascii_string(path,line),line,
+                                path_nodes=pythonic,prefixes=pythonic,resources='collections' if pythonic else False,system_transfer=name)
         except rt.KarelRuntimeError: status.set(1,line); return
         system_target=target if type(target) is _SystemVariableTarget else None
         if system_target is not None:

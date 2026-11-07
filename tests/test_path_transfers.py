@@ -36,6 +36,67 @@ def snap(path):return rt.snapshot_value(path)
 def invoke():return "work(BYNAME('CACHE','ITEM',entry)) "
 
 
+class NamedPathNodeTransferTests(unittest.TestCase):
+    def test_named_node_and_field_transfers_keep_existing_target_storage(self):
+        body=call(path='SOURCE[2].VALUE',value='n')
+        body+=call('SET_VAR',path='TARGET[1]',value='source[1]')
+        body+=call('SET_VAR',path='TARGET[1].VALUE',value='n')
+        p,_=prepared(body)
+        path=raw(p);nodes=path.nodes;node=nodes[0]
+        result=p.run()
+        self.assertEqual((result['N'],result['STATUS']),(9,0))
+        self.assertEqual(result['TARGET'],dict(nodes=[{'VALUE':9}],data={'COUNT':1}))
+        self.assertIs(path.nodes,nodes)
+        self.assertIs(nodes[0],node)
+        self.assertEqual(raw(p,'SOURCE').nodes[0].values['VALUE'],7)
+
+    def test_named_node_field_can_select_a_typed_array_row(self):
+        prefix=PREFIX.replace('value:INTEGER','value:INTEGER grid:ARRAY[2,2] OF INTEGER')
+        body='source[1].grid[2,1]=17 source[1].grid[2,2]=19 '
+        body+=call(path='SOURCE[1].GRID[2]',value='row')
+        body+=call('SET_VAR',path='TARGET[1].GRID[1]',value='row')
+        p,_=prepared(body,prefix=prefix,decl=DECL+' row:ARRAY[2] OF INTEGER')
+        result=p.run()
+        self.assertEqual((result['ROW'],result['STATUS']),([17,19],0))
+        self.assertEqual(result['TARGET']['nodes'][0]['GRID'][0],[17,19])
+
+    def test_missing_selected_node_copies_its_marker(self):
+        p,_=prepared(call(path='SOURCE[1]',value='picked'),decl=DECL+' picked:node_t')
+        raw(p,'SOURCE').nodes[0]=rt.UNINITIALIZED
+        result=p.run()
+        self.assertEqual((result['PICKED'],result['STATUS']),({'uninitialized':True},12311))
+
+    def test_invalid_node_index_and_mismatched_schema_preserve_other_outputs(self):
+        for path,wrong_schema in (('SOURCE[0].VALUE',False),('SOURCE[3].VALUE',False),('SOURCE[1].VALUE',True)):
+            with self.subTest(path=path,wrong_schema=wrong_schema):
+                p,_=prepared('entry=77 n=88 '+call(path=path,value='n'))
+                if wrong_schema:
+                    node=rt.Structure(('STRUCTURE','OTHER_T',(('VALUE',('INTEGER',)),)))
+                    node.values['VALUE']=123
+                    raw(p,'SOURCE').nodes[0]=node
+                result=p.run()
+                self.assertEqual((result['ENTRY'],result['N'],result['STATUS']),(77,88,1))
+                self.assertEqual(p._state.execution.entries,{})
+
+    def test_named_set_rejects_status_alias_to_same_node_field(self):
+        p,_=prepared('entry=77 '+call('SET_VAR',path='TARGET[1].VALUE',value='7',status='target[1].value'))
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'overlaps'):p.run()
+        self.assertEqual((p.snapshot()['ENTRY'],raw(p).nodes[0].values['VALUE']),(77,99))
+        self.assertEqual(p._state.execution.entries,{})
+
+    def test_linked_named_path_node_can_be_read_and_replaced(self):
+        main=("PROGRAM MAIN "+PREFIX+" VAR picked:node_t entry,status:INTEGER BEGIN "
+              "GET_VAR(entry,'LIB','ROUTE[1]',picked,status) "
+              "picked.value=picked.value+1 SET_VAR(entry,'LIB','ROUTE[1]',picked,status) END MAIN")
+        lib='PROGRAM LIB '+PREFIX+' VAR route:route_t BEGIN END LIB'
+        project=translate_project({'main':main,'lib':lib}).instantiate()
+        route=project.programs['LIB']._state.values['ROUTE'];fill(route,[17,19]);old=route.nodes[0]
+        result=project.run('MAIN')
+        self.assertEqual(result['MAIN']['values']['STATUS'],0)
+        self.assertEqual([node.values['VALUE'] for node in route.nodes],[18,19])
+        self.assertIs(route.nodes[0],old)
+
+
 class PathCopyValueTests(unittest.TestCase):
     def test_get_and_set_copy_all_nodes_and_header(self):
         for action in ('GET_VAR','SET_VAR'):

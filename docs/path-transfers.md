@@ -44,6 +44,21 @@ now provide explicit whole-bank and row/plane GET_VAR/SET_VAR copies with their
 own exact-schema and ownership rules.
 Whole FILE transfer and ordinary generic ANY acceptance remain excluded.
 
+## Selecting a node or a field
+
+A named variable path can select a one-based PATH node, a field inside the node,
+or a typed ARRAY row or plane inside a field.
+
+```karel
+GET_VAR(entry,'LIB','ROUTE[1].VALUE',amount,status)
+SET_VAR(entry,'LIB','ROUTE[1].VALUE',amount,status)
+```
+
+These selections use the normal typed data conversion and output checks.
+Replacing a compatible node through SET_VAR updates its existing record storage.
+A missing node can be copied as missing data with status 12311. An invalid index
+or mismatched node storage returns status 1 without allocating a cache entry.
+
 ## Identity and aliases
 
 Publication retains the existing PathValue root. A compatible existing header

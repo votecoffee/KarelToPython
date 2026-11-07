@@ -5930,13 +5930,13 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         guide='docs/path-archives.md',controller_validated=False)
     report['path_transfer_policy']=dict(
         procedures=['GET_VAR','SET_VAR'],
-        source='Pythonic extension for whole PATH values with exact resolved NODEDATA/PATHHEADER schemas; no implicit field, capacity, pose, model or layout conversions',
+        source='Pythonic whole-PATH extension uses exact NODEDATA and PATHHEADER schemas. Named PATH node and field selections follow ordinary checked GET_VAR/SET_VAR data conversions.',
         capture='SET snapshots source once before later selectors; GET resolves and snapshots named source after output selectors; validate bounded schemas and complete source/receiver data before publication',
         limits='At most 64 data-schema levels and 32767 header-plus-node scalar leaves on each side; validate bounds before payload allocation; existing PATH collection/persistence limits remain independent',
         receiver='Preserve existing PathValue identity; retain compatible header containers through ordinary stable data replacement; install a fresh detached nodes list so captured old node references are not retargeted; applies to self-copy',
         missing='Preserve partial scalar/node/header markers and known BYTE values; status 12311 for copied uninitialized data, with BYTE unknown contents retaining their existing no-initialization-tracking policy; empty headerless PATH succeeds',
         guards='Missing names return 1, incompatible schemas/resources return 3 with status only; malformed/over-limit state raises without data/cache/status publication; exact disjoint outputs and SET target overlap checks remain',
-        boundaries='Whole missing PATH roots, resource fields or FILE ARRAYs, generic ANY/strict helper relaxation, node/header conversion, inferred robot context, native GET_VAR/SET_VAR PATH acceptance/ABI or controller equivalence remain unavailable',
+        boundaries='Whole missing PATH roots, resource fields or FILE ARRAYs, generic ANY or strict helper relaxation, whole-PATH layout conversion, inferred robot context and native PATH transfer equivalence remain unavailable',
         guide='docs/path-transfers.md',controller_validated=False)
     report['queue_transfer_policy']=dict(
         procedures=['GET_VAR','SET_VAR'],
@@ -6071,7 +6071,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
     report['register_lifecycle_policy']=dict(
         procedures=['POS_REG_TYPE','CLR_POS_REG','CLR_PORT_SIM'],
         representation='Stored position representation codes: POSITION 1, XYZWPR 2, XYZWPREXT 6, JOINTPOS 9; axes are stored joint width, three extended slots, or portable zero for plain Cartesian types',
-        group='POS_REG_TYPE accepts explicit group or omits the second argument; omission uses the root caller group, with group 1 when no robot/source group exists',
+        group='POS_REG_TYPE and CLR_POS_REG accept an explicit group or omit the second argument to use the root caller group, defaulting to 1 when no group is configured',
         clear='CLR_POS_REG removes one group or every configured group when group=0; valid absent entries succeed; other registers, comments and existing copies remain unchanged',
         persistence='Reject duplicate saved string or position addresses after normalization and duplicate position group IDs. A lone legacy address spelling is accepted and saved canonically.',
         simulation='CLR_PORT_SIM removes the mapped address simulation flag, preserving values and comments; unsimulated inputs reject subsequent indirect source writes until simulated again',

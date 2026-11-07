@@ -54,8 +54,10 @@ is explicitly 1 because a bank alone has no calling-task context.
 
 ## Clearing position values
 
-`CLR_POS_REG(number,group,status)` removes that group's value. Group zero removes
-the selected register from every configured bank group. Other register numbers
+`CLR_POS_REG(number,group,status)` removes that group's value. The shorter form
+`CLR_POS_REG(number,status)` uses the root caller's group, defaulting to group 1
+when the caller has no configured group. An explicit group zero removes the
+selected register from every configured bank group. Other register numbers
 and independent register comments remain. Valid absent entries clear successfully,
 so repeated clears are harmless. The host equivalent is
 `PositionRegisters.clear(number,group=1)`, which returns the status directly.

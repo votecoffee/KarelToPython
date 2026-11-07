@@ -19,7 +19,7 @@ source-located error. Strict mode remains a future milestone.
 | `GET_STR_REG`, `SET_STR_REG` | `StringRegisters` dictionary | Explicit count and ASCII capacity; reads copy and truncate to destination capacity. |
 | `GET_POS_REG`, `SET_POS_REG`, `SET_EPOS_REG` | `PositionRegisters` keyed by group and number | Complete independent Cartesian values; getter returns XYZWPREXT. |
 | `GET_JPOS_REG`, `SET_JPOS_REG` | Same bank with typed joint values | Getter pads complete narrow joints to nine slots; stored width is retained. No implicit pose/joint conversion. |
-| `POS_REG_TYPE`, `CLR_POS_REG` | Stored representation/axes and group value removal | Inspect without conversion; clear one or all groups; independent comments retained. |
+| `POS_REG_TYPE`, `CLR_POS_REG` | Stored representation/axes and group value removal | Inspect without conversion. Both calls can use the caller's group by omission. Clear can select all groups with zero. Independent comments are retained. |
 | `DIN/DOUT`, `RDI/RDO`, `RDIN/RDOUT` | `PortBank` Boolean values | Host supplies inputs; translated assignments write output kinds only. |
 | `GIN/GOUT`, `AIN/AOUT` | Nonnegative checked `int`, finite `float` | Explicit counts and values; no zero-filled or hardware defaults. Analog float values are a portable choice. |
 | `PULSE DOUT[n] FOR ms [NOWAIT]` | Timed logical DOUT values | Checked rounded durations, explicit host polling or scheduler virtual time, caller ownership and terminal freeze. |

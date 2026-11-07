@@ -109,6 +109,21 @@ class PositionLifecycleTests(unittest.TestCase):
         self.assertEqual(ctx.positions.read(1,1)[1].values['X'],10.);self.assertEqual(ctx.positions.read(2,1)[1].values['X'],20.)
         self.assertEqual(ctx.positions.comments.read(1),(0,'keep'))
 
+    def test_clear_omitted_group_defaults_to_one(self):
+        ctx=self.context({(1,1):pose(),(2,1):joint(2)},groups=(1,2),comments={1:'keep'})
+        self.assertEqual(run('CLR_POS_REG(1,s)',context=ctx)['S'],0)
+        self.assertEqual(set(ctx.positions.snapshot()),{(2,1)})
+        self.assertEqual(ctx.positions.comments.read(1),(0,'keep'))
+
+    def test_linked_clear_omitted_group_uses_the_callers_source_group(self):
+        ctx=self.context({(1,1):pose(),(2,1):joint(2)},groups=(1,2))
+        routine='ROUTINE clear_active:INTEGER VAR status:INTEGER BEGIN CLR_POS_REG(1,status) RETURN status END clear_active'
+        project=translate_project({'lib':source('LIB','',routines=routine),
+            'main':source('MAIN','s=clear_active()',decl='s:INTEGER p:XYZWPR IN GROUP[2]',
+                          routines='ROUTINE clear_active:INTEGER FROM LIB')}).instantiate(context=ctx)
+        self.assertEqual(project.run('MAIN')['MAIN']['values']['S'],0)
+        self.assertEqual(set(ctx.positions.snapshot()),{(1,1)})
+
     def test_clear_zero_removes_all_configured_groups_of_one_register(self):
         ctx=self.context({(2,1):pose(),(3,1):joint(2),(3,2):pose(20)},groups=(2,3))
         state=run('CLR_POS_REG(1,0,s)',context=ctx)
@@ -159,7 +174,7 @@ class PositionLifecycleTests(unittest.TestCase):
 
 class LifecycleOwnershipTests(unittest.TestCase):
     def test_invalid_arity_and_exact_output_types(self):
-        for body in ('POS_REG_TYPE(1,n,s)','POS_REG_TYPE(1,1,n,n,s,s)','CLR_POS_REG(1,s)','CLR_PORT_SIM(1,s)','POS_REG_TYPE(1,x,n,s)','POS_REG_TYPE(1,n,small,s)','POS_REG_TYPE(1,0,n,s)'):
+        for body in ('POS_REG_TYPE(1,n,s)','POS_REG_TYPE(1,1,n,n,s,s)','CLR_POS_REG(1)','CLR_POS_REG(1,small)','CLR_PORT_SIM(1,s)','POS_REG_TYPE(1,x,n,s)','POS_REG_TYPE(1,n,small,s)','POS_REG_TYPE(1,0,n,s)'):
             with self.subTest(body=body),self.assertRaises(TranslationError): compile_program(body,decl='n,s: INTEGER x: REAL small: SHORT')
 
     def test_output_alias_rejected_before_bank_access(self):

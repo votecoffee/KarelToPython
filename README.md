@@ -385,7 +385,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1106.235842**. It is a
+tool are named **karel2py**. The current implementation is **26.1107.001613**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -969,8 +969,9 @@ conversions and range checks. Limits-only contexts can persist, and loaded-model
 frame/tool updates remain consistent across queries and save/load. See
 [joint interoperability](docs/joint-interoperability.md).
 
-POS_REG_TYPE reports stored representation and axis width; CLR_POS_REG clears
-one or all groups without removing comments. CLR_PORT_SIM removes a logical
+POS_REG_TYPE reports stored representation and axis width. CLR_POS_REG clears
+the caller's group by default, or takes an explicit group with zero selecting
+all groups. Register comments are retained. CLR_PORT_SIM removes a logical
 simulation flag while retaining the last supplied value. See
 [register lifecycle](docs/register-lifecycle.md) for examples and statuses.
 
@@ -1097,7 +1098,8 @@ retain exact schemas and root/header aliases, with detached old node storage.
 Whole PATH values now support an exact Pythonic GET_VAR/SET_VAR copy extension,
 including partial nodes/header, created roots and linked references. Copies keep
 the root and compatible header aliases, and detach the old nodes. This extends
-beyond the reviewed manual, which excludes whole PATH for these calls. See
+beyond the reviewed manual, which excludes whole PATH for these calls. Named
+node paths such as `ROUTE[1].VALUE` use the ordinary typed transfer rules. See
 [PATH transfers](docs/path-transfers.md) for limits and native evidence boundaries.
 
 CHECK_NAME validates portable base names. MOVE_FILE swaps selected RD/FR files

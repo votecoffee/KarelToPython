@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1107.001613 - 2026-11-07
+
+- Resolve named PATH nodes and their fields in GET_VAR and SET_VAR using the
+  ordinary typed transfer and overlap checks.
+- Accept CLR_POS_REG without a group argument. Clear the caller's group, or
+  group 1 when the caller has no configured group.
+
 ## 26.1106.235842 - 2026-11-06
 
 - Keep scheduled NOWAIT pulses on their original clock after replacing a

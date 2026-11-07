@@ -302,8 +302,8 @@ See [position checks](position-checks.md) for explicit frames, groups and status
 
 `PositionRegisters.describe(number,group=1)` returns `(status,kind,axes)`;
 `clear(number,group=1)` returns status, with group zero clearing all configured
-groups for that number. Source POS_REG_TYPE can omit its second group operand
-and uses the root task's default; the host methods default explicitly to 1.
+groups for that number. Source POS_REG_TYPE and CLR_POS_REG can omit the group
+operand to use the root task's group. The host methods default to group 1.
 CLR_PORT_SIM removes an existing logical simulation flag. The translation report's
 `register_lifecycle_policy` describes these choices. See
 [register lifecycle](register-lifecycle.md) for representation codes and failure behavior.
