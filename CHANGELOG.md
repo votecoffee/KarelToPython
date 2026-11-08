@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1108.041442 - 2026-11-08
+
+- Locate text record boundaries on demand. Retain one current record boundary
+  and restore the complete cursor when a text queue read rolls back.
+- Wait for an opening quote after a whitespace-only stream fragment. Require
+  a record separator for CR markers preceding a destination field.
+
 ## 26.1108.035759 - 2026-11-08
 
 - Let waiting PIP reads follow authorized circular cursor adjustments between

@@ -109,9 +109,10 @@ class QueueReadTests(unittest.TestCase):
     def test_text_input(self):
         p,_=build('READ(q)',read=rt.TextInput('42 43'));p.run();self.assertEqual(entries(p),[(1,42),(2,43)])
     def test_text_bad_token_rolls_back_cursor(self):
-        adapter=rt.TextInput('42 bad');p,_=build('READ(q)',read=adapter)
+        adapter=rt.TextInput('42\r\nbad');p,_=build('READ(q)',read=adapter)
         with self.assertRaises(rt.KarelRuntimeError):p.run()
         self.assertEqual(entries(p),[(1,17),(2,9)]);self.assertEqual(adapter.position,{'line':1,'column':1,'eof':False})
+        self.assertEqual(adapter.offset,0)
     def test_binary_roundtrip(self):
         body="INIT_QUEUE(r) APPEND_QUEUE(0,r,c,n,s) APPEND_QUEUE(0,r,c,n,s) OPEN FILE f('WB','out') WRITE f(q) CLOSE FILE f OPEN FILE f('RB','out') READ f(r) CLOSE FILE f"
         p,_=build(body,context=rt.ExecutionContext(files=rt.MemoryFiles()));p.run();self.assertEqual(entries(p,'R'),entries(p));self.assertEqual(p.snapshot()['C'],[0,0,0]);self.assertIsNone(queue(p,'R').buffer)

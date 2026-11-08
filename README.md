@@ -401,7 +401,7 @@ existing collision, busy-file, quota and publication checks remain active.
 and RENAME_FILE reuse matched characters in their destination filenames.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1108.035759**. It is a
+tool are named **karel2py**. The current implementation is **26.1108.041442**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -947,7 +947,8 @@ before destination or FILE cursor publication.
 
 READ accepts typed scalar input through an explicit host callback. Generated
 scripts can use JSON response batches with `--read-values` or ASCII text with
-`--read-text`, field widths/bases/quotes and explicit CR line control. See
+`--read-text`, field widths/bases/quotes and explicit CR line control. The text
+parser locates records as the cursor visits them. See
 [READ formats](docs/read-formats.md), [text input](docs/text-input.md) and
 [Pythonic input](docs/pythonic-read.md) for capture order, validation and failure behavior.
 

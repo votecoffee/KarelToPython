@@ -1,5 +1,6 @@
 """Distinguish incomplete explicit streams from complete invalid input."""
 import unittest
+from unittest.mock import patch
 
 from karel2py import runtime as rt
 
@@ -61,6 +62,23 @@ class StreamingTextInputTests(unittest.TestCase):
     def test_malformed_complete_numeric_width_is_invalid(self):self.invalid('00xx',('INTEGER',),formats=[(4,)])
 
     def test_unfinished_quoted_string_needs_input(self):self.incomplete("'ab",('STRING',10),formats=[(0,2)])
+
+    def test_quoted_field_can_start_after_fragmented_whitespace(self):
+        self.incomplete(' \t',('STRING',10),formats=[(0,2)])
+        self.invalid(' \t\n',('STRING',10),formats=[(0,2)])
+        self.assertEqual(self.parse(" \t'word'",('STRING',10),formats=[(0,2)]),['word'])
+
+    def test_records_are_located_only_as_the_cursor_visits_them(self):
+        text='17\r\n23\r'+'\n'*25000
+        with patch.object(rt.re,'finditer',side_effect=AssertionError('Eager record scan')):
+            reader=rt.TextInput(text)
+        separator=reader._separator
+        with patch.object(reader,'_separator',wraps=separator) as matcher:
+            self.assertEqual(reader(request(('INTEGER',),breaks=(1,))),[17])
+            self.assertEqual(reader.offset,4)
+            self.assertEqual(reader(request(('INTEGER',),breaks=(1,))),[23])
+            self.assertEqual(reader.offset,8)
+        self.assertEqual([call.args[1] for call in matcher.search.call_args_list],[0,4])
 
     def test_doubled_quote_requires_later_closing_quote(self):self.incomplete("'a''",('STRING',10),formats=[(0,2)])
 

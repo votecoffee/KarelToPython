@@ -34,7 +34,8 @@ background thread or automatic producer is created.
 Unformatted numeric/BOOLEAN tokens require a delimiter. An unformatted STRING
 requires the configured record terminator; fixed widths can complete as soon as
 the requested characters are available. A quoted STRING can complete when its
-closing quote arrives. A CR marker also waits for its record boundary, even after
+closing quote arrives. Leading whitespace in an unfinished quoted field can
+wait for the opening quote. A CR marker also waits for its record boundary, even after
 a fixed-width field. A malformed complete field fails immediately. Text follows
 the existing ASCII, width, base, quote, field-mode and custom-EOL rules.
 

@@ -121,7 +121,9 @@ A successful operation consumes exactly the committed RX prefix, leaving the
 remaining bytes for the next read.
 
 The capacity check counts fixed field bytes and required CR separators. The
-last CR may consume a finalized unterminated record without another byte.
+last CR may consume a finalized unterminated record when it follows all
+destination fields. A CR before a required field needs a separator.
+An unfinished quoted field can wait after receiving only leading whitespace.
 When one endpoint's retained RX fills the bank, an incomplete READ fails if
 the same bytes cannot complete it at EOF. If EOF would complete it, the
 operation can wait for explicit finalization.

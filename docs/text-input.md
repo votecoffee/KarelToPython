@@ -39,7 +39,8 @@ and function-local values in a FOR loop. Its [text](../examples/pythonic_text_in
 
 `TextInput(text)` accepts an ASCII `str` held in memory. It opens no device or
 file and selects no implicit stdin. LF, CRLF and CR delimit physical lines;
-CRLF counts as one line ending. Numeric and BOOLEAN fields skip ASCII whitespace
+CRLF counts as one line ending. The reader locates boundaries as its cursor
+visits each record, keeping only the current boundary. Numeric and BOOLEAN fields skip ASCII whitespace
 and blank lines, then consume one whitespace-delimited token.
 
 | Destination | Chosen interpretation |

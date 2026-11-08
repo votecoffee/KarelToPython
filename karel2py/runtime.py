@@ -3931,104 +3931,139 @@ class TextInput:
         if type(final) is not bool: raise ValueError('TextInput final must be BOOLEAN')
         self.final = final
         self.field_mode = field_mode
-        separators = list(re.finditer(r'\r\n|\r|\n' if terminator in (None,10,13) else re.escape(chr(terminator)), text))
-        self._starts = [0] + [match.end() for match in separators]
-        self._lines = [text[start:match.start()] for start,match in zip(self._starts,separators)] + [text[self._starts[-1]:]]
-        self._length = len(text)
-        self._terminated = bool(separators) and separators[-1].end() == len(text)
-        if not text or self._terminated: self._lines.pop()
+        self._text = text
+        self._separator = re.compile(r'\r\n|\r|\n' if terminator in (None,10,13) else re.escape(chr(terminator)))
+        self._record_start, self._bounds, self._eof_column = 0, None, 1
         self._row, self._column, self._after_field = 0, 0, False
+
+    def _checkpoint(self):
+        return (self._record_start, self._bounds, self._eof_column,
+                self._row, self._column, self._after_field)
+
+    def _restore(self, checkpoint):
+        (self._record_start, self._bounds, self._eof_column,
+         self._row, self._column, self._after_field) = checkpoint
+
+    def _line_bounds(self):
+        if self._bounds is None:
+            separator = self._separator.search(self._text, self._record_start)
+            self._bounds = ((len(self._text), None) if separator is None
+                            else (separator.start(), separator.end()))
+        return self._bounds
 
     @property
     def offset(self):
         """Exact ASCII byte offset, including consumed record separators."""
-        return self._length if self._row >= len(self._lines) else self._starts[self._row] + self._column
+        return self._record_start + self._column
 
     @property
     def position(self):
-        if self._row >= len(self._lines):
-            row = len(self._lines) if self._lines and not self._terminated else len(self._lines) + 1
-            column = len(self._lines[-1]) + 1 if self._lines and not self._terminated else 1
-            return dict(line=row, column=column, eof=True)
-        eof = (self._row == len(self._lines) - 1 and not self._terminated
-               and self._column == len(self._lines[self._row]))
-        return dict(line=self._row + 1, column=self._column + 1, eof=eof)
+        if self._record_start == len(self._text):
+            return dict(line=self._row + 1, column=self._eof_column, eof=True)
+        end, following = self._line_bounds()
+        return dict(line=self._row + 1, column=self._column + 1,
+                    eof=following is None and self.offset == end)
 
     def _next_line(self):
-        self._row += 1
+        end, following = self._line_bounds()
+        if following is None:
+            self._eof_column = end - self._record_start + 1
+            self._record_start = end
+        else:
+            self._record_start = following
+            self._row += 1
+        self._bounds = None
         self._column, self._after_field = 0, False
 
     def _require_line(self):
-        if self._row >= len(self._lines):
+        if self._record_start == len(self._text):
             position = self.position
             error = KarelRuntimeError if self.final else TextInputIncomplete
             raise error(f'TextInput reached end of input at input line {position["line"]}, column {position["column"]}')
 
     def _unfinished_line(self):
-        return not self.final and self._row == len(self._lines)-1 and not self._terminated
+        return not self.final and self._line_bounds()[1] is None
 
     def _token(self):
+        text = self._text
         while True:
             self._require_line()
-            line = self._lines[self._row]
-            while self._column < len(line) and line[self._column].isspace(): self._column += 1
-            if self._column < len(line): break
+            end, _ = self._line_bounds()
+            cursor = self.offset
+            while cursor < end and text[cursor].isspace():
+                cursor += 1
+            if cursor < end:
+                break
             self._next_line()
-        start = self._column
-        while self._column < len(line) and not line[self._column].isspace(): self._column += 1
-        self._after_field = True
-        if self._column == len(line) and self._unfinished_line():
-            raise TextInputIncomplete(f'TextInput unfinished token at input line {self._row+1}, column {start+1}')
-        return line[start:self._column], self._row + 1, start + 1
+        start = cursor
+        while cursor < end and not text[cursor].isspace():
+            cursor += 1
+        self._column, self._after_field = cursor - self._record_start, True
+        column = start - self._record_start + 1
+        if cursor == end and self._unfinished_line():
+            raise TextInputIncomplete(f'TextInput unfinished token at input line {self._row+1}, column {column}')
+        return text[start:cursor], self._row + 1, column
 
-    def _field_line(self):
+    def _field_end(self):
         self._require_line()
-        if self._after_field and self._column == len(self._lines[self._row]):
+        end, _ = self._line_bounds()
+        if self._after_field and self.offset == end:
             self._next_line()
             self._require_line()
-        return self._lines[self._row]
+            end, _ = self._line_bounds()
+        return end
 
     def _string(self, width=0):
-        line = self._field_line()
+        end = self._field_end()
+        start = self.offset
         row, column = self._row + 1, self._column + 1
-        value = line[self._column:self._column + width] if width else line[self._column:]
-        self._column, self._after_field = self._column + len(value), True
-        if width and len(value) != width:
+        stop = min(end, start + width) if width else end
+        length = stop - start
+        self._column, self._after_field = self._column + length, True
+        if width and length != width:
             error = TextInputIncomplete if self._unfinished_line() else KarelRuntimeError
             raise error(f'TextInput incomplete field at input line {row}, column {column}; expected {width} characters')
         if not width and self._unfinished_line():
             raise TextInputIncomplete(f'TextInput unfinished STRING at input line {row}, column {column}')
-        return value, row, column
+        if length > 254:
+            raise KarelRuntimeError(f'TextInput invalid STRING at input line {row}, column {column}')
+        return self._text[start:stop], row, column
 
     def _quoted(self, width):
         if width:
-            field, row, column = self._string(width)
+            text, row, column = self._string(width)
+            start, end = 0, len(text)
         else:
-            line = self._field_line()
+            end = self._field_end()
+            text, start = self._text, self.offset
             row, column = self._row + 1, self._column + 1
-            field = line[self._column:]
-        offset = 0
-        while offset < len(field) and field[offset].isspace(): offset += 1
-        contents = []
-        if offset < len(field) and field[offset] == "'":
+        offset = start
+        while offset < end and text[offset].isspace():
             offset += 1
-            while offset < len(field):
-                char = field[offset]; offset += 1
+        quoted = offset < end and text[offset] == "'"
+        waiting_for_quote = offset == end
+        contents = []
+        if quoted:
+            offset += 1
+            while offset < end:
+                char = text[offset]
+                offset += 1
                 if char == "'":
-                    if offset < len(field) and field[offset] == "'":
-                        contents.append("'"); offset += 1
-                        continue
-                    if not width:
-                        self._column += offset
-                        self._after_field = True
-                    if not width or not field[offset:].strip():
-                        return ''.join(contents), row, column
-                    break
-                contents.append(char)
+                    if offset < end and text[offset] == "'":
+                        offset += 1
+                    else:
+                        if not width:
+                            self._column += offset - start
+                            self._after_field = True
+                        if not width or not text[offset:end].strip():
+                            return ''.join(contents), row, column
+                        break
+                if len(contents) <= 254:
+                    contents.append(char)
         if not width:
-            self._column += len(field)
+            self._column += end - start
             self._after_field = True
-            if self._unfinished_line() and field.lstrip().startswith("'"):
+            if self._unfinished_line() and (quoted or waiting_for_quote):
                 raise TextInputIncomplete(f'TextInput unfinished quoted STRING at input line {row}, column {column}')
         raise KarelRuntimeError(f'TextInput invalid quoted STRING at input line {row}, column {column}')
 
@@ -4516,11 +4551,11 @@ class State:
             raise KarelRuntimeError('READ requires an explicit Program(read=...) input callback', line)
         request['adapter_outcome'] = 'callback_started'
         adapter=self._read
-        text_checkpoint=(adapter._row,adapter._column,adapter._after_field) if input_cohorts and type(adapter) is TextInput else None
+        text_checkpoint=adapter._checkpoint() if input_cohorts and type(adapter) is TextInput else None
         try:
             response = adapter(deepcopy(metadata))
         except Exception as exc:
-            if text_checkpoint is not None:adapter._row,adapter._column,adapter._after_field=text_checkpoint
+            if text_checkpoint is not None:adapter._restore(text_checkpoint)
             request['adapter_outcome'] = 'callback_failed'
             raise KarelRuntimeError(f'READ input callback failed: {exc}', line) from exc
         except BaseException:
@@ -4538,7 +4573,7 @@ class State:
                 _validate_read_value(target,value,line)
             values=_prepare_read_values(targets,values,line)
         except Exception:
-            if text_checkpoint is not None:adapter._row,adapter._column,adapter._after_field=text_checkpoint
+            if text_checkpoint is not None:adapter._restore(text_checkpoint)
             request['adapter_outcome'] = 'callback_result_rejected'
             raise
         request['adapter_outcome'] = 'response_validated'

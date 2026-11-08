@@ -11,31 +11,33 @@ from tests.test_extended_services import compile_program
 TRANSPORTS = ('socket', 'serial', 'pipe')
 
 
-def open_case(transport, data, *, binary=False, sleep=None):
+def open_case(transport, data, *, binary=False, sleep=None, capacity=8192, fields=None, decl='f:FILE n:INTEGER'):
     if transport == 'socket':
         name = 'S1:'
-        bank = rt.Messaging({name: {'input': data, 'wait': True, 'connected': True}}, limit=8192)
+        bank = rt.Messaging({name: {'input': data, 'wait': True, 'connected': True}}, limit=capacity)
         context = rt.ExecutionContext(messaging=bank)
         prefix = ''
         pending = bank._pending
     elif transport == 'serial':
         name = 'P2:'
-        bank = rt.SerialStreams({2: {'capacity': 8192, 'input': data, 'wait': True}}, limit=8192)
+        bank = rt.SerialStreams({2: {'capacity': capacity, 'input': data, 'wait': True}}, limit=capacity)
         context = rt.ExecutionContext(serial_streams=bank)
         prefix = ''
         pending = bank._pending
     else:
         name = 'PIP:LOG'
         bank = rt.FilePipes()
-        bank.configure(name, False, 8, 0, '', 0)
+        bank.configure(name, False, capacity//1024, 0, '', 0)
         bank.feed(name, data)
         context = rt.ExecutionContext(file_pipes=bank)
         prefix = 'SET_FILE_ATR(f,ATR_PIPWAIT,WAIT_USED) '
         pending = bank._reads
-    mode, fields = ('RB', 'n') if binary else ('RO', 'n,CR')
+    mode = 'RB' if binary else 'RO'
+    if fields is None:
+        fields = 'n' if binary else 'n,CR'
     task, _ = compile_program(
         f"n=99 {prefix}OPEN FILE f('{mode}','{name}') READ f({fields})",
-        decl='f:FILE n:INTEGER', context=context, sleep=sleep,
+        decl=decl, context=context, sleep=sleep,
     )
 
     def feed(payload):
@@ -82,6 +84,38 @@ class StreamReadBudgetTests(unittest.TestCase):
                 self.assertEqual(retained[handle.position:], suffix)
                 self.assertEqual(waits, [.01])
                 self.assertEqual(pending, {})
+
+    def test_fixed_field_and_fragmented_quote_publish_together(self):
+        for transport in TRANSPORTS:
+            with self.subTest(transport=transport):
+                waits = []
+
+                def sleep(seconds):
+                    waits.append(seconds)
+                    self.assertEqual(task.snapshot()['N'], 99)
+                    self.assertEqual(task.read_requests, ())
+                    feed(b" 'alpha'\n")
+
+                task, retained, pending, feed = open_case(
+                    transport, b'07  ', sleep=sleep, fields='n::2,label::0::2,CR',
+                    decl='f:FILE n:INTEGER label:STRING[16]',
+                )
+                values = task.run()
+                self.assertEqual((values['N'], values['LABEL']), (7, 'alpha'))
+                self.assertEqual(retained[task._state.values['F'].position:], b'')
+                self.assertEqual((waits, len(task.read_requests), pending), ([.01], 1, {}))
+
+    def test_eof_cannot_replace_cr_before_required_field(self):
+        for transport in ('socket', 'serial'):
+            with self.subTest(transport=transport):
+                calls = []
+                task, retained, pending, _ = open_case(
+                    transport, b'', capacity=3, sleep=calls.append, fields='CR,n::3',
+                )
+                with self.assertRaisesRegex(rt.KarelRuntimeError, 'retained receive capacity|receive bank limit'):
+                    task.run()
+                self.assertEqual((calls, retained), ([], b''))
+                self.assert_unpublished(task, pending, status=1 if transport == 'socket' else 0)
 
     def test_text_budget_is_charged_before_probe(self):
         data = b'17\n' + b' ' * 4096

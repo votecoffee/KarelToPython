@@ -93,7 +93,8 @@ class StreamRead:
 
     def minimum_bytes(self, *, may_finalize):
         # Finite text can consume its last unterminated record with CR.
-        return self.field_bytes + max(0, len(self.line_breaks) - int(may_finalize))
+        optional_eol = may_finalize and bool(self.line_breaks) and self.line_breaks[-1] == len(self.targets)
+        return self.field_bytes + len(self.line_breaks) - int(optional_eol)
 
     def capture(self, state, handle, retained, start, available, verify):
         from .fileops import charge_file_bytes

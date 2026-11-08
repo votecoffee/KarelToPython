@@ -58,6 +58,8 @@ destinations and one input observation together, then advances the cursor once.
 Nonfinal text uses the shared streaming FILE parser. An unformatted trailing
 token or STRING needs its delimiter before publication. Short fixed-width fields,
 unfinished quoted strings and requested but incomplete CR boundaries wait.
+A whitespace-only fragment can wait for the opening quote of an unformatted
+quoted STRING.
 Malformed complete fields and non-ASCII text fail immediately. Explicit widths
 and binary fields can complete as soon as their required bytes are available;
 binary CR fields remain invalid. FILE ATR_EOL, ATR_FIELD, ATR_REVERSE and existing
@@ -71,8 +73,8 @@ invent a line terminator or discard the incomplete prefix.
 
 A READ whose fixed fields and required CR separators exceed retained RX
 capacity fails before waiting. The check includes the successfully read prefix
-retained until CLOSE. The last CR can consume a finalized unterminated record
-without another byte. Variable-length input remains subject to the
+retained until CLOSE. A trailing CR can consume a finalized unterminated
+record. A CR before a required field needs a separator. Variable-length input remains subject to the
 ordinary combined RX/TX capacity and bank byte budget; feed and WRITE reject
 over-limit appends atomically.
 
