@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1108.014246 - 2026-11-08
+
+- Preflight every binary FILE field before reading and fetch the planned
+  finite payload in one batch.
+- Charge finite FILE READ bytes before copying or decoding and verify the
+  captured binding, byte storage and cursor. Honor cancellation before input.
+
 ## 26.1107.185504 - 2026-11-07
 
 - Stage every queue READ replacement pair before publishing any destination.

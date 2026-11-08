@@ -401,7 +401,7 @@ existing collision, busy-file, quota and publication checks remain active.
 and RENAME_FILE reuse matched characters in their destination filenames.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1107.185504**. It is a
+tool are named **karel2py**. The current implementation is **26.1108.014246**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -949,7 +949,9 @@ scripts can use JSON response batches with `--read-values` or ASCII text with
 ### Offline services and task control
 
 Registers, ports and program globals share an explicit context with typed JSON
-save/load. FILE operations can use memory or a caller-selected directory. Typed
+save/load. FILE operations can use memory or a caller-selected directory. Finite
+READ charges input bytes before capture, and binary READ plans all widths up
+front. Typed
 PATH and QUEUE_TYPE collections work offline. APPEND_NODE and INSERT_NODE can
 take complete node values, with a final `TRUE` argument to convert compatible
 NODEDATA layouts. Node edits charge seed capture and node allocation before

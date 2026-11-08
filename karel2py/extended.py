@@ -1352,6 +1352,14 @@ def binary_format(kind,formats,line=None):
     return width,'<'+code
 
 
+def binary_read_fields(targets,formats,line=None):
+    """Plan every fixed-width field before a FILE transport reads bytes."""
+    if type(formats) not in (list,tuple) or len(formats)!=len(targets):
+        fail('Binary READ requires one format list per target',line)
+    return [binary_format(target.spec[0],(target.spec[1],) if target.spec[0]=='STRING' and not field else field,line)
+            for target,field in zip(targets,formats)]
+
+
 def file_piece(handle,kind,value,formats,line=None):
     rt=runtime()
     if not handle.binary: return rt.format_write_item(kind,value,formats,line)
@@ -1364,33 +1372,74 @@ def file_piece(handle,kind,value,formats,line=None):
 
 
 def file_read(state,handle,targets,line=None,*,line_breaks=(),formats=None):
+    from .fileops import charge_file_bytes
+
     if handle.xml: fail('Use XML_SCAN/XML_GETDATA for XML FILE input',line)
-    rt=runtime(); handle.require_open(line); formats=formats if formats is not None else [()] * len(targets)
-    if type(handle.owner) is rt.KeyboardInput:fail('Keyboard FILE requires READ_KB',line)
-    if type(handle.owner) is rt.PendantDisplay:fail('Window FILE provides output only; keyboard READ is not modeled',line)
-    if type(handle.owner) in (rt.Messaging,rt.SerialStreams):handle.owner.before_read(handle,line)
+    rt=runtime();handle.require_open(line)
+    formats=formats if formats is not None else [()] * len(targets)
+    owner=handle.owner
+    if type(owner) is rt.KeyboardInput:fail('Keyboard FILE requires READ_KB',line)
+    if type(owner) is rt.PendantDisplay:fail('Window FILE provides output only; keyboard READ is not modeled',line)
+    if type(owner) in (rt.Messaging,rt.SerialStreams):owner.before_read(handle,line)
     rt._validate_read_targets(targets,line)
-    start=handle.position
+
+    name,start,operation=handle.name,handle.position,handle._read_operation
+    identity=rt._file_identity(handle)
+    data=owner.files.get(name)
+    if type(data) not in (bytes,bytearray) or type(start) is not int or start<0:
+        fail('FILE READ requires ordinary byte storage and a nonnegative cursor',line)
+    size=len(data)
+
+    def matches():
+        return (handle._read_operation is operation and rt._file_identity(handle)==identity
+                and owner.files.get(name) is data and len(data)==size)
+
+    def check(position):
+        if not matches() or handle.position!=position:
+            fail('FILE READ identity, data or cursor changed during preparation',line)
+        if operation is not None and operation['cancelled']:
+            raise rt._FileReadCancelled()
+
+    def charge():
+        state.tick(line)
+        check(start)
+
     if handle.binary:
         if line_breaks: fail('CR is not a binary READ field',line)
-        values=[]
+        try:fields=binary_read_fields(targets,formats,line)
+        except rt.KarelRuntimeError:
+            handle.status=1
+            raise
+        length=sum(width for width,_ in fields)
+        charge_file_bytes(length,charge)
+        check(start)
+        end=start+length
         try:
-            for target,field in zip(targets,formats):
-                if target.spec[0]=='STRING' and not field: field=(target.spec[1],)
-                width,code=binary_format(target.spec[0],field,line); raw=handle.owner.read_bytes(handle,width,line)
-                if code and handle.reverse: code='>'+code[1:]
-                value=raw.decode('ascii') if code is None else struct.unpack(code,raw)[0]
-                # Validate now; the setter must normalize raw SHORT 32767 once.
+            raw=owner.read_bytes(handle,length,line)
+            check(end)
+            if type(raw) is not bytes or len(raw)!=length:
+                fail('Incomplete binary FILE payload',line)
+            values=[];offset=0
+            for target,(width,code) in zip(targets,fields):
+                data_field=raw[offset:offset+width];offset+=width
+                if code and handle.reverse:code='>'+code[1:]
+                value=data_field.decode('ascii') if code is None else struct.unpack(code,data_field)[0]
+                # Keep the raw SHORT sentinel until its setter normalizes it.
                 rt._validate_read_value(target,value,line);values.append(value)
             values=rt._prepare_read_values(targets,values,line)
-        except Exception as exc:
-            handle.position=start; handle.status=1
+            check(end)
+            for target,value in zip(targets,values):target.set(value,line)
+        except (Exception,rt._FileReadCancelled) as exc:
+            if matches() and handle.position in (start,end):
+                handle.position=start
+                if not isinstance(exc,rt._FileReadCancelled):handle.status=1
             if isinstance(exc,UnicodeError): raise rt.KarelRuntimeError('Binary STRING requires ASCII data',line) from exc
             raise
-        for target,value in zip(targets,values): target.set(value,line)
     else:
         if handle.mode in ('W','A'): fail('FILE is not readable',line)
-        raw=bytes(handle.owner.files[handle.name][start:])
+        charge_file_bytes(max(0,size-start),charge)
+        check(start)
+        raw=bytes(memoryview(data)[start:])
         try: text=raw.decode('ascii')
         except UnicodeDecodeError: fail('Text FILE requires ASCII data',line)
         reader=rt.TextInput(text,terminator=handle.eol,field_mode=handle.field); previous=state._read

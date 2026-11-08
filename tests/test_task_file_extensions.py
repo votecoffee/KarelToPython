@@ -1,8 +1,10 @@
 """Authored task requests, scoped error severities and byte-accurate FILE reads."""
 import json
 from pathlib import Path
+import struct
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from karel2py import translate_project,runtime as rt
 from karel2py.lexer import TranslationError
@@ -248,6 +250,91 @@ class FileFieldTests(unittest.TestCase):
     def test_binary_ignores_text_eol_and_field_flag(self):
         p,_=self.file_program(b'abc;','READ f (a::3,n::1)',decl='a: STRING[3] n: INTEGER',attributes='SET_FILE_ATR(f,ATR_UF) SET_FILE_ATR(f,ATR_FIELD) SET_FILE_ATR(f,ATR_EOL,59)')
         state=p.run();self.assertEqual((state['A'],state['N']),('abc',59))
+
+    def test_binary_checks_all_field_widths_before_backend_read(self):
+        p,files=self.file_program(struct.pack('<ii',7,8),'n=99 s=98 READ f(n,s::3)',
+                                  decl='n,s:INTEGER',attributes='SET_FILE_ATR(f,ATR_UF)')
+        with (patch.object(files,'read_bytes',side_effect=AssertionError('read before width preflight')),
+              self.assertRaisesRegex(rt.KarelRuntimeError,'Unsupported binary field')):
+            p.run()
+        values=p.snapshot()
+        self.assertEqual((values['N'],values['S'],values['F']['position'],values['F']['status']),(99,98,0,1))
+
+    def test_binary_reads_one_planned_batch_and_preserves_short_sentinel(self):
+        p,files=self.file_program(struct.pack('<ih',7,32767),'READ f(n,s)',
+                                  decl='n:INTEGER s:SHORT',attributes='SET_FILE_ATR(f,ATR_UF)')
+        with patch.object(files,'read_bytes',wraps=files.read_bytes) as read:
+            values=p.run()
+        read.assert_called_once()
+        self.assertEqual(read.call_args.args[1],6)
+        self.assertEqual((values['N'],values['S'],values['F']['position']),(7,{'uninitialized':True},6))
+
+    def test_text_and_binary_budget_stop_before_backend_read_or_parser(self):
+        cases=(('',b'7 '+b' '*8192,5),('SET_FILE_ATR(f,ATR_UF)',struct.pack('<i',7),4))
+        for attributes,data,budget in cases:
+            with self.subTest(binary=bool(attributes)):
+                p,files=self.file_program(data,'n=99 READ f(n)',decl='n:INTEGER',attributes=attributes)
+                with (patch.object(files,'read_bytes',side_effect=AssertionError('read uncharged bytes')),
+                      patch.object(rt,'TextInput',side_effect=AssertionError('parsed uncharged text')),
+                      self.assertRaisesRegex(rt.KarelRuntimeError,'step budget')):
+                    p.run(max_steps=budget)
+                values=p.snapshot()
+                self.assertEqual((values['N'],values['F']['position'],values['F']['status']),(99,0,0))
+
+    def test_text_and_binary_decline_replaced_storage_during_charge(self):
+        cases=(('',b'7 '),('SET_FILE_ATR(f,ATR_UF)',struct.pack('<i',7)))
+        for attributes,data in cases:
+            with self.subTest(binary=bool(attributes)):
+                p,files=self.file_program(data,'n=99 READ f(n)',decl='n:INTEGER',attributes=attributes)
+                state=p._state
+                tick=state.tick
+                replacement=bytearray(data)
+
+                def replace(*args,**kwargs):
+                    tick(*args,**kwargs)
+                    if state.values['F']._read_operation is not None:files.files['data']=replacement
+
+                with (patch.object(state,'tick',side_effect=replace),
+                      patch.object(files,'read_bytes',side_effect=AssertionError('read from replacement file')),
+                      self.assertRaisesRegex(rt.KarelRuntimeError,'FILE READ identity, data or cursor changed')):
+                    p.run()
+                self.assertIs(files.files['data'],replacement)
+                values=p.snapshot()
+                self.assertEqual((values['N'],values['F']['position'],values['F']['status']),(99,0,0))
+
+    def test_binary_read_preserves_competing_cursor_change(self):
+        p,files=self.file_program(struct.pack('<ii',7,8),'n=99 READ f(n)',
+                                  decl='n:INTEGER',attributes='SET_FILE_ATR(f,ATR_UF)')
+        read_bytes=files.read_bytes
+
+        def read_then_seek(handle,count,line=None):
+            data=read_bytes(handle,count,line)
+            handle.position=8
+            return data
+
+        with (patch.object(files,'read_bytes',side_effect=read_then_seek),
+              self.assertRaisesRegex(rt.KarelRuntimeError,'FILE READ identity, data or cursor changed')):
+            p.run()
+        self.assertEqual((p.snapshot()['N'],p.snapshot()['F']['position']),(99,8))
+
+    def test_cooperative_finite_file_cancel_during_charge_skips_payload(self):
+        files=rt.MemoryFiles({'data':struct.pack('<i',7)})
+        p,_=compile_program("OPEN FILE f('RB','data') n=99 READ f(n) s=IO_STATUS(f)",
+                            decl='f:FILE n,s:INTEGER',cooperative=True,
+                            context=rt.ExecutionContext(files=files))
+        state=p._state
+        handle=state.values['F']
+        tick=state.tick
+
+        def cancel(*args,**kwargs):
+            tick(*args,**kwargs)
+            if handle._read_operation is not None:rt.cancel_file(state,handle)
+
+        with (patch.object(state,'tick',side_effect=cancel),
+              patch.object(files,'read_bytes',side_effect=AssertionError('read a cancelled payload'))):
+            values=p.run()
+        self.assertEqual((values['N'],values['S'],values['F']['position']),(99,6,0))
+        self.assertIsNone(handle._read_operation)
 
     def test_text_input_exact_offsets_and_validation(self):
         reader=rt.TextInput('ab\r\ncd\r',field_mode=True)

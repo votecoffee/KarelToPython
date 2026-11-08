@@ -179,9 +179,13 @@ bytes and failed text transfers preserve destinations and cursor. See the
 [field and record guide](task-and-file-extensions.md#field-and-record-reads).
 Binary fields use `::width`; unformatted INTEGER/REAL use four bytes. Binary
 STRING writes default to content length and reads to destination capacity.
-Explicit widths truncate/pad STRINGs with NUL. Binary reads validate the entire
-transfer before writing outputs and restore the cursor on failure. Text reads
-use the existing complete-response validation. End-of-file is an error, with
+Explicit widths truncate or pad STRINGs with NUL. Finite binary READ validates
+all widths before fetching one payload and stages every destination before
+publishing. Parse and validation failures restore the captured cursor when
+the binding and cursor still match. Finite text READ uses the existing
+complete-response validation. Finite FILE READ charges one step per started
+4 KiB of planned binary data or unread text before copying it. It checks the
+original binding, byte storage and cursor after the charge. End-of-file is an error, with
 portable file status 1; successful transfers clear status to zero. This format
 is portable project behavior, not a controller binary-file format claim.
 
