@@ -4714,10 +4714,17 @@ class State:
             if pipe_attributes and type(banks[0]) is not FilePipes:
                 raise KarelRuntimeError('Pipe FILE attributes require plain FilePipes, not acquisition pipes',line)
             return banks[0].open_for(self,handle,mode,key,line)
-        self.execution.require('files',line).open(handle,mode,name,line)
+        files = self.execution.require('files', line)
+        if type(files) is DirectoryFiles and _pythonic():
+            return files.open(handle, mode, name, line, check=lambda: self.tick(line))
+        files.open(handle, mode, name, line)
 
     def file_close(self,handle,line=None):
-        handle.require_open(line); handle.owner.close(handle,line)
+        handle.require_open(line)
+        owner = handle.owner
+        if type(owner) is DirectoryFiles and _pythonic():
+            return owner.close(handle, line, check=lambda: self.tick(line))
+        owner.close(handle, line)
 
     def external_call(self,program,name,arguments,result_spec,line=None):
         callback=self.execution.externals.get((program.upper(),name.upper()))
@@ -4830,7 +4837,10 @@ def _write_file_now(state, handle, pieces, line):
                        in zip(_file_write_binding(handle, line), binding))):
             raise KarelRuntimeError('FILE WRITE destination or cursor changed during preparation', line)
 
-    owner.write(handle, payload.render(state, handle, line, verify), line)
+    data = payload.render(state, handle, line, verify)
+    if type(owner) is DirectoryFiles and _pythonic():
+        return owner.write(handle, data, line, check=lambda: state.tick(line))
+    owner.write(handle, data, line)
 
 
 class _FileWriteCancelled(GeneratorExit):

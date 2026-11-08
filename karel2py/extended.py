@@ -1464,14 +1464,20 @@ class MemoryFiles:
     def _check(self,name,data):
         runtime().ascii_string(name)
         if not name or len(name)>254 or len(data)>self.limit: fail('Invalid memory file name or file size limit')
-    def open(self,handle,mode,name,line=None):
-        if handle.owner is not None: fail('FILE is already open',line)
-        if self._busy(name): fail('File is already open through this backend',line)
-        mode=runtime().ascii_string(mode,line).upper(); self._check(name,b'')
+    @staticmethod
+    def _access_mode(handle,mode,line):
+        mode=runtime().ascii_string(mode,line).upper()
         binary='B' in mode or handle.binary; mode=mode.replace('B','')
         mode={'RO':'R','WO':'W','RW':'RW','UD':'RW','AP':'A'}.get(mode,mode)
         if mode not in ('R','W','RW','A'): fail('Unsupported memory file access mode',line)
         if handle.xml and (mode!='R' or binary): fail('XML FILE requires text RO access',line)
+        return mode,binary
+
+    def open(self,handle,mode,name,line=None):
+        if handle.owner is not None: fail('FILE is already open',line)
+        if self._busy(name): fail('File is already open through this backend',line)
+        self._check(name,b'')
+        mode,binary=self._access_mode(handle,mode,line)
         if mode=='R' and name not in self.files: fail('Memory file does not exist',line)
         if mode=='W' or name not in self.files: self.files[name]=bytearray()
         handle.name,handle.mode,handle.owner,handle.binary=name,mode,self,binary
@@ -1483,13 +1489,23 @@ class MemoryFiles:
         handle.require_open(line); handle.owner=None;handle.xml_session=None
         self.handles=[item for item in self.handles if item is not handle]
     def _busy(self,name): return any(handle.owner is not None and handle.name==name for handle in self.handles)
+    def _write_start(self,handle,current_size,data_size,line):
+        if handle.mode=='R': fail('FILE is read-only',line)
+        start=current_size if handle.mode=='A' else handle.position
+        if start+data_size>self.limit: fail('Memory file size limit exceeded',line)
+        return start
+
+    @staticmethod
+    def _store_bytes(buffer,start,data):
+        if start>len(buffer): buffer.extend(b'\0'*(start-len(buffer)))
+        buffer[start:start+len(data)]=data
+
     def write(self,handle,data,line=None):
         handle.require_open(line)
-        if handle.mode=='R': fail('FILE is read-only',line)
-        old=self.files[handle.name]; start=len(old) if handle.mode=='A' else handle.position
-        if start+len(data)>self.limit: fail('Memory file size limit exceeded',line)
-        if start>len(old): old.extend(b'\0'*(start-len(old)))
-        old[start:start+len(data)]=data; handle.position=start+len(data); handle.status=0
+        buffer=self.files[handle.name]
+        start=self._write_start(handle,len(buffer),len(data),line)
+        self._store_bytes(buffer,start,data)
+        handle.position=start+len(data); handle.status=0
     def read_bytes(self,handle,count,line=None):
         handle.require_open(line)
         if handle.mode in ('W','A'): fail('FILE is not readable',line)

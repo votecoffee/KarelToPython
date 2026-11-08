@@ -189,8 +189,15 @@ original binding, byte storage and cursor after the charge. FILE WRITE charges
 one step per started 4 KiB of rendered fields before assembling the payload.
 A failed budget or changed destination during accounting leaves the payload
 unpublished. End-of-file is an error with portable file status 1. Successful
-transfers clear status to zero. This format
-is portable project behavior, not a controller binary-file format claim.
+transfers clear status to zero.
+
+Rooted OPEN charges for the existing bytes it loads. Truncating WRITE access
+opens an empty buffer without reading the old contents. Writable CLOSE and
+interactive ATR_IA writes charge for the full outgoing file image before
+copying it. A failed CLOSE leaves the open buffer available for retry.
+Interactive writes stage the new image and replace the disk file before
+updating the live buffer and cursor. These transfers use the portable offline
+FILE layout.
 
 ```sh
 python -m karel2py examples/offline_files.kl -o files.py

@@ -437,47 +437,123 @@ class DirectoryFiles:
             raise
         return 0
 
-    def open(self,handle,mode,name,line=None):
-        if handle.owner is not None: raise rt().KarelRuntimeError('FILE is already open',line)
+    @staticmethod
+    def _stat_or_missing(path):
         try:
-            key=self._key(name); path=self._path(key)
-            if self._busy(key): raise ValueError('File is already open through this backend')
-            previous=self.files.get(key)
-            if path.exists():
-                self.files[key]=bytearray(self._disk_bytes(path))
-            else:self.files.pop(key,None)
-            try:self.memory.open(handle,mode,key,line)
+            return path.stat()
+        except FileNotFoundError:
+            return None
+
+    @staticmethod
+    def _file_stamp(info):
+        if info is None:
+            return None
+        return (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns)
+
+    def open(self, handle, mode, name, line=None, *, check=None):
+        from .fileops import charge_file_bytes
+
+        runtime = rt()
+        if handle.owner is not None:
+            raise runtime.KarelRuntimeError('FILE is already open', line)
+        try:
+            key = self._key(name)
+            path = self._path(key)
+            if self._busy(key):
+                raise ValueError('File is already open through this backend')
+            access, _ = self.memory._access_mode(handle, mode, line)
+            previous = self.files.get(key)
+            info = self._stat_or_missing(path)
+            if info is not None and (not S_ISREG(info.st_mode) or info.st_size > self.limit):
+                raise ValueError('Invalid file or file size limit exceeded')
+            data = None
+            if info is not None and access != 'W':
+                if check is None:
+                    data = self._disk_bytes(path)
+                else:
+                    identity, position = runtime._file_identity(handle), handle.position
+                    files, memory, limit = self.files, self.memory, self.limit
+                    charge_file_bytes(info.st_size, check)
+                    if (runtime._file_identity(handle) != identity or handle.position != position
+                            or self.files is not files or self.memory is not memory or self.limit != limit
+                            or files.get(key) is not previous or self._key(name) != key):
+                        raise ValueError('Rooted FILE binding changed during OPEN preparation')
+                    code, data = self._read_prepared((key, path, info))
+                    if code:
+                        raise ValueError('Rooted FILE became busy during OPEN preparation')
+            if data is None:
+                self.files.pop(key, None)
+            else:
+                self.files[key] = bytearray(data)
+            try:
+                self.memory.open(handle, mode, key, line)
             except Exception:
-                if previous is None:self.files.pop(key,None)
-                else:self.files[key]=previous
+                if previous is None:
+                    self.files.pop(key, None)
+                else:
+                    self.files[key] = previous
                 raise
-            handle.owner=self; self.handles.append(handle)
-        except (OSError,ValueError) as exc: raise rt().KarelRuntimeError('Filesystem OPEN failed: '+str(exc),line) from exc
+            handle.owner = self
+            self.handles.append(handle)
+        except (OSError, ValueError) as exc:
+            raise runtime.KarelRuntimeError('Filesystem OPEN failed: ' + str(exc), line) from exc
 
-    def flush(self,handle,line=None):
+    def _flush_path(self, handle, buffer, size, check):
+        from .fileops import charge_file_bytes
+
+        name = handle.name
+        path = self._path(name)
+        if not path.parent.is_dir():
+            raise ValueError('File parent directory does not exist')
+        if check is not None:
+            identity, position = rt()._file_identity(handle), handle.position
+            files, memory, limit = self.files, self.memory, self.limit
+            length = len(buffer)
+            stamp = self._file_stamp(self._stat_or_missing(path))
+            charge_file_bytes(size, check)
+            if (rt()._file_identity(handle) != identity or handle.position != position
+                    or self.files is not files or self.memory is not memory or self.limit != limit
+                    or files.get(name) is not buffer or len(buffer) != length
+                    or not any(item is handle for item in self.handles)
+                    or self._path(name) != path or self._file_stamp(self._stat_or_missing(path)) != stamp):
+                raise ValueError('Rooted FILE destination changed during flush preparation')
+        return path
+
+    def flush(self, handle, line=None, *, check=None):
         handle.require_open(line)
-        if handle.mode=='R': return
-        try:
-            path=self._path(handle.name)
-            if not path.parent.is_dir(): raise ValueError('File parent directory does not exist')
-            atomic_bytes(path,bytes(self.files[handle.name]))
-        except (OSError,ValueError) as exc: raise rt().KarelRuntimeError('Filesystem flush failed: '+str(exc),line) from exc
-
-    def close(self,handle,line=None):
-        self.flush(handle,line); handle.owner=None;handle.xml_session=None
-        self.handles=[item for item in self.handles if item is not handle]
-        self.memory.handles=[item for item in self.memory.handles if item is not handle]
-
-    def write(self,handle,data,line=None):
-        if not handle.interactive:
-            self.memory.write(handle,data,line)
+        if handle.mode == 'R':
             return
-        old=bytes(self.files.get(handle.name,b''));position,status=handle.position,handle.status
-        self.memory.write(handle,data,line)
-        try:self.flush(handle,line)
-        except Exception:
-            self.files[handle.name]=bytearray(old);handle.position=position;handle.status=status
-            raise
+        try:
+            buffer = self.files[handle.name]
+            path = self._flush_path(handle, buffer, len(buffer), check)
+            atomic_bytes(path, bytes(buffer))
+        except (OSError, ValueError) as exc:
+            raise rt().KarelRuntimeError('Filesystem flush failed: ' + str(exc), line) from exc
+
+    def close(self, handle, line=None, *, check=None):
+        self.flush(handle, line, check=check)
+        handle.owner = None
+        handle.xml_session = None
+        self.handles = [item for item in self.handles if item is not handle]
+        self.memory.handles = [item for item in self.memory.handles if item is not handle]
+
+    def write(self, handle, data, line=None, *, check=None):
+        if not handle.interactive:
+            return self.memory.write(handle, data, line)
+        handle.require_open(line)
+        buffer = self.files[handle.name]
+        start = self.memory._write_start(handle, len(buffer), len(data), line)
+        end = start + len(data)
+        try:
+            path = self._flush_path(handle, buffer, max(len(buffer), end), check)
+            staged = buffer.copy()
+            self.memory._store_bytes(staged, start, data)
+            atomic_bytes(path, staged)
+        except (OSError, ValueError) as exc:
+            raise rt().KarelRuntimeError('Filesystem flush failed: ' + str(exc), line) from exc
+        self.files[handle.name] = staged
+        handle.position = end
+        handle.status = 0
 
     def read_bytes(self,handle,count,line=None): return self.memory.read_bytes(handle,count,line)
 
@@ -509,9 +585,7 @@ class DirectoryFiles:
         key,path,info=plan
         size=info.st_size
 
-        def stamp(info):
-            return (info.st_dev,info.st_ino,info.st_size,info.st_mtime_ns)
-
+        stamp=self._file_stamp
         expected=stamp(info)
         if self._busy(key):return 3,None
         if self._path(key)!=path or stamp(path.stat())!=expected or size>self.limit:

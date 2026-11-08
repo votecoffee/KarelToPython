@@ -1117,7 +1117,10 @@ def compare_files(state,files,left_name,right_name,handle,ascii_flag,line=None):
             or handle.position!=position or files.files.get(handle.name) is not buffer
             or len(buffer)!=size or files.limit!=limit):
         raise runtime.KarelRuntimeError('Comparison result FILE changed during preparation',line)
-    files.write(handle,header+records,line)
+    if type(files) is runtime.DirectoryFiles:
+        files.write(handle,header+records,line,check=lambda:state.tick(line))
+    else:
+        files.write(handle,header+records,line)
     return 0,count
 
 

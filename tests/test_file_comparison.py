@@ -393,7 +393,7 @@ class DirectoryComparisonTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder);(root/'a').write_bytes(b'x');(root/'b').write_bytes(b'y');(root/'report').write_bytes(b'prefix')
             files=rt.DirectoryFiles(root);p,_=compile_program("n=7 s=8 SET_FILE_ATR(f,ATR_IA) OPEN FILE f ('RW','report') SET_FILE_POS(f,-1,s) s=8 "+COMPARE,decl=DECL,context=rt.ExecutionContext(files=files))
-            with patch.object(files,'flush',side_effect=rt.KarelRuntimeError('authored flush failure')):
+            with patch('karel2py.storage.atomic_bytes',side_effect=OSError('authored flush failure')):
                 with self.assertRaisesRegex(rt.KarelRuntimeError,'flush failure'): p.run()
             self.assertEqual((p.snapshot()['N'],p.snapshot()['S']),(7,8));self.assertEqual(files.snapshot()['report'],b'prefix')
             self.assertEqual(p._state.values['F'].position,6);self.assertEqual((root/'report').read_bytes(),b'prefix')

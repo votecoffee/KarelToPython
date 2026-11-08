@@ -1,5 +1,13 @@
 # Changelog
 
+## 26.1108.023026 - 2026-11-08
+
+- Charge rooted OPEN for retained bytes before loading and recheck the host file
+  and handle binding. Truncating OPEN skips the old file contents.
+- Charge rooted CLOSE and interactive writes for the complete outgoing file
+  image. Stage interactive changes and replace the disk file before updating
+  the buffer or cursor. Leave a failed CLOSE open for retry.
+
 ## 26.1108.021329 - 2026-11-08
 
 - Charge typed FILE WRITE payload bytes before joining fields or replacing text
