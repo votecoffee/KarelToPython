@@ -111,10 +111,16 @@ these indirect writes. No arbitrary Python attributes or callback code is loaded
 ## Limits, status and lifetime
 
 Inputs are limited to 1 MiB, 64 nesting levels, 65536 events, 32 attributes per
-tag and 254 characters per name/value. Parsing charges each 4096-byte block and
-each element event to the ordinary execution budget; scanning charges visited
-events. A malformed later element prevents earlier event delivery because the
-complete document is validated first.
+tag and 254 characters per name/value. Oversized input is rejected before the
+scanner takes a snapshot. Snapshot capture and later comparisons against a
+mutable file buffer each charge one step per started 4096 bytes. Comparisons
+reuse the snapshot. Parsing charges each 4096-byte block and each element
+event, and scanning charges visited events. A malformed later element prevents
+earlier event delivery because the complete document is validated first.
+
+SCAN and SETVAR check the original FILE binding and bytes before publishing
+events, cursor changes, record updates or output status. Budget exhaustion
+during a check leaves those results unpublished.
 
 | Status | Meaning |
 | --- | --- |

@@ -1,4 +1,5 @@
 """Bounded ASCII XML input over explicitly opened offline FILE backends."""
+from array import array
 from xml.parsers import expat
 import re
 
@@ -21,6 +22,8 @@ def xml_name(value): return bool(re.fullmatch(r'[A-Za-z_:][A-Za-z_0-9.:-]{0,253}
 
 
 NAMESPACE_SEPARATOR=chr(31)
+XML_BYTE_LIMIT=1024*1024
+NON_XML_ASCII=re.compile(rb'[^\x09\x0a\x0d\x20-\x7f]')
 
 
 def namespace_uri(value):
@@ -37,20 +40,46 @@ def tag_key(value):
 
 
 class XMLInput:
-    def __init__(self,handle,line=None):
-        handle.require_open(line)
-        if not handle.xml or handle.mode!='R' or handle.binary:
-            raise rt().KarelRuntimeError('XML requires ATR_XML and a text FILE opened RO',line)
-        if handle.position: raise rt().KarelRuntimeError('XML input must begin at byte zero',line)
-        self.handle=handle;self.raw=bytes(handle.owner.files[handle.name]);self.tags=[]
-        self.namespaces=False
-        self.events=None;self.failed=5 if len(self.raw)>1024*1024 else None
-        self.next=0;self.current=None;self.scan_line=1
-        self.line_starts=[0] if self.failed else [0,*[m.end() for m in re.finditer(rb'\r\n|\r|\n',self.raw)]]
+    def __init__(self,state,handle,line=None):
+        from .fileops import charge_file_bytes
 
-    def unchanged(self,line=None):
-        if bytes(self.handle.owner.files[self.handle.name])!=self.raw:
-            raise rt().KarelRuntimeError('XML input changed while open; close and reopen it',line)
+        runtime = rt()
+        if handle.position:
+            raise runtime.KarelRuntimeError('XML input must begin at byte zero',line)
+        self.handle = handle
+        self.identity = runtime._file_identity(handle)
+        self.files = handle.owner.files
+        self.buffer = self.files.get(handle.name)
+        if type(self.buffer) not in (bytes, bytearray):
+            raise runtime.KarelRuntimeError('XML input requires an ordinary byte buffer', line)
+        self.size = len(self.buffer)
+        self.tags = []
+        self.namespaces = False
+        self.active = False
+        self.events = None
+        self.failed = 5 if self.size > XML_BYTE_LIMIT else None
+        self.next = 0
+        self.current = None
+        self.scan_line = 1
+        self.raw = None
+        self.line_starts = array('L', [0])
+        if self.failed is None:
+            charge_file_bytes(self.size, lambda: state.tick(line))
+            self.check_binding(0, None, line)
+            self.raw = bytes(self.buffer)
+            self.line_starts.extend(m.end() for m in re.finditer(rb'\r\n|\r|\n', self.raw))
+
+    def check_binding(self, position, session, line):
+        handle = self.handle
+        if (rt()._file_identity(handle) != self.identity or handle.position != position
+                or handle.xml_session is not session or handle.owner.files is not self.files
+                or self.files.get(handle.name) is not self.buffer or len(self.buffer) != self.size):
+            raise rt().KarelRuntimeError('XML input changed while open; close and reopen it', line)
+
+    def unchanged(self, position, line):
+        self.check_binding(position, self, line)
+        if type(self.buffer) is bytearray and self.raw is not None and self.buffer != self.raw:
+            raise rt().KarelRuntimeError('XML input changed while open; close and reopen it', line)
 
     def add(self,name,count,case,ident,line=None):
         runtime=rt();name=runtime.ascii_string(name,line);count=runtime.integer(count,line)
@@ -81,8 +110,8 @@ class XMLInput:
         self.tags.remove(found);return 0
 
     def parse(self,state,line=None):
-        if self.events is not None or self.failed is not None: return
-        if len(self.raw)>1024*1024: self.failed=5;return
+        if self.events is not None or self.failed is not None:
+            return self.events,self.failed
         events=[];stack=[];declarations=0
         parser=expat.ParserCreate(namespace_separator=NAMESPACE_SEPARATOR if self.namespaces else None)
         parser.ordered_attributes=True
@@ -138,22 +167,25 @@ class XMLInput:
         parser.StartNamespaceDeclHandler=namespace_decl
         parser.StartDoctypeDeclHandler=reject;parser.EntityDeclHandler=reject;parser.ExternalEntityRefHandler=reject
         try:
-            ascii_text(self.raw.decode('ascii'))
             for at in range(0,len(self.raw),4096):
-                state.tick(line);parser.Parse(self.raw[at:at+4096],False)
+                state.tick(line)
+                block = self.raw[at:at+4096]
+                if NON_XML_ASCII.search(block):
+                    raise RejectedXML('XML data requires ASCII')
+                parser.Parse(block,False)
             parser.Parse(b'',True)
-        except (expat.ExpatError,RejectedXML,UnicodeError): self.failed=4;return
+        except (expat.ExpatError,RejectedXML,UnicodeError):
+            return None,4
         for event in events: event['text']=''.join(event.pop('parts'))
-        self.events=events
+        return events,None
 
-    def candidate(self,state,line=None):
-        self.parse(state,line)
-        if self.failed is not None: return None,dict(name='',ident=-1,kind=0,status=self.failed)
+    def candidate(self,state,events,failed,line=None):
+        if failed is not None: return None,dict(name='',ident=-1,kind=0,status=failed)
         if self.current is not None and self.current['read'] and self.current['offset']<len(self.current['text']):
             return None,dict(name=self.current['name'],ident=self.current['ident'],kind=103,status=1001)
         index=self.next
-        while index<len(self.events):
-            state.tick(line);event=self.events[index]
+        while index<len(events):
+            state.tick(line);event=events[index]
             if event['line']>=self.scan_line+50:
                 return index,dict(name='',ident=1002,kind=0,status=1002)
             uri,local=event['key']
@@ -167,11 +199,14 @@ class XMLInput:
             return index,dict(name='',ident=1002,kind=0,status=1002)
         return index,dict(name='',ident=0,kind=101,status=0)
 
-    def scan(self,state,args,line=None):
+    def scan(self,state,args,line,verify):
         output=args[1]
         if type(output.spec[1]) is not int or not 1<=output.spec[1]<=254:
             raise rt().KarelRuntimeError('XML tag output requires concrete STRING capacity',line)
-        index,result=self.candidate(state,line)
+        events,failed=self.parse(state,line)
+        index,result=self.candidate(state,events,failed,line)
+        verify()
+        self.events,self.failed=events,failed
         if len(result['name'])>output.spec[1]: args[4].set(3,line);self.handle.status=3;return
         if result['status']==1002:
             self.next=index;self.current=None;self.scan_line+=50
@@ -200,21 +235,21 @@ class XMLInput:
         self.current.update(offset=offset,read=True);self.handle.status=0
 
 
-def set_variables(context,state,session,args,line=None):
+def prepare_variables(context,state,session,args,line=None):
     runtime=rt();current=session.current;status=args[3]
-    if current is None or not current['attributes_valid']: status.set(1,line);return
+    if current is None or not current['attributes_valid']: return 1,None
     try: target=context.resolve(state,runtime.ascii_string(args[1],line),runtime.ascii_string(args[2],line),line,path_nodes=True)
-    except runtime.KarelRuntimeError: status.set(1,line);return
-    if target.spec[0] not in runtime.RECORD_TYPES or type(target) is not runtime.Reference: status.set(2,line);return
+    except runtime.KarelRuntimeError: return 1,None
+    if target.spec[0] not in runtime.RECORD_TYPES or type(target) is not runtime.Reference: return 2,None
     try: cost=runtime._validate_data_schema(target.spec,line)
-    except runtime.KarelRuntimeError: status.set(2,line);return
+    except runtime.KarelRuntimeError: return 2,None
     for _ in range(cost):state.tick(line)
     if runtime._reference_cells(target)&runtime._reference_cells(status):
         raise runtime.KarelRuntimeError('XML_SETVAR target overlaps status output',line)
     # Stage the complete value so a late path/domain/protection failure cannot
     # publish an earlier attribute. Replacing preserves existing storage identities.
     try: staged=runtime.checked(target.spec,target.raw(),line)
-    except runtime.KarelRuntimeError: status.set(2,line);return
+    except runtime.KarelRuntimeError: return 2,None
     seen=set()
     for key,value in current['attrs']:
         state.tick(line)
@@ -250,26 +285,58 @@ def set_variables(context,state,session,args,line=None):
                 if text not in ('0','1','FALSE','TRUE','OFF','ON'): raise ValueError('Expected BOOLEAN')
                 converted=text in ('1','TRUE','ON')
             elif spec[0]=='STRING':
-                if len(value)>spec[1]: status.set(3,line);return
+                if len(value)>spec[1]: return 3,None
                 converted=value
             else: raise ValueError('XML attributes require scalar leaves')
             reference.set(converted,line)
         except (ValueError,OverflowError,runtime.KarelRuntimeError):
-            status.set(2,line);return
-    target.set(staged,line)
-    status.set(0,line)
+            return 2,None
+    return 0,(target,staged)
 
 
 def invoke_xml(context,state,name,args,line=None):
+    from .fileops import charge_file_bytes
+
     handle=args[0];handle.require_open(line)
     if not handle.xml or handle.mode!='R' or handle.binary:
         raise rt().KarelRuntimeError('XML requires ATR_XML and a text FILE opened RO',line)
-    if handle.xml_session is None: handle.xml_session=XMLInput(handle,line)
-    session=handle.xml_session;session.unchanged(line)
-    if name=='XML_ADDTAG': code=session.add(*args[1:5],line=line)
-    elif name=='XML_REMTAG': code=session.remove(args[1],line)
-    elif name=='XML_SCAN': return session.scan(state,args,line)
-    elif name=='XML_GETDATA': return session.data(args,line)
-    else:
-        set_variables(context,state,session,args,line);handle.status=args[-1].raw();return
-    args[-1].set(code,line);handle.status=code
+    fresh = handle.xml_session is None
+    if fresh:
+        handle.xml_session = XMLInput(state, handle, line)
+    session = handle.xml_session
+    if session.active:
+        raise rt().KarelRuntimeError('XML FILE already has an active operation', line)
+    position = handle.position
+    session.check_binding(position, session, line)
+
+    def verify():
+        session.unchanged(position, line)
+
+    session.active = True
+    try:
+        # Reserve comparison work before staging a result. The final check
+        # must not call back into the task after a result has been prepared.
+        deferred = name in ('XML_SCAN', 'XML_SETVAR')
+        if (deferred or not fresh) and session.raw is not None and type(session.buffer) is bytearray:
+            charge_file_bytes(session.size, lambda: state.tick(line))
+            session.check_binding(position, session, line)
+        if name=='XML_SCAN':
+            return session.scan(state, args, line, verify)
+        if name=='XML_SETVAR':
+            code, plan = prepare_variables(context, state, session, args, line)
+            verify()
+            if plan is not None:
+                target, staged = plan
+                target.set(staged, line)
+        else:
+            if not fresh:
+                verify()
+            if name=='XML_ADDTAG':
+                code=session.add(*args[1:5],line=line)
+            elif name=='XML_REMTAG':
+                code=session.remove(args[1],line)
+            else:
+                return session.data(args,line)
+        args[-1].set(code,line);handle.status=code
+    finally:
+        session.active = False

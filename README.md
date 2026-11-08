@@ -401,7 +401,7 @@ existing collision, busy-file, quota and publication checks remain active.
 and RENAME_FILE reuse matched characters in their destination filenames.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1108.023026**. It is a
+tool are named **karel2py**. The current implementation is **26.1108.024726**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -783,8 +783,9 @@ PATH helpers include portable NODE_SIZE and budgeted view-line/plane intersectio
 with staged append behavior; see [PATH geometry](docs/path-geometry.md).
 Five XML input calls provide registered-tag scanning, chunked text and attributes,
 and checked structure updates over explicit FILE backends. Dotted attributes can
-update individual JOINTPOS axes, including inside arrays. XML_SETVAR charges
-for the full target record before staging. A `{uri}local` tag registration
+update individual JOINTPOS axes, including inside arrays. XML FILE calls charge
+for snapshot capture and later comparisons with the original buffer. XML_SETVAR
+also charges for the full target record before staging. A `{uri}local` tag registration
 enables matching by namespace URI. See
 [XML input](docs/xml-input.md). GET_PORT_ATR/SET_PORT_ATR use a separate persisted
 offline serial-attribute bank; see [serial attributes](docs/serial-attributes.md).

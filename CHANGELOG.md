@@ -1,5 +1,13 @@
 # Changelog
 
+## 26.1108.024726 - 2026-11-08
+
+- Check the XML input limit before copying bytes. Budget snapshot capture,
+  mutable-buffer comparisons and block validation. Reuse the snapshot across
+  calls and store physical line offsets in a compact index.
+- Stage SCAN results and XML_SETVAR updates until the final input binding and
+  byte check. Preserve destinations and the scanner cursor on failure.
+
 ## 26.1108.023026 - 2026-11-08
 
 - Charge rooted OPEN for retained bytes before loading and recheck the host file
