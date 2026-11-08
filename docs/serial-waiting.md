@@ -47,6 +47,9 @@ Context JSON uses the same fields under canonical port-number strings:
 ## Completion and publication
 
 A waiting READ captures its writable scalar targets and format expressions once.
+Each text probe charges for its unread snapshot before capture. Binary READ
+charges and copies only the requested prefix once all its bytes are available.
+Cancellation and source checks run again after accounting, before parsing.
 It probes the currently supplied RX bytes without publishing partial values,
 advancing the receive cursor or recording successful input requests. When every
 field is complete and valid, the ordinary checked READ publisher commits all

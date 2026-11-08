@@ -94,6 +94,25 @@ class StreamRead:
         # Finite text can consume its last unterminated record with CR.
         return self.field_bytes + max(0, len(self.line_breaks) - int(may_finalize))
 
+    def capture(self, state, handle, retained, start, available, verify):
+        from .fileops import charge_file_bytes
+
+        length = len(retained)
+        if not 0 <= start <= start + available <= length:
+            fail(self.transport + ' pending READ has an invalid source range', self.line)
+        if self.widths is not None and available < self.field_bytes:
+            return b''  # No binary fields can be probed until all bytes arrive.
+        size = available if self.widths is None else self.field_bytes
+        token = handle._read_operation
+        charge_file_bytes(size, lambda: state.tick(self.line))
+        if handle._read_operation is not token:
+            fail(self.transport + ' pending READ source token changed', self.line)
+        rt().check_file_read(handle, self.line)
+        verify()
+        if len(retained) != length:
+            fail(self.transport + ' pending READ buffer length changed during byte accounting', self.line)
+        return bytes(memoryview(retained)[start:start + size])
+
     def can_finalize(self, handle, raw):
         try:
             return self.probe(handle, raw, final=True) is not None
@@ -387,7 +406,10 @@ class Messaging(MemoryFiles):
             while True:
                 row = self.validate_pending(handle, state, 'READ', line, expected=record)
                 rt().check_file_read(handle, line)
-                raw = bytes(record.rx[record.position:])
+                raw = request.capture(
+                    state, handle, record.rx, record.position, len(record.rx) - record.position,
+                    lambda: self.validate_pending(handle, state, 'READ', line, expected=record),
+                )
                 result = request.probe(handle, raw, final=row['final'])
                 if result is not None:
                     values, offset = result
@@ -626,8 +648,17 @@ class FilePipes(MemoryFiles):
             while True:
                 self.before_read(handle,line)
                 runtime.check_file_read(handle,line)
-                start=handle.position;available=self.bytes_ahead(handle,line)
-                raw=bytes(self.files[handle.name][start:start+available])
+                start = handle.position
+                available = self.bytes_ahead(handle, line)
+                retained = self.files[handle.name]
+
+                def verify():
+                    if (self._reads.get(id(handle)) is not state or handle.position != start
+                            or self.files.get(handle.name) is not retained
+                            or self.bytes_ahead(handle, line) != available):
+                        fail('Pipe pending READ source changed during byte accounting', line)
+
+                raw = request.capture(state, handle, retained, start, available, verify)
                 result = request.probe(handle, raw, final=not waiting)
                 if result is not None:
                     values, offset = result
@@ -646,8 +677,12 @@ class FilePipes(MemoryFiles):
                 yield from runtime.checkpoint(state,line)
         except GeneratorExit:raise
         except BaseException:
-            handle.status=1;raise
-        finally:self._reads.pop(id(handle),None)
+            if handle.owner is self and self._reads.get(id(handle)) is state:
+                handle.status = 1
+            raise
+        finally:
+            if self._reads.get(id(handle)) is state:
+                del self._reads[id(handle)]
 
     def to_config(self):
         if self.handles:raise ValueError('Close live pipe FILEs before saving context')

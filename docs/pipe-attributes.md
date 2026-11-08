@@ -38,7 +38,10 @@ closing quote arrives. A CR marker also waits for its record boundary, even afte
 a fixed-width field. A malformed complete field fails immediately. Text follows
 the existing ASCII, width, base, quote, field-mode and custom-EOL rules.
 
-Binary reads wait for the sum of their checked field widths. The complete READ
+Binary reads wait for the sum of their checked field widths, then charge and
+capture just that prefix. Each text probe charges for its visible unread
+snapshot before capture. Cancellation and source checks run again after
+accounting, before parsing. The complete READ
 must fit in the circular capacity. Waiting text reads are also rejected before
 waiting if the fixed fields and at least one byte per CR already exceed capacity.
 Existing binary width, byte-order and finite numeric conventions apply.

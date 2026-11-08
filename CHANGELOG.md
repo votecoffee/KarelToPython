@@ -1,5 +1,13 @@
 # Changelog
 
+## 26.1108.015707 - 2026-11-08
+
+- Charge socket, serial and attributed pipe READ snapshots before copying or
+  decoding. Recheck cancellation, source registration and byte extent before
+  parsing so interrupted accounting leaves the input and destinations intact.
+- Wait for complete binary fields before copying their exact requested prefix.
+  Leave later bytes available for the next READ.
+
 ## 26.1108.014246 - 2026-11-08
 
 - Preflight every binary FILE field before reading and fetch the planned

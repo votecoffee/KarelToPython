@@ -114,6 +114,9 @@ are rejected. A supplied `final: true` also permits preloaded finite input.
 Typed READ captures destinations and format expressions before waiting. It
 checks the whole request using the ordinary text or portable binary fields.
 Partial input retains the RX bytes, cursor, destinations and READ observations.
+Each text probe charges the execution budget for its unread snapshot before
+capture. Binary READ waits for the full request and captures only that prefix.
+Cancellation and source checks run again after accounting, before parsing.
 A successful operation consumes exactly the committed RX prefix, leaving the
 remaining bytes for the next read.
 

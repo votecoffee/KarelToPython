@@ -199,8 +199,15 @@ class SerialStreams:
                 if (self._pending.get(id(handle)) is not pending or self._open.get(id(handle)) is not registration
                         or handle.position!=start or not row['wait']):
                     raise runtime.KarelRuntimeError('Serial pending READ registration or cursor changed',line)
-                retained=self.files[handle.name]
-                raw = bytes(retained[start:])
+                retained = self.files[handle.name]
+
+                def verify():
+                    if (self._pending.get(id(handle)) is not pending or self._open.get(id(handle)) is not registration
+                            or handle.position != start or self.files.get(handle.name) is not retained
+                            or self._active(handle, line, reading=True) is not row or not row['wait']):
+                        raise runtime.KarelRuntimeError('Serial pending READ source changed during byte accounting', line)
+
+                raw = request.capture(state, handle, retained, start, len(retained) - start, verify)
                 result = request.probe(handle, raw, final=row['final'])
                 if result is not None:
                     values, offset = result
