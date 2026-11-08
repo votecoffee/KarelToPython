@@ -78,22 +78,38 @@ class PcExchange:
         if type(packet_format) is not str or packet_format not in ('typed','raw'):raise ValueError('PC packet format requires typed or raw')
         self.capacity=capacity;self.packet_format=packet_format;self.sequence=0;self.messages=[]
 
-    def send(self,event,buffer=None,line=None):
+    def send(self,event,buffer=None,line=None,*,check=None):
         runtime=rt();event=runtime.integer(event,line)
         if not 0<=event<=255:return 2
         payload=None
         if buffer is not None:
+            from .extended import VariableValue
+
+            if type(buffer) is VariableValue and type(buffer.value) is tuple and not buffer.value:
+                return 4
+            packet_format = self.packet_format
+            if check is not None:
+                check()
+                if self.packet_format != packet_format:
+                    raise runtime.KarelRuntimeError('PC outbox format changed during preparation', line)
             try:
                 if type(buffer) is bytes:
-                    if not 1<=len(buffer)<=244:return 4
-                    values=list(buffer)
-                else:
-                    from .extended import VariableValue
-                    if type(buffer) not in (VariableValue,runtime.Array):return 4
+                    values=buffer
+                elif type(buffer) is VariableValue and type(buffer.value) is tuple:
+                    values=buffer.value
+                elif type(buffer) in (VariableValue,runtime.Array):
                     values=buffer_values(buffer.spec,buffer.value if type(buffer) is VariableValue else buffer,line)
-                if self.packet_format=='typed':payload,_=decode_packet(values,line)
                 else:
-                    if any(type(value) is not int for value in values):return 4
+                    return 4
+                if not 1<=len(values)<=244:return 4
+                if type(values) is not bytes and any(
+                    value is not runtime.UNKNOWN_BYTE and value is not runtime.UNINITIALIZED
+                    and (type(value) is not int or not 0<=value<=255) for value in values
+                ):
+                    return 4
+                if packet_format=='typed':payload,_=decode_packet(values,line)
+                else:
+                    if type(values) is not bytes and any(type(value) is not int for value in values):return 4
                     payload=bytes(values)
             except runtime.KarelRuntimeError:return 4
         if len(self.messages)>=self.capacity or self.sequence>=MAX_SEQUENCE:return 5
@@ -141,9 +157,20 @@ def invoke(state,operation,args,line=None):
     runtime=rt();context=state.execution
     if operation.startswith('SEND_'):
         bank=context.require('pc_exchange',line)
-        args[-1].set(bank.send(args[0],args[1] if operation=='SEND_DATAPC' else None,line),line);return
+
+        def check():
+            state.tick(line)
+            if context.pc_exchange is not bank:
+                raise runtime.KarelRuntimeError('PC outbox changed during preparation', line)
+
+        args[-1].set(bank.send(args[0],args[1] if operation=='SEND_DATAPC' else None,line,check=check),line);return
     reference,index=args[:2];status=args[-1]
-    try:values=buffer_values(reference.spec,reference.raw(),line)
+    original=reference.raw()
+    storage=original.values if type(original) is runtime.Array else None
+    state.tick(line)
+    if reference.raw() is not original or storage is not None and original.values is not storage:
+        raise runtime.KarelRuntimeError('PC buffer changed during preparation', line)
+    try:values=buffer_values(reference.spec,original,line)
     except runtime.KarelRuntimeError:status.set(4,line);return
     try:position=runtime.integer(index.raw(),line)
     except runtime.KarelRuntimeError:status.set(2,line);return

@@ -401,7 +401,7 @@ existing collision, busy-file, quota and publication checks remain active.
 and RENAME_FILE reuse matched characters in their destination filenames.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1108.030730**. It is a
+tool are named **karel2py**. The current implementation is **26.1108.032524**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -903,7 +903,8 @@ snapshot views, overflow tracking and budgeted batch output to supplied file
 backends. See [data acquisition](docs/data-acquisition.md).
 Four ADD_*PC builders create checked typed BYTE buffers; SEND_DATAPC and
 SEND_EVENTPC publish to an explicit bounded offline outbox, with typed and raw
-payload modes. See [PC data and events](docs/pc-exchange.md).
+payload modes. Packet and attachment inputs check their limits before capturing
+the selected ARRAY cells. See [PC data and events](docs/pc-exchange.md).
 MSG_CONNECT/MSG_DISCO/MSG_PING use configured offline socket buffers and host
 results; PIPE_CONFIG provides circular PIP FILE histories. Both support ordinary
 FILE I/O and saved state. Socket FILEs can opt in to cooperative input and output

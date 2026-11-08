@@ -1,5 +1,13 @@
 # Changelog
 
+## 26.1108.032524 - 2026-11-08
+
+- Check PC BYTE buffer and remote attachment ARRAY bounds before copying.
+  Capture only the selected cells of rows and nested selections before later
+  output-selector effects.
+- Budget PC buffer builders and packet preparation. Preserve the original
+  buffer, index, status and outbox when preparation exhausts the budget.
+
 ## 26.1108.030730 - 2026-11-08
 
 - Validate RMCN_SEND XML incrementally and budget parsing, final source

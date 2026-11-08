@@ -45,7 +45,11 @@ def file_name(value):
 
 
 def attachments(value):
+    from .extended import VariableValue
+
     runtime=rt()
+    if type(value) is VariableValue:
+        value=value.value
     if type(value) is runtime.Array:
         if len(runtime.array_dimensions(value.spec))!=1 or runtime.array_leaf_spec(value.spec)[0]!='STRING':
             raise ValueError('Attachments require a one-dimensional STRING array')

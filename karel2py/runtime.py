@@ -1585,6 +1585,72 @@ def _array_storage(values,line=None):
     return type(values) is list or type(values) is _ArrayWindow and values.validate(line)
 
 
+def _service_array_layout(array, expected, line):
+    if type(array) is not Array or not parameter_accepts(expected, array.spec):
+        raise KarelRuntimeError('Service ARRAY input does not match its declared type', line)
+    shape = array_shape(array.spec)
+    storage = array.values
+    if (array.shape != shape or not _array_storage(storage, line)
+            or len(storage) != math.prod(shape)):
+        raise KarelRuntimeError('Malformed service ARRAY input storage', line)
+    return shape, storage
+
+
+def service_array_view(array, index, expected, line=None):
+    """Locate a selected service row without copying the containing ARRAY."""
+    indexes = index if type(index) is tuple else (index,)
+    if array_prefix_type(expected, len(indexes)) is None:
+        raise KarelRuntimeError('Service ARRAY prefix requires an incomplete selection', line)
+    current = array
+    while indexes:
+        shape, storage = _service_array_layout(current, expected, line)
+        width = len(shape)
+        if len(indexes) < width:
+            suffix = shape[len(indexes):]
+            start = current.offset(indexes + (1,) * len(suffix), line)
+            if type(storage) is _ArrayWindow:
+                start += storage.start
+                storage = storage.storage
+            window = object.__new__(_ArrayWindow)
+            window.storage, window.start, window.size, window.length = storage, start, math.prod(suffix), len(storage)
+            window.validate(line)
+            view = object.__new__(Array)
+            view.spec = ('ARRAY', suffix[0] if len(suffix) == 1 else suffix, current.spec[2])
+            view.shape, view.values = suffix, window
+            return view
+        expected = current.spec[2]
+        current = storage[current.offset(indexes[:width], line)]
+        indexes = indexes[width:]
+    _service_array_layout(current, expected, line)
+    return current
+
+
+def bounded_service_array(spec, array, limit, line=None, *, check=None):
+    """Capture only admissible scalar cells before later argument selectors."""
+    from .extended import VariableValue
+
+    if array is UNINITIALIZED:
+        return VariableValue(spec, ())
+    shape, storage = _service_array_layout(array, spec, line)
+    actual = array.spec
+    if len(shape) != 1 or actual[2][0] not in ('BYTE', 'STRING'):
+        raise KarelRuntimeError('Service ARRAY requires one dimension of BYTE or STRING', line)
+    size = shape[0]
+    if not 1 <= size <= limit:
+        return VariableValue(actual, ())
+    if check is not None:
+        check()
+    current_shape, current_storage = _service_array_layout(array, actual, line)
+    if current_shape != shape or current_storage is not storage:
+        raise KarelRuntimeError('Service ARRAY storage changed during capture', line)
+    values = tuple(storage)
+    if actual[2][0] == 'STRING':
+        for item in values:
+            if item is not UNINITIALIZED and len(ascii_string(item, line)) > actual[2][1]:
+                raise KarelRuntimeError('Service ARRAY STRING exceeds its declared capacity', line)
+    return VariableValue(actual, values)
+
+
 def same_array_storage(first,second):
     """Backing identity for repeated captures of the same live ARRAY cells."""
     if first is second:return True

@@ -3071,6 +3071,20 @@ class Emitter:
                                          outputs=2 if parsing else 1, source_copied=not parsing))
         return f'_rt.config_text_conversion({expr.value!r}, {source}, {", ".join(outputs)}, line={expr.token.line}{options})'
 
+    def bounded_service_argument(self, expr, limit, *, nullable):
+        def locate(value):
+            while value.kind == 'group':
+                value = value.args[0]
+            if not self.is_array_prefix_value(value):
+                return self.expression(value, raw=nullable)
+            base, spec = locate(value.args[0])
+            index, selected = self.index_code(value, spec, allow_prefix=True)
+            return f'_rt.service_array_view({base},{index},{spec!r},{value.token.line})', selected
+
+        value, spec = locate(expr)
+        line = expr.token.line
+        return f'_rt.bounded_service_array({spec!r},{value},{limit},{line},check=lambda:self._state.tick({line}))', spec
+
     def service_call(self,expr):
         if expr.value=='BYNAME': self.error('E_BYNAME_CONTEXT','BYNAME is permitted only as a direct user routine argument',expr.token)
         signature=ex.PROCEDURES.get(expr.value,ex.FUNCTIONS.get(expr.value,((),None))[0])
@@ -3116,8 +3130,11 @@ class Emitter:
                 prefix=self.mode=='pythonic' and kind in ex.ARRAY_REFERENCE_KINDS and self.is_array_prefix_value(value)
                 code,spec=self.reference(value,allow_prefix=prefix or self.mode=='pythonic' and expr.value=='GET_VAR' and index==3,collection_prefix=expr.value=='GET_VAR' and index==3)
                 if prefix:code=f'_rt.array_prefix_reference({code},{value.token.line})'
+            elif self.mode=='pythonic' and index==1 and expr.value in ('SEND_DATAPC','QUEUE_ATTACH','RMCN_SEND'):
+                packet = expr.value == 'SEND_DATAPC'
+                code,spec = self.bounded_service_argument(discarded, 244 if packet else 32, nullable=packet)
             else:
-                variable_input=mode=='v' or (expr.value=='SET_VAR' and index==3) or (expr.value=='SEND_DATAPC' and index==1)
+                variable_input=mode=='v' or (expr.value=='SET_VAR' and index==3)
                 reference_input=(variable_input and discarded.kind in ('name','field','index') and self.root_name(discarded) not in self.visible_constants()
                                  and not self.is_system_pose_path(discarded)
                                  and (not self.is_array_prefix_value(discarded) or expr.value=='SET_VAR' and index==3 and rt.collection_array_type(self.access_type(discarded.args[0]))))
@@ -5781,7 +5798,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         context='Explicit bounded RemoteMessages outbox, up to 32 supplied ZDT type names, alert defaults and a shared encoded-content byte budget',
         alerts='Blank address/subject/url use explicit defaults; default subject iRConnect Alert; unresolved address/url remain empty offline data',
         xml='RMCN_SEND budgets capture, incremental UTF-8 XML validation, source verification and hex expansion; delete the XML file only after its bytes and outbox capacity have been rechecked; schema is opaque',
-        attachments='One-dimensional STRING ARRAY of 1..32 entries, empty-string sentinel means none; names captured at queue time, contents deferred until explicit host collect; MD attachments retained with current contents',
+        attachments='One-dimensional STRING ARRAY of 1..32 entries, empty-string sentinel means none; check the concrete count before capture, snapshot the selected names before later selectors, defer contents until explicit host collect; MD attachments retained with current contents',
         zdt='QUEUE_ATTACH replaces the explicit type selection/priority; host publish snapshots it with opaque bytes; SET_VAR does not implicitly send or infer native ZDT structures',
         files='Exact MemoryFiles and DeviceFiles. Normalize slash spelling and one optional device-root separator before attachment duplicate and self checks. Collect checks every attachment and its encoded size before encoding payloads or deleting files.',
         status='Portable 0 queued/selected, 1 missing file/type, 2 invalid values, 3 busy FILE, 4 backend/XML/access/data, 5 capacity/sequence; ordinary type/initialization/protection errors can raise first',
@@ -5829,7 +5846,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         buffers='One-dimensional ordinary BYTE ARRAY storage, 1..244 bytes; checked disjoint buffer/index/status references; builders retain untouched bytes and unknown tails, publish a complete item/marker batch and advance the 1-based index to the new marker',
         encoding='Documented big-endian 16-bit type tags 16 INTEGER, 17 REAL32 and 209 STRING; signed INTEGER32, finite REAL32 rounding, one-byte ASCII length and explicit string NUL; two-byte zero end marker',
         lookup='ADD_BYNAMEPC reads INTEGER/REAL/STRING from current executing module, attached globals or explicit static paths; blank program uses current module; system paths and other leaf types remain excluded',
-        capture='SEND_DATAPC captures an independent typed BYTE buffer once before later output-selector effects, including unknown unused tails; it is a read-only input in effect analysis',
+        capture='SEND_DATAPC checks the concrete BYTE bound before copying, budgets selected cells and packet preparation, and captures once before later output-selector effects; it is a read-only input in effect analysis',
         delivery='Explicit bounded PcExchange outbox; event numbers 0..255, monotonic local publication sequence, event-only payload distinct from data; no callback, network, hardware or PC delivery',
         formats='Default typed mode validates the common ADD_* envelope and publishes its used prefix through the end marker; raw mode requires all bytes initialized and publishes the complete buffer unchanged',
         status='Portable 0 success, 1 missing named variable, 2 index/event, 3 item capacity, 4 data/type/encoding, 5 full or exhausted outbox; source type/protection/reference checks can raise before invocation; failures retain buffer/index/outbox',

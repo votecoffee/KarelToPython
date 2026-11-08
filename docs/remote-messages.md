@@ -39,8 +39,10 @@ characters. Address validity and native mobile link behavior are not inferred.
 
 Attachments are a one-dimensional ARRAY of STRING with 1..32 entries. Empty
 strings mean no attachment in that slot; an all-empty array means none. Names
-are captured once before later argument-selector effects. Uninitialized entries
-return status 2. Named arrays and compatible generic routine references work.
+are captured once before later argument-selector effects. The concrete count
+is checked before copying. Valid input charges one step to capture the selected
+cells, including when the argument selects a row. Oversized lists and
+uninitialized entries return status 2. Named arrays and compatible generic routine references work.
 Arrays are read-only inputs, and status retains ordinary writable-reference,
 type and active-FOR-counter checks. Direct source errors can raise first.
 

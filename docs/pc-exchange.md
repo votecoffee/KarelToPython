@@ -34,8 +34,8 @@ the index to the marker's first byte, allowing the next builder to overwrite
 that marker. Untouched prefix and tail bytes are retained, including unknown
 unused BYTE values.
 
-The complete item, marker and updated index are prepared before publishing
-writes. Invalid index, insufficient remaining capacity and unrepresentable data
+Builders charge one execution step before preparing the buffer update. The
+complete item, marker and updated index are prepared before publishing writes. Invalid index, insufficient remaining capacity and unrepresentable data
 preserve the buffer and index. A builder can initialize portable missing whole
 ARRAY storage; unrelated source reads still retain their initialization checks.
 Direct source argument errors, protection/type violations and overlapping
@@ -92,8 +92,11 @@ For a custom byte protocol, use `PcExchange(packet_format='raw')`, or JSON
 initialized and publishes the entire buffer, including any embedded zero
 markers. It does not infer lengths, trim tails or decode custom content.
 
-SEND_DATAPC captures an independent buffer snapshot once, before evaluating
-later output selectors. It is read-only in routine effect analysis. Builder
+SEND_DATAPC checks the concrete size before copying and captures only the
+selected cells of a row or subarray. It charges a step for capture and a step
+for packet preparation. Later output selectors still evaluate after capture,
+including when a generic buffer exceeds the size limit and returns status 4.
+It is read-only in routine effect analysis. Builder
 reference selectors and value arguments also evaluate once in source order;
 the referenced in/out index is read when the builder operation begins. Active
 FOR-counter, alias and ordinary source-protection rules remain in place.
