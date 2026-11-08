@@ -1,9 +1,9 @@
 """Bounded offline mobile-message outboxes and deferred ZDT attachments."""
+from codecs import getincrementaldecoder
 from copy import deepcopy
-from io import BytesIO
 import json
 import re
-from xml.etree import ElementTree
+from xml.parsers import expat
 
 
 MAX_SEQUENCE=2147483646
@@ -66,23 +66,59 @@ def priority_value(value):
     return value
 
 
-def xml_document(data):
+class RejectedMessageXML(ValueError):
+    pass
+
+
+def xml_document(data, *, check=None):
     """Bounded UTF-8 XML, without DTDs, entities or schema interpretation."""
-    try:
-        decoded=data.decode('utf-8-sig')
-        if re.search(r'<!\s*(?:DOCTYPE|ENTITY)\b',decoded,re.I):return False
-        depth=count=0
-        for event,_ in ElementTree.iterparse(BytesIO(decoded.encode('utf-8')),events=('start','end')):
-            if event=='start':
-                depth+=1;count+=1
-                if depth>64 or count>4096:return False
-            else:depth-=1
+    parser = expat.ParserCreate(namespace_separator=chr(31))
+    decoder = getincrementaldecoder('utf-8-sig')()
+    depth = count = 0
+
+    def reject(*_args):
+        raise RejectedMessageXML('DTDs and entity declarations are unsupported')
+
+    def start(_name, _attributes):
+        nonlocal depth, count
+        depth += 1
+        count += 1
+        if depth > 64 or count > 4096:
+            raise RejectedMessageXML('Message XML depth or element limit exceeded')
+
+    def end(_name):
+        nonlocal depth
+        depth -= 1
+
+    def parse_block(block, final=False):
+        previous = count
+        if b'\0' in block:
+            return False
+        try:
+            decoder.decode(block, final)
+            parser.Parse(block, final)
+        except (expat.ExpatError, LookupError, ValueError):
+            return False
+        if check is not None:
+            for _ in range(previous, count):
+                check()
         return True
-    except (UnicodeError,ElementTree.ParseError,ValueError):return False
+
+    parser.StartElementHandler = start
+    parser.EndElementHandler = end
+    parser.StartDoctypeDeclHandler = reject
+    parser.EntityDeclHandler = reject
+    parser.ExternalEntityRefHandler = reject
+    for offset in range(0, len(data), 4096):
+        if check is not None:
+            check()
+        if not parse_block(data[offset:offset + 4096]):
+            return False
+    return parse_block(b'', final=True)
 
 
-def read_file(files,name,*,delete,limit,check=None):
-    """Preflight the two explicit in-memory backends before copying file bytes."""
+def inspect_file(files,name,*,delete,limit):
+    """Inspect an eligible source without copying the buffer."""
     runtime=rt()
     from .extended import MemoryFiles
     from .devices import DeviceFiles
@@ -93,19 +129,31 @@ def read_file(files,name,*,delete,limit,check=None):
         if type(files) is DeviceFiles:files.require_volume(key.split(':',1)[0],write=delete)
         if files._busy(key):return 3,None,None
         if key not in files.files:return 1,None,None
-        data=files.files[key];size=len(data)
-        if size>min(files.limit,limit):return 5,None,None
+        data=files.files[key]
+        if type(data) not in (bytes,bytearray):return 4,None,None
+        if len(data)>min(files.limit,limit):return 5,None,None
     except runtime.KarelRuntimeError:return 4,None,None
-    if check is not None:
-        from .fileops import charge_file_bytes
-        charge_file_bytes(size,check)
-        try:
-            if type(files) is DeviceFiles:files.require_volume(key.split(':',1)[0],write=delete)
-            if files._busy(key):return 3,None,None
-            if files.files.get(key) is not data or len(data)!=size:return 4,None,None
-            if size>files.limit:return 5,None,None
-        except runtime.KarelRuntimeError:return 4,None,None
-    return 0,key,bytes(data)
+    return 0,key,data
+
+
+def verify_file(files,key,storage,buffer,size,*,delete,limit):
+    if files.files is not storage or storage.get(key) is not buffer or len(buffer)!=size:
+        return 4
+    code,_,_=inspect_file(files,key,delete=delete,limit=limit)
+    return code
+
+
+def read_file(files,name,*,delete,limit,check=None):
+    """Read one budgeted snapshot for archive consumers."""
+    from .fileops import charge_file_bytes
+
+    code,key,buffer=inspect_file(files,name,delete=delete,limit=limit)
+    if code:return code,None,None
+    storage,size=files.files,len(buffer)
+    charge_file_bytes(size,check)
+    code=verify_file(files,key,storage,buffer,size,delete=delete,limit=limit)
+    if code:return code,None,None
+    return 0,key,bytes(buffer)
 
 
 class RemoteMessages:
@@ -125,10 +173,19 @@ class RemoteMessages:
     @staticmethod
     def size(value):return len(json.dumps(value,ensure_ascii=True,separators=(',',':')).encode('ascii'))
 
-    def used(self):return sum(self.size(row) for row in self.messages)+sum(self.size([key,row]) for key,row in self.pending.items())
+    def _row_size(self, row):
+        # Canonical payload hex needs no JSON escaping.
+        if 'data' in row:
+            return len(row['data']) + self.size({**row, 'data': ''})
+        return self.size(row)
 
-    def room(self,row):
-        return len(self.messages)<self.capacity and self.sequence<MAX_SEQUENCE and self.used()+self.size(row)<=self.limit
+    def used(self):
+        return (sum(self._row_size(row) for row in self.messages)
+                + sum(self.size([key,row]) for key,row in self.pending.items()))
+
+    def room(self,row,*,payload_bytes=0):
+        return (len(self.messages)<self.capacity and self.sequence<MAX_SEQUENCE
+                and self.used()+self._row_size(row)+2*payload_bytes<=self.limit)
 
     def append(self,row):self.sequence+=1;self.messages.append(row)
 
@@ -156,20 +213,41 @@ class RemoteMessages:
         if type(data) is not bytes:return 4
         if len(data)>self.limit//2:return 5
         selection=deepcopy(self.pending.get(key,dict(attachments=[],priority=0)))
-        row=dict(sequence=self.sequence+1,kind='typed',message_type=key,data=data.hex(),**selection)
-        if not self.room(row):return 5
+        row=dict(sequence=self.sequence+1,kind='typed',message_type=key,data='',**selection)
+        if not self.room(row,payload_bytes=len(data)):return 5
+        row['data']=data.hex()
         self.append(row);return 0
 
     def send(self,files,xml_file,paths,priority,*,check=None):
+        from .fileops import charge_file_bytes
+
         try:
             name=file_name(xml_file);paths=attachments(paths);priority=priority_value(priority)
             if name in paths:return 2
         except ValueError:return 2
-        code,key,data=read_file(files,name,delete=True,limit=self.limit//2,check=check)
+        code,key,buffer=inspect_file(files,name,delete=True,limit=self.limit//2)
         if code:return code
-        if not xml_document(data):return 4
-        row=dict(sequence=self.sequence+1,kind='xml',xml_file=name,data=data.hex(),attachments=paths,priority=priority)
-        if not self.room(row):return 5
+        storage,size=files.files,len(buffer)
+
+        def recheck():
+            return verify_file(files,key,storage,buffer,size,delete=True,limit=self.limit//2)
+
+        charge_file_bytes(size,check)
+        code=recheck()
+        if code:return code
+        data=bytes(buffer)
+        if not xml_document(data,check=check):return 4
+        row=dict(sequence=self.sequence+1,kind='xml',xml_file=name,data='',attachments=paths,priority=priority)
+        if not self.room(row,payload_bytes=size):return 5
+
+        # Account for the final byte comparison and the hex output before either.
+        charge_file_bytes(size*3,check)
+        code=recheck()
+        if code:return code
+        if buffer!=data:return 4
+        row['sequence']=self.sequence+1
+        if not self.room(row,payload_bytes=size):return 5
+        row['data']=data.hex()
         code=files.delete(key)
         if code:return code
         self.append(row);return 0
@@ -179,20 +257,23 @@ class RemoteMessages:
         if type(sequence) is not int or not 1<=sequence<=MAX_SEQUENCE:return 2,None
         selected=next((row for row in self.messages if row['sequence']==sequence),None)
         if selected is None:return 1,None
-        result=deepcopy(selected);plan=[];collected=[];remaining=self.limit-self.size(result)
+        plan=[];attachments_to_collect=[];remaining=self.limit-self._row_size(selected)
         for name in selected.get('attachments',[]):
             retained=name.upper().startswith('MD:')
-            code,key,data=read_file(files,name,delete=not retained,limit=max(0,remaining//2))
+            code,key,buffer=inspect_file(files,name,delete=not retained,limit=max(0,remaining//2))
             if code:return code,None
-            row=dict(name=name,data=data.hex(),retained=retained);remaining-=self.size(row)
+            row=dict(name=name,data='',retained=retained)
+            remaining-=self.size(row)+2*len(buffer)
             if remaining<0:return 5,None
-            collected.append(row)
+            attachments_to_collect.append((row,buffer))
             if not retained:plan.append(key)
+        result=deepcopy(selected)
+        if 'attachments' in result:
+            result['attachments']=[{**row,'data':buffer.hex()} for row,buffer in attachments_to_collect]
         # No external callbacks or host I/O occur between preflight and commit.
         for key in plan:
             code=files.delete(key)
             if code:raise RuntimeError('Preflighted in-memory attachment deletion changed unexpectedly')
-        if 'attachments' in result:result['attachments']=collected
         self.messages.remove(selected);return 0,result
 
     def snapshot(self):return deepcopy(self.messages)
@@ -232,11 +313,13 @@ class RemoteMessages:
                 if type(paths) is not list or any(item=='' for item in paths):raise ValueError('Noncanonical saved attachment list')
                 prepared=dict(attachments=attachments(paths or ['']),priority=priority_value(row['priority']))
                 data=row['data']
-                if type(data) is not str or len(data)>result.limit or not re.fullmatch(r'(?:[0-9a-fA-F]{2})*',data):raise ValueError('Invalid or excessive message payload')
-                prepared['data']=data.lower()
+                if (type(data) is not str or len(data)>result.limit or len(data)%2
+                        or re.search(r'[^0-9a-fA-F]',data)):
+                    raise ValueError('Invalid or excessive message payload')
+                prepared['data']=data
                 if kind=='xml':
                     name=file_name(row['xml_file'])
-                    if name in prepared['attachments'] or not xml_document(bytes.fromhex(data)):raise ValueError('Invalid saved XML message')
+                    if name in prepared['attachments']:raise ValueError('Invalid saved XML message')
                     prepared['xml_file']=name
                 else:
                     name=message_type(row['message_type'])
@@ -244,8 +327,12 @@ class RemoteMessages:
                     prepared['message_type']=name
             else:raise ValueError('Unknown saved message kind')
             prepared=dict(sequence=number,kind=kind,**prepared)
-            used+=result.size(prepared)
+            used+=result._row_size(prepared)
             if used>result.limit:raise ValueError('Saved messages exceed byte budget')
+            if kind=='xml' and not xml_document(bytes.fromhex(data)):
+                raise ValueError('Invalid saved XML message')
+            if 'data' in prepared:
+                prepared['data']=data.lower()
             result.messages.append(prepared);previous=number
         result.sequence=sequence;return result
 
@@ -254,5 +341,13 @@ def invoke(state,operation,args,line=None):
     bank=state.execution.require('remote_messages',line)
     if operation=='RMCN_ALERT':code=bank.alert(*args[:-1])
     elif operation=='QUEUE_ATTACH':code=bank.queue_attach(*args[:-1])
-    else:code=bank.send(state.execution.require('files',line),*args[:-1],check=lambda:state.tick(line))
+    else:
+        files=state.execution.require('files',line)
+
+        def check():
+            state.tick(line)
+            if state.execution.remote_messages is not bank or state.execution.files is not files:
+                raise rt().KarelRuntimeError('Remote message services changed during publication',line)
+
+        code=bank.send(files,*args[:-1],check=check)
     args[-1].set(code,line)

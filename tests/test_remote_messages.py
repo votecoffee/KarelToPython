@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from karel2py import runtime as rt,translate_project
+from karel2py import fileops, remote_messages, runtime as rt,translate_project
 from karel2py.lexer import TranslationError
 from tests.test_extended_services import compile_program,run
 from tests.test_project_scheduler import source
@@ -44,6 +44,82 @@ class RemoteMessageSourceTests(unittest.TestCase):
         self.assertEqual(p.run()['S'],0)
         self.assertEqual(ctx.files.snapshot(),{})
         self.assertEqual(bytes.fromhex(ctx.remote_messages.snapshot()[0]['data']),xml)
+
+    def test_validation_and_hex_budgets_preserve_source_status_and_sequence(self):
+        for stage in ('parse', 'hex'):
+            with self.subTest(stage=stage):
+                ctx=context()
+                bank=ctx.remote_messages
+                bank.alert('','','','')
+                before=bank.to_config()
+                task,_=compile_program(
+                    "paths[1]='' paths[2]='' RMCN_SEND('TD:note.xml',paths,1,s)", decl=DECL, context=ctx,
+                )
+                task._state.values['S']=77
+                charge=fileops.charge_file_bytes
+
+                def limit(size,check):
+                    if size==len(XML)*3:
+                        task._state.max_steps=task._state.steps
+                    charge(size,check)
+
+                if stage=='parse':
+                    with self.assertRaisesRegex(rt.KarelRuntimeError,'step budget'):
+                        task.run(max_steps=5)
+                else:
+                    with patch.object(fileops,'charge_file_bytes',side_effect=limit):
+                        with self.assertRaisesRegex(rt.KarelRuntimeError,'step budget'):
+                            task.run()
+                self.assertEqual(task.snapshot()['S'],77)
+                self.assertEqual(bank.to_config(),before)
+                self.assertEqual(ctx.files.snapshot(),{'TD:note.xml':XML})
+
+    def test_send_preserves_equal_length_input_replaced_during_validation(self):
+        for replace_buffer in (False,True):
+            with self.subTest(replace_buffer=replace_buffer):
+                ctx=context()
+                original=ctx.files.files['TD:note.xml']
+                newer=XML.replace(b'>7<',b'>9<')
+                validate=remote_messages.xml_document
+
+                def change(data,*,check):
+                    result=validate(data,check=check)
+                    if replace_buffer:
+                        ctx.files.files['TD:note.xml']=bytearray(data)
+                    else:
+                        original[:]=newer
+                    return result
+
+                with patch.object(remote_messages,'xml_document',side_effect=change):
+                    self.assertEqual(send(ctx)['S'],4)
+                self.assertEqual(ctx.files.files['TD:note.xml'],XML if replace_buffer else newer)
+                self.assertEqual(ctx.remote_messages.snapshot(),[])
+                self.assertEqual(ctx.remote_messages.sequence,0)
+
+    def test_send_rechecks_live_capacity_and_sequence_after_hex_charge(self):
+        for capacity in (1,2):
+            with self.subTest(capacity=capacity):
+                ctx=context(capacity=capacity)
+                bank=ctx.remote_messages
+                charge=fileops.charge_file_bytes
+
+                def append_alert(size,check):
+                    charge(size,check)
+                    if size==3*len(XML):
+                        self.assertEqual(bank.alert('a','later','',''),0)
+
+                with patch.object(fileops,'charge_file_bytes',side_effect=append_alert):
+                    self.assertEqual(send(ctx)['S'],5 if capacity==1 else 0)
+                self.assertEqual([row['sequence'] for row in bank.snapshot()],list(range(1,capacity+1)))
+                self.assertEqual('TD:note.xml' in ctx.files.files,capacity==1)
+
+    def test_streaming_xml_preserves_bom_split_utf8_and_literal_dtd_text(self):
+        prefix=b'\xef\xbb\xbf<message><!-- <!DOCTYPE harmless> -->'
+        data=prefix+b' '*(4095-len(prefix))+b'\xc3\xa9</message>'
+        ctx=context({'TD:note.xml':data})
+        self.assertEqual(send(ctx)['S'],0)
+        self.assertEqual(bytes.fromhex(ctx.remote_messages.snapshot()[0]['data']),data)
+        self.assertEqual(send(context({'TD:note.xml':'<message/>'.encode('utf-16-le')}))['S'],4)
 
     def test_alert_explicit_defaults_and_custom_values(self):
         ctx=context(defaults={'address':'recipient@example.invalid','url':'offline://alerts'})
@@ -232,6 +308,26 @@ class DeferredAttachmentTests(unittest.TestCase):
         self.assertEqual(bank.collect(1,files),(5,None));self.assertEqual(bank.to_config(),before)
         self.assertEqual(set(files.files),{'TD:a','TD:b'})
 
+    def test_collection_preflights_later_attachment_before_hex_encoding(self):
+        bank=rt.RemoteMessages(message_types=['ALARM_MSG_P'])
+        selected(bank)
+        files=rt.MemoryFiles({'TD:data.bin':b'first'})
+        inspect=remote_messages.inspect_file
+
+        class Unencoded(bytes):
+            def hex(self):
+                raise AssertionError('Encoded before checking the later attachment')
+
+        def capture(*args,**kwargs):
+            code,key,buffer=inspect(*args,**kwargs)
+            return (code,key,Unencoded(buffer)) if code==0 else (code,key,buffer)
+
+        with patch.object(remote_messages,'inspect_file',side_effect=capture):
+            self.assertEqual(bank.collect(1,files),(1,None))
+        self.assertEqual(files.snapshot(),{'TD:data.bin':b'first'})
+        self.assertEqual(bank.sequence,1)
+        self.assertEqual(len(bank.snapshot()),1)
+
     def test_directory_and_custom_backends_are_rejected_without_io(self):
         from karel2py.storage import DirectoryFiles
         class Custom(rt.MemoryFiles):
@@ -269,6 +365,36 @@ class DeferredAttachmentTests(unittest.TestCase):
 
 
 class RemoteMessagePersistenceTests(unittest.TestCase):
+    def test_outbox_admission_counts_hex_without_reserializing_it(self):
+        bank=rt.RemoteMessages(message_types=['A'])
+        bank.queue_attach('A',['TD:a'],1)
+        self.assertEqual(bank.publish('A',b'x'*8192),0)
+        self.assertEqual(bank.alert('a','escaped "\n"','',''),0)
+        size=bank.size
+        exact=sum(size(row) for row in bank.messages)+sum(size([key,row]) for key,row in bank.pending.items())
+        self.assertEqual(bank.used(),exact)
+
+        def metadata_only(value):
+            if isinstance(value,dict) and value.get('data'):
+                self.fail('Serialized retained payload during admission')
+            return size(value)
+
+        with patch.object(bank,'size',side_effect=metadata_only):
+            self.assertEqual(bank.queue_attach('A',['TD:b'],0),0)
+            self.assertEqual(bank.publish('A',b'y'*8192),0)
+            self.assertEqual(bank.alert('a','b','',''),0)
+
+    def test_saved_outbox_rejects_oversized_row_before_decoding_xml(self):
+        ctx=context()
+        send(ctx)
+        bank=ctx.remote_messages
+        saved=bank.to_config()
+        saved['limit']=bank.used()-1
+        with patch.object(remote_messages,'xml_document') as validate:
+            with self.assertRaisesRegex(ValueError,'byte budget'):
+                rt.RemoteMessages.from_config(saved)
+        validate.assert_not_called()
+
     def test_all_message_kinds_and_pending_selection_roundtrip_in_context(self):
         ctx=context(message_types=['ALARM_MSG_P']);send(ctx);ctx.remote_messages.alert('a','b','c','d');selected(ctx.remote_messages)
         saved=json.loads(json.dumps(ctx.to_config()));restored=rt.ExecutionContext.from_config(saved)

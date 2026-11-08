@@ -1,5 +1,13 @@
 # Changelog
 
+## 26.1108.030730 - 2026-11-08
+
+- Validate RMCN_SEND XML incrementally and budget parsing, final source
+  verification and hex expansion. Recheck the original XML and current
+  outbox capacity before deleting the source.
+- Count retained payload hex by length. Check attachment and saved-row
+  quotas before encoding or decoding their payloads.
+
 ## 26.1108.024726 - 2026-11-08
 
 - Check the XML input limit before copying bytes. Budget snapshot capture,

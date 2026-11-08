@@ -401,7 +401,7 @@ existing collision, busy-file, quota and publication checks remain active.
 and RENAME_FILE reuse matched characters in their destination filenames.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1108.024726**. It is a
+tool are named **karel2py**. The current implementation is **26.1108.030730**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -916,7 +916,8 @@ configuration-preserving rename, deletion and listing over explicit PIP names.
 RMCN_ALERT/RMCN_SEND and QUEUE_ATTACH provide bounded offline mobile-message
 outboxes and deferred ZDT attachment selection, with validated XML publication,
 controller-style FILE names, MD retention and explicit host collection. XML
-publication charges the execution budget before copying the source file. See
+publication budgets capture, validation and hex expansion, then checks that the
+source still matches before deletion. See
 [mobile messages and attachments](docs/remote-messages.md).
 SAVE/LOAD/CLEAR and recursive PROG_BACKUP/PROG_RESTORE/PROG_CLEAR support
 portable TP data archives, explicit dependency graphs, guarded batch operations

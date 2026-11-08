@@ -55,15 +55,19 @@ retained as metadata; it does not schedule a background send.
 
 ## XML publication
 
-RMCN_SEND charges one execution step per 4 KiB, rounded up, before copying and
-validating the XML file. It publishes the complete bytes as hex in the outbox.
-Budget exhaustion preserves the XML source, outbox and status target. XML must be UTF-8, optionally with a BOM, contain one
-well-formed document, and stay within 64 nested elements and 4096 total elements.
-DTDs and entity declarations reject. There is no native iRConnect schema
-validation, template expansion or interpretation of the message body.
+RMCN_SEND charges one execution step per started 4 KiB of source capture and
+parser input, one per parsed element, and byte charges for the final source
+comparison and hex expansion. It validates UTF-8 incrementally and queues the
+original bytes as hex. Budget exhaustion preserves the source, outbox and
+status target.
 
-The source XML file is deleted after queue capacity, payload, access and XML
-checks pass. This includes XML files on MD; the MD retention exception applies
+XML may include a UTF-8 BOM. It must be one well-formed document within 64
+nested elements and 4096 total elements. DTD and entity declarations reject.
+Comments and CDATA can contain their literal spelling. The message body remains
+opaque to the outbox.
+
+The source XML file is deleted after its original buffer and bytes, access,
+and current outbox capacity have been checked. This includes XML files on MD; the MD retention exception applies
 to attachments. Failure preserves the XML file and queue. Attachments need not
 exist at publication time: their paths are queued for later collection.
 
@@ -78,8 +82,8 @@ the existing obsolete-byte accounting policy.
 Host code explicitly calls `bank.collect(sequence, files)` to consume one row.
 It returns `(status, detached_message)`; failure returns `(status, None)`.
 Attachments are read from their current contents at collection time. After a
-complete preflight, ordinary attachments are deleted and MD attachments are
-retained. The returned `attachments` list contains `name`, payload `data` hex
+complete access and encoded-size preflight, the attachments are hex encoded.
+Ordinary attachments are then deleted and MD attachments are retained. The returned `attachments` list contains `name`, payload `data` hex
 and a `retained` Boolean for each file.
 
 Missing, busy, inaccessible or excessive attachments preserve every file and
@@ -113,7 +117,9 @@ status, message = bank.collect(bank.sequence, context.files)
 
 Capacity is 1..32767 queued messages, default 1024. The byte budget is 1..64 MiB,
 default 4 MiB. It counts compact ASCII JSON for queued rows and pending type
-selections, including hex expansion and metadata. Defaults and the explicit
+selections, including hex expansion and metadata. Admission counts canonical
+hex by length and serializes only metadata to calculate the remaining cost.
+Defaults and the explicit
 type catalog are separately bounded. A collection result must also fit that
 budget; its preflight conservatively reserves the queued metadata and expanded
 attachment records. Payload bytes are checked before copying/hex expansion.
