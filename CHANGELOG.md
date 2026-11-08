@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1108.021329 - 2026-11-08
+
+- Charge typed FILE WRITE payload bytes before joining fields or replacing text
+  EOL. Verify the destination and cursor before immediate publication.
+- Register waiting serial and socket writes before assembly. Honor cancellation
+  during byte accounting and reuse the assembled payload across TX polls.
+
 ## 26.1108.015707 - 2026-11-08
 
 - Charge socket, serial and attributed pipe READ snapshots before copying or

@@ -255,16 +255,25 @@ class SerialStreams:
         runtime=rt();row=self._active(handle,line)
         if not row['wait_output']:return self.write(handle,data,line)
         if handle.mode=='R':raise runtime.KarelRuntimeError('Serial FILE is read-only',line)
-        if type(data) is not bytes:raise runtime.KarelRuntimeError('Serial output requires explicit bytes',line)
+        captured = type(data) is runtime._FileWritePayload
+        if not captured and type(data) is not bytes:raise runtime.KarelRuntimeError('Serial output requires explicit bytes',line)
+        size = data.size if captured else len(data)
         if id(handle) in self._pending or id(handle) in self._writes:raise runtime.KarelRuntimeError('Serial FILE has pending I/O',line)
-        if len(data)+len(self.files[handle.name])>min(row['capacity'],self.limit):
+        if size+len(self.files[handle.name])>min(row['capacity'],self.limit):
             raise runtime.KarelRuntimeError('Atomic serial WRITE exceeds retained port/bank capacity',line)
         record=(state,self._open[id(handle)],handle.position,row,row['output'],self.files[handle.name],row['capacity'],self.limit,(self.ports,self.files,runtime.task_root(state),self._writes,self._open))
         self._writes[id(handle)]=record
+
+        def verify():
+            self.validate_write(handle,record,line)
+            runtime.check_file_write(handle,line)
+
         try:
+            if captured:
+                data = data.render(state, handle, line, verify)
             while True:
-                row=self.validate_write(handle,record,line);runtime.check_file_write(handle,line)
-                if len(data)+len(self.files[handle.name])>min(row['capacity'],self.limit):
+                verify()
+                if size+len(self.files[handle.name])>min(row['capacity'],self.limit):
                     raise runtime.KarelRuntimeError('Atomic serial WRITE exceeds retained port/bank capacity',line)
                 if (len(self.files[handle.name])+len(row['output'])+len(data)<=row['capacity']
                         and self.used()+len(data)<=self.limit):

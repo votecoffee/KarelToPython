@@ -185,8 +185,11 @@ publishing. Parse and validation failures restore the captured cursor when
 the binding and cursor still match. Finite text READ uses the existing
 complete-response validation. Finite FILE READ charges one step per started
 4 KiB of planned binary data or unread text before copying it. It checks the
-original binding, byte storage and cursor after the charge. End-of-file is an error, with
-portable file status 1; successful transfers clear status to zero. This format
+original binding, byte storage and cursor after the charge. FILE WRITE charges
+one step per started 4 KiB of rendered fields before assembling the payload.
+A failed budget or changed destination during accounting leaves the payload
+unpublished. End-of-file is an error with portable file status 1. Successful
+transfers clear status to zero. This format
 is portable project behavior, not a controller binary-file format claim.
 
 ```sh

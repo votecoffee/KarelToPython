@@ -39,8 +39,9 @@ exercise actual waiting and timer-driven cancellation under the scheduler.
 
 Retranslate source to use the generated cooperative WRITE path. Pythonic scalar,
 aggregate, binary and bound-default output now uses that path. Capture FILE
-selection, source values and format expressions once, then render independent
-immutable bytes and apply the configured text EOL once before waiting. Changes
+selection, source values and format expressions once. The pending operation
+charges for the rendered fields before assembling immutable bytes and applying
+the configured text EOL. Cancellation during accounting discards that write. Changes
 to a value, ARRAY, selector or format variable during the wait cannot retarget or
 rerender that payload. Other backends retain their existing immediate writes.
 Legacy direct State.write_items calls remain synchronous and cannot secretly

@@ -437,14 +437,25 @@ class Messaging(MemoryFiles):
             return self.write(handle, data, line)
         if handle.mode == 'R':
             fail('Socket FILE is read-only', line)
-        if type(data) is not bytes:
+        runtime = rt()
+        captured = type(data) is runtime._FileWritePayload
+        if not captured and type(data) is not bytes:
             fail('Socket output requires explicit bytes', line)
+        size = data.size if captured else len(data)
         record = self._start_operation(state, handle, row, 'WRITE', line)
+
+        def verify():
+            self.validate_pending(handle, state, 'WRITE', line, expected=record)
+            runtime.check_file_write(handle, line)
+
         try:
+            if captured:
+                if len(record.rx) + size > record.limit:
+                    fail('Atomic socket WRITE exceeds retained receive and output bank limit', line)
+                data = data.render(state, handle, line, verify)
             while True:
-                self.validate_pending(handle, state, 'WRITE', line, expected=record)
-                rt().check_file_write(handle, line)
-                if len(record.rx) + len(data) > record.limit:
+                verify()
+                if len(record.rx) + size > record.limit:
                     fail('Atomic socket WRITE exceeds retained receive and output bank limit', line)
                 if self.used() + len(data) <= record.limit:
                     record.tx.extend(data)

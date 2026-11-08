@@ -126,9 +126,10 @@ When one endpoint's retained RX fills the bank, an incomplete READ fails if
 the same bytes cannot complete it at EOF. If EOF would complete it, the
 operation can wait for explicit finalization.
 
-With `wait_output: true`, WRITE renders the complete payload once. It waits
-for space in the shared Messaging bank, which can be freed by host
-`take_output` or a READ on another endpoint. The whole payload appends together.
+With `wait_output: true`, WRITE registers its pending operation and charges for
+the rendered fields before assembling the complete payload once. Cancellation
+during accounting discards that write. Host `take_output` or a READ on another
+endpoint can free space in the shared Messaging bank. The whole payload appends together.
 A payload that cannot fit beside this endpoint's retained RX fails before
 waiting. Complete writes preserve RX and its cursor.
 

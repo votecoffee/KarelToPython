@@ -4510,8 +4510,7 @@ class State:
         if type(pieces) not in (list, tuple) or not 1 <= len(pieces) <= 1024:
             raise KarelRuntimeError('WRITE requires 1..1024 rendered items', line)
         if file is not None:
-            file.require_open(line)
-            file.owner.write(file,_file_write_data(file,pieces,line),line); return
+            return _write_file_now(self, file, pieces, line)
         total = 0
         for piece in pieces:
             total += len(ascii_string(piece, line))
@@ -4761,12 +4760,77 @@ def _write_group_pieces(groups,line=None):
     return pieces
 
 
-def _file_write_data(handle,pieces,line=None):
-    if type(pieces) not in (list,tuple) or not 1<=len(pieces)<=1024:
-        raise KarelRuntimeError('WRITE requires 1..1024 rendered items',line)
+class _FileWritePayload:
+    """Rendered scalar fields whose byte count is known before assembly."""
+
+    def __init__(self, pieces, line=None):
+        if type(pieces) not in (list, tuple) or not 1 <= len(pieces) <= 1024:
+            raise KarelRuntimeError('WRITE requires 1..1024 rendered items', line)
+        self.pieces = []
+        self.size = 0
+        for piece in pieces:
+            if type(piece) is str:
+                if not piece.isascii():
+                    raise KarelRuntimeError('FILE WRITE text requires ASCII', line)
+                self.size += len(piece)
+            elif type(piece) is bytes:
+                self.size += len(piece)
+            else:
+                # Direct State callers may supply a contiguous bytes-like field.
+                try:
+                    piece = memoryview(piece)
+                except (TypeError, ValueError) as exc:
+                    raise KarelRuntimeError('FILE WRITE requires rendered text or bytes', line) from exc
+                if not piece.c_contiguous:
+                    raise KarelRuntimeError('FILE WRITE byte fields must be contiguous', line)
+                self.size += piece.nbytes
+            self.pieces.append(piece)
+
+    def render(self, state, handle, line, verify):
+        from .fileops import charge_file_bytes
+
+        def charge():
+            state.tick(line)
+            verify()
+
+        charge_file_bytes(self.size, charge)
+        verify()
+        data = b''.join(piece.encode('ascii') if type(piece) is str else piece for piece in self.pieces)
+        return data if handle.binary else data.replace(b'\n', bytes((handle.eol,)))
+
+
+def _file_write_binding(handle, line):
+    owner = handle.owner
+    if type(owner) in (KeyboardInput, PendantDisplay):
+        return (owner._handles.get(handle),)
+    files = getattr(owner, 'files', None)
+    binding = (files, files.get(handle.name) if files is not None else None)
+    if type(owner) is SerialStreams:
+        row = owner._active(handle, line)
+        return (*binding, owner._open.get(id(handle)), row, row['output'])
+    if type(owner) is Messaging:
+        row = owner.connected(handle, line)
+        return (*binding, row, row['output'], row['_connection'])
+    return binding
+
+
+def _write_file_now(state, handle, pieces, line):
     handle.require_open(line)
-    data=b''.join(piece.encode('ascii') if type(piece) is str else piece for piece in pieces)
-    return data if handle.binary else data.replace(b'\n',bytes((handle.eol,)))
+    payload = _FileWritePayload(pieces, line)
+    owner, position = handle.owner, handle.position
+    identity = _file_identity(handle)
+    operations = (handle._read_operation, handle._write_operation)
+    binding = _file_write_binding(handle, line)
+
+    def verify():
+        if (_file_identity(handle) != identity or handle.position != position
+                or handle._read_operation is not operations[0]
+                or handle._write_operation is not operations[1]
+                or any(current is not original for current, original
+                       in zip(_file_write_binding(handle, line), binding))):
+            raise KarelRuntimeError('FILE WRITE destination or cursor changed during preparation', line)
+
+    owner.write(handle, payload.render(state, handle, line, verify), line)
 
 
 class _FileWriteCancelled(GeneratorExit):
@@ -4810,11 +4874,11 @@ def cooperative_write_items(state,pieces,line=None,*,file=None):
         return state.write_items(pieces, line, file=file)
     if file._read_operation is not None or file._write_operation is not None:
         raise KarelRuntimeError('FILE already has pending I/O',line)
-    data=_file_write_data(file,pieces,line)
+    payload = _FileWritePayload(pieces, line)
     operation=dict(identity=_file_identity(file),position=file.position,cancelled=False,state=state,root=task_root(state))
     file._write_operation=operation
     try:
-        return (yield from owner.write_items(state, file, data, line))
+        return (yield from owner.write_items(state, file, payload, line))
     except _FileWriteCancelled:
         file.status=6
     finally:
