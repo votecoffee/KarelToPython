@@ -401,7 +401,7 @@ existing collision, busy-file, quota and publication checks remain active.
 and RENAME_FILE reuse matched characters in their destination filenames.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1108.034130**. It is a
+tool are named **karel2py**. The current implementation is **26.1108.035759**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -910,8 +910,9 @@ MSG_CONNECT/MSG_DISCO/MSG_PING use configured offline socket buffers and host
 results; PIPE_CONFIG provides circular PIP FILE histories. Both support ordinary
 FILE I/O and saved state. Socket FILEs can opt in to cooperative input and output
 waits. See [communications](docs/communications.md).
-Plain pipes also support explicit wait/snapshot and overflow attributes, with
-cooperative text/binary reads and scripted producers; see
+Plain pipes also support explicit wait/snapshot and overflow attributes.
+Waiting reads follow configured cursor adjustments from circular overwrites
+between polls, and byte capture checks for history changes. See
 [pipe attributes](docs/pipe-attributes.md).
 [Pipe file management](docs/pipe-file-management.md) adds finite snapshot copies,
 configuration-preserving rename, deletion and listing over explicit PIP names.

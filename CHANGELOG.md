@@ -1,5 +1,13 @@
 # Changelog
 
+## 26.1108.035759 - 2026-11-08
+
+- Let waiting PIP reads follow authorized circular cursor adjustments between
+  polls. Reject arbitrary cursor changes and overwrites during byte capture.
+- Honor pipe snapshot boundaries in direct typed reads. Prevent direct reads
+  from consuming a pending operation's input and preserve cancellation after
+  authorized cursor movement.
+
 ## 26.1108.034130 - 2026-11-08
 
 - Budget DAQ record encoding, pending batch copies and frozen FILE views

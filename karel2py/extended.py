@@ -1385,7 +1385,7 @@ def file_read(state,handle,targets,line=None,*,line_breaks=(),formats=None):
 
     name,start,operation=handle.name,handle.position,handle._read_operation
     identity=rt._file_identity(handle)
-    reader_matches=owner.capture_reader(handle,line) if type(owner) is rt.Acquisition else None
+    reader_matches=owner.capture_reader(handle,line) if type(owner) in (rt.Acquisition,rt.FilePipes) else None
     data=owner.files.get(name)
     if type(data) not in (bytes,bytearray) or type(start) is not int or start<0:
         fail('FILE READ requires ordinary byte storage and a nonnegative cursor',line)
@@ -1439,9 +1439,10 @@ def file_read(state,handle,targets,line=None,*,line_breaks=(),formats=None):
             raise
     else:
         if handle.mode in ('W','A'): fail('FILE is not readable',line)
-        charge_file_bytes(max(0,size-start),charge)
+        read_end=owner.end_position(handle,line) if type(owner) is rt.FilePipes else size
+        charge_file_bytes(max(0,read_end-start),charge)
         check(start)
-        raw=bytes(memoryview(data)[start:])
+        raw=bytes(memoryview(data)[start:read_end])
         try: text=raw.decode('ascii')
         except UnicodeDecodeError: fail('Text FILE requires ASCII data',line)
         reader=rt.TextInput(text,terminator=handle.eol,field_mode=handle.field); previous=state._read

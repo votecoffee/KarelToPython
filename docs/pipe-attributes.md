@@ -41,7 +41,8 @@ the existing ASCII, width, base, quote, field-mode and custom-EOL rules.
 Binary reads wait for the sum of their checked field widths, then charge and
 capture just that prefix. Each text probe charges for its visible unread
 snapshot before capture. Cancellation and source checks run again after
-accounting, before parsing. The complete READ
+accounting, before parsing. An overwrite during capture rejects the attempt,
+including when the new history has the same size. The complete READ
 must fit in the circular capacity. Waiting text reads are also rejected before
 waiting if the fixed fields and at least one byte per CR already exceed capacity.
 Existing binary width, byte-order and finite numeric conventions apply.
@@ -89,8 +90,10 @@ These portable meanings apply only when a write discards unread bytes:
 An explicit wait attribute with no overflow attribute uses OVF_EOF. Overwriting
 an already consumed prefix simply adjusts the cursor and does not trigger an
 overflow. Each handle retains its own policy. Snapshot end boundaries move with
-the discarded prefix. Bytes consumed by a successful read remain in the pipe's
-circular history for other readers.
+the discarded prefix. A waiting READ follows these backend cursor changes
+between polls while retaining its targets and formats. A direct cursor edit
+during the wait fails the pending read. Bytes consumed by a successful READ
+remain in the pipe's circular history for other readers.
 
 The overflow EOF latch requires close/reopen to clear. CLR_IO_STAT can clear the
 status cell but does not restore lost bytes or clear the latch. Ordinary reads,
@@ -102,8 +105,9 @@ record alignment, dictionary formatting or binary schema boundaries.
 ## Lifetime and persistence
 
 Pause retains the pending READ and its captured targets. Resume retries against
-current retained data. CLOSE and SET_FILE_POS reject a handle with a pending READ;
-unwind or stop that read before closing or repositioning it. Stop, abort, generator closure, budget exhaustion, sleeper
+current retained data. CLOSE, SET_FILE_POS and direct reads reject a handle
+with a pending READ. Unwind or stop that read before closing, repositioning or
+reading through the same handle. Stop, abort, generator closure, budget exhaustion, sleeper
 failure and invalid data release the pending-read registration. Standard FILE
 lifetime still applies: stopping a task does not implicitly close its FILE.
 

@@ -33,7 +33,8 @@ def pipe_name(value):
 
 def data_bytes(value,limit):
     if type(value) is dict:
-        if set(value)!={'hex'} or type(value['hex']) is not str or len(value['hex'])>2*limit or not re.fullmatch(r'(?:[0-9a-fA-F]{2})*',value['hex']):
+        if (set(value)!={'hex'} or type(value['hex']) is not str or len(value['hex'])>2*limit
+                or len(value['hex'])%2 or re.search(r'[^0-9a-fA-F]',value['hex'])):
             raise ValueError('Invalid or excessive communication hex data')
         value=bytes.fromhex(value['hex'])
     elif type(value) is str:
@@ -486,6 +487,17 @@ class Messaging(MemoryFiles):
         return cls(config.get('ports'),hosts=config.get('hosts'),limit=config.get('limit',4*1024*1024))
 
 
+@dataclass
+class _PipeRead:
+    state: object
+    token: object
+    binding: object
+    position: int
+    snapshot_end: int | None
+    overflowed: bool
+    valid: bool = True
+
+
 class FilePipes(MemoryFiles):
     """Bounded circular byte histories, with independent FILE read cursors."""
     def __init__(self,*,limit=16*1024*1024):super().__init__(limit=limit);self.pipes={};self._reads={}
@@ -528,13 +540,73 @@ class FilePipes(MemoryFiles):
             self.files[key].clear()
             for other in self.handles:
                 if other.name==key:
-                    other.position=0
-                    if getattr(other,'_pipe_snapshot_end',None) is not None:other._pipe_snapshot_end=0
+                    end=0 if other._pipe_snapshot_end is not None else None
+                    self._move_reader(other,0,end,other._pipe_overflowed)
+                    other._pipe_version=object()
         handle.name,handle.mode,handle.owner,handle.binary=key,mode,self,binary
         handle.logical_name=key;handle.position=0;handle.status=0
         handle._pipe_snapshot_end=len(self.files[key]) if wait==0 else None
         handle._pipe_overflowed=False;handle._pipe_advance=advance
+        handle._pipe_version=object()
         self.handles.append(handle)
+
+    def _reader_binding(self,handle):
+        identity=rt()._file_identity(handle)
+        name=handle.name
+        files,pipes,reads=self.files,self.pipes,self._reads
+        buffer,config=files[name],pipes[name]
+        metadata=dict(config)
+        advance=handle._pipe_advance
+
+        def matches():
+            return (rt()._file_identity(handle)==identity and self.files is files and self.pipes is pipes
+                    and self._reads is reads and files.get(name) is buffer and pipes.get(name) is config
+                    and config==metadata and handle._pipe_advance==advance
+                    and any(item is handle for item in self.handles))
+
+        return matches
+
+    @staticmethod
+    def _pending_matches(handle,record):
+        return (record.valid and record.binding() and handle._read_operation is record.token
+                and type(handle.position) is int and handle.position==record.position
+                and handle._pipe_snapshot_end==record.snapshot_end
+                and handle._pipe_overflowed is record.overflowed
+                and (record.token is None or type(record.token) is dict
+                     and record.token.get('position')==record.position
+                     and record.token.get('state') is record.state))
+
+    def validate_pending_read(self,handle,state,line=None,*,expected=None):
+        record=self._reads.get(id(handle))
+        if (type(record) is not _PipeRead or record.state is not state
+                or expected is not None and record is not expected
+                or not self._pending_matches(handle,record)):
+            fail('Pipe pending READ registration, binding or cursor changed',line)
+
+    def _move_reader(self,handle,position,end,overflowed):
+        # Only a backend-authorized move updates the pending operation's cursor.
+        record=self._reads.get(id(handle))
+        if type(record) is _PipeRead:
+            if self._pending_matches(handle,record):
+                record.position,record.snapshot_end,record.overflowed=position,end,overflowed
+                if record.token is not None:
+                    record.token['position']=position
+            else:
+                record.valid=False
+        handle.position,handle._pipe_snapshot_end,handle._pipe_overflowed=position,end,overflowed
+
+    def capture_reader(self,handle,line=None):
+        self.before_read(handle,line)
+        if id(handle) in self._reads:
+            fail('Pipe FILE has an active READ',line)
+        binding=self._reader_binding(handle)
+        version,end=handle._pipe_version,handle._pipe_snapshot_end
+
+        def matches():
+            return (binding() and handle._pipe_version is version
+                    and handle._pipe_snapshot_end==end and not handle._pipe_overflowed)
+
+        return matches
 
     def write(self,handle,data,line=None):
         handle.require_open(line)
@@ -545,17 +617,21 @@ class FilePipes(MemoryFiles):
         else:
             if dropped:del buffer[:dropped]
             buffer.extend(data)
-        if dropped:
+        if data:
             for other in self.handles:
                 if other.name!=handle.name:continue
+                other._pipe_version=object()
+                if not dropped:continue
                 lost=other.position<dropped
-                other.position=max(0,other.position-dropped)
-                end=getattr(other,'_pipe_snapshot_end',None)
-                if end is not None:other._pipe_snapshot_end=max(0,end-dropped)
-                if lost and (getattr(other,'pipe_wait',None) is not None or getattr(other,'pipe_overflow',None) is not None):
-                    advance=getattr(other,'_pipe_advance',None)
-                    if advance is None or advance==-1:other._pipe_overflowed=True
-                    else:other.position=min(advance,len(buffer))
+                position=max(0,other.position-dropped)
+                end=other._pipe_snapshot_end
+                if end is not None:end=max(0,end-dropped)
+                overflowed=other._pipe_overflowed
+                if lost and (other.pipe_wait is not None or other.pipe_overflow is not None):
+                    advance=other._pipe_advance
+                    if advance is None or advance==-1:overflowed=True
+                    else:position=min(advance,len(buffer))
+                self._move_reader(other,position,end,overflowed)
         handle.status=0
 
     def feed(self,name,data):
@@ -639,6 +715,8 @@ class FilePipes(MemoryFiles):
         return super().close(handle,line)
 
     def read_bytes(self,handle,count,line=None):
+        if id(handle) in self._reads:
+            fail('Pipe FILE has an active READ',line)
         if getattr(handle,'pipe_wait',None) is None and getattr(handle,'pipe_overflow',None) is None:
             return super().read_bytes(handle,count,line)
         self.before_read(handle,line)
@@ -653,19 +731,24 @@ class FilePipes(MemoryFiles):
         minimum=request.minimum_bytes(may_finalize=not waiting)
         if (handle.binary or waiting) and minimum > self.pipes[handle.name]['sectors'] * 1024:
             fail('Atomic pipe READ exceeds circular capacity', line)
-        if id(handle) in self._reads:fail('Pipe FILE already has an active READ',line)
-        self._reads[id(handle)]=state
+        reads=self._reads
+        if id(handle) in reads:fail('Pipe FILE already has an active READ',line)
+        record=_PipeRead(state,handle._read_operation,self._reader_binding(handle),handle.position,
+                         handle._pipe_snapshot_end,handle._pipe_overflowed)
+        reads[id(handle)]=record
         try:
             while True:
-                self.before_read(handle,line)
+                self.validate_pending_read(handle,state,line,expected=record)
                 runtime.check_file_read(handle,line)
+                self.before_read(handle,line)
                 start = handle.position
                 available = self.bytes_ahead(handle, line)
                 retained = self.files[handle.name]
+                version=handle._pipe_version
 
                 def verify():
-                    if (self._reads.get(id(handle)) is not state or handle.position != start
-                            or self.files.get(handle.name) is not retained
+                    self.validate_pending_read(handle,state,line,expected=record)
+                    if (handle._pipe_version is not version or handle.position != start
                             or self.bytes_ahead(handle, line) != available):
                         fail('Pipe pending READ source changed during byte accounting', line)
 
@@ -688,12 +771,12 @@ class FilePipes(MemoryFiles):
                 yield from runtime.checkpoint(state,line)
         except GeneratorExit:raise
         except BaseException:
-            if handle.owner is self and self._reads.get(id(handle)) is state:
+            if handle.owner is self and self._reads is reads and reads.get(id(handle)) is record:
                 handle.status = 1
             raise
         finally:
-            if self._reads.get(id(handle)) is state:
-                del self._reads[id(handle)]
+            if self._reads is reads and reads.get(id(handle)) is record:
+                del reads[id(handle)]
 
     def to_config(self):
         if self.handles:raise ValueError('Close live pipe FILEs before saving context')

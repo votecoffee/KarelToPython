@@ -4,7 +4,7 @@ import struct
 import unittest
 from unittest.mock import patch
 
-from karel2py import runtime as rt,translate_project
+from karel2py import fileops, runtime as rt, translate_project
 from tests.test_extended_services import compile_program,run
 from tests.test_project_scheduler import source
 
@@ -329,6 +329,138 @@ class PipeSnapshotAndOverflowTests(unittest.TestCase):
         for name,data in (('MISSING',b'x'),('../LOG',b'x'),('LOG',{'hex':'0'})):
             with self.subTest(name=name,data=data),self.assertRaises((ValueError,rt.KarelRuntimeError)):files.feed(name,data)
         self.assertEqual(files.snapshot(),before)
+
+
+class PipePendingOverflowTests(unittest.TestCase):
+    def test_pending_read_can_advance_after_full_overwrite(self):
+        files=bank(b' '*1024)
+        waits=[]
+        replacement=b' '*16+b'37\n'+b' '*(1024-19)
+
+        def sleep(seconds):
+            waits.append(seconds)
+            files.feed('LOG',replacement)
+            self.assertEqual(task._state.values['F'].position,16)
+
+        task,_=compile_program(
+            'SET_FILE_ATR(f,ATR_PIPOVADV,16) '+WAIT+' READ f(n,CR)',decl=DECL,
+            context=rt.ExecutionContext(file_pipes=files),sleep=sleep,
+        )
+        values=task.run()
+        self.assertEqual((values['N'],values['F']['position'],waits),(37,19,[.01]))
+        self.assertEqual(len(task.read_requests),1)
+        self.assertEqual(files._reads,{})
+
+    def test_pending_read_tracks_overwrite_of_consumed_prefix(self):
+        files=bank(b' '*1024)
+        task,_=compile_program(
+            WAIT+' SET_FILE_POS(f,1000,s) READ f(n,CR)',decl=DECL,
+            context=rt.ExecutionContext(file_pipes=files),sleep=lambda _:files.feed('LOG',b'17\n'),
+        )
+        values=task.run()
+        self.assertEqual((values['N'],values['F']['position']),(17,1024))
+        self.assertFalse(task._state.values['F']._pipe_overflowed)
+
+    def test_cancel_after_authorized_advance_keeps_targets_and_allows_next_read(self):
+        files=bank(b' '*1024)
+
+        def sleep(_):
+            files.feed('LOG',b' '*16+b'17\n'+b' '*(1024-19))
+            rt.cancel_file(task._state,task._state.values['F'])
+
+        task,_=compile_program(
+            'SET_FILE_ATR(f,ATR_PIPOVADV,16) '+WAIT+
+            ' n=77 READ f(n,CR) s=IO_STATUS(f) READ f(m,CR)',decl=DECL,
+            context=rt.ExecutionContext(file_pipes=files),sleep=sleep,
+        )
+        values=task.run()
+        self.assertEqual((values['N'],values['M'],values['S']),(77,17,6))
+        self.assertEqual(len(task.read_requests),1)
+        self.assertEqual(files._reads,{})
+
+    def test_writer_does_not_authorize_a_forged_pending_cursor(self):
+        files=bank(b' '*1024)
+
+        def sleep(_):
+            task._state.values['F'].position=1
+            files.feed('LOG',b' ')
+
+        task,_=compile_program(
+            WAIT+' n=77 READ f(n,CR)',decl=DECL,
+            context=rt.ExecutionContext(file_pipes=files),sleep=sleep,
+        )
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'registration, binding or cursor changed'):
+            task.run()
+        self.assertEqual((task.snapshot()['N'],task.snapshot()['F']['position']),(77,0))
+        self.assertEqual(files._reads,{})
+
+    def test_same_size_overwrite_during_capture_rejects_both_read_paths(self):
+        initial=b'17\n'+b' '*(1024-3)
+        replacement=b'18\n'+b' '*(1024-3)
+        for opening in ("OPEN FILE f('RO','PIP:LOG')",'SET_FILE_ATR(f,ATR_PIPOVADV,0) '+WAIT):
+            with self.subTest(opening=opening):
+                files=bank(initial)
+                task,_=compile_program(
+                    opening+' n=77 READ f(n,CR)',decl=DECL,
+                    context=rt.ExecutionContext(file_pipes=files),
+                )
+                charge=fileops.charge_file_bytes
+
+                def overwrite(size,check):
+                    charge(size,check)
+                    files.feed('LOG',replacement)
+
+                with patch.object(fileops,'charge_file_bytes',side_effect=overwrite):
+                    with self.assertRaisesRegex(rt.KarelRuntimeError,'changed during'):
+                        task.run()
+                self.assertEqual((task.snapshot()['N'],task.snapshot()['F']['position']),(77,0))
+                self.assertEqual(files.files['PIP:LOG'],replacement)
+                self.assertEqual(task.read_requests,())
+                self.assertEqual(files._reads,{})
+
+    def test_cancel_finite_read_without_attributes_preserves_history(self):
+        files=bank(b'17\n')
+        task,_=compile_program(
+            "OPEN FILE f('RO','PIP:LOG') n=77 READ f(n,CR) s=IO_STATUS(f)",decl=DECL,
+            context=rt.ExecutionContext(file_pipes=files),
+        )
+        charge=fileops.charge_file_bytes
+
+        def cancel(size,check):
+            charge(size,check)
+            rt.cancel_file(task._state,task._state.values['F'])
+
+        with patch.object(fileops,'charge_file_bytes',side_effect=cancel):
+            values=task.run()
+        self.assertEqual((values['N'],values['S'],values['F']['position']),(77,6,0))
+        self.assertEqual(files.files['PIP:LOG'],b'17\n')
+
+    def test_direct_typed_read_respects_snapshot_end(self):
+        files=bank(b'17')
+        channel=handle(files,wait=0)
+        files.feed('LOG',b'9\n')
+        state=rt.State({'N':('INTEGER',)},{})
+        state.file_read(channel,[state.reference('N')])
+        self.assertEqual((state.get('N'),channel.position),(17,2))
+        files.close(channel)
+
+    def test_direct_reads_cannot_consume_an_active_wait(self):
+        files=bank()
+
+        def sleep(_):
+            channel=task._state.values['F']
+            with self.assertRaisesRegex(rt.KarelRuntimeError,'active READ'):
+                files.read_bytes(channel,0)
+            with self.assertRaisesRegex(rt.KarelRuntimeError,'active READ'):
+                task._state.file_read(channel,[task._state.reference('N')])
+            files.feed('LOG',b'17\n')
+
+        task,_=compile_program(
+            WAIT+' READ f(n,CR)',decl=DECL,
+            context=rt.ExecutionContext(file_pipes=files),sleep=sleep,
+        )
+        self.assertEqual(task.run()['N'],17)
+        self.assertEqual(len(task.read_requests),1)
 
 
 class PipeSchedulingAndLifetimeTests(unittest.TestCase):

@@ -5012,8 +5012,8 @@ def _validate_file_read(handle,operation,line=None):
             raise KarelRuntimeError('Serial pending READ registration changed',line)
     if type(owner) is Messaging:
         owner.validate_pending(handle, state, 'READ', line)
-    if type(owner) is FilePipes and owner._reads.get(id(handle)) is not state:
-        raise KarelRuntimeError('Pipe pending READ registration changed',line)
+    if type(owner) is FilePipes and (handle.pipe_wait is not None or handle.pipe_overflow is not None):
+        owner.validate_pending_read(handle,state,line)
     if type(owner) is KeyboardInput and not any(job.get('handle') is handle and job['state'] is state for job in owner._active.values()):
         raise KarelRuntimeError('Keyboard pending READ registration changed',line)
 
