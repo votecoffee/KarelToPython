@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1108.034130 - 2026-11-08
+
+- Budget DAQ record encoding, pending batch copies and frozen FILE views
+  before staging them. Recheck the pipe before publishing a stream batch.
+- Detect ring changes during live FILE READ preparation, including same-size
+  record replacement. Frozen readers keep their captured data.
+
 ## 26.1108.032524 - 2026-11-08
 
 - Check PC BYTE buffer and remote attachment ARRAY bounds before copying.

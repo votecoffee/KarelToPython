@@ -4779,7 +4779,14 @@ class State:
             if len(banks)!=1:raise KarelRuntimeError('PIP FILE requires one explicitly configured acquisition or file_pipes entry',line)
             if pipe_attributes and type(banks[0]) is not FilePipes:
                 raise KarelRuntimeError('Pipe FILE attributes require plain FilePipes, not acquisition pipes',line)
-            return banks[0].open_for(self,handle,mode,key,line)
+            bank=banks[0]
+            if type(bank) is Acquisition and _pythonic():
+                def check():
+                    self.tick(line)
+                    if self.execution.acquisition is not bank:
+                        raise KarelRuntimeError('DAQ service changed during snapshot preparation',line)
+                return bank.open_for(self,handle,mode,key,line,check=check)
+            return bank.open_for(self,handle,mode,key,line)
         files = self.execution.require('files', line)
         if type(files) is DirectoryFiles and _pythonic():
             return files.open(handle, mode, name, line, check=lambda: self.tick(line))

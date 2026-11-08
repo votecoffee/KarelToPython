@@ -401,7 +401,7 @@ existing collision, busy-file, quota and publication checks remain active.
 and RENAME_FILE reuse matched characters in their destination filenames.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1108.032524**. It is a
+tool are named **karel2py**. The current implementation is **26.1108.034130**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -899,8 +899,9 @@ See [task requests](docs/task-and-file-extensions.md#run_task-entry-and-continua
 LOCK_GROUP/UNLOCK_GROUP use configured logical ownership with immediate partial
 results or opt-in bounded waits for a complete mask. See [group locks](docs/group-locks.md).
 All six DAQ calls use explicit typed acquisition pipes with binary FILE readers,
-snapshot views, overflow tracking and budgeted batch output to supplied file
-backends. See [data acquisition](docs/data-acquisition.md).
+budgeted snapshot views, overflow tracking and batch output to supplied file
+backends. Writes charge for record preparation and pending batch bytes before
+encoding. See [data acquisition](docs/data-acquisition.md).
 Four ADD_*PC builders create checked typed BYTE buffers; SEND_DATAPC and
 SEND_EVENTPC publish to an explicit bounded offline outbox, with typed and raw
 payload modes. Packet and attachment inputs check their limits before capturing

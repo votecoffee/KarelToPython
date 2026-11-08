@@ -40,6 +40,8 @@ resources are excluded. Named type identity, dimensions and STRING capacity
 must match exactly when writing another variable. Writes require all record
 leaves to be initialized and representable. The value is captured before the
 status output is updated, including when status aliases an input field.
+DAQ_WRITE charges for each scalar leaf and each started 4 KiB of packed record
+and pending batch bytes before capture and encoding.
 
 Each schema is limited to 32767 scalar leaves. Reserved capacity across all five
 pipes is bounded by the bank's configured `limit`, default 16 MiB and maximum
@@ -107,12 +109,15 @@ live stream readers pass them; partial records stay intact. Closing a lagging
 reader releases records already consumed by the remaining readers. Cursors
 adjust when retained bytes are released or overflowed, so offsets are relative
 to retained data rather than a permanent file offset. A failed READ batch
-preserves its outputs, cursor and retained data.
+preserves its outputs and cursor. The reader rechecks its registration and
+ring before publishing, including when a producer replaces a record with
+another of the same size during preparation.
 
 Snapshot mode freezes the current retained bytes at OPEN and keeps the source
-records. Close and reopen to refresh the snapshot. This is a chosen offline
-view policy. At most 32 FILE readers can be open, with combined frozen-view
-bytes limited to the bank's configured limit in addition to its record capacity.
+records. OPEN charges for the retained bytes before copying and rechecks the
+ring and view limits before creating a reader. Close and reopen to refresh the
+snapshot. At most 32 FILE readers can be open, with combined frozen-view bytes
+limited to the bank's configured limit in addition to its record capacity.
 
 `bank.read_records(number, count=None)` returns complete encoded records to a
 Python caller. Stream mode consumes them; snapshot mode retains them. Close

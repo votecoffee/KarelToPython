@@ -1385,6 +1385,7 @@ def file_read(state,handle,targets,line=None,*,line_breaks=(),formats=None):
 
     name,start,operation=handle.name,handle.position,handle._read_operation
     identity=rt._file_identity(handle)
+    reader_matches=owner.capture_reader(handle,line) if type(owner) is rt.Acquisition else None
     data=owner.files.get(name)
     if type(data) not in (bytes,bytearray) or type(start) is not int or start<0:
         fail('FILE READ requires ordinary byte storage and a nonnegative cursor',line)
@@ -1392,7 +1393,8 @@ def file_read(state,handle,targets,line=None,*,line_breaks=(),formats=None):
 
     def matches():
         return (handle._read_operation is operation and rt._file_identity(handle)==identity
-                and owner.files.get(name) is data and len(data)==size)
+                and owner.files.get(name) is data and len(data)==size
+                and (reader_matches is None or reader_matches()))
 
     def check(position):
         if not matches() or handle.position!=position:

@@ -24,17 +24,35 @@ def pipe_name(value):
 
 
 def encode(spec,value,line=None):
-    """Portable little-endian scalar leaves, fixed ASCII strings, no padding."""
-    runtime=rt();kind=spec[0]
-    value=runtime.checked(spec,value,line)
-    if kind=='ARRAY': return b''.join(encode(spec[2],item,line) for item in value.values)
-    if kind in runtime.RECORD_TYPES:
-        return b''.join(encode(field,value.values[name],line) for name,field in runtime.record_fields(spec))
-    if kind=='JOINTPOS': return b''.join(encode(('REAL',),item,line) for item in value.values)
-    if kind=='STRING': return value.encode('ascii').ljust(spec[1],b'\0')
-    try:return struct.pack('<'+{'BYTE':'B','SHORT':'h','INTEGER':'i','REAL':'f','BOOLEAN':'?'}[kind],value)
+    """Check the aggregate once and pack portable leaves in declaration order."""
+    runtime=rt()
+    prepared=runtime.checked(spec,value,line)
+    data=bytearray()
+    formats={'BYTE':'B','SHORT':'h','INTEGER':'i','REAL':'f','BOOLEAN':'?'}
+
+    def append(schema,item):
+        kind=schema[0]
+        if kind=='ARRAY':
+            for element in item.values:
+                append(schema[2],element)
+        elif kind in runtime.RECORD_TYPES:
+            for name,field in runtime.record_fields(schema):
+                append(field,item.values[name])
+        elif kind=='JOINTPOS':
+            for axis in item.values:
+                append(('REAL',),axis)
+        else:
+            item=runtime.require(runtime.checked(schema,item,line),line)
+            if kind=='STRING':
+                data.extend(item.encode('ascii').ljust(schema[1],b'\0'))
+            else:
+                data.extend(struct.pack('<'+formats[kind],item))
+
+    try:
+        append(spec,prepared)
     except (OverflowError,struct.error,KeyError) as exc:
         raise runtime.KarelRuntimeError('DAQ record cannot represent the supplied portable data',line) from exc
+    return bytes(data)
 
 
 def append_stream(files,name,data,line=None,*,commit=True,check=None):
@@ -87,11 +105,13 @@ class Acquisition(MemoryFiles):
         except (ValueError,rt().KarelRuntimeError):return 2
         try:
             collection_data_spec(spec);width=path_node_size(spec,line)
+            leaves=rt().scalar_leaf_count(spec)
         except (ValueError,rt().KarelRuntimeError):return 4
         if key in self.files:return 3
         if width<1 or width*capacity+sum(row['width']*row['capacity'] for row in self.pipes.values())>self.limit:return 5
         self.pipes[number]=dict(memory=memory,capacity=capacity,spec=spec,name=key,stream_size=stream_size,
-            width=width,mode=0,starts=0,created=False,first_read=False,stream_dev='',pending=b'',writers=WeakSet())
+            width=width,leaves=leaves,revision=0,mode=0,starts=0,created=False,first_read=False,
+            stream_dev='',pending=b'',writers=WeakSet())
         self.files[key]=bytearray();return 0
 
     def start(self,number,mode,device,files,line=None):
@@ -111,25 +131,37 @@ class Acquisition(MemoryFiles):
         row.update(mode=mode,starts=row['starts']+1,created=True,stream_dev=device if row['stream_size'] else '')
         return 0
 
-    def _stream_checkpoint(self,number,row,check,line):
-        if check is None:return None
-        starts,mode,device,pending=(row[key] for key in ('starts','mode','stream_dev','pending'))
+    def _pipe_plan(self,number,row,line):
+        files=self.files
+        name=row['name']
+        buffer=files.get(name)
+        if type(buffer) is not bytearray or len(buffer)%row['width'] or len(buffer)>row['capacity']*row['width']:
+            fail('DAQ ring has invalid record storage',line)
+        size,limit,pending=len(buffer),self.limit,row['pending']
+        keys=('name','spec','width','leaves','capacity','stream_size','starts','mode','created','stream_dev','revision')
+        stamp=tuple(row[key] for key in keys)
 
-        def checkpoint():
-            check()
-            if (self.pipes.get(number) is not row or row['starts']!=starts or row['mode']!=mode
-                    or row['stream_dev']!=device or row['pending'] is not pending):
-                fail('DAQ stream changed during batch preparation',line)
+        def verify():
+            if (self.pipes.get(number) is not row or self.files is not files or files.get(name) is not buffer
+                    or len(buffer)!=size or self.limit!=limit or row['pending'] is not pending
+                    or tuple(row[key] for key in keys)!=stamp):
+                fail('DAQ pipe changed during preparation',line)
 
-        return checkpoint
+        return buffer,verify
 
     def stop(self,number,force,files,line=None,*,check=None):
         row=self.get(number,line)
         if row is None:return 1
         force=rt().boolean(force,line);remaining=0 if force else max(0,row['starts']-1)
         if not remaining and row['pending']:
-            checkpoint=self._stream_checkpoint(number,row,check,line)
-            code=append_stream(files,row['stream_dev']+row['name'][4:],row['pending'],line,check=checkpoint)
+            _,verify=self._pipe_plan(number,row,line)
+
+            def checkpoint():
+                check()
+                verify()
+
+            code=append_stream(files,row['stream_dev']+row['name'][4:],row['pending'],line,
+                               check=checkpoint if check is not None else None)
             if code:return code
             row['pending']=b''
         row['starts']=remaining;return 0
@@ -140,27 +172,47 @@ class Acquisition(MemoryFiles):
         if row['starts'] or any(info['number']==number for info in self.readers.values()):return 3
         del self.files[row['name']];del self.pipes[number];return 0
 
-    def write_record(self,state,number,spec,value,files,line=None):
+    def write_record(self,state,number,spec,value,files,line=None,*,check=None,reference=None):
+        from .fileops import charge_file_bytes
+
         row=self.get(number,line)
         if row is None:return 1
         if not row['starts']:return 6
         if spec!=row['spec']:return 4
+        buffer,verify=self._pipe_plan(number,row,line)
+
+        def checkpoint():
+            if check is None:state.tick(line)
+            else:check()
+            verify()
+
+        for _ in range(row['leaves']):
+            checkpoint()
+        width=row['width']
+        batch_bytes=len(row['pending'])+width if row['stream_size'] else 0
+        charge_file_bytes(width+batch_bytes,checkpoint)
+        verify()
+        if reference is not None and reference.raw() is not value:
+            fail('DAQ source binding changed during record preparation',line)
         try:data=encode(spec,value,line)
         except rt().KarelRuntimeError:return 4
+        if len(data)!=width:return 4
         pending=row['pending']+data if row['stream_size'] else b''
-        if row['stream_size'] and len(pending)>=row['stream_size']*row['width']:
-            checkpoint=self._stream_checkpoint(number,row,lambda:state.tick(line),line)
+        if row['stream_size'] and len(pending)>=row['stream_size']*width:
             code=append_stream(files,row['stream_dev']+row['name'][4:],pending,line,check=checkpoint)
             if code:return code
             pending=b''
-        buffer=self.files[row['name']]
         if len(buffer)==row['capacity']*row['width']:
             del buffer[:row['width']]
             for handle,info in self.readers.items():
                 if info['number']==number and not info['snapshot']:
                     if handle.position<row['width']:info['overflow']=True
                     handle.position=max(0,handle.position-row['width'])
-        buffer.extend(data);row['pending']=pending;row['writers'].add(rt().task_root(state));return 0
+        buffer.extend(data)
+        row['pending']=pending
+        row['revision']+=1
+        row['writers'].add(rt().task_root(state))
+        return 0
 
     def check(self,state,number,line=None):
         row=self.get(number,line)
@@ -173,7 +225,14 @@ class Acquisition(MemoryFiles):
         available=max((len(self.files[handle.name])-handle.position for handle,info in readers),default=len(self.files[row['name']]))
         return flags,available
 
-    def open_for(self,state,handle,mode,name,line=None):
+    def _snapshot_room(self,size,line):
+        if len(self.readers)>=32:fail('DAQ pipe reader limit exceeded (32)',line)
+        retained=sum(len(value) for key,value in self.files.items() if key.startswith('@DAQ_VIEW:'))
+        if retained+size>self.limit:fail('DAQ snapshot reader byte limit exceeded',line)
+
+    def open_for(self,state,handle,mode,name,line=None,*,check=None):
+        from .fileops import charge_file_bytes
+
         if handle.owner is not None:fail('FILE is already open',line)
         mode=rt().ascii_string(mode,line).upper();name=rt().ascii_string(name,line).upper()
         binary='B' in mode or handle.binary
@@ -181,17 +240,43 @@ class Acquisition(MemoryFiles):
             fail('DAQ pipe FILE requires binary read-only access',line)
         number=next((number for number,row in self.pipes.items() if row['name']==name),None)
         if number is None or not self.pipes[number]['created']:fail('DAQ pipe FILE has not been created',line)
-        if len(self.readers)>=32:fail('DAQ pipe reader limit exceeded (32)',line)
         row=self.pipes[number];snapshot=row['mode']==1;key=name
         if snapshot:
-            if sum(len(value) for key,value in self.files.items() if key.startswith('@DAQ_VIEW:'))+len(self.files[name])>self.limit:
-                fail('DAQ snapshot reader byte limit exceeded',line)
+            buffer,verify=self._pipe_plan(number,row,line)
+            size=len(buffer)
+            identity=rt()._file_identity(handle)
+            position=handle.position
+            self._snapshot_room(size,line)
+            charge_file_bytes(size,check)
+            verify()
+            if rt()._file_identity(handle)!=identity or handle.position!=position or handle in self.readers:
+                fail('DAQ FILE binding changed during snapshot preparation',line)
+            self._snapshot_room(size,line)
+            data=buffer.copy()
             self._view_number+=1;key=f'@DAQ_VIEW:{self._view_number}'
-            self.files[key]=self.files[name].copy()
+            self.files[key]=data
+        elif len(self.readers)>=32:
+            fail('DAQ pipe reader limit exceeded (32)',line)
         handle.name,handle.mode,handle.owner,handle.binary=key,'R',self,True
         handle.logical_name=name
         handle.position=0;handle.status=0;self.handles.append(handle)
         self.readers[handle]=dict(number=number,snapshot=snapshot,owner=rt().task_root(state),overflow=False)
+
+    def capture_reader(self,handle,line=None):
+        readers=self.readers
+        info=readers.get(handle)
+        if info is None:fail('DAQ FILE requires an original reader registration',line)
+        number=info['number']
+        row=self.pipes[number]
+        snapshot=info['snapshot']
+        revision=row['revision']
+
+        def matches():
+            return (self.readers is readers and readers.get(handle) is info
+                    and self.pipes.get(number) is row and info['number']==number
+                    and info['snapshot'] is snapshot and (snapshot or row['revision']==revision))
+
+        return matches
 
     def after_read(self,handle,start,line=None):
         info=self.readers[handle];row=self.pipes[info['number']]
@@ -205,6 +290,7 @@ class Acquisition(MemoryFiles):
         consumed=min((other.position for other in handles),default=0)//row['width']*row['width']
         if consumed:
             del self.files[row['name']][:consumed]
+            row['revision']+=1
             for other in handles:other.position-=consumed
 
     def close(self,handle,line=None):
@@ -219,10 +305,14 @@ class Acquisition(MemoryFiles):
         if any(info['number']==number for info in self.readers.values()):fail('Close DAQ FILE readers before host record reads',line)
         available=len(self.files[row['name']])//row['width'];count=available if count is None else count
         if type(count) is not int or not 0<=count<=available:fail('DAQ host read exceeds available records',line)
-        size=count*row['width'];data=bytes(self.files[row['name']][:size])
+        size=count*row['width'];buffer=self.files[row['name']]
+        with memoryview(buffer) as view, view[:size] as selected:
+            data=selected.tobytes()
         if size:
             row['first_read']=True
-            if row['mode']==2:del self.files[row['name']][:size]
+            if row['mode']==2:
+                del buffer[:size]
+                row['revision']+=1
         return data
 
     def to_config(self):
@@ -264,7 +354,7 @@ class Acquisition(MemoryFiles):
             values=[]
             for key,maximum in (('data',row['capacity']*row['width']),('pending',row['stream_size']*row['width'])):
                 text=item[key]
-                if type(text) is not str or len(text)>maximum*2 or not re.fullmatch(r'(?:[0-9a-fA-F]{2})*',text):
+                if type(text) is not str or len(text)>maximum*2 or len(text)%2 or re.search(r'[^0-9a-fA-F]',text):
                     raise ValueError('Invalid or excessive DAQ bytes')
                 data=bytes.fromhex(text)
                 if len(data)%row['width']:raise ValueError('DAQ data must contain complete records')
@@ -278,6 +368,13 @@ class Acquisition(MemoryFiles):
 
 def invoke(state,operation,args,line=None):
     runtime=rt();context=state.execution;bank=context.require('acquisition',line)
+    files=context.files
+
+    def check():
+        state.tick(line)
+        if context.acquisition is not bank or context.files is not files:
+            fail('DAQ services changed during preparation',line)
+
     if operation=='DAQ_CHECKP':
         flags,available=bank.check(state,args[0],line)
         args[1].set(flags,line);args[2].set(available,line);return
@@ -290,8 +387,10 @@ def invoke(state,operation,args,line=None):
             except (ValueError,runtime.KarelRuntimeError):args[-1].set(2,line);return
             if context.file_pipes is not None and key in context.file_pipes.files:code=3
             else:code=bank.register(args[0],args[1],args[2],reference.spec,args[5],args[6],line)
-        else:code=bank.write_record(state,args[0],reference.spec,reference.raw(),context.files,line)
-    elif operation=='DAQ_START':code=bank.start(*args[:3],context.files,line)
-    elif operation=='DAQ_STOP':code=bank.stop(*args[:2],context.files,line,check=lambda:state.tick(line))
+        else:
+            code=bank.write_record(state,args[0],reference.spec,reference.raw(),files,line,
+                                   check=check,reference=reference)
+    elif operation=='DAQ_START':code=bank.start(*args[:3],files,line)
+    elif operation=='DAQ_STOP':code=bank.stop(*args[:2],files,line,check=check)
     else:code=bank.unregister(args[0],line)
     args[-1].set(code,line)

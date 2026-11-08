@@ -7,7 +7,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from karel2py import runtime as rt,translate_project
+from karel2py import acquisition, fileops, runtime as rt, translate_project
 from karel2py.lexer import TranslationError
 from tests.test_extended_services import compile_program,run
 from tests.test_program_calls import module
@@ -282,6 +282,139 @@ class AcquisitionStreamingTests(unittest.TestCase):
         files=rt.MemoryFiles();ctx=setup(stream=2,files=files);write(ctx,1)
         self.assertEqual(run("DAQ_START(1,DAQ_STREAM,'RD:',s) DAQ_STOP(1,FALSE,s)",context=ctx)['S'],0)
         self.assertEqual(files.snapshot(),{});self.assertEqual(ctx.acquisition.pipes[1]['starts'],1)
+
+
+class AcquisitionPreparationTests(unittest.TestCase):
+    def test_record_leaf_budget_precedes_encoding_without_a_stream(self):
+        ctx=context()
+        task,_=compile_program("DAQ_WRITE(1,'','packet',s)",decl='packet:ARRAY[32] OF INTEGER s:INTEGER',context=ctx)
+        packet=task._state.values['PACKET']
+        packet.values[:]=list(range(32))
+        task._state.values['S']=77
+        bank=ctx.acquisition
+        self.assertEqual(bank.register(1,0,1,packet.spec,'authored.dat',0),0)
+        self.assertEqual(bank.start(1,2,'',None),0)
+        before=bank.to_config()
+        with patch.object(acquisition,'encode',side_effect=AssertionError('Encoded before charging')):
+            with self.assertRaisesRegex(rt.KarelRuntimeError,'step budget'):
+                task.run(max_steps=5)
+        self.assertEqual(task.snapshot()['S'],77)
+        self.assertEqual(bank.to_config(),before)
+        self.assertEqual(task.run()['S'],0)
+        self.assertEqual(bank.read_records(1),struct.pack('<32i',*range(32)))
+
+    def test_pending_copy_budget_preserves_ring_batch_and_status(self):
+        ctx=setup(stream=3,files=rt.MemoryFiles())
+        self.assertEqual(write(ctx,7),0)
+        task,_=compile_program("DAQ_WRITE(1,'','value',s)",decl=DECL,context=ctx)
+        task._state.values.update(VALUE=8,S=77)
+        before=ctx.acquisition.to_config()
+        charge=fileops.charge_file_bytes
+
+        def limit(size,check):
+            self.assertEqual(size,12)  # one encoded record and a two-record batch
+            task._state.max_steps=task._state.steps
+            charge(size,check)
+
+        with patch.object(fileops,'charge_file_bytes',side_effect=limit):
+            with patch.object(acquisition,'encode',side_effect=AssertionError('Encoded before charging')):
+                with self.assertRaisesRegex(rt.KarelRuntimeError,'step budget'):
+                    task.run()
+        self.assertEqual(task.snapshot()['S'],77)
+        self.assertEqual(ctx.acquisition.to_config(),before)
+        self.assertEqual(ctx.files.snapshot(),{})
+
+    def test_snapshot_open_budget_creates_no_view_or_registration(self):
+        ctx=setup(capacity=1,mode='DAQ_SNAPSHT')
+        self.assertEqual(write(ctx,7),0)
+        bank=ctx.acquisition
+        task,_=compile_program("OPEN FILE f('RB','PIP:AUTHORED.DAT')",decl=DECL,context=ctx)
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'step budget'):
+            task.run(max_steps=1)
+        self.assertIsNone(task._state.values['F'].owner)
+        self.assertEqual((bank.readers,bank.handles,bank._view_number),({},[],0))
+        self.assertEqual(bank.snapshot(),{'PIP:AUTHORED.DAT':struct.pack('<i',7)})
+        self.assertTrue(task.run()['F']['open'])
+        bank.close(task._state.values['F'])
+
+    def test_snapshot_open_rejects_ring_replacement_during_charge(self):
+        ctx=setup(capacity=1,mode='DAQ_SNAPSHT')
+        self.assertEqual(write(ctx,7),0)
+        bank=ctx.acquisition
+        task,_=compile_program("OPEN FILE f('RB','PIP:AUTHORED.DAT')",decl=DECL,context=ctx)
+        charge=fileops.charge_file_bytes
+        armed=True
+
+        def replace(size,check):
+            nonlocal armed
+            if armed:
+                armed=False
+                self.assertEqual(write(ctx,9),0)
+            charge(size,check)
+
+        with patch.object(fileops,'charge_file_bytes',side_effect=replace):
+            with self.assertRaisesRegex(rt.KarelRuntimeError,'DAQ pipe changed'):
+                task.run()
+        self.assertEqual((bank.readers,bank.handles,bank._view_number),({},[],0))
+        self.assertIsNone(task._state.values['F'].owner)
+        self.assertEqual(bank.snapshot(),{'PIP:AUTHORED.DAT':struct.pack('<i',9)})
+
+    def test_same_size_write_invalidates_live_read_but_keeps_frozen_read(self):
+        for mode in ('DAQ_STREAM','DAQ_SNAPSHT'):
+            with self.subTest(mode=mode):
+                ctx=setup(capacity=1,mode=mode)
+                self.assertEqual(write(ctx,7),0)
+                bank=ctx.acquisition
+                task,_=compile_program("READ f(a)",decl=DECL,context=ctx)
+                task._state.values['A']=77
+                handle=task._state.values['F']
+                bank.open_for(task._state,handle,'RB','PIP:AUTHORED.DAT')
+                charge=fileops.charge_file_bytes
+                armed=True
+
+                def replace(size,check):
+                    nonlocal armed
+                    if armed:
+                        armed=False
+                        self.assertEqual(write(ctx,9),0)
+                    charge(size,check)
+
+                with patch.object(fileops,'charge_file_bytes',side_effect=replace):
+                    if mode=='DAQ_STREAM':
+                        with self.assertRaisesRegex(rt.KarelRuntimeError,'changed during preparation'):
+                            task.run()
+                        self.assertEqual((task.snapshot()['A'],handle.position),(77,0))
+                        self.assertTrue(bank.readers[handle]['overflow'])
+                        self.assertFalse(bank.pipes[1]['first_read'])
+                    else:
+                        self.assertEqual(task.run()['A'],7)
+                        self.assertEqual(handle.position,4)
+                self.assertEqual(bank.files['PIP:AUTHORED.DAT'],struct.pack('<i',9))
+                bank.close(handle)
+
+    def test_sink_charge_rechecks_ring_before_publishing_batch(self):
+        name='RD:AUTHORED.DAT'
+        prefix=b'x'*8192
+        files=rt.MemoryFiles({name:prefix})
+        ctx=setup(stream=2,files=files)
+        self.assertEqual(write(ctx,7),0)
+        bank=ctx.acquisition
+        task,_=compile_program("DAQ_WRITE(1,'','value',s)",decl=DECL,context=ctx)
+        task._state.values.update(VALUE=8,S=77)
+        charge=fileops.charge_file_bytes
+
+        def consume(size,check):
+            if size==len(prefix)+8:
+                self.assertEqual(bank.read_records(1),struct.pack('<i',7))
+            charge(size,check)
+
+        with patch.object(fileops,'charge_file_bytes',side_effect=consume):
+            with self.assertRaisesRegex(rt.KarelRuntimeError,'DAQ pipe changed'):
+                task.run()
+        self.assertEqual(task.snapshot()['S'],77)
+        self.assertEqual(bank.files['PIP:AUTHORED.DAT'],b'')
+        self.assertEqual(bank.pipes[1]['pending'],struct.pack('<i',7))
+        self.assertEqual(files.snapshot(),{name:prefix})
 
 
 class AcquisitionPersistenceAndScopeTests(unittest.TestCase):
