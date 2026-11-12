@@ -107,6 +107,7 @@ class SerialStreams:
             raise runtime.KarelRuntimeError('Malformed serial FILE attributes',line)
         handle.name=key;handle.logical_name=key;handle.mode=mode;handle.binary=binary
         handle.position=0;handle.status=0;handle.owner=self;handle.xml_session=None
+        handle._text_cr=None
         self._open[id(handle)]=(handle,key,mode,binary,handle.reverse,handle.field,handle.eol)
         self.handles.append(handle)
 
@@ -178,6 +179,7 @@ class SerialStreams:
         if handle.position:del self.files[handle.name][:handle.position]
         self._open.pop(id(handle));self.handles=[item for item in self.handles if item is not handle]
         handle.owner=None;handle.position=0;handle.xml_session=None
+        handle._text_cr=None
 
     def read_items(self,state,handle,targets,line=None,*,line_breaks=(),formats=None):
         """Opt-in cooperative READ, retaining the exact finite parser by default."""
@@ -213,6 +215,8 @@ class SerialStreams:
                     values, offset = result
                     request.publish(state, values)
                     handle.position = start + offset
+                    if handle.binary:handle._text_cr=None
+                    else:handle._finish_text_read(raw,offset)
                     handle.status = 0
                     return
                 if row['final']:

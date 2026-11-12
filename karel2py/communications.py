@@ -149,12 +149,12 @@ class StreamRead:
             raise runtime.KarelRuntimeError(
                 'Text ' + self.transport.lower() + ' FILE requires ASCII data', self.line,
             ) from exc
-        reader = runtime.TextInput(text, terminator=handle.eol, field_mode=handle.field, final=final)
+        reader, skip = handle._text_reader(text, final=final)
         try:
             values = reader(self.request)
         except runtime.TextInputIncomplete:
             return None
-        return values, reader.offset
+        return values, skip + reader.offset
 
     def publish(self, state, values):
         previous = state._read
@@ -294,6 +294,7 @@ class Messaging(MemoryFiles):
         if not all(row[name] for name in ('mounted','available','connected')):fail('Offline socket endpoint is disconnected',line)
         handle.name,handle.mode,handle.owner,handle.binary=key,mode,self,binary
         handle.logical_name=key;handle.position=0;handle.status=0;self.handles.append(handle)
+        handle._text_cr=None
 
     def require_idle(self, handle, line=None, *, reading=False):
         if id(handle) in self._pending:
@@ -418,6 +419,8 @@ class Messaging(MemoryFiles):
                     request.publish(state, values)
                     handle.position = record.position + offset
                     self.after_read(handle, record.position, line)
+                    if handle.binary:handle._text_cr=None
+                    else:handle._finish_text_read(raw,offset)
                     handle.status = 0
                     return
                 if row['final']:
@@ -543,12 +546,14 @@ class FilePipes(MemoryFiles):
                 if other.name==key:
                     end=0 if other._pipe_snapshot_end is not None else None
                     self._move_reader(other,0,end,other._pipe_overflowed)
+                    other._text_cr=None
                     other._pipe_version=object()
         handle.name,handle.mode,handle.owner,handle.binary=key,mode,self,binary
         handle.logical_name=key;handle.position=0;handle.status=0
         handle._pipe_snapshot_end=len(self.files[key]) if wait==0 else None
         handle._pipe_overflowed=False;handle._pipe_advance=advance
         handle._pipe_version=object()
+        handle._text_cr=None
         self.handles.append(handle)
 
     def _reader_binding(self,handle):
@@ -623,6 +628,7 @@ class FilePipes(MemoryFiles):
                 if other.name!=handle.name:continue
                 other._pipe_version=object()
                 if not dropped:continue
+                continuation=other._text_cr_pending()
                 lost=other.position<dropped
                 position=max(0,other.position-dropped)
                 end=other._pipe_snapshot_end
@@ -633,6 +639,8 @@ class FilePipes(MemoryFiles):
                     if advance is None or advance==-1:overflowed=True
                     else:position=min(advance,len(buffer))
                 self._move_reader(other,position,end,overflowed)
+                other._text_cr=None
+                if continuation and not lost and not overflowed:other._bind_text_cr()
         handle.status=0
 
     def feed(self,name,data):
@@ -709,7 +717,7 @@ class FilePipes(MemoryFiles):
         position=rt().integer(position,line)
         if position==-1:position=end
         if not 0<=position<=end:return 2
-        handle.position=position;return 0
+        handle.position=position;handle._text_cr=None;return 0
 
     def close(self,handle,line=None):
         if id(handle) in self._reads:fail('Pipe FILE has an active READ; cancel it before CLOSE',line)
@@ -759,6 +767,8 @@ class FilePipes(MemoryFiles):
                     values, offset = result
                     request.publish(state, values)
                     handle.position = start + offset
+                    if handle.binary:handle._text_cr=None
+                    else:handle._finish_text_read(raw,offset)
                     handle.status = 0
                     return
                 if not waiting:

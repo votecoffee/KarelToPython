@@ -8,6 +8,10 @@ Translate a supported subset of FANUC KAREL into Python modules with a checked
 offline runtime and practical Python numeric equivalents. Unsupported syntax produces explicit
 diagnostics or runtime errors. The translator does not connect to a robot.
 
+[Text FILE reads](docs/communications.md#fragmented-text-records) preserve CRLF
+record boundaries across separate host feeds on pipes, sockets and serial
+streams. Cancellation and failed reads retain the complete unread prefix.
+
 [Table editors](docs/table-controls.md#enumeration-keys) now support
 function-key choices and scrollable submenus. Dictionary formatting and
 headless editors also accept [explicit system paths](docs/text-dictionaries.md#plain-and-formatted-reads).
@@ -401,7 +405,7 @@ existing collision, busy-file, quota and publication checks remain active.
 and RENAME_FILE reuse matched characters in their destination filenames.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1108.041442**. It is a
+tool are named **karel2py**. The current implementation is **26.1112.213252**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents

@@ -1335,9 +1335,30 @@ class FileHandle:
         self.passall=False;self.noecho=False
         self.pipe_wait=None;self.pipe_overflow=None
         self._read_operation=None;self._write_operation=None
+        self._text_cr=None
     def require_open(self,line=None):
         if self.owner is None: fail('FILE is not open',line)
     def tell(self,line=None): self.require_open(line); return self.position
+
+    def _text_cr_pending(self):
+        mark=self._text_cr
+        return (mark is not None and mark[0] is self.owner and mark[1]==self.name
+                and mark[2] is self.owner.files.get(self.name) and mark[3]==self.position
+                and mark[4]==self.eol and self.eol in (10,13) and not self.binary)
+
+    def _bind_text_cr(self):
+        self._text_cr=(self.owner,self.name,self.owner.files[self.name],self.position,self.eol)
+
+    def _text_reader(self,text,*,final=True):
+        # A prior successful READ may have consumed CR before its LF arrived.
+        skip=int(self._text_cr_pending() and text.startswith('\n'))
+        return runtime().TextInput(text[skip:],terminator=self.eol,field_mode=self.field,final=final),skip
+
+    def _finish_text_read(self,raw,offset):
+        if offset:
+            self._text_cr=None
+            if self.eol in (10,13) and offset==len(raw) and raw[offset-1]==13:
+                self._bind_text_cr()
 
 
 def binary_format(kind,formats,line=None):
@@ -1445,14 +1466,17 @@ def file_read(state,handle,targets,line=None,*,line_breaks=(),formats=None):
         raw=bytes(memoryview(data)[start:read_end])
         try: text=raw.decode('ascii')
         except UnicodeDecodeError: fail('Text FILE requires ASCII data',line)
-        reader=rt.TextInput(text,terminator=handle.eol,field_mode=handle.field); previous=state._read
+        reader,skip=handle._text_reader(text); previous=state._read
         try:
             state._read=reader; state.read_items(targets,line,line_breaks=line_breaks,formats=formats)
         except Exception:
             handle.status=1; raise
         finally: state._read=previous
-        handle.position=start+reader.offset
+        offset=skip+reader.offset
+        handle.position=start+offset
     if type(handle.owner) in (rt.Acquisition,rt.Messaging):handle.owner.after_read(handle,start,line)
+    if handle.binary:handle._text_cr=None
+    else:handle._finish_text_read(raw,offset)
     handle.status=0
 
 
@@ -1487,9 +1511,10 @@ class MemoryFiles:
         handle.logical_name=None
         handle.position=len(self.files[name]) if mode=='A' else 0; handle.status=0
         handle.xml_session=None
+        handle._text_cr=None
         self.handles.append(handle)
     def close(self,handle,line=None):
-        handle.require_open(line); handle.owner=None;handle.xml_session=None
+        handle.require_open(line); handle.owner=None;handle.xml_session=None;handle._text_cr=None
         self.handles=[item for item in self.handles if item is not handle]
     def _busy(self,name): return any(handle.owner is not None and handle.name==name for handle in self.handles)
     def _write_start(self,handle,current_size,data_size,line):
@@ -3102,7 +3127,7 @@ class ExecutionContext:
             if name=='BYTES_AHEAD': args[1].set(length-handle.position,line); args[2].set(0,line); return
             position=length if args[1]==-1 else args[1]
             code=0 if 0<=position<=length else 2
-            if not code: handle.position=position
+            if not code: handle.position=position;handle._text_cr=None
             args[-1].set(code,line); return
         if name=='MIRROR': return mirror(*args,line=line)
         if name=='CHECK_EPOS':

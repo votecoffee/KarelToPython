@@ -1,5 +1,14 @@
 # Changelog
 
+## 26.1112.213252 - 2026-11-12
+
+- Preserve a CRLF separator split across successful text READ requests on
+  pipes, sockets and serial streams, including finite reads after host feeds.
+  Lone CR records still complete immediately.
+- Keep optional LF consumption atomic with the next successful READ. Reset
+  continuation on seek, reopen, truncation or lost pipe input; preserve it when
+  a circular pipe discards only previously consumed history.
+
 ## 26.1108.041442 - 2026-11-08
 
 - Locate text record boundaries on demand. Retain one current record boundary

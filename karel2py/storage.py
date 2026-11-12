@@ -534,6 +534,7 @@ class DirectoryFiles:
         self.flush(handle, line, check=check)
         handle.owner = None
         handle.xml_session = None
+        handle._text_cr = None
         self.handles = [item for item in self.handles if item is not handle]
         self.memory.handles = [item for item in self.memory.handles if item is not handle]
 

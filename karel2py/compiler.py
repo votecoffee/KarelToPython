@@ -6889,9 +6889,10 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         generation='Pythonic FILE READ enables cooperative generation; capture handle/targets/formats once before service waits',
         dispatch='Injected KeyboardInput typed line reads, explicitly opted-in FilePipes waiting/snapshot reads, otherwise existing synchronous FILE backend semantics',
         streaming='TextInput final=False raises TextInputIncomplete for missing bytes/terminators, including CR; complete invalid input fails immediately; final=True preserves ordinary parsing',
+        record_separators='Text FILEs with default EOL or EOL13 absorb one later LF after a successfully consumed trailing CR; only a successful complete next READ consumes it. Successful seek/reopen, truncation or unread pipe loss reset continuation; binary/custom EOL keep their bytes',
         publication='Probe pending input without source writes; validate complete typed responses before target assignment and committed cursor advancement',
         lifetime='Pause retains captured resources; stop/abort/failure unwind pending sessions; close FILEs before context save; no suspended stack or live input restoration',
-        guides=['docs/keyboard-file-read.md','docs/pipe-attributes.md'],controller_validated=False)
+        guides=['docs/keyboard-file-read.md','docs/pipe-attributes.md','docs/communications.md#fragmented-text-records'],controller_validated=False)
     report['file_listing_policy']=dict(
         calls=['FILE_LIST'],formats=[0,1,2,3,4],
         selection='Explicit directory-component star/question and globstar patterns follow directory_file_query_policy; otherwise retain backend wildcard/device rules; sorted complete keys, nonnegative skip and one-dimensional STRING output capacity',

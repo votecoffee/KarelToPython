@@ -5,6 +5,33 @@ Pythonic mode implements `MSG_CONNECT`, `MSG_DISCO`, `MSG_PING` and
 socket tags and plain `PIP:` names to those services. No host socket, DNS lookup,
 operating-system ping or controller connection is created.
 
+## Fragmented text records
+
+Text FILE input treats LF, CR and CRLF as record separators under the default
+EOL setting or EOL 13. A lone CR completes a record immediately. If a successful
+READ consumes a trailing CR and the next host feed starts with LF, the same
+open FILE absorbs that one LF as the completion of the previous separator.
+For example, separate feeds `discard\r` and `\nnext\r\n`, read with
+`READ f(CR)` followed by `READ f(value,CR)`, produce `next`.
+
+This chosen Pythonic rule applies to socket, plain PIP and
+[serial](serial-streams.md) FILEs, including finite reads after explicit host
+appends. Fixed-width and quoted fields use the same continuation. An additional
+LF remains a blank record; a custom EOL preserves LF as data. Binary reads keep
+every byte. No producer timing or controller parser equivalence is implied.
+
+The optional LF is consumed only when the entire next READ succeeds. An LF-only
+fragment keeps a waiting request pending. Cancellation, invalid input and EOF
+before the required fields leave the LF and destinations unchanged. Byte
+accounting includes the LF before parsing or publication. No extra record is
+invented when EOF follows that LF.
+
+Continuation belongs to the current open handle, byte buffer, cursor and EOL.
+A successful seek, reopen, pipe truncation or loss of unread circular data
+resets it. Unsupported or failed seeks preserve it. Dropping only already
+consumed pipe history adjusts the saved cursor and preserves the separator.
+The continuation is transient; it is never saved in context JSON.
+
 ## Socket messaging
 
 ```python
