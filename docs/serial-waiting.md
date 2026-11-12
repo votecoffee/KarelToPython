@@ -109,6 +109,16 @@ SET_FILE_POS remains unsupported with portable status 2. Handle ownership,
 registration identity, attributes, wait policy and unchanged starting cursor are
 validated before each retry. No automatic reopening or cursor repair occurs.
 
+Pending reads retain their original calling root, open registration, port row,
+RX/TX buffers, registry mappings and port/bank capacities across polls and pauses.
+Replacing one of those objects or changing a captured limit rejects the read
+before any destination or cursor publication. Cancellation checks the same
+binding before setting its cancellation flag. Source replacements are never
+silently adopted; foreign or replaced pending slots are left reserved on unwind.
+Ordinary feeds append to the original RX buffer, finalization updates its EOF
+flag, and host TX drains retain the same outbox object, so those operations remain
+available within their existing bounds.
+
 ## Persistence and boundaries
 
 Live serial handles prevent context serialization, including after a stopped

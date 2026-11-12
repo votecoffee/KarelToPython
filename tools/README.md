@@ -20,6 +20,18 @@ displays it in the title, header and About dialog.
 
 ## Public checks
 
+Routine iterations use targeted tests for affected behavior and a relevant CLI
+smoke check. For serial input changes, for example:
+
+```sh
+python -m unittest tests.test_serial_read_binding tests.test_serial_waits
+python -m karel2py examples/serial_streams.kl --check
+```
+
+Run the full checks below about every 20 implementation iterations, or sooner
+when scope/risk warrants it. Track progress in ignored `.local/` and report
+which checks actually ran. A focused result is not a full-suite result.
+
 ```sh
 python -m unittest discover -s tests
 python tools/run_examples.py

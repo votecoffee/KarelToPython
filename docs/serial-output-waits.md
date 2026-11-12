@@ -49,7 +49,8 @@ start a wait.
 
 A complete payload must fit beside the port's retained RX within its port/bank
 limits even after TX is drained. Impossible payloads fail before waiting. Consumed
-RX still counts until ordinary CLOSE; no new input reclamation is added. Port
+RX still counts until CLOSE by default. Opted-in [input reclamation](serial-streams.md#reclaiming-consumed-input)
+can free consumed RX before a later WRITE; a blocked WRITE itself never reclaims RX. Port
 and whole-bank availability are checked before one complete append, with no
 partial write, ring truncation, extra output observation or RX cursor advance.
 

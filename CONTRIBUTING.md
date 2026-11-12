@@ -9,6 +9,20 @@ Use Python 3.11 or later. From the repository root:
 
 ```sh
 python -m pip install -e .
+```
+
+Use targeted tests and a relevant CLI smoke check for routine changes, such as:
+
+```sh
+python -m unittest tests.test_serial_read_binding tests.test_serial_waits
+python -m karel2py examples/serial_streams.kl --check
+```
+
+Run the broader checks about every 20 implementation iterations, or earlier for
+changes whose scope or risk warrants them. Keep a local cadence record in
+ignored `.local/` and distinguish focused checks from a full validation run:
+
+```sh
 python -m unittest discover -s tests
 python tools/run_examples.py
 python tools/check_repository.py

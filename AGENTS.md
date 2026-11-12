@@ -14,8 +14,12 @@
 - Do not copy proprietary source into tests. Use small authored synthetic fixtures.
 - Preserve the distinction between translation acceptance, offline execution,
   compiler evidence and controller-runtime behavior.
-- Run `python -m unittest discover -s tests`, `python tools/run_examples.py`, and
-  `python tools/check_repository.py` for implementation or layout changes.
+- Routine iterations use targeted tests for affected behavior and a relevant
+  CLI smoke check. Run the full suite, all examples and repository checks about
+  every 20 implementation iterations, or sooner when scope/risk warrants it:
+  `python -m unittest discover -s tests`, `python tools/run_examples.py`, and
+  `python tools/check_repository.py`. Track the cadence in ignored `.local/`;
+  keep validation reports clear about focused versus full coverage.
 - Routine conversion checks use the CLI and open no GUI windows. Native GUI
   tests require explicit `KAREL2PY_GUI_TESTS=1`; use them only for GUI work or
   an explicitly requested desktop check. Keep package acceptance window-free.

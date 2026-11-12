@@ -5044,15 +5044,13 @@ def _validate_file_read(handle,operation,line=None):
     if finite is not None and (type(finite) is not tuple or len(finite)!=2 or type(owner) not in (SerialStreams,Messaging)):
         raise KarelRuntimeError('Finite FILE READ registration changed',line)
     if type(owner) is SerialStreams:
-        pending=owner._pending.get(id(handle));registration=owner._open.get(id(handle))
-        row=owner._active(handle,line,reading=True)
         if finite is not None:
+            registration=owner._open.get(id(handle))
+            row=owner._active(handle,line,reading=True)
             if (finite[0] is not registration or finite[1] is not row or row['wait'] is not False
                     or id(handle) in owner._pending):
                 raise KarelRuntimeError('Finite serial READ registration changed',line)
-        elif (type(pending) is not tuple or len(pending)!=3 or pending[0] is not state
-                or pending[1] is not registration or pending[2]!=operation['position']):
-            raise KarelRuntimeError('Serial pending READ registration changed',line)
+        else:owner.validate_read(handle,state,line)
     if type(owner) is Messaging:
         if finite is not None:
             row=owner.connected(handle,line)

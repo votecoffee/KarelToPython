@@ -1,5 +1,13 @@
 # Changelog
 
+## 26.1112.221401 - 2026-11-12
+
+- Keep waiting serial READs on their original buffers, port registration,
+  calling root and capacities across polls and pauses. Reject replacement
+  sources before input publication or cancellation, retaining foreign slots.
+- Use targeted tests and CLI smoke checks for routine iterations; run broader
+  validation about every 20 iterations or sooner when scope/risk warrants it.
+
 ## 26.1112.215507 - 2026-11-12
 
 - Add per-port serial `reclaim_input` opt-in. Successful finite and waiting READs

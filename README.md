@@ -8,6 +8,10 @@ Translate a supported subset of FANUC KAREL into Python modules with a checked
 offline runtime and practical Python numeric equivalents. Unsupported syntax produces explicit
 diagnostics or runtime errors. The translator does not connect to a robot.
 
+[Waiting serial reads](docs/serial-waiting.md#scheduling-and-cancellation) now
+retain their original buffers and port registrations across waits and pauses.
+Replacing a pending source rejects the read before publishing input.
+
 [Persistent serial readers](docs/serial-streams.md#reclaiming-consumed-input)
 can opt into reclaiming consumed input after each successful READ, allowing
 repeated host feeds within a bounded receive buffer without reopening the FILE.
@@ -409,7 +413,7 @@ existing collision, busy-file, quota and publication checks remain active.
 and RENAME_FILE reuse matched characters in their destination filenames.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1112.215507**. It is a
+tool are named **karel2py**. The current implementation is **26.1112.221401**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -1333,7 +1337,16 @@ and acceptance criteria.
 
 ## Development
 
-Run from the repository root:
+For routine iterations, run affected test modules and a relevant CLI smoke check
+from the repository root. For example, when changing serial reads:
+
+```sh
+python -m unittest tests.test_serial_read_binding tests.test_serial_waits
+python -m karel2py examples/serial_streams.kl --check
+```
+
+Run the broader checks about every 20 implementation iterations, or sooner when
+the change's scope or risk warrants it:
 
 ```sh
 python -m unittest discover -s tests

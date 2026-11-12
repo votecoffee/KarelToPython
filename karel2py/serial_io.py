@@ -1,5 +1,6 @@
 """Explicit offline serial byte streams; never open host devices."""
 import re
+from dataclasses import dataclass
 from .communications import StreamRead, data_bytes
 
 
@@ -26,6 +27,24 @@ def endpoint_name(value):
     if type(value) is not str or not re.fullmatch(r'P[1-5]:',value.upper()):
         raise ValueError('Serial FILE requires exactly P1: through P5: without a suffix')
     return value.upper()
+
+
+@dataclass(frozen=True, slots=True)
+class _SerialRead:
+    state: object
+    root: object
+    registration: tuple
+    position: int
+    token: object
+    port: dict
+    rx: bytearray
+    tx: bytearray
+    capacity: int
+    limit: int
+    pending: dict
+    ports: dict
+    files: dict
+    opened: dict
 
 
 class SerialStreams:
@@ -194,6 +213,27 @@ class SerialStreams:
         handle.owner=None;handle.position=0;handle.xml_session=None
         handle._text_cr=None
 
+    def validate_read(self,handle,state,line=None,*,expected=None):
+        runtime=rt()
+        record=self._pending.get(id(handle))
+        if (type(record) is not _SerialRead or expected is not None and record is not expected
+                or record.state is not state or record.root is not runtime.task_root(state)
+                or self._pending is not record.pending or self.ports is not record.ports
+                or self.files is not record.files or self._open is not record.opened
+                or self._open.get(id(handle)) is not record.registration
+                or handle._read_operation is not record.token):
+            raise runtime.KarelRuntimeError('Serial pending READ registration changed',line)
+        if type(handle.position) is not int or handle.position!=record.position:
+            raise runtime.KarelRuntimeError('Serial pending READ cursor changed',line)
+        row=self._active(handle,line,reading=True)
+        if (row is not record.port or self.files.get(handle.name) is not record.rx
+                or row['output'] is not record.tx
+                or type(row['capacity']) is not int or row['capacity']!=record.capacity
+                or type(self.limit) is not int or self.limit!=record.limit or not row['wait']
+                or not any(item is handle for item in self.handles)):
+            raise runtime.KarelRuntimeError('Serial pending READ source or capacity changed',line)
+        return row
+
     def read_items(self,state,handle,targets,line=None,*,line_breaks=(),formats=None):
         """Opt-in cooperative READ, retaining the exact finite parser by default."""
         runtime=rt();row=self._active(handle,line,reading=True)
@@ -205,22 +245,18 @@ class SerialStreams:
         start = handle.position
         if start + request.minimum_bytes(may_finalize=True) > row['capacity']:
             raise runtime.KarelRuntimeError('Atomic serial READ exceeds retained receive capacity', line)
-        registration=self._open[id(handle)];pending=(state,registration,start)
+        pending=_SerialRead(state,runtime.task_root(state),self._open[id(handle)],start,handle._read_operation,
+                            row,self.files[handle.name],row['output'],row['capacity'],self.limit,
+                            self._pending,self.ports,self.files,self._open)
         self._pending[id(handle)]=pending
         try:
             while True:
-                row=self._active(handle,line,reading=True)
+                row=self.validate_read(handle,state,line,expected=pending)
                 runtime.check_file_read(handle,line)
-                if (self._pending.get(id(handle)) is not pending or self._open.get(id(handle)) is not registration
-                        or handle.position!=start or not row['wait']):
-                    raise runtime.KarelRuntimeError('Serial pending READ registration or cursor changed',line)
-                retained = self.files[handle.name]
+                retained = pending.rx
 
                 def verify():
-                    if (self._pending.get(id(handle)) is not pending or self._open.get(id(handle)) is not registration
-                            or handle.position != start or self.files.get(handle.name) is not retained
-                            or self._active(handle, line, reading=True) is not row or not row['wait']):
-                        raise runtime.KarelRuntimeError('Serial pending READ source changed during byte accounting', line)
+                    self.validate_read(handle,state,line,expected=pending)
 
                 raw = request.capture(state, handle, retained, start, len(retained) - start, verify)
                 result = request.probe(handle, raw, final=row['final'])
@@ -246,10 +282,12 @@ class SerialStreams:
                 yield from runtime.checkpoint(state,line)
         except GeneratorExit:raise
         except BaseException:
-            if handle.owner is self and self._open.get(id(handle)) is registration:handle.status=1
+            if (handle.owner is self and self._open is pending.opened
+                    and self._open.get(id(handle)) is pending.registration):handle.status=1
             raise
         finally:
-            if self._pending.get(id(handle)) is pending:self._pending.pop(id(handle))
+            if self._pending is pending.pending and self._pending.get(id(handle)) is pending:
+                self._pending.pop(id(handle))
 
     def validate_write(self,handle,record,line=None):
         runtime=rt()
