@@ -54,7 +54,7 @@ class StreamReadBudgetTests(unittest.TestCase):
         self.assertEqual(pending, {})
         self.assertIsNone(handle._read_operation)
 
-    def test_binary_wait_only_accounts_for_complete_requested_prefix(self):
+    def test_binary_wait_captures_prefix_and_budgets_reclamation(self):
         for transport in TRANSPORTS:
             with self.subTest(transport=transport):
                 field = struct.pack('<i', 42)
@@ -78,7 +78,7 @@ class StreamReadBudgetTests(unittest.TestCase):
                     patch.object(StreamRead, 'probe', new=observe),
                 ):
                     self.assertEqual(task.run()['N'], 42)
-                self.assertEqual([call.args[0] for call in charge.call_args_list], [4])
+                self.assertEqual([call.args[0] for call in charge.call_args_list], [len(field)+len(suffix) if transport=='socket' else 4])
                 self.assertEqual(captured, [0, 4])
                 handle = task._state.values['F']
                 self.assertEqual(retained[handle.position:], suffix)

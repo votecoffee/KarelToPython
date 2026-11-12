@@ -89,7 +89,7 @@ preserves that READ's outputs and starting cursor. Failed binary decoding also
 rolls back its tentative byte progress. Default finite input fails immediately at exhaustion. [Opted-in input waits](serial-waiting.md)
 use supplied feeds and explicit drivers; no automatic acquisition is performed.
 
-RX bytes remain physically retained until explicit CLOSE. CLOSE consumes only
+By default, RX bytes remain physically retained until explicit CLOSE. CLOSE consumes only
 the prefix covered by the successful cursor and resets that closed handle's
 cursor to zero. Remaining input survives for the next OPEN. CR bytes are consumed
 only when the ordinary parser consumes them; no extra terminator is stripped.
@@ -107,6 +107,49 @@ lifetime. They do not automatically close the stream or consume pending RX.
 Close the actual live handle before saving its context. No live FILE state or
 suspended input operation is restored from JSON.
 
+## Reclaiming consumed input
+
+Set `reclaim_input=True` on an explicit port to release its consumed RX prefix
+after every successful typed FILE READ. The JSON spelling is
+`"reclaim_input": true`. The default is FALSE and retains close-time consumption.
+This is a Pythonic storage policy, without a native serial behavior claim.
+
+```python
+bank = SerialStreams({
+    2: {"capacity": 2, "input": "1\n", "wait": True, "reclaim_input": True},
+}, limit=2)
+context = ExecutionContext(serial_streams=bank)
+```
+
+A complete `READ channel(value,CR)` releases the two initial bytes, so the host
+can supply `bank.feed(2, "2\n")` while the same FILE remains open. Repeating this
+pattern can process more total data than the port/bank capacity. Each complete
+atomic READ must still fit its capacity. Waiting reads still need an explicit
+sleeper or scheduler; reclamation creates no producer or connection.
+
+Finite and waiting text/binary reads share this policy. The unread suffix and TX
+outbox remain unchanged. A successful read resets GET_FILE_POS to zero relative
+to the remaining RX; BYTES_LEFT/BYTES_AHEAD report that suffix. Separate raw host
+`read_bytes` calls retain their ordinary cursor behavior. CLOSE consumes any
+remaining successfully advanced prefix and never discards the unread suffix.
+
+Reclamation follows whole-request validation and publication. Invalid input,
+incomplete waits, cancellation, stop and exhausted preparation budgets preserve
+the current request's RX and destinations. Earlier completed reads stay consumed.
+Pause retains the captured request. Fragmented CRLF continuation follows the
+same open handle after its cursor resets; see [text record boundaries](communications.md#fragmented-text-records).
+
+Binary reads that reclaim input budget their complete visible RX window before
+decoding or publication: the requested prefix is copied, and the retained suffix
+may move during reclamation. Socket reads use the same accounting. Binary probes
+still capture only their requested bytes. Reads retaining input charge the
+requested binary prefix; text probes already account for their visible snapshot.
+
+The flag must be an actual BOOLEAN, is fixed for an open FILE and round-trips in
+closed context JSON only when enabled. Changing it while a FILE is open rejects
+further operations; restore the original policy before closing that handle.
+Pending operations, cursors and separator state are never serialized.
+
 ## Host queues and bounds
 
 `bank.feed(port,data)` appends explicit input to a configured endpoint, including
@@ -119,10 +162,11 @@ The bank limit defaults to 4 MiB and accepts 1 byte through 64 MiB. Each endpoin
 has a capacity from 1 through the bank limit, defaulting to that limit. A port's
 combined retained RX+TX must fit its capacity, and actual bytes across all ports
 must fit the bank limit. Capacities do not reserve memory in advance. RX that has
-been read but not closed still counts toward capacity. Appends check both budgets
+been read but not reclaimed or closed still counts toward capacity. Appends check both budgets
 before adding any bytes. TX remains bounded until explicitly drained.
 [wait_output](serial-output-waits.md) can suspend newly generated output until the
-complete payload fits; it does not reclaim retained RX or discard old TX.
+complete payload fits; it does not itself reclaim retained RX or discard old TX.
+An earlier successful opted-in READ can free RX space for a later WRITE.
 
 Constructor/configuration data accepts ASCII text, Python bytes, or an exact
 hex object such as `{"hex":"00ff"}`. Saved configuration emits lowercase hex for

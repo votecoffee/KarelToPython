@@ -1,5 +1,15 @@
 # Changelog
 
+## 26.1112.215507 - 2026-11-12
+
+- Add per-port serial `reclaim_input` opt-in. Successful finite and waiting READs
+  release consumed RX bytes, preserve the unread suffix and reset the relative
+  cursor, freeing capacity for later feeds and TX without closing the FILE.
+- Budget retained-suffix movement before reclaiming serial and socket binary
+  reads publish values. Failed, canceled and budget-exhausted reads retain input.
+- Validate finite serial/socket read registrations during preparation and
+  cancellation. Reject changed connections and wait-policy reclassification.
+
 ## 26.1112.213252 - 2026-11-12
 
 - Preserve a CRLF separator split across successful text READ requests on

@@ -5035,18 +5035,31 @@ def _file_identity(handle):
 
 
 def _validate_file_read(handle,operation,line=None):
-    if (type(operation) is not dict or set(operation)!={'identity','position','cancelled','state'}
+    if (type(operation) is not dict or set(operation)!={'identity','position','cancelled','state','finite'}
             or type(operation['cancelled']) is not bool
             or _file_identity(handle)!=operation['identity'] or handle.position!=operation['position']):
         raise KarelRuntimeError('Pending FILE READ identity or cursor changed',line)
     owner=handle.owner;state=operation['state']
+    finite=operation['finite']
+    if finite is not None and (type(finite) is not tuple or len(finite)!=2 or type(owner) not in (SerialStreams,Messaging)):
+        raise KarelRuntimeError('Finite FILE READ registration changed',line)
     if type(owner) is SerialStreams:
         pending=owner._pending.get(id(handle));registration=owner._open.get(id(handle))
-        if (type(pending) is not tuple or len(pending)!=3 or pending[0] is not state
+        row=owner._active(handle,line,reading=True)
+        if finite is not None:
+            if (finite[0] is not registration or finite[1] is not row or row['wait'] is not False
+                    or id(handle) in owner._pending):
+                raise KarelRuntimeError('Finite serial READ registration changed',line)
+        elif (type(pending) is not tuple or len(pending)!=3 or pending[0] is not state
                 or pending[1] is not registration or pending[2]!=operation['position']):
             raise KarelRuntimeError('Serial pending READ registration changed',line)
     if type(owner) is Messaging:
-        owner.validate_pending(handle, state, 'READ', line)
+        if finite is not None:
+            row=owner.connected(handle,line)
+            if (finite[0] is not row or finite[1] is not row['_connection'] or row['wait'] is not False
+                    or id(handle) in owner._pending):
+                raise KarelRuntimeError('Finite socket READ registration changed',line)
+        else:owner.validate_pending(handle, state, 'READ', line)
     if type(owner) is FilePipes and (handle.pipe_wait is not None or handle.pipe_overflow is not None):
         owner.validate_pending_read(handle,state,line)
     if type(owner) is KeyboardInput and not any(job.get('handle') is handle and job['state'] is state for job in owner._active.values()):
@@ -5094,7 +5107,13 @@ def cooperative_file_read(state,handle,targets,line=None,*,line_breaks=(),format
     handle.require_open(line)
     if handle._read_operation is not None:raise KarelRuntimeError('FILE already has a pending READ',line)
     if handle._write_operation is not None:raise KarelRuntimeError('FILE already has a pending WRITE',line)
-    operation=dict(identity=_file_identity(handle),position=handle.position,cancelled=False,state=state)
+    operation=dict(identity=_file_identity(handle),position=handle.position,cancelled=False,state=state,finite=None)
+    if type(handle.owner) is SerialStreams:
+        row=handle.owner._active(handle,line,reading=True)
+        if not row['wait']:operation['finite']=(handle.owner._open[id(handle)],row)
+    elif type(handle.owner) is Messaging:
+        row=handle.owner.connected(handle,line)
+        if not row['wait']:operation['finite']=(row,row['_connection'])
     handle._read_operation=operation
     try:
         return (yield from _dispatch_file_read(state,handle,targets,line,line_breaks=line_breaks,formats=formats))

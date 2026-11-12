@@ -1418,6 +1418,9 @@ def file_read(state,handle,targets,line=None,*,line_breaks=(),formats=None):
                 and (reader_matches is None or reader_matches()))
 
     def check(position):
+        if type(owner) is rt.SerialStreams:owner._active(handle,line,reading=True)
+        if operation is not None and operation['finite'] is not None and position==start:
+            rt._validate_file_read(handle,operation,line)
         if not matches() or handle.position!=position:
             fail('FILE READ identity, data or cursor changed during preparation',line)
         if operation is not None and operation['cancelled']:
@@ -1434,7 +1437,8 @@ def file_read(state,handle,targets,line=None,*,line_breaks=(),formats=None):
             handle.status=1
             raise
         length=sum(width for width,_ in fields)
-        charge_file_bytes(length,charge)
+        reclaim=type(owner) in (rt.Messaging,rt.SerialStreams) and owner._reclaims_input(handle,line)
+        charge_file_bytes(max(length,size-start) if reclaim else length,charge)
         check(start)
         end=start+length
         try:
@@ -1474,7 +1478,7 @@ def file_read(state,handle,targets,line=None,*,line_breaks=(),formats=None):
         finally: state._read=previous
         offset=skip+reader.offset
         handle.position=start+offset
-    if type(handle.owner) in (rt.Acquisition,rt.Messaging):handle.owner.after_read(handle,start,line)
+    if type(handle.owner) in (rt.Acquisition,rt.Messaging,rt.SerialStreams):handle.owner.after_read(handle,start,line)
     if handle.binary:handle._text_cr=None
     else:handle._finish_text_read(raw,offset)
     handle.status=0
@@ -1491,6 +1495,7 @@ class MemoryFiles:
     def _check(self,name,data):
         runtime().ascii_string(name)
         if not name or len(name)>254 or len(data)>self.limit: fail('Invalid memory file name or file size limit')
+    def _reclaims_input(self,handle,line=None):return False
     @staticmethod
     def _access_mode(handle,mode,line):
         mode=runtime().ascii_string(mode,line).upper()

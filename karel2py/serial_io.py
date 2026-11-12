@@ -39,7 +39,7 @@ class SerialStreams:
         self.limit=limit;self.ports={};self.files={};self.handles=[];self._open={};self._pending={};self._writes={}
         for port,row in ports.items():
             port=port_number(port)
-            if type(row) is not dict or set(row)-{'capacity','input','output','wait','final','wait_output'}:
+            if type(row) is not dict or set(row)-{'capacity','input','output','wait','final','wait_output','reclaim_input'}:
                 raise ValueError('Unknown serial stream fields')
             capacity=row.get('capacity',limit)
             if type(capacity) is not int or not 1<=capacity<=limit:
@@ -49,9 +49,12 @@ class SerialStreams:
                 raise ValueError('Serial wait/final require BOOLEANs; finite ports must be final')
             wait_output=row.get('wait_output',False)
             if type(wait_output) is not bool:raise ValueError('Serial wait_output requires BOOLEAN')
+            reclaim_input=row.get('reclaim_input',False)
+            if type(reclaim_input) is not bool:raise ValueError('Serial reclaim_input requires BOOLEAN')
             incoming=data_bytes(row.get('input',b''),capacity)
             outgoing=data_bytes(row.get('output',b''),capacity-len(incoming))
-            self.ports[port]=dict(capacity=capacity,output=bytearray(outgoing),wait=wait,final=final,wait_output=wait_output)
+            self.ports[port]=dict(capacity=capacity,output=bytearray(outgoing),wait=wait,final=final,
+                                  wait_output=wait_output,reclaim_input=reclaim_input)
             self.files[f'P{port}:']=bytearray(incoming)
         if self.used()>limit:raise ValueError('Combined serial input/output exceeds bank limit')
 
@@ -108,7 +111,7 @@ class SerialStreams:
         handle.name=key;handle.logical_name=key;handle.mode=mode;handle.binary=binary
         handle.position=0;handle.status=0;handle.owner=self;handle.xml_session=None
         handle._text_cr=None
-        self._open[id(handle)]=(handle,key,mode,binary,handle.reverse,handle.field,handle.eol)
+        self._open[id(handle)]=(handle,key,mode,binary,handle.reverse,handle.field,handle.eol,self.ports[port]['reclaim_input'])
         self.handles.append(handle)
 
     def open(self,handle,mode,name,line=None):return self.open_for(None,handle,mode,name,line)
@@ -116,7 +119,7 @@ class SerialStreams:
     def _active(self,handle,line=None,*,reading=False):
         runtime=rt();record=self._open.get(id(handle))
         if (type(handle) is not runtime.FileHandle or record is None or record[0] is not handle or handle.owner is not self
-                or (handle.name,handle.mode,handle.binary,handle.reverse,handle.field,handle.eol)!=record[1:]
+                or (handle.name,handle.mode,handle.binary,handle.reverse,handle.field,handle.eol)!=record[1:7]
                 or handle.logical_name!=record[1]):
             raise runtime.KarelRuntimeError('Serial FILE is closed, foreign, stale or has changed endpoint metadata',line)
         if (any(type(value) is not bool for value in (handle.binary,handle.reverse,handle.field,handle.xml,
@@ -133,7 +136,17 @@ class SerialStreams:
         if type(row['wait']) is not bool or type(row['final']) is not bool or not row['wait'] and not row['final']:
             raise runtime.KarelRuntimeError('Serial wait/final policy is invalid',line)
         if type(row['wait_output']) is not bool:raise runtime.KarelRuntimeError('Serial wait_output policy is invalid',line)
+        if len(record)!=8 or type(row['reclaim_input']) is not bool or row['reclaim_input'] is not record[7]:
+            raise runtime.KarelRuntimeError('Serial reclaim_input policy changed or is invalid',line)
         return row
+
+    def _reclaims_input(self,handle,line=None):
+        return self._active(handle,line,reading=True)['reclaim_input']
+
+    def after_read(self,handle,start,line=None):
+        if self._reclaims_input(handle,line) and handle.position:
+            del self.files[handle.name][:handle.position]
+            handle.position=0
 
     def before_read(self,handle,line=None):
         self._active(handle,line,reading=True)
@@ -215,6 +228,7 @@ class SerialStreams:
                     values, offset = result
                     request.publish(state, values)
                     handle.position = start + offset
+                    self.after_read(handle,start,line)
                     if handle.binary:handle._text_cr=None
                     else:handle._finish_text_read(raw,offset)
                     handle.status = 0
@@ -297,14 +311,16 @@ class SerialStreams:
 
     def snapshot(self):
         return {port:dict(capacity=row['capacity'],input=bytes(self.files[f'P{port}:']),output=bytes(row['output']),
-                **(dict(wait=True,final=row['final'])if row['wait']else{}),**(dict(wait_output=True)if row['wait_output']else{}))
+                **(dict(wait=True,final=row['final'])if row['wait']else{}),**(dict(wait_output=True)if row['wait_output']else{}),
+                **(dict(reclaim_input=True)if row['reclaim_input']else{}))
             for port,row in sorted(self.ports.items())}
 
     def to_config(self):
         if self._open or self.handles:raise ValueError('Close live serial FILEs before saving context')
         return dict(limit=self.limit,ports={str(port):dict(capacity=row['capacity'],
             input={'hex':self.files[f'P{port}:'].hex()},output={'hex':row['output'].hex()},
-            **(dict(wait=True,final=row['final'])if row['wait']else{}),**(dict(wait_output=True)if row['wait_output']else{}))for port,row in sorted(self.ports.items())})
+            **(dict(wait=True,final=row['final'])if row['wait']else{}),**(dict(wait_output=True)if row['wait_output']else{}),
+            **(dict(reclaim_input=True)if row['reclaim_input']else{}))for port,row in sorted(self.ports.items())})
 
     @classmethod
     def from_config(cls,config):

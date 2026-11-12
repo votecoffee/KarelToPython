@@ -8,6 +8,10 @@ Translate a supported subset of FANUC KAREL into Python modules with a checked
 offline runtime and practical Python numeric equivalents. Unsupported syntax produces explicit
 diagnostics or runtime errors. The translator does not connect to a robot.
 
+[Persistent serial readers](docs/serial-streams.md#reclaiming-consumed-input)
+can opt into reclaiming consumed input after each successful READ, allowing
+repeated host feeds within a bounded receive buffer without reopening the FILE.
+
 [Text FILE reads](docs/communications.md#fragmented-text-records) preserve CRLF
 record boundaries across separate host feeds on pipes, sockets and serial
 streams. Cancellation and failed reads retain the complete unread prefix.
@@ -405,7 +409,7 @@ existing collision, busy-file, quota and publication checks remain active.
 and RENAME_FILE reuse matched characters in their destination filenames.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1112.213252**. It is a
+tool are named **karel2py**. The current implementation is **26.1112.215507**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents

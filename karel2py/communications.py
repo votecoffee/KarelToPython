@@ -106,7 +106,9 @@ class StreamRead:
             return b''  # No binary fields can be probed until all bytes arrive.
         size = available if self.widths is None else self.field_bytes
         token = handle._read_operation
-        charge_file_bytes(size, lambda: state.tick(self.line))
+        # Reclaiming a prefix also moves the retained suffix after publication.
+        charged = available if handle.owner._reclaims_input(handle,self.line) else size
+        charge_file_bytes(charged, lambda: state.tick(self.line))
         if handle._read_operation is not token:
             fail(self.transport + ' pending READ source token changed', self.line)
         rt().check_file_read(handle, self.line)
@@ -322,6 +324,8 @@ class Messaging(MemoryFiles):
 
     def after_read(self,handle,start,line=None):
         if handle.position:del self.files[handle.name][:handle.position];handle.position=0
+
+    def _reclaims_input(self,handle,line=None):return True
 
     def write(self,handle,data,line=None):
         self.require_idle(handle, line)
