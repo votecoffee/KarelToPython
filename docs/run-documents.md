@@ -36,6 +36,13 @@ a new document. Run only trusted generated Python: this is ordinary Python
 execution with the current account's permissions, not a sandbox or code
 authenticity check. Metadata inspection does not establish that code is safe.
 
+`refresh source.run.json new.run.json [--target converted-v2.py]` prepares a new
+document from the source's edited inputs and preserved limits. It rediscovers
+the selected target, retains compatible values and records input/schema changes.
+The original and its results remain intact; the new result section is null.
+See [refreshing inputs](input-discovery.md#refresh-edited-inputs) for migration,
+provenance and unresolved-running-marker behavior.
+
 No GUI is opened. The CLI process runs synchronously; a future GUI worker can
 use the shared service. `--version` displays the same fixed application version
 as the translator and project CLIs.
@@ -118,6 +125,8 @@ WRITE text is retained in the document.
 `karel2py.runner.make_document` inspects without publication.
 `create_document(target, destination, context=...)` creates a new document;
 both accept `discover=True` for optional input preparation.
+`refresh_document(source, destination, target=...)` rediscovers into a new
+document, preserving compatible inputs without executing the target.
 `run_document(path)` executes and returns the saved document. API preflight or
 publication errors raise `RunDocumentError` or a filesystem error. Run documents
 and generated modules belong outside tracked public source or in ignored `.local/`.

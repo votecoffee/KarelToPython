@@ -106,6 +106,64 @@ checked against the run document's pin during preparation; stale annotation
 envelopes are rejected before running. Inputs and annotations survive failures
 and replay unchanged. Preparation still never imports or executes the target.
 
+## Refresh edited inputs
+
+```console
+python -m karel2py.runner refresh .local/editable.run.json .local/refreshed.run.json
+python -m karel2py.runner refresh .local/editable.run.json .local/refreshed-v2.run.json --target .local/converted-v2.py
+```
+
+Refresh always creates a new run document. It reads `inputs.context`, preserves
+the execution limits, pins the selected Python and starts with `results: null`.
+It never uses final results as new inputs or imports/executes the target. The
+original document, edited values and results remain intact. By default it reads
+the saved target path, even if that Python has been regenerated. `--target`
+selects a different module and can be used when the old Python is unavailable.
+
+The refreshed `inputs.template` recomputes binding status and requirements from
+the edited context. Its `refresh` section lists added, removed, changed and
+retained source inputs. Source locations and binding status alone do not count
+as an input-schema change. A changed type, root schema or certainty does.
+Old context-only documents are supported, with `baseline_known: false` because
+their prior source input catalog is unavailable.
+
+`comparison_complete` requires complete catalogs on both sides. An entry missing
+from incomplete current discovery is an unresolved comparison, rather than a
+proven removal. An entry absent from an unknown/incomplete prior catalog is
+similarly unproven as an addition. These appear in `refresh.changes.unresolved`,
+separately from current discovery gaps. Retained context is preserved in either case.
+
+Exact-schema roots retain their original values, spelling and representation.
+Changed roots receive a checked new shape, then copy compatible data:
+
+| Changed storage | Values retained |
+| --- | --- |
+| Same nominal STRUCTURE | Matching field names, recursively checked by type. |
+| ARRAY | Overlapping logical coordinates when physical rank and ARRAY identity match; nested named components follow the same rule. |
+| JOINTPOS | Common axis indexes; additional axes remain missing. |
+| STRING capacity | An existing string that fits the new capacity; no truncation during migration. |
+| Other scalar/kind/name changes | Missing markers, with the old value retained in the original document. |
+
+New fields/cells remain missing. Removed inputs and unrelated context bindings,
+services, bank capacities, values and comments are retained. A changed root's new
+row carries its new schema; prior creation metadata remains in the original
+document. No variable-owner rename, numeric conversion, bank allocation or robot
+model is inferred. Unsupported schemas and storage limits remain explicit.
+
+Root migration rows report preserved/missing leaf counts, the old source value
+pointer and the new context pointer. Source pointers address the original whole
+run document; context pointers are relative to the refreshed `inputs.context`.
+Immediate previous-target identity and source-document path/hash provide
+provenance without nesting older refresh histories. These checks do not
+authenticate code or prove runtime readiness.
+
+Existing outputs and source/target aliases are refused. Refresh detects source
+document edits and target changes during preparation before publication. A prior
+`running` marker must be resolved explicitly before refresh, as for replay.
+Failed preparation or publication preserves the original; no execution is retried.
+Review missing values and unresolved discovery effects before running the new
+document. Conditional inputs can still remain missing on untaken paths.
+
 ## Supported analysis
 
 The analyzer follows source evaluation order for assignments, scalar/aggregate
@@ -158,3 +216,9 @@ independent `context` and `template` objects for CLI/host reuse; invalid context
 raise `InputTemplateError`. The [template ledger](semantics/input_template_semantics.json)
 records its contract. Complete discovery, automatic value editing, linked runs
 and the GUI parameter tab remain [future work](roadmap.md).
+
+`karel2py.input_refresh.refresh_inputs(source, inputs, filename=...)` returns fresh
+context and template objects without changing the supplied inputs. Invalid
+previous metadata/context raises `InputTemplateError`; invalid target contracts
+retain discovery errors. The [refresh ledger](semantics/input_refresh_semantics.json)
+records the compatible migration and preservation boundaries.

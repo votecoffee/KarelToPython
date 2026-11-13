@@ -1,0 +1,23 @@
+{
+  "translator_version": "26.1113.184321",
+  "mode": "pythonic",
+  "schema": "karel2py.input-refresh.v1",
+  "scope": "Compatible edited-input preservation in a new standalone run document",
+  "contracts": {
+    "cli": "runner refresh source destination, optionally with --target; no target import or execution",
+    "original": "Retain the source document/results and target bytes; fresh document uses inputs.context, preserved limits and null results",
+    "catalog": "Added, removed, changed, retained and unresolved source comparisons; absence in incomplete catalogs never proves removal/addition; compare type/root schema/certainty while keeping source locations separate; plain contexts have an unknown baseline",
+    "migration": "Preserve exact roots verbatim; changed same-name records copy matching typed fields, same-rank/identity arrays copy logical coordinate overlap, joints copy common axes and strings copy only when they fit",
+    "missing": "New or incompatible leaves remain missing; no numeric conversion, variable-owner rename, robot model or bank capacities inferred",
+    "context": "Retain removed/unrelated context, values, partial data, comments and services; changed root creation metadata remains in the original document",
+    "status": "Recompute binding/requirement snapshots from edited values; unresolved discovery remains explicit; no successful execution or readiness guarantee",
+    "provenance": "Immediate previous-target identity and source-document path/hash, without recursive refresh history; no authenticity claim",
+    "publication": "New output only, protected source/target aliases, source byte check and new target pin; failed publication preserves the original; single writer required",
+    "interruption": "Reject unresolved running markers; no automatic retry or use of output results as inputs",
+    "limits": "Existing input/discovery/document bounds; second status pass cannot materialize roots skipped by the first shared storage budget"
+  },
+  "future": ["Graphical input editor and refresh", "Complete discovery", "Linked-project execution"],
+  "guide": "../input-discovery.md#refresh-edited-inputs",
+  "tests": ["tests/test_input_refresh.py", "tests/test_input_template.py", "tests/test_runner.py"],
+  "controller_validated": false
+}

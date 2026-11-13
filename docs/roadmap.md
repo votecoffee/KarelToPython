@@ -17,6 +17,10 @@ value editing, the parameter editor, linked-project runs and GUI execution remai
 Expose the shared execution behavior through a workbench tab or popup after
 those input and worker interfaces are ready.
 
+CLI input refresh now preserves compatible edited values in a new run document,
+reports catalog/schema changes and retains the original/results. The graphical
+editing and refresh interface remains planned.
+
 ### Discover inputs from Python
 
 The first CLI/API discovery slice now reports supported source-flow candidates,

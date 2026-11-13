@@ -687,6 +687,9 @@ queue-entry policies; FILE banks remain excluded.
   whole-root shapes with missing markers and preserve supplied context. Complete
   discovery, automatic value editing, linked-project runs, the parameter editor and workbench execution
   remain [future work](roadmap.md).
+  CLI refresh preserves compatible edited inputs and reports schema changes in
+  a new document. It leaves incompatible data missing and retains the original
+  results; graphical refresh and automatic value choices remain unavailable.
 - Public strict mode remains a future milestone. `--mode strict` is rejected;
   preserved historical exactness work is not an available public execution mode.
 

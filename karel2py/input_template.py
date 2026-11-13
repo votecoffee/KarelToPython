@@ -84,6 +84,10 @@ def prepare_inputs(python_source, *, filename='<python>', context=None):
     successful execution; the runtime remains responsible for actual reads.
     """
     report = discover_inputs(python_source, filename=filename)
+    return _prepare(report, context)
+
+
+def _prepare(report, context, *, materialize=True):
     try:
         config = deepcopy({} if context is None else context)
         with rt._numeric_scope('pythonic'):
@@ -119,7 +123,7 @@ def prepare_inputs(python_source, *, filename='<python>', context=None):
                     if existing_spec != spec:
                         raise InputTemplateError('Existing context type differs from discovered root '+key[0]+'.'+key[1])
                 elif key not in failures:
-                    if allocated + count > MAX_LEAVES:
+                    if not materialize or allocated + count > MAX_LEAVES:
                         failures[key] = 'Template storage limit reached'
                         require('limit', failures[key], program=key[0], path=key[1])
                         continue
@@ -198,10 +202,13 @@ def prepare_inputs(python_source, *, filename='<python>', context=None):
 
 def validate_annotations(template, identity):
     """Check the optional source-bound annotation envelope, never its readiness."""
-    if (type(template) is not dict or set(template) != {'schema', 'target', 'discovery', 'bindings', 'requirements', 'boundary'}
+    fields = {'schema', 'target', 'discovery', 'bindings', 'requirements', 'boundary'}
+    if (type(template) is not dict or set(template) not in (fields, fields | {'refresh'})
             or template['schema'] != SCHEMA or type(template['target']) is not dict
             or set(template['target']) != {'file', 'sha256', 'program'}
             or type(template['target']['file']) is not str
+            or type(template['target']['sha256']) is not str or not re.fullmatch(r'[0-9a-f]{64}', template['target']['sha256'])
+            or type(template['target']['program']) is not str or not re.fullmatch(r'[A-Z_][A-Z_0-9]*', template['target']['program'])
             or any(template['target'].get(key) != identity[key] for key in ('sha256', 'program'))
             or type(template['discovery']) is not dict or template['discovery'].get('schema') != 'karel2py.inputs.v1'
             or template['discovery'].get('target') != template['target']
@@ -209,3 +216,6 @@ def validate_annotations(template, identity):
             or any(type(row) is not dict for row in template['bindings'] + template['requirements'])
             or type(template['boundary']) is not str):
         raise InputTemplateError('Malformed or stale input-template annotations')
+    if 'refresh' in template:
+        from .input_refresh import validate_refresh
+        validate_refresh(template['refresh'])

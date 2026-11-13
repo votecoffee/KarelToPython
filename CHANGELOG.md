@@ -1,5 +1,23 @@
 # Changelog
 
+## 26.1113.184321 - 2026-11-13
+
+- Add `runner refresh old.run.json new.run.json [--target converted-v2.py]`.
+  Rediscover without target execution, keep the original document/results and
+  limits, and prepare a fresh result section from edited inputs rather than outputs.
+- Preserve compatible record fields, same-rank/identity array coordinates, joint
+  axes and fitting strings across changed root schemas. Leave incompatible or
+  new data explicitly missing; retain removed/unrelated context and bank settings.
+- Record added, removed, changed and retained source inputs, root migration
+  counts, remaining requirements and immediate source-document/hash provenance.
+  Keep incomplete comparisons unresolved and plain-context baselines explicitly
+  unknown; avoid accumulating history.
+- Reject interrupted running markers, malformed annotations, input/output aliases,
+  changed source documents and target races before publication. Keep compatible
+  saved-run and input-template contracts available to CLI/host callers.
+- Add focused migration, nonexecution, publication, CLI and replay checks.
+  Complete discovery, graphical editing and linked execution remain planned.
+
 ## 26.1113.182520 - 2026-11-13
 
 - Add `runner create --discover` to prepare editable whole-root variable shapes,

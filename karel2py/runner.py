@@ -158,13 +158,15 @@ def create_document(target, destination, *, context=None, max_steps=100000, max_
     return document
 
 
-def _validate(document, path):
+def _document_fields(document):
     if (type(document) is not dict or set(document) != {'schema', 'target', 'limits', 'inputs', 'results'}
             or document['schema'] != SCHEMA):
         raise RunDocumentError('Expected a karel2py.run.v1 document')
     target, limits, inputs = document['target'], document['limits'], document['inputs']
     if (type(target) is not dict or set(target) != {'path', 'sha256', 'program', 'mode'}
             or type(target['path']) is not str or not target['path']
+            or type(target['program']) is not str or not re.fullmatch(r'[A-Z_][A-Z_0-9]*', target['program'])
+            or target['mode'] != 'pythonic'
             or type(target['sha256']) is not str or not re.fullmatch(r'[0-9a-f]{64}', target['sha256'])):
         raise RunDocumentError('Malformed target identity')
     if (type(limits) is not dict or set(limits) != {'max_steps', 'max_output_chars'}
@@ -177,16 +179,52 @@ def _validate(document, path):
         raise RunDocumentError('results must be null or an object')
     if document['results'] is not None and document['results'].get('status') == 'running':
         raise RunDocumentError('Previous run is running or interrupted; resolve it and reset results to null before retrying')
-    target_path, identity, code = _target(path.parent / target['path'])
-    if {key: target[key] for key in ('sha256', 'program', 'mode')} != identity:
-        raise RunDocumentError('Python target changed; create a new run document')
     if 'template' in inputs:
         from .input_template import validate_annotations
         try:
-            validate_annotations(inputs['template'], identity)
+            validate_annotations(inputs['template'], target)
         except ValueError as error:
             raise RunDocumentError(str(error)) from error
+    return target, limits, inputs
+
+
+def _validate(document, path):
+    target, _, inputs = _document_fields(document)
+    target_path, identity, code = _target(path.parent / target['path'])
+    if {key: target[key] for key in ('sha256', 'program', 'mode')} != identity:
+        raise RunDocumentError('Python target changed; create a new run document')
     return target_path, code, _context(inputs['context'])
+
+
+def refresh_document(source, destination, *, target=None):
+    """Rediscover into a new document, retaining the original and its results."""
+    source, destination = Path(source).absolute(), Path(destination).absolute()
+    original = _read(source)
+    previous = _decode(original)
+    old_target, limits, inputs = _document_fields(previous)
+    selected = Path(target) if target is not None else source.parent / old_target['path']
+    selected = selected.resolve(strict=True)
+    raw = _read(selected)
+    from .input_refresh import refresh_inputs
+    try:
+        prepared = refresh_inputs(raw, inputs, filename=str(selected))
+    except ValueError as error:
+        raise RunDocumentError('Input refresh: '+str(error)) from error
+    document = make_document(selected, relative_to=destination.parent, context=prepared['context'], **limits)
+    template = prepared['template']
+    if template['target']['sha256'] != document['target']['sha256'] or template['target']['program'] != document['target']['program']:
+        raise RunDocumentError('Python target changed during input refresh')
+    template['refresh']['previous_target'] = {key: old_target[key] for key in ('sha256', 'program')}
+    try:
+        old_path = os.path.relpath(source, destination.parent)
+    except ValueError:
+        old_path = str(source)
+    template['refresh']['previous_document'] = dict(path=old_path, sha256=hashlib.sha256(original).hexdigest())
+    document['inputs']['template'] = template
+    if _read(source) != original:
+        raise RunDocumentError('Source run document changed during refresh; external edits preserved')
+    _store(destination, document, protected=(source, selected))
+    return document
 
 
 def _error(error):
@@ -273,11 +311,22 @@ def main(argv=None):
     discover = subparsers.add_parser('discover', help='Inspect read-before-write inputs without importing or executing Python')
     discover.add_argument('target', type=Path)
     discover.add_argument('--output', type=Path, help='New private JSON report; otherwise print the full report')
+    refresh = subparsers.add_parser('refresh', help='Rediscover into a new run document, retaining compatible edited inputs')
+    refresh.add_argument('source', type=Path)
+    refresh.add_argument('document', type=Path)
+    refresh.add_argument('--target', type=Path, help='New generated Python; otherwise use the source document target path')
     run = subparsers.add_parser('run', help='Explicitly execute the pinned trusted Python target')
     run.add_argument('document', type=Path)
     args = parser.parse_args(argv)
     print(f'KarelToPython {__version__}', file=sys.stderr)
     try:
+        if args.command == 'refresh':
+            document = refresh_document(args.source, args.document, target=args.target)
+            template = document['inputs']['template']
+            print(json.dumps(dict(status='refreshed', program=document['target']['program'],
+                changes={name: len(rows) for name, rows in template['refresh']['changes'].items()},
+                requirements=len(template['requirements']), unresolved=len(template['discovery']['unresolved']))))
+            return 0
         if args.command == 'discover':
             from .input_discovery import discover_file
             report = discover_file(args.target)

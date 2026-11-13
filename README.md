@@ -458,7 +458,7 @@ SET_JPOS_REG. They capture inputs before later selectors and stage converted
 values under destination/status guards in the selected register group.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1113.182520**. It is a
+tool are named **karel2py**. The current implementation is **26.1113.184321**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 [Formatted empty collection output](docs/empty-collection-output.md) lets the same
@@ -652,6 +652,12 @@ Use `create --discover` to build editable whole-variable shapes automatically,
 with explicit missing markers and input requirements saved in `inputs.template`.
 Add `--context input-context.json` to preserve supplied values and services.
 Edit `inputs.context` before running; bank counts and initial values stay explicit.
+
+Use `runner refresh old.run.json new.run.json` to rediscover the saved target
+into a new document while preserving compatible edited inputs. Add
+`--target converted-v2.py` to select another generated module. The original
+document and results remain intact; the new template lists added, removed,
+changed and retained inputs, with explicit missing values where needed.
 
 Each run starts from `inputs.context` and checks the pinned Python hash. Results
 include variables, available offline banks, WRITE text and completion/failure
