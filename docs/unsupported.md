@@ -679,9 +679,11 @@ queue-entry policies; FILE banks remain excluded.
   mobile delivery remain unavailable. [Supplied VT tray cells](vt-trays.md) now
   expand into independent queue entries, with explicit geometry, sequence choices,
   per-cell model/routing and allocation/forwarding state.
-- The workbench currently validates/translates/reviews/exports. The planned Python
-  runner, input-parameter editor, read-before-write discovery and combined
-  input/result JSON are still [future work](roadmap.md).
+- The workbench currently validates/translates/reviews/exports. The standalone
+  [run-document CLI](run-documents.md) now runs pinned generated Python with
+  supplied context and separate inputs/results, including partial failures.
+  Automatic read-before-write discovery, linked-project runs, the parameter
+  editor and workbench execution remain [future work](roadmap.md).
 - Public strict mode remains a future milestone. `--mode strict` is rejected;
   preserved historical exactness work is not an available public execution mode.
 

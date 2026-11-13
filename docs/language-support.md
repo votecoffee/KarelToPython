@@ -1,5 +1,9 @@
 # Language support
 
+[Standalone run documents](run-documents.md) now retain supplied inputs and
+terminal or partial results through a CLI execution service for generated Python.
+Input discovery and the workbench editor remain future work.
+
 [Motion statement boundaries](motion-statement-boundaries.md) now preserve an
 inline REPEAT's UNTIL and a following independent WITH MOVE. Comma-led local
 clauses retain their own scope and required ENDMOVE.

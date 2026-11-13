@@ -2,6 +2,7 @@
 import argparse
 import ast
 import hashlib
+import json
 from pathlib import Path
 import re
 import subprocess
@@ -50,7 +51,7 @@ def check_repository(root=ROOT):
         if any(part in LOCAL_ROOTS or part.endswith('.egg-info') for part in parts):
             errors.append(relative + ': local/build artifact is included in Git')
             continue
-        if (path.suffix.lower() in PRIVATE_SUFFIXES or relative.endswith('.report.json')
+        if (path.suffix.lower() in PRIVATE_SUFFIXES or relative.endswith(('.report.json', '.run.json'))
                 or '_corpus_audit.json' in relative or '_corpus_baseline_' in relative
                 or path.name in {'reference_sources.json', 'implementation_coverage.json', 'manifest.json', 'validation.json'}):
             errors.append(relative + ': private/generated artifact belongs outside public source')
@@ -75,6 +76,14 @@ def check_repository(root=ROOT):
             continue
         if PROFILE_PATH.search(text):
             errors.append(relative + ': contains a machine/profile-specific absolute path')
+        if path.suffix.lower() == '.json' and 'karel2py.run.v1' in text:
+            try:
+                document = json.loads(text)
+            except (ValueError, RecursionError):
+                document = None
+            if (type(document) is dict and document.get('schema') == 'karel2py.run.v1'
+                    and {'target', 'inputs', 'results'} <= set(document)):
+                errors.append(relative + ': private run document belongs outside public source')
         if path.suffix == '.py':
             try:
                 ast.parse(text, filename=relative, feature_version=(3, 11))

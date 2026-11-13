@@ -1,0 +1,20 @@
+{
+  "translator_version": "26.1113.170837",
+  "mode": "pythonic",
+  "schema": "karel2py.run.v1",
+  "scope": "Standalone generated Python execution with explicitly supplied context",
+  "contracts": {
+    "prepare": "AST and syntax inspection without target imports or execution; exact source SHA-256 and literal Program identity",
+    "inputs": "Fresh ExecutionContext copied from inputs.context; no automatic discovery, defaults or restoration from results",
+    "execution": "Explicit synchronous CLI/API run of trusted pinned Python with runtime step/output limits; normal Python permissions and existing host timing",
+    "results": "Completed, failed, aborted, stopped, paused or cancelled; available variables/context, bounded WRITE text, exception metadata and explicit unavailable captures",
+    "cleanup": "Stop interrupted cooperative continuations before capture; no serialized continuation or native resource restoration",
+    "publication": "Atomic complete-file publication, protected input aliases and checked document bytes; single writer required; no cross-process transaction claim",
+    "interruption": "Publish running before code load; retain unresolved marker after interrupted/final failed publication and refuse automatic replay",
+    "json": "Bounded UTF-8 with unique keys and finite numbers; saved UTF-8 without BOM, LF and one final newline"
+  },
+  "future": ["Read-before-write input discovery", "Parameter editor", "Linked-project runs", "Worker and GUI integration"],
+  "guide": "../run-documents.md",
+  "tests": ["tests/test_runner.py"],
+  "controller_validated": false
+}

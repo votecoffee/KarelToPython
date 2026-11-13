@@ -1,15 +1,18 @@
 # Roadmap
 
-These are planned milestones, not released features or dated commitments.
+These milestones describe released foundations and remaining work, without dated commitments.
 Functional Pythonic conversion remains the implementation priority. Current
 behavior and restrictions are documented in the [support guide](language-support.md)
 and [desktop guide](desktop.md).
 
 ## Python runner and parameter editor
 
-**Status: future milestone.** Add an offline tool for running generated Python,
-with a workbench tab or popup for editing discovered inputs. Build a shared
-execution service and CLI first, then expose the same behavior through the GUI.
+**Status: in progress.** The standalone [run-document service and CLI](run-documents.md)
+now run pinned Pythonic generated modules with explicitly supplied context,
+separate inputs/results and partial failure capture. Automatic input discovery,
+the parameter editor, linked-project runs and GUI execution remain future work.
+Expose the shared execution behavior through a workbench tab or popup after
+those input and worker interfaces are ready.
 
 ### Discover inputs from Python
 
@@ -39,11 +42,11 @@ rediscovering compatible inputs and flag removed, changed or unresolved inputs.
 
 ### Save inputs and results together
 
-Use one versioned JSON run document containing separate `inputs` and `results`
+The CLI foundation now uses one versioned JSON run document containing separate `inputs` and `results`
 sections. Record the selected Python target and source hash so stale saved
 parameters can be identified when the code changes. Keep this format distinct
 from the existing [ExecutionContext JSON](offline-services.md#register-port-and-variable-context)
-until an explicit adapter is defined.
+through the explicit `inputs.context` and `results.context` adapter.
 
 - Save edited inputs before starting a run and allow the document to be reopened
   for repeat runs. Do not overwrite input values with final output values.

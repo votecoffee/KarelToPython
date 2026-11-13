@@ -1,5 +1,6 @@
 """Negative controls for the public-source check without private test inputs."""
 import importlib.util
+import json
 from pathlib import Path
 import subprocess
 import tempfile
@@ -47,6 +48,28 @@ class RepositoryHygieneTests(unittest.TestCase):
         (self.root / 'array_corpus_audit.json').write_text('{}', encoding='utf-8')
         _, errors = checker.check_repository(self.root)
         self.assertTrue(any('private/generated artifact' in error for error in errors))
+
+    def test_run_document_extension_is_rejected_if_force_added(self):
+        (self.root/'.gitignore').write_text('/.local/\n**/*.run.json\n',encoding='utf-8')
+        (self.root/'session.run.json').write_text('{}',encoding='utf-8')
+        files,errors=checker.check_repository(self.root)
+        self.assertNotIn('session.run.json',files)
+        self.assertEqual(errors,[])
+        subprocess.run(['git','add','-f','session.run.json'],cwd=self.root,check=True,capture_output=True)
+        _,errors=checker.check_repository(self.root)
+        self.assertTrue(any('private/generated artifact' in error for error in errors))
+
+    def test_run_document_schema_is_rejected_under_an_arbitrary_json_name(self):
+        value=dict(schema='karel2py.run.v1',target={},inputs={'context':{}},results=None)
+        (self.root/'session.json').write_text(json.dumps(value),encoding='utf-8')
+        _,errors=checker.check_repository(self.root)
+        self.assertTrue(any('private run document' in error for error in errors))
+
+    def test_run_contract_documentation_is_allowed(self):
+        value=dict(schema='karel2py.run.v1',contracts=dict(inputs='Supplied context',results='Terminal snapshots'))
+        (self.root/'semantics.json').write_text(json.dumps(value),encoding='utf-8')
+        _,errors=checker.check_repository(self.root)
+        self.assertEqual(errors,[])
 
     def test_missing_documentation_target_is_rejected(self):
         (self.root / 'guide.md').unlink()

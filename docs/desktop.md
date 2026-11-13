@@ -106,9 +106,10 @@ source details; save them locally rather than adding them to public source.
 The GUI constructs no controller connection and offers no source execution
 button. Generated modules retain the existing [offline runtime](offline-services.md)
 and must be run explicitly with the required context outside the workbench.
-A [future runner milestone](roadmap.md#python-runner-and-parameter-editor)
-will add a parameter tab or popup and execution results saved with the inputs
-in one JSON file. It is not implemented in the current workbench.
+The standalone [run-document CLI](run-documents.md) now saves supplied inputs
+and execution results in one JSON file. The [workbench runner milestone](roadmap.md#python-runner-and-parameter-editor)
+will add input discovery, a parameter tab or popup and GUI execution. Those
+interfaces are not implemented in the current workbench.
 
 ## Development checks
 

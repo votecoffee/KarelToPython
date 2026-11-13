@@ -1,5 +1,21 @@
 # Changelog
 
+## 26.1113.170837 - 2026-11-13
+
+- Add the standalone Pythonic run-document API and CLI. Prepare versioned JSON
+  without importing/executing the target, then explicitly run pinned Python
+  from a fresh supplied ExecutionContext while retaining original inputs.
+- Save variables, available context, bounded WRITE text and distinct completion,
+  error, abort, stop, pause and cancellation results. Clean interrupted
+  continuations; preserve partial results and identify unavailable captures.
+- Protect target/context aliases and old reports, publish JSON atomically,
+  detect stale code and document edits, and retain an unresolved running marker
+  after interrupted publication. Add lifecycle, failure and runtime-only CLI tests.
+- Ignore recommended .run.json files and reject run-document instances from
+  public source while allowing the semantic contract documentation.
+- Mark the runner foundation released; automatic input discovery, the GUI
+  parameter editor and workbench execution remain planned.
+
 ## 26.1113.163833 - 2026-11-13
 
 - Preserve an enclosing REPEAT's UNTIL after an inline MOVE, using the nearest

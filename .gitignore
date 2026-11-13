@@ -8,6 +8,7 @@
 /converted.py
 /translation.json
 **/*.report.json
+**/*.run.json
 **/*_corpus_audit.json
 **/*_corpus_baseline_*.json
 
