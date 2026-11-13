@@ -1,0 +1,13 @@
+PROGRAM MAIN
+VAR count FROM WORKER:INTEGER
+    label FROM WORKER:STRING[6]
+    started,paused,copied,edited,labeled,continued,finished:INTEGER
+BEGIN
+ KCL_NO_WAIT('RUN WORKER',started)
+ KCL('WAIT WORKER PAUSE',paused)
+ KCL('SET LOCAL VAR target IN stage FROM WORKER WORKER = source',copied)
+ KCL('SET LOCAL VAR target[2].count WORKER = 42',edited)
+ KCL('SET LOCAL VAR target[1].label WORKER = "EDITED"',labeled)
+ KCL('CONT WORKER',continued)
+ KCL('WAIT WORKER DONE',finished)
+END MAIN

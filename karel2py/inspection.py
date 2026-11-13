@@ -446,24 +446,50 @@ def _kcl_routine_frame(root,routine_filter,module_filter):
     return None
 
 
-def _kcl_local_write(state,root,frame,name,literal,line):
-    from .dynamic import assign_scalar_literal,kcl_record_literal
+def _kcl_local_write(state,root,frame,path,literal,line,selector):
+    from .dynamic import IDENTIFIER,VARIABLE_SELECTOR,assign_scalar_literal,kcl_record_literal,variable_checkpoint
     from .variable_archives import cells
 
     rt=runtime()
     owner,routine,declarations,storage=frame
+    name=re.match(IDENTIFIER,path)[0]
     if name not in declarations:return 1
     if root.task_state!='paused' or root._driving or root._abort_requested:return 4
     counter_roots=getattr(owner.program,'local_for_roots',{}).get(routine)
     if counter_roots is None or name in counter_roots or isinstance(storage[name],rt.Reference):return 4
-    records=('VECTOR','CONFIG','POSITION','XYZWPR','XYZWPREXT','JOINTPOS')
-    kind=declarations[name][0]
-    if kind not in ('INTEGER','SHORT','BYTE','REAL','BOOLEAN','STRING',*records):return 4
-    target=rt.Reference(declarations[name],storage,name)
+    reference=rt.Reference(declarations[name],storage,name)
     try:
-        if kind in records:rt.checked(target.spec,target.raw(),line)
-        occupied=cells(target)
+        units=rt._validate_data_schema(reference.spec,line)
+        target=owner.execution.descend(reference,path[len(name):],line)
     except (ValueError,TypeError,KeyError,rt.KarelRuntimeError):return 5
+    writable=(rt.Reference,rt.ConfigFieldReference,rt.AssociationFieldReference)
+    if type(target) not in writable:return 4
+    source=re.fullmatch(VARIABLE_SELECTOR,literal,re.IGNORECASE)
+    if literal.upper() in ('TRUE','FALSE'):source=None
+    spec=target.spec;root_spec=reference.spec;original=reference.raw();selected=target.raw()
+    run=root._task_run;continued=root._lifecycle['CONTINUE'];frames=tuple(root._task_frames)
+    entered=tuple((id(d),id(s)) for d,s in owner._timer_frames)
+    if source or len(path)>len(name) or root_spec[0] in ('ARRAY','STRUCTURE'):
+        for _ in range(units):variable_checkpoint(state,line)
+        if (_kcl_task_root(state,selector,line) is not root or root._task_run is not run
+                or root._lifecycle['CONTINUE']!=continued or tuple(root._task_frames)!=frames
+                or tuple((id(d),id(s)) for d,s in owner._timer_frames)!=entered
+                or declarations.get(name)!=root_spec or storage.get(name) is not original
+                or root.task_state!='paused' or root._driving or root._abort_requested):return 4
+        current=_kcl_routine_frame(root,routine,owner.program_name)
+        if current is None or current[2] is not declarations or current[3] is not storage:return 4
+        counter_roots=getattr(owner.program,'local_for_roots',{}).get(routine)
+        if counter_roots is None or name in counter_roots:return 4
+        try:current=owner.execution.descend(reference,path[len(name):],line)
+        except (ValueError,TypeError,KeyError,rt.KarelRuntimeError):return 4
+        if (type(current) is not type(target) or current.spec!=spec or current.storage is not target.storage
+                or current.key!=target.key or current.raw() is not selected):return 4
+    records=('VECTOR','CONFIG','POSITION','XYZWPR','XYZWPREXT','JOINTPOS')
+    try:
+        if root_spec[0] in ('ARRAY','JOINTPOS',*rt.RECORD_TYPES) and original is not rt.UNINITIALIZED:
+            rt.checked(root_spec,original,line)
+        occupied=cells(reference)
+    except (ValueError,TypeError,KeyError,IndexError,AttributeError,rt.KarelRuntimeError):return 5
     def references():
         contexts={state.execution:state,owner.execution:owner}
         for context,caller in contexts.items():
@@ -474,12 +500,33 @@ def _kcl_local_write(state,root,frame,name,literal,line):
                     for _,locals_ in active._timer_frames:
                         yield from locals_.values()
 
-    if any(key in occupied for key in owner.execution._timer_claims):return 4
+    if any(key in occupied for context in (state.execution,owner.execution) for key in context._timer_claims):return 4
     for index,value in enumerate(references(),1):
         if index>32767:return 5
         if isinstance(value,rt.Reference) and (id(value.storage),value.key) in occupied:return 4
-    if kind in records:
-        try:target.set(kcl_record_literal(rt,target.spec,literal,line),line)
+    if source:
+        try:
+            program,source_name,suffix=source.groups()
+            source_name=source_name.upper();suffix=suffix.replace(' ','').upper()
+            if not program and source_name in declarations:
+                value=storage[source_name]
+                source_ref=value if isinstance(value,rt.Reference) else rt.Reference(declarations[source_name],storage,source_name)
+                source_ref=owner.execution.descend(source_ref,suffix,line)
+            else:source_ref=owner.execution.resolve(owner,program or owner.program_name,source_name+suffix,line)
+            if source_ref.spec!=spec and (spec[0]!='STRING' or source_ref.spec[0]!='STRING'):return 5
+            if spec[0]=='STRING':
+                value=rt.ascii_string(source_ref.raw(),line)
+                if len(value)>spec[1]:return 5
+            elif spec[0] in records:
+                value=(rt.vector_value(source_ref.raw(),line) if spec[0]=='VECTOR'
+                       else rt.positional_value(spec,source_ref.raw(),line))
+            else:value=rt._aggregate_value(spec,source_ref.raw(),line,allow_partial=False)
+            if type(target) is not rt.Reference:target.validate_storage(line)
+            target.set(value,line)
+        except (ValueError,TypeError,KeyError,IndexError,AttributeError,rt.KarelRuntimeError):return 5
+        return 0
+    if spec[0] in records:
+        try:target.set(kcl_record_literal(rt,spec,literal,line),line)
         except (ValueError,TypeError,rt.KarelRuntimeError):return 5
         return 0
     return assign_scalar_literal(target,literal,line)
@@ -495,7 +542,7 @@ def kcl_local_operation(state,operation,args,line=None):
     if root is None or root.task_state not in ('running','paused','waiting'):return 1
     frame=_kcl_routine_frame(root,routine_filter,module_filter)
     if frame is None:return 1
-    if operation=='SET_LOCAL_VAR':return _kcl_local_write(state,root,frame,*request,line)
+    if operation=='SET_LOCAL_VAR':return _kcl_local_write(state,root,frame,*request,line,selector)
     owner,routine,declarations,storage=frame
     if operation=='SHOW_LOCAL_VAR':
         path,radix=request

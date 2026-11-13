@@ -155,11 +155,11 @@ def variable_command(command):
         return 'CLEAR_VARS', (clear[1], None)
     suffix = VARIABLE_SUFFIX
     frame = rf'(?: +IN +({IDENTIFIER}))?(?: +FROM +({IDENTIFIER}))?(?: +({IDENTIFIER}))?'
-    set_local = re.fullmatch(rf'SET +LOCAL +VAR(?:IABLE)? +({IDENTIFIER}){frame} *= *(.+)',text,re.IGNORECASE)
+    set_local = re.fullmatch(rf'SET +LOCAL +VAR(?:IABLE)? +({IDENTIFIER}{suffix}){frame} *= *(.+)',text,re.IGNORECASE)
     if set_local:
         name,routine,module,task,literal=set_local.groups()
         return 'SET_LOCAL_VAR',((task or '').upper(),routine.upper() if routine else None,
-                                module.upper() if module else None,name.upper(),literal)
+                                module.upper() if module else None,name.replace(' ','').upper(),literal)
     local = re.fullmatch(rf'SHOW +LOCAL +VAR(?:IABLE)? +({IDENTIFIER}{suffix})(?: +(HEX(?:ADECIMAL)?|BINARY))?{frame}',command)
     if local:
         path, radix, routine, module, task = local.groups()

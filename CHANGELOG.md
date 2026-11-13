@@ -1,5 +1,15 @@
 # Changelog
 
+## 26.1113.014008 - 2026-11-13
+
+- Extend Pythonic SET LOCAL VAR to checked static field/element destinations and
+  named data copies, including complete local ARRAYs and records. Prefer selected
+  frame sources, then module globals, with explicit cross-program lookup available.
+- Precharge containing-root leaves for new edits and retain task, continuation,
+  frame, root and target identities across checkpoints. Recheck whole-root alias,
+  timer and FOR guards; preserve read-only pose columns and bounded CONFIG fields.
+  Add a linked pause/copy/edit/resume example with independent expected results.
+
 ## 26.1113.012240 - 2026-11-13
 
 - Extend Pythonic KCL SET VAR named-value copies to exact initialized ARRAYs and

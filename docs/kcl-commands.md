@@ -462,26 +462,59 @@ value encoding and capacity limits match the global variable views.
 Missing frames, tasks or local paths return 201. These forms use retained
 Python frames and follow MARRC75KR07091E Rev N, PDF pages 740–741.
 
-`SET LOCAL VAR name [IN routine] [FROM module] [task] = literal` also
-accepts the full VARIABLE spelling. It assigns one checked literal
-to a paused routine's owned local variable. The same routine, module and
-task selectors apply. Supported targets are INTEGER, SHORT, BYTE, REAL,
-BOOLEAN and STRING roots, plus VECTOR, CONFIG, POSITION, XYZWPR, XYZWPREXT and
-JOINTPOS roots. Positional literals use the same component counts, optional
-CONFIG text and finite-value checks as SET VAR above. All components validate
-before any field changes, and existing destination objects retain their identity.
-Reads still support paths and borrowed formals.
+`SET LOCAL VAR path [IN routine] [FROM module] [task] = value` also
+accepts the full VARIABLE spelling. It edits owned data in a paused routine,
+using the same routine, module and task selectors. Static fields and complete
+one-based ARRAY/JOINTPOS indices select original storage. Indices are integer
+literals, with optional spaces; expressions and incomplete ARRAY prefixes reject.
+
+Scalar and positional literals use the SET VAR formats above. VECTOR, CONFIG,
+POSITION, XYZWPR, XYZWPREXT and JOINTPOS roots or selected cells use complete typed
+component lists. CONFIG scalar fields retain their flag/turn bounds. POSITION
+orientation columns and their descendants remain read-only; location edits work.
+All components validate before any field changes, and destination objects retain
+their identity.
+
+Named source values can copy scalars, poses and complete data ARRAYs/records.
+An unqualified source path first checks the selected frame, including readable
+borrowed parameters, then that frame's source-module globals. A declared local
+that is missing or uninitialized never falls back to a global. An explicit
+`[program]` qualifier uses ordinary global lookup. ARRAY/record schemas must match
+exactly and every source leaf must be initialized. Scalar STRING copies may use
+different capacities if the value fits. Copies create no aliases to source data.
+
+```text
+SET LOCAL VAR target IN stage WORKER = source
+SET LOCAL VAR target[2].count IN stage WORKER = 42
+SET LOCAL VAR point.location.x WORKER = 12.5
+SET LOCAL VAR target WORKER = [INPUTS]source
+```
 
 The compiler records FOR roots per routine. The whole routine's listed
-roots, retained aliases into any selected field or joint axis, borrowed formals
-and connected timers are
-protected. Running tasks and code without the required compiler metadata
-also reject writes with 204. Missing targets use 201 and invalid literals
-or a scan over 32,767 storage cells use 205. This subset follows
+roots, retained aliases into any field or joint axis, borrowed formals and
+connected timers protect the entire containing local root, including unselected
+siblings. Running tasks and code without the required compiler metadata also
+reject writes with 204. Reads still support borrowed formals.
+
+Path, named-value and ARRAY/record edits charge one step per declared scalar leaf
+in the containing local root before validating/copying contents. Retain the task
+binding, run and continuation, live frame, declaration, root container and selected
+target through those checkpoints. A changed binding/frame/root/target or newly
+protected storage rejects before publication. Read named source data after the
+last preparation checkpoint, then validate and publish with no further checkpoints.
+Existing scalar and positional root literals retain their original admission.
+
+Missing task/frame/root uses 201; protected or changed storage uses 204; invalid
+paths, incomplete/mismatched data or a scan over 32,767 storage cells use 205.
+Budget exhaustion uses 4. Data schemas retain the 32767-leaf and 64-level limits.
+This subset follows
 MARRC75KR07091E Rev N, PDF pages 734–735 and 740–741.
-Local ARRAY/user-record writes, named-source local assignments and local field
-destinations remain excluded. The additional positional literals are a portable
-Pythonic extension, without a native/controller equivalence claim.
+FILE/PATH/QUEUE_TYPE resources, aggregate literal syntax, reshaping, computed
+selectors and implicit routine discovery outside these explicit frame commands
+remain excluded. Extended data/positional edits are a portable Pythonic model,
+without a native/controller equivalence claim. See the
+[linked example](../examples/kcl_local_data/main.kl) and
+[regressions](../tests/test_kcl_local_data_paths.py).
 
 ### Declared types and typed variable filters
 
@@ -914,6 +947,7 @@ python -m karel2py.project examples/kcl_task_waits --entry MAIN --context exampl
 python -m karel2py.project examples/kcl_session_defaults --entry MAIN --context examples/kcl_session_defaults/services.initial.json
 python -m karel2py.project examples/kcl_command_procedure --entry MAIN --context examples/kcl_command_procedure/services.initial.json --state-out procedure-state.json
 python -m karel2py.project examples/kcl_local_types --entry MAIN --context examples/kcl_local_types/services.initial.json
+python -m karel2py.project examples/kcl_local_data --entry MAIN --context examples/kcl_local_data/services.initial.json
 python -m karel2py.project examples/kcl_source_debug --entry MAIN --context examples/kcl_source_debug/services.initial.json
 python -m karel2py.project examples/kcl_file_commands --entry MAIN --context examples/kcl_file_commands/services.initial.json
 python -m karel2py examples/kcl_variable_commands.kl -o kcl_variable_commands.py

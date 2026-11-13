@@ -1,0 +1,16 @@
+PROGRAM WORKER
+TYPE row_t=STRUCTURE
+ label:STRING[6]
+ count:INTEGER
+ENDSTRUCTURE
+VAR count:INTEGER label:STRING[6]
+ROUTINE stage
+VAR source,target:ARRAY[2]OF row_t
+BEGIN
+ source[1].label='one' source[1].count=1
+ source[2].label='two' source[2].count=2
+ PAUSE
+ count=target[2].count+source[2].count
+ label=target[1].label
+END stage
+BEGIN stage END WORKER

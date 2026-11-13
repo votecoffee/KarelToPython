@@ -287,7 +287,7 @@ components with complete-batch pose validation and bounded rounding normalizatio
   values and model-free JSON persistence. [Active selection numbers](frame-tool-selection.md)
   add private INTEGER reads and checked assignments; writable source aliases remain excluded.
 - Automatic system-variable schemas, arbitrary host/Python attribute access,
-  dynamic routine-local lookup, native cached variable table IDs and native
+  GET_VAR/BYNAME routine-local lookup, native cached variable table IDs and native
   allocation/layout behavior. GET_VAR/SET_VAR support declared/explicit roots,
   checked static paths, [checked numeric scalar/ARRAY transfers](numeric-variable-transfers.md)
   and [compatible context-free record schemas/record ARRAY prefixes](record-variable-transfers.md)
@@ -579,10 +579,12 @@ queue-entry policies; FILE banks remain excluded.
   port, calendar and robot context banks. [Inspection commands](kcl-commands.md#variable-inspection)
   expose bounded variables, virtual media and the active dictionary language.
   Session defaults and live source-frame listings use the supplied offline
-  task and robot contexts. Guarded scalar and positional local literals use paused source
+  task and robot contexts. Guarded local data edits use paused source
   frames, with compiler metadata for FOR roots. Native routine symbol
-  files, local ARRAY/user-record edits and local field destinations remain outside
-  this model. Named global ARRAY/user-record SET copies now validate exact
+  files, resource edits and computed local selectors remain outside this model.
+  Static local fields/elements and named ARRAY/user-record copies now use exact
+  complete data, retained frame/target identities, and whole-root protection.
+  Named global ARRAY/user-record SET copies also validate exact
   complete data and retain independent destination storage with budget and
   ownership rechecks. Aggregate literals, resource copies and reshaping remain
   excluded from those KCL forms.

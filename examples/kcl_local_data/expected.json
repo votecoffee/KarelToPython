@@ -1,0 +1,4 @@
+{
+  "MAIN": {"state": "completed", "values": {"COUNT": 44, "LABEL": "EDITED", "STARTED": 0, "PAUSED": 0, "COPIED": 0, "EDITED": 0, "LABELED": 0, "CONTINUED": 0, "FINISHED": 0}},
+  "WORKER": {"state": "completed", "values": {"COUNT": 44, "LABEL": "EDITED"}}
+}

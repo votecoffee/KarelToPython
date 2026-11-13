@@ -501,8 +501,9 @@ def kcl_record_literal(rt,spec,literal,line):
 
 def assign_scalar_literal(target,literal,line):
     rt=runtime()
-    if type(target) is not rt.Reference:return 4
+    if type(target) not in (rt.Reference,rt.ConfigFieldReference,rt.AssociationFieldReference):return 4
     try:
+        if type(target) is not rt.Reference:target.validate_storage(line)
         kind=target.spec[0]
         if kind in ('INTEGER','BYTE','SHORT') and re.fullmatch(r'[+-]?[0-9]+',literal):
             value=int(literal)

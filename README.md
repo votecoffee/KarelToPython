@@ -59,9 +59,9 @@ supports [logical holds](docs/kcl-commands.md#logical-hold-and-release) and
 [offline storage listings](docs/kcl-commands.md#system-and-memory-inspection).
 
 [KCL local edits and type views](docs/kcl-commands.md#local-variable-inspection)
-add checked scalar, VECTOR, CONFIG, Cartesian pose and JOINTPOS literal assignments
-in paused source routines, declared-type
-listings, and typed variable filters.
+add checked field/element edits and named data copies in paused source routines,
+including ARRAYs, records, VECTOR, CONFIG, Cartesian poses and JOINTPOS. Type
+listings and filters use the declared source metadata.
 
 [KCL command procedures](docs/kcl-commands.md#command-procedures) add blocking
 RUNCF, bounded relative includes, SET VERIFY, and optional success-only
@@ -425,7 +425,7 @@ existing collision, busy-file, quota and publication checks remain active.
 and RENAME_FILE reuse matched characters in their destination filenames.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1113.012240**. It is a
+tool are named **karel2py**. The current implementation is **26.1113.014008**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -1378,7 +1378,7 @@ Routine development validation uses the local CLI commands above.
 
 The example runner translates 575 authored runnable examples, checks complete
 expected snapshots and validates their output, delay, context and termination
-fixtures, plus 233 complete linked source projects. It also checks that nested
+fixtures, plus 234 complete linked source projects. It also checks that nested
 MOVE actions inside local handlers are rejected.
 It uses an injected sleeper, so the delay fixture does not wait in real time.
 
