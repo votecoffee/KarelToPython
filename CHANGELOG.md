@@ -1,5 +1,17 @@
 # Changelog
 
+## 26.1113.034417 - 2026-11-13
+
+- Extend Pythonic ADD_BYNAMEPC to complete ordinary ARRAY, record and joint
+  values plus BYTE/SHORT/BOOLEAN scalars. Expand ordered existing typed items,
+  promote narrow/Boolean data to INTEGER and append one final marker atomically.
+- Preflight schema/capacity before expansion, charge scalar capture before
+  copying and retain source-schema and destination buffer/index contracts.
+  Data/capacity failures preserve the old packet; budget or changed-target
+  failures propagate without overwriting status or completed callback effects.
+- Add an authored mixed-data packet example and wire, lookup, linkage, replay,
+  initialization, capacity, budget and callback-mutation regressions.
+
 ## 26.1113.032956 - 2026-11-13
 
 - Add optional RGB555/RGB565 BMP export preferences to supplied grayscale/RGB

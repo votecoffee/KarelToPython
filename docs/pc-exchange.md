@@ -72,11 +72,18 @@ routine. Current/attached declared globals and explicit variable-store roots
 support ordinary static fields and array indices whose selected leaf is one of
 those three types.
 
-Whole arrays, whole structures, BOOLEAN, BYTE and SHORT leaves are excluded
-from named insertion. Use a direct builder with an explicit compatible scalar
-expression when appropriate. System-variable paths are excluded, and no names
-are discovered from a controller. Missing paths return status 1; incompatible
-or uninitialized named data returns status 4 without changing the index/buffer.
+[Named data batches](pc-named-data.md) now also accept complete ordinary ARRAY,
+record and joint data plus BYTE/SHORT/BOOLEAN scalars. They expand into existing
+ordered scalar items with one final marker; narrow and Boolean values use INTEGER
+items. New forms charge each scalar before detached capture and retain checked
+source-schema and destination contracts. No aggregate shape/type headers are added.
+
+System-variable paths and FILE/PATH/QUEUE resources remain excluded. No names
+are discovered from a controller or routine-local frame. Missing paths return
+status 1; incompatible or uninitialized admitted data returns status 4 without
+changing the index/buffer. A schema-based capacity rejection can return status 3
+before reading source contents. Incomplete flat rows/planes remain excluded;
+fully selected named ARRAY components use ordinary static lookup.
 
 ## Typed and raw send modes
 

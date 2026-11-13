@@ -1,0 +1,17 @@
+PROGRAM PC_NAMED_DATA
+TYPE item_t=STRUCTURE
+       ready:BOOLEAN code:BYTE amount:SHORT
+       points:ARRAY[2]OF REAL text:STRING[2]
+     ENDSTRUCTURE
+VAR data:item_t buffer:ARRAY[38]OF BYTE
+    cursor,status:INTEGER done:BOOLEAN
+BEGIN
+  IF UNINIT(done) THEN
+    data.ready=TRUE data.code=255 data.amount=-2
+    data.points[1]=1.5 data.points[2]=-2.25 data.text='OK'
+    cursor=1
+    ADD_BYNAMEPC(buffer,cursor,'','data',status)
+    SEND_DATAPC(12,buffer,status)
+    done=TRUE
+  ENDIF
+END PC_NAMED_DATA

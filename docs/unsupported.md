@@ -550,8 +550,11 @@ queue-entry policies; FILE banks remain excluded.
   an [offline pipe model](data-acquisition.md), with chosen record/view layouts
   and explicit file streaming. No physical acquisition or native format is implied.
 - Native PC/GEMM transport and delivery. Six [PC data/event calls](pc-exchange.md)
-  now support typed buffer construction and explicit offline event outboxes;
-  custom payloads require raw mode and fully initialized bytes.
+  now support typed buffer construction and explicit offline event outboxes.
+  [Named ordinary data batches](pc-named-data.md) add ordered scalar expansion
+  and narrow/Boolean promotion with atomic packet updates. Resource/system and
+  incomplete flat-prefix lookup remain excluded; custom payloads require raw mode
+  and fully initialized bytes.
 - Native socket connections, DNS/ping, native pipe timing and formatted dictionaries.
   MSG_CONNECT/MSG_DISCO/MSG_PING and PIPE_CONFIG now have
   [offline FILE models](communications.md). Plain and DAQ pipe names stay distinct.

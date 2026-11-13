@@ -1,0 +1,10 @@
+{
+  "pc_exchange": {
+    "capacity": 8,
+    "format": "typed",
+    "sequence": 1,
+    "messages": [
+      {"sequence": 1, "event": 12, "data": "0010000000010010000000ff0010fffffffe00113fc000000011c010000000d1024f4b000000"}
+    ]
+  }
+}

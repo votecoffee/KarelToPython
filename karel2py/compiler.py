@@ -7948,6 +7948,17 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         guide='docs/vision-packed-bmp.md',controller_validated=False)
     report['vision_bmp_sample_policy']['format']='Default bottom-up 24-bit RGB or 32-bit V4 alpha BMP; optional nonalpha RGB555/RGB565 output follows vision_packed_bmp_policy without changing source samples'
     report['vision_sample_depth_policy']['export']='PNG preserves supplied samples; default BMP rounds components to eight bits; explicit bmp_format uses direct packed quantization under vision_packed_bmp_policy'
+    report['pc_named_data_policy']=dict(
+        source='ADD_BYNAMEPC reads complete ordinary scalar/ARRAY/record/joint data from current/attached declared globals or explicit variable roots; static fields and fully selected named ARRAY components retain existing lookup rules',
+        encoding='Expand ARRAYs row-major, records in declaration order and joints by axis; map BYTE/SHORT/BOOLEAN to INTEGER items with false=0 and true=1; retain existing REAL32 and length/NUL STRING items with one final end marker',
+        schema='Existing concrete data-only schemas, 64 levels and 32767 leaves; no shape/name headers, field renaming, resource serialization or inferred receiver schema',
+        bounds='Before expansion, reject batches whose scalar count times four plus final marker cannot fit remaining buffer space; then check complete captured values and exact encoded size within the existing 244-byte buffer',
+        capture='Existing initial builder checkpoint, then one step per expanded scalar before detached capture; source edits completed during charging are included; source schema, buffer identity/contents/storage and index must retain their captured contracts',
+        publication='Stage every item, marker and next index before ordinary publication; status 3 for capacity, 4 for incompatible/unknown/unrepresentable data; budget/lifecycle or changed-destination failures propagate without overwriting status or prior state',
+        boundary='Authored Pythonic typed-item sequence; no ARRAY/record native envelope, incomplete flat row/plane lookup, FILE/PATH/QUEUE data, system discovery, transport/controller or strict equivalence',
+        guide='docs/pc-named-data.md',controller_validated=False)
+    report['pc_exchange_policy']['lookup']='Existing INTEGER/REAL/STRING and complete Pythonic ordinary data under pc_named_data_policy; current/attached globals or explicit roots with static paths; system/resource and incomplete flat-prefix lookup remain excluded'
+    report['pc_exchange_policy']['buffers']='One-dimensional ordinary BYTE ARRAY storage, 1..244 bytes; checked disjoint buffer/index/status references; builders stage a complete scalar item or named-data batch plus one marker and retain untouched prefix/tail bytes'
     from .reporting import finalize_pythonic_report
     finalize_pythonic_report(report)
     expansion.annotate(report)

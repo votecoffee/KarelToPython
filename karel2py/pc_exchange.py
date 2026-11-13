@@ -44,6 +44,18 @@ def item_bytes(kind,value,line=None):
         raise runtime.KarelRuntimeError('PC numeric item cannot be represented',line) from exc
 
 
+def named_data_bytes(spec,value,line=None):
+    """Flatten complete checked data into the existing scalar item envelope."""
+    runtime=rt();captured=runtime.capture_aggregate_write(spec,value,line)
+    pieces=[]
+    for expected,item in captured.fields:
+        kind=expected[0]
+        if kind in ('BYTE','SHORT','BOOLEAN'):
+            kind='INTEGER';item=int(item)
+        pieces.append(item_bytes(kind,item,line))
+    return b''.join(pieces)
+
+
 def decode_packet(values,line=None):
     """Decode the common ADD_* envelope; stop at its checked end marker."""
     runtime=rt();offset=0;items=[]
@@ -181,9 +193,28 @@ def invoke(state,operation,args,line=None):
         if path.startswith('$'):status.set(1,line);return
         try:source=context.resolve(state,program,path,line)
         except runtime.KarelRuntimeError:status.set(1,line);return
-        kind=source.spec[0];value=source.raw()
+        source_spec=source.spec;kind=source_spec[0]
+        value=source.raw() if kind in ('INTEGER','REAL','STRING') or not runtime._pythonic() else None
     else:kind={'ADD_INTPC':'INTEGER','ADD_REALPC':'REAL','ADD_STRINGPC':'STRING'}[operation];value=args[2]
-    try:payload=item_bytes(kind,value,line)
+    expanded=operation=='ADD_BYNAMEPC' and runtime._pythonic() and kind not in ('INTEGER','REAL','STRING')
+    if expanded:
+        try:count=runtime._validate_data_schema(source_spec,line)
+        except runtime.KarelRuntimeError:status.set(4,line);return
+        # Even an empty STRING needs four bytes. Reject impossible batches
+        # before expanding storage, then charge actual capture outside data-error
+        # handling so budget and lifecycle exceptions cannot become status 4.
+        if count*4+2>len(values)-position+1:status.set(3,line);return
+        expected_spec=reference.spec
+        for _ in range(count):state.tick(line)
+        if source.spec!=source_spec:
+            raise runtime.KarelRuntimeError('PC named data schema changed during capture',line)
+        if (reference.spec!=expected_spec or reference.raw() is not original
+                or storage is not None and original.values is not storage
+                or buffer_values(reference.spec,original,line)!=values
+                or runtime.integer(index.raw(),line)!=position):
+            raise runtime.KarelRuntimeError('PC buffer or index changed during named data capture',line)
+        value=source.raw()
+    try:payload=named_data_bytes(source_spec,value,line) if expanded else item_bytes(kind,value,line)
     except runtime.KarelRuntimeError:status.set(4,line);return
     end=position-1+len(payload)
     if end+2>len(values):status.set(3,line);return
