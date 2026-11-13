@@ -510,7 +510,8 @@ queue-entry policies; FILE banks remain excluded.
   widgets remain outside that contract. [Typed keyboard FILE READ](keyboard-file-read.md)
   now parses submitted ASCII lines with buffered suffixes and atomic outputs;
   [bounded PASSALL ASCII fields and printable EOL](keyboard-raw-read.md) are now
-  supported. Numeric/raw binary transfer, nonprintable custom delimiters and native
+  supported, including fixed-width numeric/BOOLEAN text and mixed field lists.
+  Raw binary transfer, nonprintable custom delimiters and native
   key encodings remain unsupported. Four
   [list/table controls](table-controls.md) now support resident lists and typed
   array-backed editors with injected keys, port cells and explicit session guards.

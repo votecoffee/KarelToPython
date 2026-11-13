@@ -8,6 +8,10 @@ Translate a supported subset of FANUC KAREL into Python modules with a checked
 offline runtime and practical Python numeric equivalents. Unsupported syntax produces explicit
 diagnostics or runtime errors. The translator does not connect to a robot.
 
+[PASSALL keyboard reads](docs/keyboard-raw-read.md#fixed-numeric-and-boolean-text)
+now accept fixed-width numeric and BOOLEAN text alongside literal STRING fields,
+including ARRAY and initialized queue entry input, without ENTER submission.
+
 [Waiting serial reads](docs/serial-waiting.md#scheduling-and-cancellation) now
 retain their original buffers and port registrations across waits and pauses.
 Replacing a pending source rejects the read before publishing input.
@@ -413,7 +417,7 @@ existing collision, busy-file, quota and publication checks remain active.
 and RENAME_FILE reuse matched characters in their destination filenames.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1112.221401**. It is a
+tool are named **karel2py**. The current implementation is **26.1113.001101**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -888,8 +892,9 @@ Interrupted tasks release their own keyboard suspension tokens.
 Ordinary typed FILE READ now uses the same injected keyboard service, with
 submitted lines, numeric/quoted formats, buffered suffixes and atomic outputs;
 see [keyboard FILE reads](docs/keyboard-file-read.md).
-[Raw keyboard fields](docs/keyboard-raw-read.md) add bounded PASSALL ASCII STRINGs
-and printable delimiters, using the same injected events and lifetime guards.
+[Raw keyboard fields](docs/keyboard-raw-read.md) add bounded PASSALL STRINGs,
+fixed-width numeric/BOOLEAN text and printable delimiters, using the same
+injected events and lifetime guards.
 
 Twelve dynamic-display calls watch static scalar/enum variables and supplied
 ports, updating logical window fields at deterministic checkpoint intervals.

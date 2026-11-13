@@ -175,13 +175,13 @@ class KeyboardPassallFieldTests(unittest.TestCase):
 
 
 class KeyboardRawFailureTests(unittest.TestCase):
-    def test_numeric_destination_rejected_before_keys_or_observation(self):
+    def test_numeric_without_width_rejected_before_keys_or_observation(self):
         ctx,p,_=prepare('READ f(x)',keys=('7',))
         with self.assertRaisesRegex(rt.KarelRuntimeError,'ATR_PASSALL.*STRING'):p.run()
         self.assertEqual(len(ctx.keyboard.events),1);self.assertEqual(p.read_requests,())
         self.assertEqual(p._state.values['F'].status,1);ctx.keyboard.close_all()
 
-    def test_mixed_numeric_destination_rejected_before_any_assignment(self):
+    def test_mixed_numeric_without_width_rejected_before_any_assignment(self):
         ctx,p,_=prepare("text='old' x=1 READ f(text::1,x)",keys=('a','7'))
         with self.assertRaisesRegex(rt.KarelRuntimeError,'ATR_PASSALL.*STRING'):p.run()
         self.assertEqual((p.snapshot()['TEXT'],p.snapshot()['X']),('old',1));self.assertEqual(len(ctx.keyboard.events),2)

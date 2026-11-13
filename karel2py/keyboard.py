@@ -466,20 +466,22 @@ class KeyboardInput:
             self.end(job)
 
     def _raw_file_read(self,state,handle,targets,formats,breaks,line=None):
-        """Bounded PASSALL ASCII STRING fields; no line editing or native codes."""
-        runtime=rt();binding=self._handles[handle];widths=[]
+        """Bounded fixed ASCII fields; no line editing, binary or native codes."""
+        runtime=rt();binding=self._handles[handle];fields=[]
         def invalid(message):
             handle.status=1
             raise runtime.KarelRuntimeError(message,line)
         if breaks:invalid('ATR_PASSALL keyboard READ does not accept CR markers')
         for target,controls in zip(targets,formats):
-            if target.spec[0]!='STRING' or len(controls)==2 and controls[1]!=0:
+            controls=runtime.read_formats(target.spec,controls,line)
+            if target.spec[0]=='STRING' and len(controls)==2 and controls[1]!=0:
                 invalid('ATR_PASSALL keyboard READ requires unquoted fixed STRING fields')
-            width=controls[0] if controls and controls[0] else target.spec[1]
+            width=controls[0] if controls else 0
+            if not width and target.spec[0]=='STRING':width=target.spec[1]
             if type(width) is not int or not 1<=width<=254:
-                invalid('ATR_PASSALL keyboard STRING width requires 1..254')
-            widths.append(width)
-        required=sum(widths)
+                invalid('ATR_PASSALL keyboard fields require an explicit positive width in 1..254, or a STRING capacity')
+            fields.append((width,target.spec,controls))
+        required=sum(width for width,_,_ in fields)
         if required>4096:invalid('ATR_PASSALL keyboard READ exceeds 4096 raw bytes')
         job=self.start(state,'FILE_READ',binding['pane'],255,handle)
         if job is None:invalid('Keyboard FILE READ capacity or clock domain is busy')
@@ -515,7 +517,12 @@ class KeyboardInput:
                 yield from runtime.checkpoint(state,line)
             values=[];offset=0
             runtime.check_file_read(handle,line)
-            for width in widths:values.append(binding['pending'][offset:offset+width]);offset+=width
+            for width,spec,controls in fields:
+                token=binding['pending'][offset:offset+width];offset+=width
+                if spec[0]=='STRING':values.append(token)
+                else:
+                    request=dict(targets=[dict(type=spec[0],type_spec=spec,format_specifiers=controls)])
+                    values.extend(runtime.TextInput(token)(request))
             observed=True;deliver(values)
             record('completed',0)
             binding['pending']=binding['pending'][required:];binding['after_field']=False

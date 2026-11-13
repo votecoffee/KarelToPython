@@ -2,7 +2,7 @@
 
 Pythonic keyboard FILE input adds two explicit contracts to
 [typed keyboard READ](keyboard-file-read.md): printable record delimiters and
-bounded raw ASCII STRING fields. Both consume only injected `KeyboardInput`
+bounded fixed ASCII fields. Both consume only injected `KeyboardInput`
 events and retain ordinary pane arbitration, cooperative waits and cleanup.
 No host keyboard, GUI or native key encoding is used.
 
@@ -51,13 +51,40 @@ No ENTER is needed: passall input ends when all fixed fields are full. It ignore
 the configured EOL as a termination rule, and ATR_FIELD is implied for this
 portable raw mode.
 
-Every destination must be an ordinary writable bounded STRING. A positive first
+STRING destinations must be ordinary writable bounded storage. A positive first
 format specifies its exact input width, from 1 through 254. An omitted or zero
 width uses the concrete STRING capacity. A field wider than its destination is
-fully consumed before right truncation. The second format may be omitted or zero;
-quoted format 2, numeric destinations, CR markers and binary/XML are rejected.
+fully consumed before right truncation. The second STRING format may be omitted
+or zero; quoted format 2, CR markers and binary/XML are rejected.
 The sum of all field widths must not exceed 4096 bytes, checked before input.
 Repeated destinations retain ordinary source assignment order after validation.
+
+### Fixed numeric and BOOLEAN text
+
+INTEGER, BYTE, SHORT, REAL and BOOLEAN destinations accept the same raw event
+stream with an explicit positive width from 1 through 254. A missing or zero
+numeric width rejects before consuming events. Mixed STRING/numeric lists,
+uniformly formatted data ARRAYs and initialized queue entry input follow the
+ordinary scalar expansion and complete-request publication rules.
+
+```karel
+READ channel(command::2,number::2::16,enabled::3)
+```
+
+The supplied characters `ID2AOFF` produce STRING `ID`, INTEGER 42 and BOOLEAN
+FALSE without ENTER. Each field occupies exactly its declared width, including
+padding. Integral fields accept the existing base selector, 0 or 2 through 16;
+zero selects decimal. REAL and BOOLEAN retain their existing READ format rules.
+The second REAL/BOOLEAN format is evaluated and ignored. STRING quote characters
+and control bytes remain literal STRING data.
+
+Numeric fields reuse the checked ASCII text parser, including finite REALs,
+BOOLEAN aliases, narrow-storage bounds and INTEGER range checks. A control byte
+does not submit or edit a numeric field. Invalid numeric text, overflow or a short
+later field leaves all destinations and committed position unchanged, retaining
+the collected raw prefix. A compatible subsequent raw STRING read can recover
+that prefix without replaying key events. This is a Pythonic text-input extension;
+it does not add native binary keyboard transfer or native numeric PASSALL behavior.
 
 Supported raw event encodings are deliberately narrow:
 
@@ -110,6 +137,7 @@ future key events. The existing 64-request and 256-handle limits remain in force
 
 The source context is MARRC75KR07091E Rev N sections 7.2.1, 7.3 and 7.7.4. The
 portable choices above are verified by
-[authored raw keyboard tests](../tests/test_keyboard_raw_read.py), alongside the
+[authored raw keyboard tests](../tests/test_keyboard_raw_read.py) and
+[fixed numeric field tests](../tests/test_keyboard_raw_numeric.py), alongside the
 existing typed keyboard tests. Native passall key layouts, live terminal input,
 native keyboard error recovery and strict mode remain outside this feature.

@@ -1,5 +1,14 @@
 # Changelog
 
+## 26.1113.001101 - 2026-11-13
+
+- Accept fixed-width INTEGER, BYTE, SHORT, REAL and BOOLEAN text in PASSALL
+  keyboard FILE reads, mixed with literal STRING fields without ENTER. Reuse
+  checked numeric formats and ordinary ARRAY/queue input expansion.
+- Retain the complete raw prefix and every destination on malformed numeric
+  input. Preserve pause, cancellation, input recovery and single capture of
+  selectors and formats; raw binary keyboard transfer remains unsupported.
+
 ## 26.1112.221401 - 2026-11-12
 
 - Keep waiting serial READs on their original buffers, port registration,
