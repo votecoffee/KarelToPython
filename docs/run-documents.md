@@ -4,8 +4,9 @@ The standalone Pythonic runner executes an explicitly selected generated Python
 module and stores supplied inputs and results in separate sections of one JSON
 document. It uses the existing offline runtime and adds no controller connection.
 This is the first foundation of the [runner milestone](roadmap.md#python-runner-and-parameter-editor).
-[Bounded input discovery](input-discovery.md) is available through the CLI;
-automatic value population and the GUI parameter editor remain future work.
+[Bounded input discovery and optional input templates](input-discovery.md) are
+available through the CLI; initial values remain explicit and the GUI parameter
+editor remains future work.
 
 ## Prepare and run
 
@@ -21,6 +22,12 @@ identity and pins the exact source bytes with SHA-256. It does not import or
 execute the target. The target path is relative to the document when possible;
 different volumes retain an explicit absolute path. Existing documents are
 preserved, and output aliases of the target or supplied context are rejected.
+
+Add `--discover` to prepare missing whole-root variable shapes in `inputs.context`
+and save the discovery report, edit pointers and requirements in `inputs.template`.
+It can be combined with `--context` to preserve compatible supplied values and
+services. Edit the missing values before running. No bank counts or initial
+values are guessed; unsupported data and services remain explicit requirements.
 
 The run command checks the target hash and supplied context before loading the
 selected Python. It executes one fresh Program, never resumes an old execution
@@ -55,8 +62,11 @@ context data rather than sharing the input dictionaries with execution. Results
 are never used as implicit inputs, so repeated runs begin with the same values
 unless the saved inputs are edited. Source-specific restoration still follows
 the generated Program's checked constructor; constructor failures are recorded
-without running the KAREL body. Preparation does not populate discovered values;
-review a discovery report and supply the context explicitly. No initial values
+without running the KAREL body. Optional discovered templates populate shapes
+with missing markers; review the requirements and supply values explicitly.
+`inputs.template` is an optional preparation snapshot with a source-bound
+envelope. Its statuses do not refresh after edits or determine runtime readiness.
+Older documents with only `inputs.context` remain compatible. No initial values
 are invented.
 
 Before loading the target, the runner atomically saves the supplied document with
@@ -107,6 +117,7 @@ WRITE text is retained in the document.
 
 `karel2py.runner.make_document` inspects without publication.
 `create_document(target, destination, context=...)` creates a new document;
+both accept `discover=True` for optional input preparation.
 `run_document(path)` executes and returns the saved document. API preflight or
 publication errors raise `RunDocumentError` or a filesystem error. Run documents
 and generated modules belong outside tracked public source or in ignored `.local/`.

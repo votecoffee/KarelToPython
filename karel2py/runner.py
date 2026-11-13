@@ -104,11 +104,24 @@ def _context(config):
         raise RunDocumentError('Invalid input context: ' + str(error)) from error
 
 
-def make_document(target, *, relative_to=None, context=None, max_steps=100000, max_output_chars=1048576):
+def make_document(target, *, relative_to=None, context=None, max_steps=100000, max_output_chars=1048576, discover=False):
     """Inspect metadata and supplied context without importing/running the target."""
     path, identity, _ = _target(target)
     config = {} if context is None else _decode(_encode(context))
     _context(config)
+    if type(discover) is not bool:
+        raise RunDocumentError('discover must be BOOLEAN')
+    template = None
+    if discover:
+        from .input_template import prepare_inputs
+        raw = _read(path)
+        if hashlib.sha256(raw).hexdigest() != identity['sha256']:
+            raise RunDocumentError('Python target changed during input discovery')
+        try:
+            prepared = prepare_inputs(raw, filename=str(path), context=config)
+        except ValueError as error:
+            raise RunDocumentError('Input preparation: '+str(error)) from error
+        config, template = prepared['context'], prepared['template']
     if type(max_steps) is not int or max_steps < 1:
         raise RunDocumentError('max_steps must be a positive INTEGER')
     if type(max_output_chars) is not int or not 1 <= max_output_chars <= MAX_BYTES:
@@ -119,9 +132,12 @@ def make_document(target, *, relative_to=None, context=None, max_steps=100000, m
             name = os.path.relpath(path, Path(relative_to).resolve())
         except ValueError:
             pass  # Different volumes retain an explicit absolute target path.
+    inputs = dict(context=config)
+    if template is not None:
+        inputs['template'] = template
     return dict(schema=SCHEMA, target=dict(path=name, **identity),
                 limits=dict(max_steps=max_steps, max_output_chars=max_output_chars),
-                inputs=dict(context=config), results=None)
+                inputs=inputs, results=None)
 
 
 def _store(path, document, *, expected=None, protected=()):
@@ -133,11 +149,11 @@ def _store(path, document, *, expected=None, protected=()):
     return raw
 
 
-def create_document(target, destination, *, context=None, max_steps=100000, max_output_chars=1048576, protected=()):
+def create_document(target, destination, *, context=None, max_steps=100000, max_output_chars=1048576, protected=(), discover=False):
     """Create a new document; never replace code, input files or old reports."""
     destination = Path(destination).absolute()
     document = make_document(target, relative_to=destination.parent, context=context,
-                             max_steps=max_steps, max_output_chars=max_output_chars)
+                             max_steps=max_steps, max_output_chars=max_output_chars, discover=discover)
     _store(destination, document, protected=(target, *protected))
     return document
 
@@ -155,8 +171,8 @@ def _validate(document, path):
             or type(limits['max_steps']) is not int or limits['max_steps'] < 1
             or type(limits['max_output_chars']) is not int or not 1 <= limits['max_output_chars'] <= MAX_BYTES):
         raise RunDocumentError('Malformed execution limits')
-    if type(inputs) is not dict or set(inputs) != {'context'}:
-        raise RunDocumentError('inputs requires exactly context')
+    if type(inputs) is not dict or set(inputs) not in ({'context'}, {'context', 'template'}):
+        raise RunDocumentError('inputs requires context and optional template annotations')
     if document['results'] is not None and type(document['results']) is not dict:
         raise RunDocumentError('results must be null or an object')
     if document['results'] is not None and document['results'].get('status') == 'running':
@@ -164,6 +180,12 @@ def _validate(document, path):
     target_path, identity, code = _target(path.parent / target['path'])
     if {key: target[key] for key in ('sha256', 'program', 'mode')} != identity:
         raise RunDocumentError('Python target changed; create a new run document')
+    if 'template' in inputs:
+        from .input_template import validate_annotations
+        try:
+            validate_annotations(inputs['template'], identity)
+        except ValueError as error:
+            raise RunDocumentError(str(error)) from error
     return target_path, code, _context(inputs['context'])
 
 
@@ -245,6 +267,7 @@ def main(argv=None):
     create.add_argument('target', type=Path)
     create.add_argument('document', type=Path)
     create.add_argument('--context', type=Path, help='Existing execution-context JSON copied into inputs')
+    create.add_argument('--discover', action='store_true', help='Prepare missing variable shapes and input requirements without target execution')
     create.add_argument('--max-steps', type=int, default=100000)
     create.add_argument('--max-output-chars', type=int, default=1048576)
     discover = subparsers.add_parser('discover', help='Inspect read-before-write inputs without importing or executing Python')
@@ -268,8 +291,13 @@ def main(argv=None):
             context = _decode(_read(args.context)) if args.context else None
             document = create_document(args.target, args.document, context=context,
                                        max_steps=args.max_steps, max_output_chars=args.max_output_chars,
-                                       protected=(args.context,) if args.context else ())
-            print(json.dumps(dict(status='prepared', program=document['target']['program'])))
+                                       protected=(args.context,) if args.context else (), discover=args.discover)
+            summary = dict(status='prepared', program=document['target']['program'])
+            if args.discover:
+                template = document['inputs']['template']
+                summary.update(inputs=len(template['bindings']), requirements=len(template['requirements']),
+                               unresolved=len(template['discovery']['unresolved']))
+            print(json.dumps(summary))
             return 0
         document = run_document(args.document)
         result = document['results']

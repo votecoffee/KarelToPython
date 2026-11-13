@@ -27,6 +27,14 @@ def names(report):
 
 
 class InputDiscoveryTests(unittest.TestCase):
+    def test_bitwise_constants_keep_integer_addresses_and_branch_truth(self):
+        report,_=scan('IF (NOT 1)=0 THEN n=x ELSE n=y ENDIF')
+        self.assertEqual(names(report),{('variable','Y'):'required'})
+        report,_=scan('n=a[(6 AND 3)]',decl='n:INTEGER a:ARRAY[6]OF INTEGER')
+        self.assertEqual(names(report),{('variable','A[2]'):'required'})
+        report,_=scan('n=a[(4 OR 2)]',decl='n:INTEGER a:ARRAY[6]OF INTEGER')
+        self.assertEqual(names(report),{('variable','A[6]'):'required'})
+
     def test_authored_discovery_example_and_independent_execution_fixtures(self):
         from tools.run_examples import run_example
         path=ROOT/'examples/discovery_inputs.kl'

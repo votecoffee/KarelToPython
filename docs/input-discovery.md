@@ -3,7 +3,8 @@
 The CLI identifies initial values read before a definite source write in newly
 generated Pythonic modules. Discovery reads a checked literal analysis contract;
 it never imports or executes the selected Python. It produces candidates and
-explicit gaps, without inventing values or editing a run document.
+explicit gaps without inventing values. `runner create --discover` can also
+prepare an editable input template in a new run document.
 
 ## CLI workflow
 
@@ -51,7 +52,8 @@ path such as `SOURCE.B` explains the needed part of the value. The existing
 context adapter restores whole declared globals: supply a `SOURCE` row with its
 root schema and shaped value, retaining uninitialized markers where appropriate.
 Do not copy selected field/element rows directly into `context.variables`.
-Automatic root-value construction and a parameter editor remain planned.
+The optional input-template preparation below constructs those whole-root
+shapes with missing markers. A graphical parameter editor remains planned.
 
 Port and register candidates retain known indexes and position groups. Numeric
 register reads list INTEGER/REAL alternatives without guessing the stored kind.
@@ -60,6 +62,49 @@ schemas describe the logical read shape, rather than authenticated stored data.
 `context_requirements` separately identifies services/addresses used even when
 the source writes before reading. Bank sizes, routes, initial values, robot
 models and successful runtime service statuses are never inferred from that list.
+
+## Prepare an editable run document
+
+```console
+python -m karel2py.runner create .local/discovery.py .local/editable.run.json --discover
+```
+
+This saves the usual `inputs.context` and `results`, plus `inputs.template` with
+the discovery report, input bindings and requirements. Variable bindings point
+to whole-root values through `context_pointer` (a JSON Pointer relative to
+`inputs.context`) and retain logical `selectors` for the required fields or
+one-based KAREL indexes. Fill those values in `inputs.context`, then run the
+document normally. For the authored example set SELECTOR to true and SOURCE.B
+to 41; SOURCE.A may retain its missing marker because the program writes it.
+
+Preparation builds concrete scalar, ARRAY, STRUCTURE, built-in record and
+JOINTPOS shapes. Missing scalars use `{"uninitialized": true}`; BYTE uses
+`{"unknown_byte": true}`. Fields and cells remain independent. Whole roots are
+deduplicated across selected inputs. No numeric zeros, Boolean choices, strings,
+poses, register capacities or port configuration are invented.
+
+Combine `--discover --context existing-context.json` to retain supplied values,
+partial data, comments and unrelated services. Compatible root bindings keep
+their original spelling and representation; conflicting root types reject
+preparation before publication. Bank/port bindings point to existing or proposed
+value locations, while absent services/counts, out-of-range addresses and
+caller-default position groups require explicit review. Bank values remain
+omitted until supplied. Physical-input adapters can supply port values without
+an explicit logical `values` entry; such a pointer identifies the logical value
+to edit if overriding it, rather than the physical sample row.
+
+Binding status is `supplied`, `missing` or `unmapped` at preparation time.
+Requirements and statuses are snapshots and do not refresh after JSON edits;
+they never authorize execution or assert that a program is ready. Conditional
+inputs may remain missing when their branch is not taken. Unsupported discovery
+effects remain in `inputs.template.discovery.unresolved`. Actual runtime reads
+and services keep their existing checks and failure behavior.
+
+Preparation adds at most 32767 scalar leaves across new roots. Unsupported or
+oversized roots stay unmapped with explicit requirements. Source bytes are
+checked against the run document's pin during preparation; stale annotation
+envelopes are rejected before running. Inputs and annotations survive failures
+and replay unchanged. Preparation still never imports or executes the target.
 
 ## Supported analysis
 
@@ -108,5 +153,8 @@ module still executes trusted Python with ordinary process permissions.
 bytes. `discover_file(path)` performs a bounded file read. Both return a report;
 invalid inputs raise `InputDiscoveryError`. Neither API imports the target.
 The [semantic ledger](semantics/input_discovery_semantics.json) records this
-contract. Complete discovery, automatic value editing, linked runs and the GUI
-parameter tab remain [future work](roadmap.md).
+contract. `karel2py.input_template.prepare_inputs(source, context=...)` returns
+independent `context` and `template` objects for CLI/host reuse; invalid contexts
+raise `InputTemplateError`. The [template ledger](semantics/input_template_semantics.json)
+records its contract. Complete discovery, automatic value editing, linked runs
+and the GUI parameter tab remain [future work](roadmap.md).

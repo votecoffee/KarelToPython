@@ -273,7 +273,9 @@ class _Analyzer:
                 try:
                     if any(type(item) is int and item.bit_length()>64 or type(item) is str and len(item)>254 for item in known):return _Value()
                     if kind=='binary' and value=='*' and any(type(item) is str for item in known):return _Value()
-                    if kind=='unary':result=not known[0] if value=='NOT' else -known[0] if value=='-' else +known[0]
+                    if kind=='unary':
+                        if value=='NOT':result=not known[0] if type(known[0]) is bool else ~known[0]
+                        else:result=-known[0] if value=='-' else +known[0]
                     else:
                         a,b=known
                         if value=='+':result=a+b
@@ -286,8 +288,8 @@ class _Analyzer:
                         elif value=='<=':result=a<=b
                         elif value=='>':result=a>b
                         elif value=='>=':result=a>=b
-                        elif value=='AND':result=a and b
-                        elif value=='OR':result=a or b
+                        elif value=='AND':result=(a and b) if type(a) is bool and type(b) is bool else a & b
+                        elif value=='OR':result=(a or b) if type(a) is bool and type(b) is bool else a | b
                         else:return _Value()
                     if (type(result) in (bool,int,float,str) and (type(result) is not str or len(result)<=254)
                             and (type(result) is not int or result.bit_length()<=64)

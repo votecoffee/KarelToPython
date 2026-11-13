@@ -3,7 +3,8 @@
 [Standalone run documents](run-documents.md) now retain supplied inputs and
 terminal or partial results through a CLI execution service for generated Python.
 [Bounded input discovery](input-discovery.md) now reports typed source candidates
-without target execution; complete discovery and the workbench editor remain planned.
+without target execution. Optional run-document templates prepare editable
+whole-root missing-value shapes; complete discovery and the workbench editor remain planned.
 
 [Motion statement boundaries](motion-statement-boundaries.md) now preserve an
 inline REPEAT's UNTIL and a following independent WITH MOVE. Comma-led local

@@ -1,5 +1,21 @@
 # Changelog
 
+## 26.1113.182520 - 2026-11-13
+
+- Add `runner create --discover` to prepare editable whole-root variable shapes,
+  including arrays, records, joints and explicit unknown BYTE markers. Save
+  source-bound discovery, edit pointers and remaining requirements alongside
+  the original context and separate execution results in one run document.
+- Preserve supplied context values and services, reject conflicting root types,
+  and keep register capacities, port configuration and missing values explicit.
+  Treat preparation annotations as a snapshot; edited inputs replay independently.
+- Check source identity during preparation and validate optional annotation
+  envelopes before execution. Keep old context-only run documents compatible.
+- Correct integer NOT/AND/OR constant folding in input discovery so branch and
+  selected-address analysis follows Pythonic bitwise behavior.
+- Add focused context-shape, CLI, preservation, stale-data and replay checks.
+  GUI editing, complete discovery and linked execution remain future work.
+
 ## 26.1113.180825 - 2026-11-13
 
 - Add nonexecuting Python input discovery through the runner CLI/API. Follow

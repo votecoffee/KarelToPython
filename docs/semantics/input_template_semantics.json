@@ -1,0 +1,22 @@
+{
+  "translator_version": "26.1113.182520",
+  "mode": "pythonic",
+  "schema": "karel2py.input-template.v1",
+  "scope": "Optional source-bound preparation annotations in standalone run-document inputs",
+  "contracts": {
+    "cli": "runner create --discover, optionally combined with explicit --context; no target import or execution",
+    "storage": "One whole-root binding per discovered variable owner/name, concrete data shapes and independent scalar missing markers; BYTE remains unknown",
+    "preservation": "Compatible supplied context retains values, partial data, spelling, comments and unrelated services; conflicting discovered root types reject preparation",
+    "banks": "Explicit supplied numeric/string/grouped position/port configuration only; no invented counts or values; remaining addresses and default groups require review",
+    "editing": "JSON pointers are relative to inputs.context; variable pointers select whole roots and logical selectors identify source fields/indexes",
+    "annotations": "Preparation snapshot only; supplied/missing/unmapped statuses and requirements do not refresh after edits or guarantee readiness",
+    "identity": "Check raw Python pin during preparation and optional annotation envelope identity before running; checks do not authenticate code",
+    "execution": "Existing runtime reads and services determine outcomes; conditional missing values may remain on untaken paths; inputs and annotations retained on failure/replay",
+    "compatibility": "Existing run-v1 context-only documents remain supported; optional inputs.template adds source discovery, bindings and requirements",
+    "limits": "At most 32767 newly materialized scalar leaves; unsupported schemas/budgets remain explicit requirements; existing JSON/document limits apply"
+  },
+  "future": ["Graphical parameter editor", "Refresh compatible edited inputs", "Complete discovery", "Linked-project execution"],
+  "guide": "../input-discovery.md#prepare-an-editable-run-document",
+  "tests": ["tests/test_input_template.py", "tests/test_input_discovery.py", "tests/test_runner.py"],
+  "controller_validated": false
+}

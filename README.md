@@ -458,7 +458,7 @@ SET_JPOS_REG. They capture inputs before later selectors and stage converted
 values under destination/status guards in the selected register group.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1113.180825**. It is a
+tool are named **karel2py**. The current implementation is **26.1113.182520**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 [Formatted empty collection output](docs/empty-collection-output.md) lets the same
@@ -647,6 +647,11 @@ python -m karel2py.runner discover converted.py --output .local/inputs.report.js
 python -m karel2py.runner create converted.py .local/session.run.json --context input-context.json
 python -m karel2py.runner run .local/session.run.json
 ```
+
+Use `create --discover` to build editable whole-variable shapes automatically,
+with explicit missing markers and input requirements saved in `inputs.template`.
+Add `--context input-context.json` to preserve supplied values and services.
+Edit `inputs.context` before running; bank counts and initial values stay explicit.
 
 Each run starts from `inputs.context` and checks the pinned Python hash. Results
 include variables, available offline banks, WRITE text and completion/failure
@@ -1449,9 +1454,8 @@ will extract registers, variables and other values read before they are written
 from generated Python, provide a tab or popup for editing those inputs, and
 save both inputs and execution results in one JSON file. The standalone
 [CLI execution service](docs/run-documents.md) now provides the run-document
-foundation with manually supplied context. Bounded input discovery is now
-available; complete discovery, the parameter editor and workbench execution
-remain future work.
+foundation with supplied context and optional discovered input templates.
+Complete discovery, the parameter editor and workbench execution remain future work.
 
 [Strict mode](docs/numeric-modes.md#compatibility-and-the-strict-milestone)
 remains a later milestone. See the [roadmap](docs/roadmap.md) for planned scope

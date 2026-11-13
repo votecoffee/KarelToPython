@@ -683,8 +683,9 @@ queue-entry policies; FILE banks remain excluded.
   [run-document CLI](run-documents.md) now runs pinned generated Python with
   supplied context and separate inputs/results, including partial failures.
   [Bounded read-before-write discovery](input-discovery.md) now reports typed
-  source candidates and unresolved effects. Complete discovery, automatic value
-  population, linked-project runs, the parameter editor and workbench execution
+  source candidates and unresolved effects. Optional input templates build
+  whole-root shapes with missing markers and preserve supplied context. Complete
+  discovery, automatic value editing, linked-project runs, the parameter editor and workbench execution
   remain [future work](roadmap.md).
 - Public strict mode remains a future milestone. `--mode strict` is rejected;
   preserved historical exactness work is not an available public execution mode.
