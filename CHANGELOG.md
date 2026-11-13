@@ -1,5 +1,14 @@
 # Changelog
 
+## 26.1113.002947 - 2026-11-13
+
+- Accept explicit CR markers in PASSALL keyboard reads, including leading,
+  repeated and CR-only forms. Discard through one supplied raw terminator between
+  fixed fields; literal controls inside fixed STRING fields remain data.
+- Stage fields and discard regions as one bounded transaction. Count discarded
+  bytes in position/history, preflight minimum space, and retain pending input
+  on missing terminators, invalid later data, pause or cancellation.
+
 ## 26.1113.001944 - 2026-11-13
 
 - Accept quoted STRING format 2 in PASSALL keyboard reads with explicit widths

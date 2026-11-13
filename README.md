@@ -8,9 +8,10 @@ Translate a supported subset of FANUC KAREL into Python modules with a checked
 offline runtime and practical Python numeric equivalents. Unsupported syntax produces explicit
 diagnostics or runtime errors. The translator does not connect to a robot.
 
-[PASSALL keyboard reads](docs/keyboard-raw-read.md#fixed-quoted-string-text)
-now accept fixed-width quoted STRINGs with doubled-apostrophe escapes alongside
-literal STRING, numeric and BOOLEAN fields, without ENTER submission.
+[PASSALL keyboard reads](docs/keyboard-raw-read.md#explicit-cr-record-discards)
+now combine fixed STRING/numeric/BOOLEAN fields with explicit CR record discards.
+Quoted STRINGs retain doubled-apostrophe escapes. Fixed fields finish without
+ENTER unless a CR marker requests a terminator.
 
 [Waiting serial reads](docs/serial-waiting.md#scheduling-and-cancellation) now
 retain their original buffers and port registrations across waits and pauses.
@@ -417,7 +418,7 @@ existing collision, busy-file, quota and publication checks remain active.
 and RENAME_FILE reuse matched characters in their destination filenames.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1113.001944**. It is a
+tool are named **karel2py**. The current implementation is **26.1113.002947**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents

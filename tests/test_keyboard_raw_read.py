@@ -192,11 +192,11 @@ class KeyboardRawFailureTests(unittest.TestCase):
         with self.assertRaisesRegex(rt.KarelRuntimeError,'quoted STRING.*explicit width'):p.run()
         self.assertEqual(len(ctx.keyboard.events),3);ctx.keyboard.close_all()
 
-    def test_cr_markers_rejected_before_consuming_keys(self):
+    def test_cr_markers_with_noninjectable_eol_rejected_before_keys(self):
         for statement in ('READ f(text::1,CR)','READ f(CR)'):
             with self.subTest(statement=statement):
-                ctx,p,_=prepare(statement,keys=('a',))
-                with self.assertRaisesRegex(rt.KarelRuntimeError,'CR markers'):p.run()
+                ctx,p,_=prepare(statement,keys=('a',),attributes=PASSALL+'SET_FILE_ATR(f,ATR_EOL,0) ')
+                with self.assertRaisesRegex(rt.KarelRuntimeError,'CR markers require an injectable'):p.run()
                 self.assertEqual(len(ctx.keyboard.events),1);ctx.keyboard.close_all()
 
     def test_total_width_limit_preflight(self):

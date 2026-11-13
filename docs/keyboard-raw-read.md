@@ -47,16 +47,17 @@ CLOSE FILE channel
 ```
 
 With `A`, `B`, `C`, `x`, `y` events, the STRING results are `ABC` and `xy`.
-No ENTER is needed: passall input ends when all fixed fields are full. It ignores
-the configured EOL as a termination rule, and ATR_FIELD is implied for this
-portable raw mode.
+Without CR markers, no ENTER is needed: passall input ends when all fixed fields
+are full. Fixed fields ignore the configured EOL as a termination rule, and
+ATR_FIELD is implied for this portable raw mode. Explicit CR discards below
+require their terminators.
 
 Unquoted STRING destinations must be ordinary writable bounded storage. A positive first
 format specifies its exact input width, from 1 through 254. An omitted or zero
 width uses the concrete STRING capacity. A field wider than its destination is
 fully consumed before right truncation. The second STRING format may be omitted
-or zero. Quoted format 2 follows the explicit-width rule below. CR markers and
-binary/XML remain rejected.
+or zero. Quoted format 2 follows the explicit-width rule below. Binary/XML
+remain rejected.
 The sum of all field widths must not exceed 4096 bytes, checked before input.
 Repeated destinations retain ordinary source assignment order after validation.
 
@@ -80,8 +81,9 @@ the decoded text to the destination's capacity.
 
 Quoted and literal STRING fields can appear with numeric/BOOLEAN fields and
 uniformly formatted STRING ARRAYs. Quoted fields use the existing text parser
-and cannot cross CR/LF record separators. A custom keyboard EOL is still ignored
-by PASSALL collection. Format 0 retains literal quotes and control bytes.
+and cannot cross CR/LF record separators. Fixed-field collection ignores a custom
+keyboard EOL; an explicit CR marker uses it after the field. Format 0 retains
+literal quotes and control bytes.
 
 Malformed quoting, a bad later field, pause or cancellation never commits a
 partial source update. Already collected bytes remain in the raw buffer and
@@ -115,6 +117,39 @@ later field leaves all destinations and committed position unchanged, retaining
 the collected raw prefix. A compatible subsequent raw STRING read can recover
 that prefix without replaying key events. This is a Pythonic text-input extension;
 it does not add native binary keyboard transfer or native numeric PASSALL behavior.
+
+### Explicit CR record discards
+
+```karel
+READ channel(quantity::2,CR,label::3,CR)
+```
+
+With `17ignored`, ENTER, `ABCrest`, ENTER, this reads INTEGER 17 and STRING `ABC`.
+Each CR discards the remaining raw bytes through one terminator. Leading,
+repeated, between-field and trailing markers preserve source order; `READ
+channel(CR)` discards one record without destinations. Aggregate and queue entry
+input keep their ordinary scalar expansion. Publication waits for every field
+and every requested terminator.
+
+For default EOL 10 or EOL 13, ENTER's raw byte 13 terminates the discard. A
+printable custom EOL uses its exact ASCII byte. EOL 8 and 23 can explicitly use
+DELETE and REFRESH as raw terminators. Other noninjectable EOLs reject markers
+before consuming events. Edited line input keeps its separate delimiter rules.
+Literal STRING bytes inside a fixed field remain data, including ENTER; CR
+markers look for a terminator only after their preceding fixed fields finish.
+
+All fixed widths plus one byte per CR must fit the 4096-byte request limit.
+Discarded text and terminators also count toward the actual retained prefix,
+FILE position and bounded history byte count. If that prefix reaches 4096 bytes
+without completing the request, the read fails before consuming another event.
+It retains its bytes and destinations. Scanning resumes at newly collected bytes
+instead of rescanning an unfinished discard from its beginning at every key.
+
+Missing terminators, invalid later fields, pause and cancellation preserve the
+entire current request, including already scanned discard regions. Completed
+earlier READs stay committed. Future events are neither consumed speculatively
+nor replayed. Raw CR records do not enter editable line history or echo controls.
+These are explicit Pythonic raw-record rules, without native terminal parity.
 
 Supported raw event encodings are deliberately narrow:
 
@@ -169,6 +204,7 @@ The source context is MARRC75KR07091E Rev N sections 7.2.1, 7.3 and 7.7.4. The
 portable choices above are verified by
 [authored raw keyboard tests](../tests/test_keyboard_raw_read.py) and
 [fixed numeric field tests](../tests/test_keyboard_raw_numeric.py) and
-[quoted field tests](../tests/test_keyboard_raw_quoted.py), alongside the
+[quoted field tests](../tests/test_keyboard_raw_quoted.py), plus
+[record-discard tests](../tests/test_keyboard_raw_records.py), alongside the
 existing typed keyboard tests. Native passall key layouts, live terminal input,
 native keyboard error recovery and strict mode remain outside this feature.

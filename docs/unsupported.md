@@ -511,8 +511,9 @@ queue-entry policies; FILE banks remain excluded.
   now parses submitted ASCII lines with buffered suffixes and atomic outputs;
   [bounded PASSALL ASCII fields and printable EOL](keyboard-raw-read.md) are now
   supported, including bounded quoted STRINGs, fixed-width numeric/BOOLEAN text
-  and mixed field lists.
-  Raw binary transfer, nonprintable custom delimiters and native
+  and mixed field lists with explicit CR record discards. Raw CR markers can
+  use ENTER, DELETE, REFRESH or printable custom EOLs outside fixed fields.
+  Raw binary transfer, noninjectable delimiters and native
   key encodings remain unsupported. Four
   [list/table controls](table-controls.md) now support resident lists and typed
   array-backed editors with injected keys, port cells and explicit session guards.

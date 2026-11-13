@@ -471,7 +471,9 @@ class KeyboardInput:
         def invalid(message):
             handle.status=1
             raise runtime.KarelRuntimeError(message,line)
-        if breaks:invalid('ATR_PASSALL keyboard READ does not accept CR markers')
+        terminator=13 if handle.eol in (10,13) else handle.eol
+        if breaks and terminator not in (8,13,23) and not 32<=terminator<=126:
+            invalid('ATR_PASSALL CR markers require an injectable ASCII terminator')
         for target,controls in zip(targets,formats):
             controls=runtime.read_formats(target.spec,controls,line)
             quoted=target.spec[0]=='STRING' and len(controls)==2 and controls[1]==2
@@ -482,11 +484,17 @@ class KeyboardInput:
             if type(width) is not int or not 1<=width<=254:
                 invalid('ATR_PASSALL keyboard fields require an explicit positive width in 1..254, or a STRING capacity')
             fields.append((width,target.spec,controls,quoted))
-        required=sum(width for width,_,_,_ in fields)
+        required=sum(width for width,_,_,_ in fields)+len(breaks)
         if required>4096:invalid('ATR_PASSALL keyboard READ exceeds 4096 raw bytes')
+        operations=[];marker=0
+        for index in range(len(fields)+1):
+            while marker<len(breaks) and breaks[marker]==index:
+                operations.append(None);marker+=1
+            if index<len(fields):operations.append(fields[index])
         job=self.start(state,'FILE_READ',binding['pane'],255,handle)
         if job is None:invalid('Keyboard FILE READ capacity or clock domain is busy')
         binding['input_mode']='raw';observed=False;complete=False;steps=0
+        operation=0;consumed=0;scan=0;extent=0;slices=[]
         def deliver(values=None,error=None):
             previous=state._read
             def response(_):
@@ -499,11 +507,27 @@ class KeyboardInput:
         def record(outcome,status):
             # Literal controls are never interpreted as window commands or
             # serialized as printable history text. Keep a bounded hex sample.
-            self.record(job,outcome,raw=1,fields=len(targets),bytes=min(required,len(binding['pending'])),
-                sample_hex=binding['pending'][:32].encode('ascii').hex(),status=status)
+            self.record(job,outcome,raw=1,fields=len(targets),bytes=min(extent,len(binding['pending'])),
+                sample_hex=binding['pending'][:min(32,extent)].encode('ascii').hex(),status=status)
         try:
-            while len(binding['pending'])<required:
+            while operation<len(operations):
                 runtime.check_file_read(handle,line)
+                field=operations[operation]
+                if field is None:
+                    end=binding['pending'].find(chr(terminator),scan)
+                    if end>=0:
+                        consumed=end+1;scan=consumed;extent=consumed;operation+=1
+                        continue
+                    scan=len(binding['pending']);extent=scan
+                else:
+                    width=field[0];end=consumed+width
+                    if len(binding['pending'])>=end:
+                        slices.append((consumed,field))
+                        consumed=end;scan=consumed;extent=consumed;operation+=1
+                        continue
+                    extent=len(binding['pending'])
+                if len(binding['pending'])>=4096:
+                    raise runtime.KarelRuntimeError('ATR_PASSALL keyboard READ exceeds 4096 raw bytes',line)
                 job.update(text=binding['pending'][-254:],cursor=len(binding['pending']))
                 event=self.event(job)
                 if event is None:
@@ -514,20 +538,21 @@ class KeyboardInput:
                     raise runtime.KarelRuntimeError('ATR_PASSALL keyboard key has no portable ASCII encoding',line)
                 if not 0<=code<=127:raise runtime.KarelRuntimeError('ATR_PASSALL keyboard key requires ASCII',line)
                 binding['pending']+=chr(code)
+                extent=len(binding['pending'])
                 job.update(text=binding['pending'][-254:],cursor=len(binding['pending']))
                 yield from runtime.checkpoint(state,line)
-            values=[];offset=0
+            values=[]
             runtime.check_file_read(handle,line)
-            for width,spec,controls,quoted in fields:
-                token=binding['pending'][offset:offset+width];offset+=width
+            for start,(width,spec,controls,quoted) in slices:
+                token=binding['pending'][start:start+width]
                 if spec[0]=='STRING' and not quoted:values.append(token)
                 else:
                     request=dict(targets=[dict(type=spec[0],type_spec=spec,format_specifiers=controls)])
                     values.extend(runtime.TextInput(token)(request))
             observed=True;deliver(values)
             record('completed',0)
-            binding['pending']=binding['pending'][required:];binding['after_field']=False
-            handle.position+=required;handle.status=0;complete=True
+            binding['pending']=binding['pending'][consumed:];binding['after_field']=False
+            handle.position+=consumed;handle.status=0;complete=True
         except BaseException as error:
             handle.status=1
             if not observed and not isinstance(error,runtime._FileReadCancelled):
