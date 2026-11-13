@@ -203,7 +203,7 @@ def invoke(state,operation,args,line=None):
         program=runtime.ascii_string(args[2],line).strip() or state.program_name
         path=runtime.ascii_string(args[3],line)
         if path.startswith('$'):status.set(1,line);return
-        try:source=context.resolve(state,program,path,line,path_nodes=runtime._pythonic(),defer_node_data=runtime._pythonic())
+        try:source=context.resolve(state,program,path,line,path_nodes=runtime._pythonic(),prefixes=runtime._pythonic(),defer_node_data=runtime._pythonic(),defer_prefix_data=runtime._pythonic())
         except runtime.KarelRuntimeError:status.set(1,line);return
         source_spec=source.spec;source_location=capture_location(source);kind=source_spec[0]
         value=source.raw() if kind in ('INTEGER','REAL','STRING') or not runtime._pythonic() else None
@@ -229,6 +229,10 @@ def invoke(state,operation,args,line=None):
                 or runtime.integer(index.raw(),line)!=position):
             raise runtime.KarelRuntimeError('PC buffer or index changed during named data capture',line)
         value=source.raw()
+        if type(value) is runtime.Array and type(value.values) is runtime._ArrayWindow:
+            # Resizing retained original cells is a capture conflict, not a data
+            # status; preserve the prior status and completed host effects.
+            value.values.validate(line)
     try:payload=named_data_bytes(source_spec,value,line) if expanded else item_bytes(kind,value,line)
     except runtime.KarelRuntimeError:status.set(4,line);return
     end=position-1+len(payload)

@@ -1,5 +1,19 @@
 # Changelog
 
+## 26.1113.044103 - 2026-11-13
+
+- Extend Pythonic ADD_BYNAMEPC to named ordinary ARRAY rows and planes,
+  including comma/chained indexes, named components, record and PATH-node
+  fields, explicit foreign roots and linked source owners.
+- Capture original selected cells without copying the containing ARRAY.
+  Admit schema/capacity and charge each scalar before copying selected data;
+  retain existing typed items, data checks and atomic buffer/index updates.
+- Keep original cells when host code replaces the root list; reject resizing
+  retained storage before packet/status publication. Preserve default
+  GET_VAR/SET_VAR and ordinary prefix validation.
+- Add a row/plane packet example and focused encoding, ownership, budget,
+  linkage, replay, invalid-data and containing-storage regressions.
+
 ## 26.1113.043110 - 2026-11-13
 
 - Extend Pythonic ADD_BYNAMEPC to selected PATH nodes, fields and headers,

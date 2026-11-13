@@ -84,8 +84,11 @@ system-variable paths remain excluded. No names
 are discovered from a controller or routine-local frame. Missing paths return
 status 1; incompatible or uninitialized admitted data returns status 4 without
 changing the index/buffer. A schema-based capacity rejection can return status 3
-before reading source contents. Incomplete flat rows/planes remain excluded;
-fully selected named ARRAY components use ordinary static lookup.
+before reading source contents. Fully selected named ARRAY components and
+final ordinary row/plane paths use static comma or chained lookup. Rows/planes
+retain original selected cells without copying the containing ARRAY; selected
+data copying follows capacity and scalar budget admission. Generic named
+transfers retain their existing containing-data validation.
 
 ## Typed and raw send modes
 

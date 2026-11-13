@@ -7949,16 +7949,24 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
     report['vision_bmp_sample_policy']['format']='Default bottom-up 24-bit RGB or 32-bit V4 alpha BMP; optional nonalpha RGB555/RGB565 output follows vision_packed_bmp_policy without changing source samples'
     report['vision_sample_depth_policy']['export']='PNG preserves supplied samples; default BMP rounds components to eight bits; explicit bmp_format uses direct packed quantization under vision_packed_bmp_policy'
     report['pc_named_data_policy']=dict(
-        source='ADD_BYNAMEPC reads complete ordinary scalar/ARRAY/record/joint data from current/attached declared globals or explicit variable roots; static fields and fully selected named ARRAY components retain existing lookup rules',
+        source='ADD_BYNAMEPC reads complete ordinary scalar/ARRAY/record/joint data from current/attached declared globals or explicit variable roots; static fields, fully selected named ARRAY components and final ordinary rows/planes retain their schemas',
         encoding='Expand ARRAYs row-major, records in declaration order and joints by axis; map BYTE/SHORT/BOOLEAN to INTEGER items with false=0 and true=1; retain existing REAL32 and length/NUL STRING items with one final end marker',
         schema='Existing concrete data-only schemas, 64 levels and 32767 leaves; no shape/name headers, field renaming, resource serialization or inferred receiver schema',
         bounds='Before expansion, reject batches whose scalar count times four plus final marker cannot fit remaining buffer space; then check complete captured values and exact encoded size within the existing 244-byte buffer',
         capture='Existing initial builder checkpoint, then one step per expanded scalar before detached capture; source edits completed during charging are included; source schema/location, captured buffer/index/status bindings, buffer identity/contents/storage and index must retain their contracts',
         publication='Stage every item, marker and next index before ordinary publication; status 3 for capacity, 4 for incompatible/unknown/unrepresentable data; budget/lifecycle or changed-destination failures propagate without overwriting status or prior state',
-        boundary='Authored Pythonic typed-item sequence; no ARRAY/record native envelope, incomplete flat row/plane lookup, whole FILE/PATH/QUEUE data, system discovery, transport/controller or strict equivalence',
+        boundary='Authored Pythonic typed-item sequence; no ARRAY/record native envelope, whole FILE/PATH/QUEUE data, system discovery, transport/controller or strict equivalence',
         guide='docs/pc-named-data.md',controller_validated=False)
-    report['pc_exchange_policy']['lookup']='Existing INTEGER/REAL/STRING and complete Pythonic ordinary data under pc_named_data_policy; current/attached globals or explicit roots with static paths; selected PATH data follows pc_path_node_policy; system/whole-resource and incomplete flat-prefix lookup remain excluded'
+    report['pc_exchange_policy']['lookup']='Existing INTEGER/REAL/STRING and complete Pythonic ordinary data under pc_named_data_policy; current/attached globals or explicit roots with static paths; selected PATH data follows pc_path_node_policy and ordinary final rows/planes follow pc_named_prefix_policy; system/whole-resource lookup remains excluded'
     report['pc_exchange_policy']['buffers']='One-dimensional ordinary BYTE ARRAY storage, 1..244 bytes; checked disjoint buffer/index/status references; builders stage a complete scalar item or named-data batch plus one marker and retain untouched prefix/tail bytes'
+    report['pc_named_prefix_policy']=dict(
+        source='ADD_BYNAMEPC final ordinary ARRAY rows/planes under static globals, record/PATH-node fields and explicit foreign roots; normalize adjacent comma/chained numeric indexes; blank program uses executing source owner',
+        selection='Validate bounded data schema and traversed container metadata; retain original selected cells without copying the containing ARRAY; named inner components retain their schemas',
+        capture='Admit selected scalar-count capacity and charge per scalar before copying complete selected data; include cell edits completed during charging; root/list replacement does not redirect capture and retained-list resizing raises before packet/status writes',
+        encoding='Existing pc_named_data_policy row-major scalar items, one marker and atomic buffer/index update; unselected leaves are not packet inputs',
+        persistence='Save ordinary roots and independent packet only; no registered row binding, live window or suspended capture restored',
+        boundary='Generic named transfers retain containing-data validation; no resource rows, vectorized nonfinal field selection, system/local discovery, native transport, controller or strict equivalence',
+        guide='docs/pc-named-data.md',controller_validated=False)
     report['pc_path_node_policy']=dict(
         source='ADD_BYNAMEPC selected scalar PATH nodes, node fields and ordinary header data; static PATH-bank comma/chained node paths, attached globals and explicit foreign roots; blank program uses executing source owner',
         capture='Validate node selection without cloning the PATH; selected bank data copying waits for schema/capacity admission and scalar charges; ordinary default node validation remains unchanged',

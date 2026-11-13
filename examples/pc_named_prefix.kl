@@ -1,0 +1,15 @@
+PROGRAM PC_NAMED_PREFIX
+VAR matrix:ARRAY[2,2]OF INTEGER cube:ARRAY[2,2,2]OF INTEGER
+    buffer:ARRAY[38]OF BYTE cursor,status:INTEGER done:BOOLEAN
+BEGIN
+  IF UNINIT(done) THEN
+    matrix[2,1]=7 matrix[2,2]=9
+    cube[2,1,1]=11 cube[2,1,2]=13
+    cube[2,2,1]=17 cube[2,2,2]=19
+    cursor=1
+    ADD_BYNAMEPC(buffer,cursor,'','matrix[2]',status)
+    ADD_BYNAMEPC(buffer,cursor,'','cube[2]',status)
+    SEND_DATAPC(9,buffer,status)
+    done=TRUE
+  ENDIF
+END PC_NAMED_PREFIX

@@ -37,10 +37,37 @@ silently omitted or defaulted.
 
 Names follow current/attached globals and explicit variable roots, with existing
 case-insensitive static paths. Blank program uses the executing source module,
-including a supplied linked routine. Fully selected named ARRAY components can
-be serialized; incomplete flat row/plane selectors remain excluded. Routine-local
+including a supplied linked routine. Fully selected named ARRAY components and
+final ordinary ARRAY rows/planes can be serialized. Routine-local
 discovery, system paths and whole FILE/PATH/QUEUE resources remain outside this
 contract.
+
+### Named ARRAY rows and planes
+
+`matrix[2]` selects a row of a flat two-dimensional ARRAY; `cube[2]`
+selects a plane. `cube[2,1]` and `cube[2][1]` select the same row. Adjacent
+numeric bracket groups normalize before selection, including complete scalar
+paths. Prefixes must end the path; there is no vectorized field selection.
+
+Rows/planes may contain complete ordinary records, nested named ARRAYs,
+Cartesian data, joints and scalar values. They can appear in ordinary record
+or PATH-node fields and explicit foreign roots. Resource rows remain excluded.
+The selected cells expand in row-major order without shape/type headers. See
+the [runnable row/plane example](../examples/pc_named_prefix.kl).
+
+Lookup validates the bounded data schema and traversed ARRAY container
+metadata, then retains the selected original cells without copying data.
+Scalar-count capacity admission and budget charges precede the complete
+selected-value copy. Unselected missing or invalid leaves do not become packet
+data and are not inspected; generic GET_VAR/SET_VAR retain their existing
+complete containing-data checks.
+
+Edits to captured cells during charging are included. Replacing a root ARRAY
+or its list does not redirect the retained cells. Resizing that retained list
+raises before packet/status publication and preserves completed host effects.
+The temporary selection is not registered as a variable or saved as a live
+binding; JSON retains ordinary roots and the independent packet. See
+`pc_named_prefix_policy` and its [contract](semantics/pc_named_prefix_semantics.json).
 
 ### Selected PATH data
 

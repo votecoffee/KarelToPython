@@ -555,8 +555,8 @@ queue-entry policies; FILE banks remain excluded.
   now support typed buffer construction and explicit offline event outboxes.
   [Named ordinary data batches](pc-named-data.md) add ordered scalar expansion
   and narrow/Boolean promotion with atomic packet updates. Selected PATH-node
-  and header data are supported; whole resource/system and incomplete flat-prefix
-  lookup remain excluded; custom payloads require raw mode
+  and header data, plus ordinary named ARRAY rows/planes, are supported. Whole
+  resource and system lookup remain excluded; custom payloads require raw mode
   and fully initialized bytes.
 - Native socket connections, DNS/ping, native pipe timing and formatted dictionaries.
   MSG_CONNECT/MSG_DISCO/MSG_PING and PIPE_CONFIG now have

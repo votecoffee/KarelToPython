@@ -1,0 +1,26 @@
+{
+  "feature": "pc_named_prefix",
+  "version": "26.1113.044103",
+  "mode": "pythonic",
+  "policy": "pc_named_prefix_policy",
+  "guide": "docs/pc-named-data.md",
+  "source": "Final static ordinary ARRAY rows/planes; comma/chained indexes, named components, record/PATH-node fields, explicit foreign roots and executing linked owner",
+  "selection": "Bounded data schema and traversed container metadata; selected original cells retained without containing ARRAY copies",
+  "capture": "Capacity admission and scalar charges before complete selected data copying; include prior cell edits; root/list replacement retains original cells and resizing raises before publication",
+  "encoding": "Existing typed scalar items in row-major order with one final marker; no dimension, field or nominal type headers",
+  "persistence": "Ordinary roots and independent packet; no registered or saved live selection",
+  "verification": [
+    "tests/test_pc_named_prefixes.py",
+    "tests/test_pc_named_data.py",
+    "tests/test_prefix_variable_transfers.py",
+    "examples/pc_named_prefix.kl"
+  ],
+  "exclusions": [
+    "resource rows",
+    "nonfinal vectorized field selection",
+    "system or routine-local discovery",
+    "native PC transport",
+    "controller or strict equivalence"
+  ],
+  "controller_validated": false
+}

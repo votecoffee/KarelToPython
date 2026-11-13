@@ -4,12 +4,12 @@
   "mode": "pythonic",
   "policy": "pc_named_data_policy",
   "guide": "docs/pc-named-data.md",
-  "source": "Complete ordinary data from explicit named storage; static globals, fields and fully selected named ARRAY components",
+  "source": "Complete ordinary data from explicit named storage; static globals, fields, selected PATH data and ARRAY rows/planes under their extension policies",
   "encoding": "Ordered existing scalar items; BYTE/SHORT/BOOLEAN map to INTEGER; one final marker and no aggregate type headers",
   "bounds": "Reject impossible scalar-count lower bounds before expansion, then complete data and exact 244-byte packet checks",
   "capture": "Charge each new-form scalar before copying; capture schema and destination contracts; include source edits completed before value capture",
   "publication": "Complete batch only; data/capacity failures retain buffer/index; budget and changed-target failures propagate without overwriting status",
   "verification": ["tests/test_pc_named_data.py", "tests/test_pc_exchange.py", "examples/pc_named_data.kl"],
-  "exclusions": ["incomplete flat prefix lookup", "FILE/PATH/QUEUE resources", "system or routine-local discovery", "native aggregate envelopes or PC transport", "controller or strict equivalence"],
+  "exclusions": ["whole FILE/PATH/QUEUE resources", "system or routine-local discovery", "native aggregate envelopes or PC transport", "controller or strict equivalence"],
   "controller_validated": false
 }

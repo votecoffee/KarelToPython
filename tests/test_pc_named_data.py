@@ -195,12 +195,12 @@ class NamedPcAtomicityTests(unittest.TestCase):
             values=p.run(max_steps=20)
         self.assertEqual((values['S'],values['CURSOR']),(3,1))
 
-    def test_resources_and_incomplete_flat_prefixes_retain_their_boundaries(self):
+    def test_resources_retain_their_boundaries(self):
         for kind in ('FILE','PATH','QUEUE_TYPE','ARRAY[2]OF FILE','ARRAY[2]OF QUEUE_TYPE'):
             p,_,_=build('cursor=1 '+CALL,decl='value:'+kind)
             values=p.run();self.assertEqual((values['S'],values['CURSOR']),(4,1))
         p,_,_=build("cursor=1 ADD_BYNAMEPC(buffer,cursor,'','value[1]',s)",decl='value:ARRAY[2,2]OF INTEGER')
-        self.assertEqual(p.run()['S'],1)
+        self.assertEqual(p.run()['S'],4)  # selected incomplete data, no longer a missing path
 
     def test_malformed_source_shape_does_not_publish_prefix_items(self):
         p,_,_=build('cursor=1 '+CALL);p._state.raw('VALUE').shape=(3,)
