@@ -550,7 +550,10 @@ queue-entry policies; FILE banks remain excluded.
   the documented language prohibition.
 - Native DAQ sampling, timing and monitor integration. The six calls now have
   an [offline pipe model](data-acquisition.md), with chosen record/view layouts
-  and explicit file streaming. No physical acquisition or native format is implied.
+  and explicit file streaming. Named registration/writes now accept selected
+  PATH data and ordinary ARRAY rows/planes, preserving exact record schemas
+  and captured source/status bindings through preparation. No physical acquisition
+  or native format is implied.
 - Native PC/GEMM transport and delivery. Six [PC data/event calls](pc-exchange.md)
   now support typed buffer construction and explicit offline event outboxes.
   [Named ordinary data batches](pc-named-data.md) add ordered scalar expansion

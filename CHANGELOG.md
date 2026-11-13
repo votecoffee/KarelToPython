@@ -1,5 +1,19 @@
 # Changelog
 
+## 26.1113.045148 - 2026-11-13
+
+- Extend Pythonic DAQ_REGPIPE/DAQ_WRITE named paths to selected PATH nodes,
+  node/header data and ordinary ARRAY rows/planes, including comma/chained
+  indexes, named components, foreign roots and linked source owners.
+- Register selected schemas without copying values. Charge selected leaves
+  and packed/pending bytes before encoding; preserve exact record identity,
+  existing portable binary layouts and original selected-cell ownership.
+- Check captured source/status reference locations across record and flush
+  preparation. Retargeting or retained-list resizing raises before publication
+  while preserving completed host edits, ring/pending bytes and start counts.
+- Add a row/PATH-node binary FILE example and focused encoding, budgeting,
+  linkage, replay, alias, source/status binding and flush-conflict checks.
+
 ## 26.1113.044103 - 2026-11-13
 
 - Extend Pythonic ADD_BYNAMEPC to named ordinary ARRAY rows and planes,

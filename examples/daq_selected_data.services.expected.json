@@ -1,0 +1,11 @@
+{
+  "acquisition": {
+    "limit": 16777216,
+    "pipes": []
+  },
+  "files": {
+    "RD:SELECTED.BIN": {
+      "hex": "0700000009000000"
+    }
+  }
+}

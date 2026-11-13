@@ -1,0 +1,26 @@
+{
+  "feature": "daq_named_selection",
+  "version": "26.1113.045148",
+  "mode": "pythonic",
+  "policy": "daq_named_selection_policy",
+  "guide": "docs/data-acquisition.md",
+  "source": "Selected PATH nodes, node/header data and final ordinary ARRAY rows/planes; static comma/chained paths, named components, foreign roots and executing linked owners",
+  "registration": "Selected concrete data schema and traversed metadata only; existing node required but values need not be initialized",
+  "capture": "Retain original selected cells; charge leaves and packed/pending bytes before encoding; check source/status reference locations and retained list length before publication",
+  "encoding": "Exact registered identity/dimensions/capacity and existing little-endian complete-record layout; immutable encoded bytes retain their value across later stream preparation",
+  "publication": "Changed bindings or retained-list resizing preserve completed host effects, ring/pending data and start counts; no record or flush publication",
+  "persistence": "Ordinary roots, selected schema and independent bytes, without live row/node subscription or saved selection",
+  "verification": [
+    "tests/test_acquisition_selections.py",
+    "tests/test_acquisition.py",
+    "examples/daq_selected_data.kl"
+  ],
+  "exclusions": [
+    "whole FILE/PATH/QUEUE resources",
+    "nonfinal vectorized field selection",
+    "system or routine-local discovery",
+    "native data acquisition/layout",
+    "controller or strict equivalence"
+  ],
+  "controller_validated": false
+}

@@ -5900,6 +5900,16 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         boundary='Portable modes/memory constants, documented flag bit values and chosen FILE/retention behavior; no native binary/CMOS lifetime, controller acquisition, PC monitors, networking, asynchronous flush or strict equivalence',
         calls=[row for row in report['service_operations'] if row['operation'].startswith('DAQ_')],
         guide='docs/data-acquisition.md',controller_validated=False)
+    report['daq_named_selection_policy']=dict(
+        source='DAQ_REGPIPE/DAQ_WRITE selected PATH nodes, node/header fields and final ordinary ARRAY rows/planes; static comma/chained indexes, named components, explicit foreign roots and executing linked owners',
+        registration='Validate bounded selected data schema and traversed container metadata without copying values; selected nodes must exist but complete data initialization is required only for writes',
+        capture='Retain selected original cells without copying the containing ARRAY/PATH; charge selected leaves and packed/pending bytes before encoding; source/status type/schema/storage/key and retained list length stay valid across checkpoints',
+        encoding='Exact registered record identity, dimensions and STRING capacity; existing portable little-endian layout; include cell edits before encoding and retain immutable bytes during later stream-prefix charges',
+        publication='Changed bindings or retained-list resizing raise before record/flush writes and preserve completed host edits, ring/pending data and start counts; status value completion and input-field aliases remain supported',
+        persistence='Ordinary roots, selected record schema and independent bytes only; no live selection, source subscription, implicit devices or callback restored',
+        boundary='Generic named transfers retain containing-data validation; no whole resource serialization, vectorized nonfinal fields, system/local discovery, native acquisition/layout, controller or strict equivalence',
+        guide='docs/data-acquisition.md',controller_validated=False)
+    report['data_acquisition_policy']['lookup']='Ordinary static named data plus selected PATH data and final ARRAY rows/planes under daq_named_selection_policy; blank program uses executing source owner'
     report['program_call_policy']=dict(
         procedures=['CALL_PROG','CALL_PROGLIN'],
         linkage='Explicit attached cooperative or private synchronous-entry Pythonic KAREL Program objects; project inputs are cooperative automatically; opaque TP records, catalogs, native code and unlinked routines are not executable',

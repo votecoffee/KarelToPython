@@ -1,0 +1,34 @@
+PROGRAM DAQ_SELECTED_DATA
+TYPE node_t=STRUCTURE samples:ARRAY[2,2]OF SHORT ENDSTRUCTURE
+VAR matrix:ARRAY[2,2]OF INTEGER route:PATH NODEDATA=node_t
+    first,last,status:INTEGER small_first,small_last:SHORT
+    done:BOOLEAN
+ROUTINE read_values
+VAR reader:FILE
+BEGIN
+  OPEN FILE reader('RB','PIP:NODE.BIN')
+  READ reader(small_first,small_last)
+  CLOSE FILE reader
+  OPEN FILE reader('RB','RD:SELECTED.BIN')
+  READ reader(first,last)
+  CLOSE FILE reader
+END read_values
+BEGIN
+  IF UNINIT(done) THEN
+    APPEND_NODE(route,status)
+    DAQ_REGPIPE(1,DAQ_DRAM,2,'','matrix[2]','selected.bin',2,status)
+    DAQ_REGPIPE(2,DAQ_DRAM,2,'','route[1].samples[2]','node.bin',0,status)
+    DAQ_START(1,DAQ_STREAM,'RD:',status)
+    DAQ_START(2,DAQ_STREAM,'',status)
+    matrix[2,1]=7 matrix[2,2]=9
+    route[1].samples[2,1]=11 route[1].samples[2,2]=13
+    DAQ_WRITE(1,'','matrix[2]',status)
+    DAQ_WRITE(2,'','route[1].samples[2]',status)
+    DAQ_STOP(1,TRUE,status)
+    DAQ_STOP(2,TRUE,status)
+    read_values
+    DAQ_UNREG(1,status)
+    DAQ_UNREG(2,status)
+    done=TRUE
+  ENDIF
+END DAQ_SELECTED_DATA

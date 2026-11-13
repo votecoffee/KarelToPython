@@ -433,7 +433,7 @@ existing collision, busy-file, quota and publication checks remain active.
 and RENAME_FILE reuse matched characters in their destination filenames.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1113.044103**. It is a
+tool are named **karel2py**. The current implementation is **26.1113.045148**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 [Formatted empty collection output](docs/empty-collection-output.md) lets the same
@@ -944,7 +944,10 @@ results or opt-in bounded waits for a complete mask. See [group locks](docs/grou
 All six DAQ calls use explicit typed acquisition pipes with binary FILE readers,
 budgeted snapshot views, overflow tracking and batch output to supplied file
 backends. Writes charge for record preparation and pending batch bytes before
-encoding. See [data acquisition](docs/data-acquisition.md).
+encoding. Named DAQ registration/writes also accept selected PATH-node/header
+data and ordinary ARRAY rows/planes, with original-cell capture and source/status
+binding checks through record preparation and file flushing. See
+[data acquisition](docs/data-acquisition.md).
 Four ADD_*PC builders create checked typed BYTE buffers; SEND_DATAPC and
 SEND_EVENTPC publish to an explicit bounded offline outbox, with typed and raw
 payload modes. Packet and attachment inputs check their limits before capturing
@@ -1407,7 +1410,7 @@ workflows. To run hosted checks, open the repository's **Actions** tab, select
 **Tests (manual)** or **GUI checks (manual)**, then choose **Run workflow**.
 Routine development validation uses the local CLI commands above.
 
-The example runner translates 583 authored runnable examples, checks complete
+The example runner translates 584 authored runnable examples, checks complete
 expected snapshots and validates their output, delay, context and termination
 fixtures, plus 234 complete linked source projects. It also checks that nested
 MOVE actions inside local handlers are rejected.

@@ -32,7 +32,8 @@ filename,stream_size,status)`. Pipe numbers are 1..5; capacity is 1..32767 whole
 records. The named variable supplies the record's concrete type and need not be
 initialized for registration. Blank program strings use the executing source
 module, including inside linked routines. Attached globals, explicit variable
-roots, fields and array indices use the ordinary static variable resolver.
+roots, fields and array indices use static lookup. Selected PATH nodes and
+headers, plus final ordinary ARRAY rows/planes, follow the selection rules below.
 
 Schemas support portable scalar data, fixed arrays, named structures, CONFIG,
 VECTOR, positional records and JOINTPOS1..9. FILE, PATH, QUEUE_TYPE and embedded
@@ -48,6 +49,45 @@ pipes is bounded by the bank's configured `limit`, default 16 MiB and maximum
 64 MiB. Registration allocates metadata and an empty buffer. Filenames are unique
 plain ASCII basenames with an extension, normalized to uppercase `PIP:NAME.EXT`;
 paths, device prefixes and traversal are excluded from registration names.
+
+## Named data selections
+
+DAQ_REGPIPE and DAQ_WRITE accept `route[1]`, `route[1].field` and ordinary
+PATH header fields. PATH banks accept static `routes[2,1]` or `routes[2][1]`
+node paths. Whole PATH/QUEUE/FILE resources remain excluded. A selected node
+must exist, but its data need not be initialized to register its schema.
+
+`matrix[2]` selects a flat ARRAY row; `cube[2]` selects a plane;
+`cube[2,1]` and `cube[2][1]` select the same row. Adjacent numeric bracket
+groups normalize before lookup, including complete scalar paths. Row/plane
+selectors must finish the path; no vectorized field selection is implied.
+Named inner components, ordinary record fields and ARRAY fields of PATH nodes
+retain their concrete schemas. Explicit foreign roots and executing linked
+module owners follow the existing owner rules.
+
+Registration validates selected schemas and traversed container metadata,
+without copying record values. A selected row/plane retains original cells;
+it does not copy or inspect unselected leaves. Writes charge selected leaves
+and packed/pending bytes before complete selected-value validation/encoding.
+Named types, remaining dimensions and STRING capacities still match exactly
+between registration and each write; there is no reshape or implicit cast.
+
+Cell edits completed during charging are encoded. Replacing the root ARRAY
+or its list does not redirect retained cells. Resizing their retained list,
+removing a selected node, or changing a captured source/status binding raises
+before record or flush publication and preserves completed host effects.
+Status value edits remain ordinary completion targets. Status may still
+alias an input field: encoding reads it before the completion status write.
+After encoding, the immutable record bytes remain fixed across stream-prefix
+charging; subsequent source value edits are retained without changing them.
+
+A status binding changed during DAQ_WRITE streaming or DAQ_STOP final flush
+rejects before file publication, preserving ring data, pending bytes and start
+counts. Generic GET_VAR/SET_VAR containing-data checks remain unchanged.
+Saved context retains ordinary source roots and the selected record schema,
+not a registered row alias, PATH subscription, live window or source lookup.
+See the [runnable selection example](../examples/daq_selected_data.kl) and
+[selection contract](semantics/daq_named_selection_semantics.json).
 
 ## Portable record encoding
 

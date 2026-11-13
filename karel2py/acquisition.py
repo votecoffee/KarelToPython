@@ -3,6 +3,7 @@ import re
 import struct
 from weakref import WeakSet
 from .extended import MemoryFiles,fail,path_node_size
+from .reference_contracts import capture_location,same_location
 
 
 DAQ_CONSTANTS={'DAQ_DRAM':0,'DAQ_CMOS':-1,'DAQ_SNAPSHT':1,'DAQ_STREAM':2,
@@ -180,11 +181,16 @@ class Acquisition(MemoryFiles):
         if not row['starts']:return 6
         if spec!=row['spec']:return 4
         buffer,verify=self._pipe_plan(number,row,line)
+        window=value.values if type(value) is rt().Array and type(value.values) is rt()._ArrayWindow else None
 
         def checkpoint():
             if check is None:state.tick(line)
             else:check()
             verify()
+            if window is not None:
+                # Retain original cells through both encoding and later flushing.
+                if value.values is not window:fail('DAQ source selection changed during preparation',line)
+                window.validate(line)
 
         for _ in range(row['leaves']):
             checkpoint()
@@ -369,19 +375,29 @@ class Acquisition(MemoryFiles):
 def invoke(state,operation,args,line=None):
     runtime=rt();context=state.execution;bank=context.require('acquisition',line)
     files=context.files
+    if operation=='DAQ_CHECKP':
+        flags,available=bank.check(state,args[0],line)
+        args[1].set(flags,line);args[2].set(available,line);return
+    status=args[-1];status_location=capture_location(status)
+    reference=None;source_location=None
 
     def check():
         state.tick(line)
         if context.acquisition is not bank or context.files is not files:
             fail('DAQ services changed during preparation',line)
+        if not same_location(status,status_location):
+            fail('DAQ status binding changed during preparation',line)
+        if reference is not None and not same_location(reference,source_location):
+            fail('DAQ source binding changed during preparation',line)
 
-    if operation=='DAQ_CHECKP':
-        flags,available=bank.check(state,args[0],line)
-        args[1].set(flags,line);args[2].set(available,line);return
     if operation in ('DAQ_REGPIPE','DAQ_WRITE'):
         program,path=args[3:5] if operation=='DAQ_REGPIPE' else args[1:3]
-        try:reference=context.resolve(state,runtime.ascii_string(program,line).strip() or state.program_name,runtime.ascii_string(path,line),line)
+        pythonic=runtime._pythonic()
+        try:reference=context.resolve(state,runtime.ascii_string(program,line).strip() or state.program_name,
+                                      runtime.ascii_string(path,line),line,path_nodes=pythonic,prefixes=pythonic,
+                                      defer_node_data=pythonic,defer_prefix_data=pythonic)
         except runtime.KarelRuntimeError:args[-1].set(1,line);return
+        source_location=capture_location(reference)
         if operation=='DAQ_REGPIPE':
             try:key=pipe_name(args[5])
             except (ValueError,runtime.KarelRuntimeError):args[-1].set(2,line);return
@@ -393,4 +409,5 @@ def invoke(state,operation,args,line=None):
     elif operation=='DAQ_START':code=bank.start(*args[:3],files,line)
     elif operation=='DAQ_STOP':code=bank.stop(*args[:2],files,line,check=check)
     else:code=bank.unregister(args[0],line)
-    args[-1].set(code,line)
+    if not same_location(status,status_location):fail('DAQ status binding changed during preparation',line)
+    status.set(code,line)

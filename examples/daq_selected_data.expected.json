@@ -1,0 +1,43 @@
+{
+  "MATRIX": [
+    [
+      {
+        "uninitialized": true
+      },
+      {
+        "uninitialized": true
+      }
+    ],
+    [
+      7,
+      9
+    ]
+  ],
+  "ROUTE": {
+    "nodes": [
+      {
+        "SAMPLES": [
+          [
+            {
+              "uninitialized": true
+            },
+            {
+              "uninitialized": true
+            }
+          ],
+          [
+            11,
+            13
+          ]
+        ]
+      }
+    ],
+    "data": null
+  },
+  "FIRST": 7,
+  "LAST": 9,
+  "STATUS": 0,
+  "SMALL_FIRST": 11,
+  "SMALL_LAST": 13,
+  "DONE": true
+}
