@@ -1,5 +1,18 @@
 # Changelog
 
+## 26.1113.121848 - 2026-11-13
+
+- Extend detached KCL logical copies to final PATH/queue ARRAY rows and planes,
+  including comma/chained indexes and named components. SHOW VAR reports their
+  remaining dimensions and typed selected values.
+- Locate cells through bounded metadata, then charge and validate complete
+  containing banks for prefix sides. Prepare independent source data after the
+  final charge; preserve receiver cells, headers and unselected queue links.
+- Reject changed target owners/backing storage, malformed or oversized siblings,
+  and changed admitted counts before publication. Keep generic data codecs and
+  FILE/local collection-prefix guards. Add standalone/linked replay examples and
+  focused ownership, budgeting, inspection and failure regressions.
+
 ## 26.1113.115951 - 2026-11-13
 
 - Extend opt-in KCL named copies to exact detached scalar PATH/QUEUE_TYPE

@@ -1,0 +1,14 @@
+{
+  "kcl": {
+    "replies": {},
+    "limit": 500,
+    "history": [
+      {"sequence": 1, "program": "KCL_COLL_ROWS", "operation": "KCL", "command": "SET VAR COPIED_ROUTES[2]=ROUTES[1]", "phase": "completed", "status": 0},
+      {"sequence": 2, "program": "KCL_COLL_ROWS", "operation": "KCL", "command": "SET VAR COPIED_QUEUES[1]=QUEUES[2]", "phase": "completed", "status": 0},
+      {"sequence": 3, "program": "KCL_COLL_ROWS", "operation": "KCL", "command": "SET VAR COPIED_ROUTES[1]=COPIED_ROUTES[2]", "phase": "completed", "status": 0}
+    ],
+    "sequence": 3,
+    "last_status": 0,
+    "variable_commands": true
+  }
+}

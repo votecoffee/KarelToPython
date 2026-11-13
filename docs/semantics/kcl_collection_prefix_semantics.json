@@ -1,0 +1,32 @@
+{
+  "version": "26.1113.121848",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "contract": {
+    "guide": "../kcl-collection-prefixes.md",
+    "syntax": "Opt-in SET VAR/SET VARIABLE and SHOW VAR final PATH/QUEUE_TYPE ARRAY rows/planes with static comma/chained indexes and exact remaining schemas",
+    "capture": "Metadata-only original-cell location through an explicit collection resource policy; ordinary generic data codecs remain closed",
+    "budget": "Charge both selections before copying. A live prefix side charges its complete containing bank; other sides charge selected data. Each admitted bank/value fits 32767 descriptor/header/node/queue-pair units.",
+    "target": "Retain original reference location/store/owner object and selected parent/backing cells; re-resolve after checkpoints and recheck whole-owner aliases/timers/protection",
+    "source": "Resolve current source after final charge with exact admitted schema/count. Clone the complete containing owner before selecting independent prepared data.",
+    "validation": "Reject malformed/over-limit/shared owned siblings and changed admitted counts before publication; preserve valid partial PATH data and uninitialized queues",
+    "publication": "Retain receiver cells/headers, replace PATH nodes independently, reset only copied queue buffer links, preserve unselected data and support same-bank/self-copy",
+    "inspection": "Bounded typed SHOW rows with remaining dimensions and queue sequences; no storage/link/cache edits or partial output on invalid data",
+    "persistence": "Existing closed JSON values/creation metadata/history only; no selected view, queue buffer link, live alias or suspended execution"
+  },
+  "boundaries": [
+    "No paused-local collection roots/prefixes, FILE copying or resource STRUCTURE fields",
+    "No implicit schema conversion, reshape, expression indexes or source discovery",
+    "No rollback of earlier independent callback/checkpoint effects",
+    "Authored offline Pythonic contract; no native/controller/strict equivalence"
+  ],
+  "validation": [
+    "tests/test_kcl_collection_prefixes.py",
+    "tests/test_kcl_collection_copies.py",
+    "tests/test_kcl_data_prefixes.py",
+    "tests/test_kcl_inspection_commands.py",
+    "tests/test_collection_array_transfers.py",
+    "examples/kcl_collection_rows.kl",
+    "examples/kcl_collection_rows_project"
+  ]
+}

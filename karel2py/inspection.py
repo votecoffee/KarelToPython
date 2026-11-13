@@ -348,7 +348,8 @@ def kcl_variable_listing(state,operation,args,line=None):
         if kind is not None:
             names=[(name,spec) for name,spec in names if matches_type(spec,kind)]
     def resolve(path):
-        return context.resolve(state,selector,path,line,path_nodes=True,prefixes=runtime()._pythonic())
+        return context.resolve(state,selector,path,line,path_nodes=True,prefixes=runtime()._pythonic(),
+                               resources='collections' if runtime()._pythonic() else False)
     return _kcl_value_rows(state,program,names,values,radix,resolve,line)
 
 
@@ -410,6 +411,9 @@ def _kcl_value_rows(state,program,names,values,radix,resolve,line,**fields):
                     row['value_available']=False
                 else:
                     value=reference.raw()
+                    if (rt.collection_array_type(spec) and type(value) is rt.Array
+                            and type(value.values) is rt._ArrayWindow):
+                        value=rt.collection_array_source_value(spec,value,line)
                     if radix and (type(value) is not int or spec[0] not in ('INTEGER','SHORT','BYTE')):return 2
                     leaves+=schema(spec,value)
                     if leaves>MAX_LEAVES:return 5

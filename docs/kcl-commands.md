@@ -374,7 +374,9 @@ changed or protected targets return 204; invalid/incomplete/mismatched data retu
 literals and implicit reshaping remain excluded. Separate
 [logical collection copies](kcl-collection-copies.md) now support exact scalar
 PATH/QUEUE_TYPE values, whole banks and complete indexed/named components to
-detached storage, including valid partial PATH and uninitialized queue data. The
+detached storage, including valid partial PATH and uninitialized queue data.
+[Collection rows/planes](kcl-collection-prefixes.md) additionally use complete
+containing-bank charges, retained original target cells and typed SHOW output. The
 [ARRAY example](../examples/kcl_data_copy.kl) verifies that later source edits
 leave the copied values unchanged; [regressions](../tests/test_kcl_data_edits.py)
 cover records, ownership and failures.

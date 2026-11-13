@@ -3209,11 +3209,18 @@ class ExecutionContext:
                         reference=rt.collection_path_reference(value,selected,reference.spec,line,defer_data=defer_node_data)
                     elif prefixes and rt._pythonic() and consumed==len(rest) and rt.array_prefix_type(reference.spec,len(numbers)) is not None:
                         if defer_prefix_data:
-                            # PC named data admits schema/capacity and charges before
-                            # copying only the selected original cells. Generic named
-                            # transfers retain their complete containing-data checks.
+                            # Explicit callers admit schema/capacity and charge before
+                            # copying payloads. The collection opt-in also bounds its
+                            # containing bank; ordinary named-data rules stay separate.
                             if type(value) is not rt.Array:fail('Named data prefix requires existing ARRAY storage',line)
-                            rt._validate_data_schema(value.spec,line)
+                            if resources=='collections' and rt.collection_array_type(reference.spec):
+                                from .storage import _collection_array_rows
+                                try:
+                                    if value.spec!=reference.spec:raise ValueError('Schema does not match its root')
+                                    _collection_array_rows(value.spec,value,False,allow_windows=True)
+                                except (ValueError,TypeError,KeyError,IndexError,AttributeError,rt.KarelRuntimeError) as error:
+                                    fail('Named collection prefix: '+str(error),line)
+                            else:rt._validate_data_schema(value.spec,line)
                             view=rt.service_array_view(value,selected,reference.spec,line)
                             reference=rt.Reference(view.spec,{'value':view},'value')
                         else:

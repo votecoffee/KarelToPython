@@ -1,0 +1,9 @@
+PROGRAM LIB
+VAR status:INTEGER
+ROUTINE copy_rows:INTEGER
+BEGIN
+  KCL('SET VAR [MAIN]CACHED[2]=[MAIN]SOURCE[1]',status)
+  RETURN(status)
+END copy_rows
+BEGIN
+END LIB

@@ -207,10 +207,11 @@ class LogicalCopyCases:
         with patch.object(dynamic,'variable_checkpoint',side_effect=checkpoint):self.assertEqual(command(ctx),0)
         self.assertEqual(content(target.raw()),42)
 
-    def test_collection_prefixes_remain_outside_this_copy_contract(self):
-        ctx,source,target=setup(('ARRAY',(2,2),self.spec));before=rt.snapshot_value(target.raw())
-        self.assertEqual(command(ctx,target='TARGET[2]',source='SOURCE[1]'),205)
-        self.assertEqual(rt.snapshot_value(target.raw()),before)
+    def test_collection_rows_copy_with_original_receiver_cells(self):
+        ctx,source,target=setup(('ARRAY',(2,2),self.spec));cells=list(target.raw().values)
+        self.assertEqual(command(ctx,target='TARGET[2]',source='SOURCE[1]'),0)
+        self.assertTrue(all(a is b for a,b in zip(cells,target.raw().values)))
+        self.assertEqual([content(item) for item in target.raw().values[2:]],[7,7])
 
 
 class KclPathCopyTests(LogicalCopyCases,unittest.TestCase):
@@ -326,7 +327,7 @@ class KclLogicalCopyBoundaryTests(unittest.TestCase):
         _,result=compile_program('')
         policy=result.report['kcl_collection_copy_policy']
         self.assertIn('PATH',policy['values']);self.assertIn('QUEUE_TYPE',policy['values'])
-        self.assertIn('both',policy['budget']);self.assertIn('prefixes',policy['boundary'])
+        self.assertIn('both',policy['budget']);self.assertIn('paused-local',policy['boundary'])
         self.assertEqual(policy['guide'],'docs/kcl-collection-copies.md')
         self.assertFalse(policy['controller_validated'])
 

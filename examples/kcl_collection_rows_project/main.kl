@@ -1,0 +1,20 @@
+PROGRAM MAIN
+TYPE node_t=STRUCTURE value:INTEGER ENDSTRUCTURE
+     route_t=PATH NODEDATA=node_t
+     bank_t=ARRAY[2,2]OF route_t
+VAR source:bank_t
+    result:ARRAY[2]OF route_t
+    entry,status,answer:INTEGER
+    done:BOOLEAN
+ROUTINE copy_rows:INTEGER FROM LIB
+BEGIN
+  IF UNINIT(done) THEN
+    APPEND_NODE(source[1,1],status) source[1,1][1].value=17
+    APPEND_NODE(source[1,2],status) source[1,2][1].value=19
+    CREATE_VAR('','CACHED','','bank_t',0,0,0,0,status,-1)
+    answer=copy_rows
+    source[1,2][1].value=99
+    GET_VAR(entry,'','CACHED[2]',result,status)
+    done=TRUE
+  ENDIF
+END MAIN

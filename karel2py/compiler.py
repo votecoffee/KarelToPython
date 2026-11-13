@@ -6838,13 +6838,15 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         guide='docs/kcl-data-prefixes.md',controller_validated=False)
     report['kcl_collection_copy_policy']=dict(
         syntax='Opt-in SET VAR/SET VARIABLE named copies to independent explicit roots; default or explicit program namespace; KCL_NO_WAIT retains acceptance/completion behavior',
-        values='Exact scalar PATH/QUEUE_TYPE, whole collection ARRAY banks and complete selected cells or named ARRAY components; partial PATH data and uninitialized queues remain logical copyable state',
+        values='Exact scalar PATH/QUEUE_TYPE, whole collection ARRAY banks, complete selected cells/named components and final rows/planes; partial PATH data and uninitialized queues remain logical copyable state',
         budget='Count both source and receiver descriptor/header/node/entry units before copying; charge both snapshots; re-resolve source after the final charge and reject changed admitted counts before publication',
+        prefixes='Final flat rows/planes use static comma/chained indexes and captured original cells. Charge and validate each prefix side through its complete containing bank; cloned source owners supply independent selected data.',
+        inspection='SHOW VAR reports remaining dimensions and typed selected logical rows/planes without edits, cached entries, queue-buffer changes or live view persistence',
         ownership='Retain original target root location, selected parent/cell and variable store; recheck detached ownership, aliases, timers and program protection after charges; compiled sources allowed and compiled targets protected',
         publication='Validate both complete logical selections before publishing independent data; retain receiver ARRAY/collection cells and compatible PATH headers; replace PATH nodes and clear only copied queue buffer links',
         persistence='Existing logical JSON retains values, creation metadata and queue sequence, without buffer links, active aliases or suspended execution',
-        boundary='FILE data, resource STRUCTURE fields, incomplete collection prefixes, paused-local collection roots, literals and schema conversions remain excluded; portable offline commands, no native/controller or strict equivalence',
-        guide='docs/kcl-collection-copies.md',controller_validated=False)
+        boundary='FILE data, resource STRUCTURE fields, paused-local collection roots/prefixes, literals and schema conversions remain excluded; portable offline commands, no native/controller or strict equivalence',
+        guide='docs/kcl-collection-copies.md',prefix_ledger='docs/semantics/kcl_collection_prefix_semantics.json',controller_validated=False)
     report['kcl_policy']=dict(
         calls=['KCL','KCL_NO_WAIT','KCL_STATUS'],service='Explicit KclCommands channel with exact scripted replies and optional task, file, variable, virtual device, decoded dictionary, program, environment, procedure and debugging dispatch',
         requests='Printable ASCII 1..126 characters; trim outer spaces, exact case/internal-space reply matching; one accepted pending command; bounded request history',

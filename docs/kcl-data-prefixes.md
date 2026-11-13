@@ -32,7 +32,8 @@ frame's source module. A declared missing local does not fall back to a global.
 Explicit program qualifiers use attached/store globals. Detached PATH node/header
 data fields retain their existing lookup. Separate [logical collection copies](kcl-collection-copies.md)
 support detached whole PATH/queue values, banks and complete indexed/named
-components. Incomplete collection prefixes and local resource roots remain
+components. [Collection row/plane copies](kcl-collection-prefixes.md) now add
+complete containing-bank charges and checks. Local resource roots/prefixes remain
 excluded. Copies preserve receiver containers/children and do not retain
 aliases into the source.
 

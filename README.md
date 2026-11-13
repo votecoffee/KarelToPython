@@ -433,7 +433,7 @@ existing collision, busy-file, quota and publication checks remain active.
 and RENAME_FILE reuse matched characters in their destination filenames.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1113.115951**. It is a
+tool are named **karel2py**. The current implementation is **26.1113.121848**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 [Formatted empty collection output](docs/empty-collection-output.md) lets the same
@@ -972,6 +972,9 @@ selected-row listings and rechecked original-cell ownership before publication.
 [KCL logical copies](docs/kcl-collection-copies.md) also support exact detached
 PATH/queue values, whole banks and complete indexed/named components. They charge
 both logical snapshots, preserve independent data and reset copied queue buffer links.
+[Collection rows and planes](docs/kcl-collection-prefixes.md) now copy and display
+through static comma/chained selections, with complete containing-bank checks and
+original receiver-cell protection across preparation checkpoints.
 MSG_CONNECT/MSG_DISCO/MSG_PING use configured offline socket buffers and host
 results; PIPE_CONFIG provides circular PIP FILE histories. Both support ordinary
 FILE I/O and saved state. Socket FILEs can opt in to cooperative input and output
@@ -1422,9 +1425,9 @@ workflows. To run hosted checks, open the repository's **Actions** tab, select
 **Tests (manual)** or **GUI checks (manual)**, then choose **Run workflow**.
 Routine development validation uses the local CLI commands above.
 
-The example runner translates 587 authored runnable examples, checks complete
+The example runner translates 588 authored runnable examples, checks complete
 expected snapshots and validates their output, delay, context and termination
-fixtures, plus 236 complete linked source projects. It also checks that nested
+fixtures, plus 237 complete linked source projects. It also checks that nested
 MOVE actions inside local handlers are rejected.
 It uses an injected sleeper, so the delay fixture does not wait in real time.
 

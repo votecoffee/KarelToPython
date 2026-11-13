@@ -399,7 +399,8 @@ def remove_detached(state,program,var,line):
 def kcl_data_reference(context,reference,suffix,line=None,*,path_nodes=False):
     """Locate selected original cells without copying prefix data before charges."""
     rt=runtime()
-    target=context.descend(reference,suffix,line,path_nodes=path_nodes,prefixes=rt._pythonic(),defer_prefix_data=rt._pythonic())
+    target=context.descend(reference,suffix,line,path_nodes=path_nodes,prefixes=rt._pythonic(),
+                           resources='collections' if rt._pythonic() else False,defer_prefix_data=rt._pythonic())
     return rt.array_prefix_reference(target,line) if type(target) is rt._ArrayPrefixTarget else target
 
 
@@ -423,39 +424,66 @@ def kcl_data_value(reference,line=None):
     return value
 
 
+def kcl_collection_window(reference):
+    rt=runtime();value=reference.raw()
+    return type(value) is rt.Array and type(value.values) is rt._ArrayWindow
+
+
+def kcl_collection_snapshot(context,reference,suffix,line):
+    """Validate/copy the charged owner, then select independent prepared cells."""
+    rt=runtime();spec=reference.spec
+    snapshot=rt.collection_array_source_value if spec[0]=='ARRAY' else rt.collection_source_value
+    value=snapshot(spec,reference.raw(),line)
+    if suffix:
+        value=kcl_data_reference(context,rt.Reference(spec,{'value':value},'value'),suffix,line,path_nodes=True).raw()
+    return value
+
+
 def set_detached_collection(state,key,reference,root_location,target,suffix,source,line):
     """Copy exact owned logical data after charging both current selections."""
     from .variable_archives import replace_collections,schema
 
     rt=runtime();context=state.execution;store=context.variables
     spec=target.spec;original=target.raw()
-    snapshot=rt.collection_array_source_value if spec[0]=='ARRAY' else rt.collection_source_value
+    target_owner=reference if kcl_collection_window(target) else target
+    target_original=target_owner.raw()
     def resolve_source():
         owner,root,rest=source.groups()
-        return context.resolve(state,owner or key[0],(root+rest.replace(' ','')).upper(),line,path_nodes=True)
+        program=owner or key[0];root=root.upper();rest=rest.replace(' ','').upper()
+        selected=context.resolve(state,program,root+rest,line,path_nodes=True,prefixes=True,
+                                 resources='collections',defer_prefix_data=True)
+        if not kcl_collection_window(selected):return selected,selected,''
+        containing=context.resolve(state,program,root,line,path_nodes=True)
+        current=kcl_data_reference(context,containing,rest,line,path_nodes=True)
+        if not rt.same_array_storage(selected.raw(),current.raw()):raise ValueError('Collection source prefix is detached from its named owner')
+        return selected,containing,rest
     try:
-        source_ref=resolve_source()
+        source_ref,source_owner,source_suffix=resolve_source();source_schema=source_owner.spec
         if source_ref.spec!=spec:return 5
-        source_units=schema(spec,source_ref.raw())
-        target_units=schema(spec,original)
+        source_units=schema(source_schema,source_owner.raw())
+        target_units=schema(target_owner.spec,target_original)
     except (ValueError,TypeError,KeyError,IndexError,AttributeError,rt.KarelRuntimeError):return 5
     # No payload encoding/copying before admission. Checkpoints remain outside
     # data-error handling so budget exhaustion keeps its normal command status.
     for _ in range(source_units+target_units):variable_checkpoint(state,line)
     if (context.variables is not store or store.bindings.get(key) is not reference
             or not same_location(reference,root_location)):return 4
+    try:
+        if target_owner.raw() is not target_original:return 4
+    except (TypeError,KeyError,IndexError,AttributeError,rt.KarelRuntimeError):return 4
     code=detached_storage(state,{key:reference})
     if code:return code
     try:current=kcl_data_reference(context,reference,suffix,line,path_nodes=True)
     except (ValueError,TypeError,KeyError,IndexError,AttributeError,rt.KarelRuntimeError):return 4
     if not same_kcl_data_target(target,current,original):return 4
     try:
-        source_ref=resolve_source()
-        if (source_ref.spec!=spec or schema(spec,source_ref.raw())!=source_units
-                or schema(spec,original)!=target_units):return 5
+        source_ref,source_owner,source_suffix=resolve_source()
+        if (source_ref.spec!=spec or source_owner.spec!=source_schema
+                or schema(source_schema,source_owner.raw())!=source_units
+                or schema(target_owner.spec,target_original)!=target_units):return 5
         # Exact bounded codecs validate all contents and ownership on both sides.
-        value=snapshot(spec,source_ref.raw(),line)
-        snapshot(spec,original,line)
+        value=kcl_collection_snapshot(context,source_owner,source_suffix,line)
+        kcl_collection_snapshot(context,target_owner,'',line)
     except (ValueError,TypeError,KeyError,IndexError,AttributeError,rt.KarelRuntimeError):return 5
     target.storage[target.key]=replace_collections(original,value)
     return 0

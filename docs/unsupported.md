@@ -618,7 +618,9 @@ queue-entry policies; FILE banks remain excluded.
   ownership rechecks. [Detached logical copies](kcl-collection-copies.md) now
   include exact PATH/queue values, whole collection banks and complete indexed
   or named components, with descriptor/content charges and independent data.
-  Incomplete collection prefixes, local resource roots, FILE copies, aggregate
+  [Collection rows/planes](kcl-collection-prefixes.md) now charge and validate
+  complete containing banks, recheck original receiver storage and support SHOW.
+  Local resource roots/prefixes, FILE copies, aggregate
   literals and reshaping remain excluded from those KCL forms.
   [Command procedures](kcl-commands.md#command-procedures) execute bounded
   ASCII CF inputs and relative includes over enabled offline services.

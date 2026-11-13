@@ -15,8 +15,8 @@ SET VAR [CACHE]ROUTES[2,1] = [CACHE]ROUTES[1][2]
 
 Both sides must have identical concrete schemas, including node/header layouts,
 ARRAY names, dimensions and named components. Supported values are scalar PATHs,
-queues, whole banks, complete indexed collection cells and complete named ARRAY
-components. Adjacent static index groups normalize as usual. Unqualified source
+queues, whole banks, complete indexed collection cells, named ARRAY components
+and [final rows/planes](kcl-collection-prefixes.md). Adjacent static index groups normalize as usual. Unqualified source
 names use the destination namespace; explicit `[program]` names can read supplied
 compiled modules or other explicit namespaces. The receiver must be detached
 storage, including a valid dynamically created root.
@@ -34,6 +34,8 @@ Count each selection before encoding or copying payloads. Each source and
 receiver fits 32,767 units: one per collection descriptor, one per PATH header/node
 scalar, and two per queue entry (sequence and value). Data schemas retain the
 64-level bound and ARRAY rank remains at most three.
+For a resolved row/plane view, count and charge its complete containing bank
+instead of only the selected cells, and validate that bank before publication.
 
 Charge one execution step per unit in both selections, then recheck the original
 receiver reference location, variable store, selected parent/cell, whole-root
@@ -67,8 +69,8 @@ is allocated by a copy.
 
 ## Boundaries and replay
 
-Incomplete flat collection rows/planes, paused-local collection roots, FILE
-values/banks, resource STRUCTURE fields, aggregate literals, conversions and
+Paused-local collection roots/prefixes, FILE values/banks, resource STRUCTURE
+fields, aggregate literals, conversions and
 reshaping remain outside this command contract. Complete named ARRAY components
 are supported. [Ordinary data prefixes](kcl-data-prefixes.md) and paused-local
 data edits keep their separate ownership and initialization rules.
@@ -80,6 +82,8 @@ bank, changes the originals and reads back independent values. The
 [linked example](../examples/kcl_logical_copy_project/main.kl) issues a library
 command against a compiled source and dynamically created detached destination.
 Both use DONE guards for exact saved-context replay.
+The [row/plane guide](kcl-collection-prefixes.md) adds containing-bank checks,
+captured-target lifetime, selected SHOW output and standalone/linked row examples.
 
 Translation reports expose `kcl_collection_copy_policy`. The
 [semantic ledger](semantics/kcl_collection_copy_semantics.json) and

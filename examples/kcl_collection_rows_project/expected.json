@@ -1,0 +1,17 @@
+{
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "SOURCE": [
+        [{"nodes": [{"VALUE": 17}], "data": null}, {"nodes": [{"VALUE": 99}], "data": null}],
+        [{"nodes": [], "data": null}, {"nodes": [], "data": null}]
+      ],
+      "RESULT": [{"nodes": [{"VALUE": 17}], "data": null}, {"nodes": [{"VALUE": 19}], "data": null}],
+      "ENTRY": 1,
+      "STATUS": 0,
+      "ANSWER": 0,
+      "DONE": true
+    }
+  },
+  "LIB": {"state": "ready", "values": {"STATUS": 0}}
+}
