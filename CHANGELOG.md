@@ -1,5 +1,14 @@
 # Changelog
 
+## 26.1113.001944 - 2026-11-13
+
+- Accept quoted STRING format 2 in PASSALL keyboard reads with explicit widths
+  in 2..254. Count encoded quotes/padding, decode doubled apostrophes and consume
+  complete fields before truncating. Mixed numeric fields and STRING ARRAYs use
+  the same checked input transaction.
+- Preserve raw prefixes and destinations on malformed quotes, pause and
+  cancellation. Unquoted fields retain literal quotes/control bytes.
+
 ## 26.1113.001101 - 2026-11-13
 
 - Accept fixed-width INTEGER, BYTE, SHORT, REAL and BOOLEAN text in PASSALL

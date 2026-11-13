@@ -51,13 +51,43 @@ No ENTER is needed: passall input ends when all fixed fields are full. It ignore
 the configured EOL as a termination rule, and ATR_FIELD is implied for this
 portable raw mode.
 
-STRING destinations must be ordinary writable bounded storage. A positive first
+Unquoted STRING destinations must be ordinary writable bounded storage. A positive first
 format specifies its exact input width, from 1 through 254. An omitted or zero
 width uses the concrete STRING capacity. A field wider than its destination is
 fully consumed before right truncation. The second STRING format may be omitted
-or zero; quoted format 2, CR markers and binary/XML are rejected.
+or zero. Quoted format 2 follows the explicit-width rule below. CR markers and
+binary/XML remain rejected.
 The sum of all field widths must not exceed 4096 bytes, checked before input.
 Repeated destinations retain ordinary source assignment order after validation.
+
+### Fixed quoted STRING text
+
+Second format 2 selects quoted STRING parsing with an explicit first width in
+2 through 254. The width includes both quotes, doubled-apostrophe escapes and
+any leading/trailing padding. Zero width does not infer a boundary from the
+destination capacity or the arrival of a closing quote. Widths below two reject
+before consuming events. Every field still waits for its complete fixed width.
+
+```karel
+READ channel(label::10::2,number::2::16)
+```
+
+The supplied characters `'O''Brien'2A` produce STRING `O'Brien` and INTEGER 42
+without ENTER. Two adjacent quotes inside a field represent one apostrophe;
+`''` represents an empty STRING. Only whitespace may surround a complete quoted
+value. The parser consumes the complete encoded field before right-truncating
+the decoded text to the destination's capacity.
+
+Quoted and literal STRING fields can appear with numeric/BOOLEAN fields and
+uniformly formatted STRING ARRAYs. Quoted fields use the existing text parser
+and cannot cross CR/LF record separators. A custom keyboard EOL is still ignored
+by PASSALL collection. Format 0 retains literal quotes and control bytes.
+
+Malformed quoting, a bad later field, pause or cancellation never commits a
+partial source update. Already collected bytes remain in the raw buffer and
+future events stay queued. A compatible literal STRING read can recover a
+malformed encoded field without replay. Quoted PASSALL text is a Pythonic
+extension; native raw terminal quote processing remains unverified.
 
 ### Fixed numeric and BOOLEAN text
 
@@ -138,6 +168,7 @@ future key events. The existing 64-request and 256-handle limits remain in force
 The source context is MARRC75KR07091E Rev N sections 7.2.1, 7.3 and 7.7.4. The
 portable choices above are verified by
 [authored raw keyboard tests](../tests/test_keyboard_raw_read.py) and
-[fixed numeric field tests](../tests/test_keyboard_raw_numeric.py), alongside the
+[fixed numeric field tests](../tests/test_keyboard_raw_numeric.py) and
+[quoted field tests](../tests/test_keyboard_raw_quoted.py), alongside the
 existing typed keyboard tests. Native passall key layouts, live terminal input,
 native keyboard error recovery and strict mode remain outside this feature.

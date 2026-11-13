@@ -474,14 +474,15 @@ class KeyboardInput:
         if breaks:invalid('ATR_PASSALL keyboard READ does not accept CR markers')
         for target,controls in zip(targets,formats):
             controls=runtime.read_formats(target.spec,controls,line)
-            if target.spec[0]=='STRING' and len(controls)==2 and controls[1]!=0:
-                invalid('ATR_PASSALL keyboard READ requires unquoted fixed STRING fields')
+            quoted=target.spec[0]=='STRING' and len(controls)==2 and controls[1]==2
             width=controls[0] if controls else 0
+            if quoted and width<2:
+                invalid('ATR_PASSALL quoted STRING fields require an explicit width in 2..254')
             if not width and target.spec[0]=='STRING':width=target.spec[1]
             if type(width) is not int or not 1<=width<=254:
                 invalid('ATR_PASSALL keyboard fields require an explicit positive width in 1..254, or a STRING capacity')
-            fields.append((width,target.spec,controls))
-        required=sum(width for width,_,_ in fields)
+            fields.append((width,target.spec,controls,quoted))
+        required=sum(width for width,_,_,_ in fields)
         if required>4096:invalid('ATR_PASSALL keyboard READ exceeds 4096 raw bytes')
         job=self.start(state,'FILE_READ',binding['pane'],255,handle)
         if job is None:invalid('Keyboard FILE READ capacity or clock domain is busy')
@@ -517,9 +518,9 @@ class KeyboardInput:
                 yield from runtime.checkpoint(state,line)
             values=[];offset=0
             runtime.check_file_read(handle,line)
-            for width,spec,controls in fields:
+            for width,spec,controls,quoted in fields:
                 token=binding['pending'][offset:offset+width];offset+=width
-                if spec[0]=='STRING':values.append(token)
+                if spec[0]=='STRING' and not quoted:values.append(token)
                 else:
                     request=dict(targets=[dict(type=spec[0],type_spec=spec,format_specifiers=controls)])
                     values.extend(runtime.TextInput(token)(request))

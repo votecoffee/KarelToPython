@@ -187,9 +187,9 @@ class KeyboardRawFailureTests(unittest.TestCase):
         self.assertEqual((p.snapshot()['TEXT'],p.snapshot()['X']),('old',1));self.assertEqual(len(ctx.keyboard.events),2)
         ctx.keyboard.close_all()
 
-    def test_quoted_format_rejected_before_consuming_keys(self):
-        ctx,p,_=prepare('READ f(text::3::2)',keys=("'",'a',"'"))
-        with self.assertRaisesRegex(rt.KarelRuntimeError,'unquoted fixed STRING'):p.run()
+    def test_quoted_without_width_rejected_before_consuming_keys(self):
+        ctx,p,_=prepare('READ f(text::0::2)',keys=("'",'a',"'"))
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'quoted STRING.*explicit width'):p.run()
         self.assertEqual(len(ctx.keyboard.events),3);ctx.keyboard.close_all()
 
     def test_cr_markers_rejected_before_consuming_keys(self):
