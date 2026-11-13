@@ -226,9 +226,9 @@ class KclDataCopyGuardTests(unittest.TestCase):
             self.assertEqual(issue(self.ctx,'SET VAR [CELL]BOX.DATA=SOURCE')['S'],204)
         self.assertEqual(old.values,[8,9]);self.assertEqual(ref.raw().values['DATA'].values,[7,7])
 
-    def test_file_and_collection_values_remain_excluded(self):
+    def test_file_values_remain_excluded(self):
         ctx=context()
-        declarations,_=compile_program('',decl='f:FILE p:PATH q:QUEUE_TYPE')
+        declarations,_=compile_program('',decl='f:FILE')
         for kind in declarations._state.types.values():
             ctx.variables.define('CELL','SOURCE',kind);ctx.variables.define('CELL','TARGET',kind)
             self.assertNotEqual(issue(ctx,'SET VAR [CELL]TARGET=SOURCE')['S'],0)

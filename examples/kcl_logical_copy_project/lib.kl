@@ -1,0 +1,9 @@
+PROGRAM LIB
+VAR status:INTEGER
+ROUTINE copy_route:INTEGER
+BEGIN
+  KCL('SET VAR [MAIN]CACHED=[MAIN]SOURCE',status)
+  RETURN(status)
+END copy_route
+BEGIN
+END LIB

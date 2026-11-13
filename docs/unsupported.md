@@ -615,8 +615,11 @@ queue-entry policies; FILE banks remain excluded.
   complete data, retained frame/target identities, and whole-root protection.
   Named global ARRAY/user-record SET copies also validate exact
   complete data and retain independent destination storage with budget and
-  ownership rechecks. Aggregate literals, resource copies and reshaping remain
-  excluded from those KCL forms.
+  ownership rechecks. [Detached logical copies](kcl-collection-copies.md) now
+  include exact PATH/queue values, whole collection banks and complete indexed
+  or named components, with descriptor/content charges and independent data.
+  Incomplete collection prefixes, local resource roots, FILE copies, aggregate
+  literals and reshaping remain excluded from those KCL forms.
   [Command procedures](kcl-commands.md#command-procedures) execute bounded
   ASCII CF inputs and relative includes over enabled offline services.
   The portable form uses blocking KCL, stops on the first error and saves

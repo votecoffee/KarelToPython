@@ -423,6 +423,44 @@ def kcl_data_value(reference,line=None):
     return value
 
 
+def set_detached_collection(state,key,reference,root_location,target,suffix,source,line):
+    """Copy exact owned logical data after charging both current selections."""
+    from .variable_archives import replace_collections,schema
+
+    rt=runtime();context=state.execution;store=context.variables
+    spec=target.spec;original=target.raw()
+    snapshot=rt.collection_array_source_value if spec[0]=='ARRAY' else rt.collection_source_value
+    def resolve_source():
+        owner,root,rest=source.groups()
+        return context.resolve(state,owner or key[0],(root+rest.replace(' ','')).upper(),line,path_nodes=True)
+    try:
+        source_ref=resolve_source()
+        if source_ref.spec!=spec:return 5
+        source_units=schema(spec,source_ref.raw())
+        target_units=schema(spec,original)
+    except (ValueError,TypeError,KeyError,IndexError,AttributeError,rt.KarelRuntimeError):return 5
+    # No payload encoding/copying before admission. Checkpoints remain outside
+    # data-error handling so budget exhaustion keeps its normal command status.
+    for _ in range(source_units+target_units):variable_checkpoint(state,line)
+    if (context.variables is not store or store.bindings.get(key) is not reference
+            or not same_location(reference,root_location)):return 4
+    code=detached_storage(state,{key:reference})
+    if code:return code
+    try:current=kcl_data_reference(context,reference,suffix,line,path_nodes=True)
+    except (ValueError,TypeError,KeyError,IndexError,AttributeError,rt.KarelRuntimeError):return 4
+    if not same_kcl_data_target(target,current,original):return 4
+    try:
+        source_ref=resolve_source()
+        if (source_ref.spec!=spec or schema(spec,source_ref.raw())!=source_units
+                or schema(spec,original)!=target_units):return 5
+        # Exact bounded codecs validate all contents and ownership on both sides.
+        value=snapshot(spec,source_ref.raw(),line)
+        snapshot(spec,original,line)
+    except (ValueError,TypeError,KeyError,IndexError,AttributeError,rt.KarelRuntimeError):return 5
+    target.storage[target.key]=replace_collections(original,value)
+    return 0
+
+
 def set_detached_value(state,program,path,literal,group,line):
     """Assign a literal, captured source value or recorded pose to an independent cell."""
     from .inspection import attached_programs
@@ -461,6 +499,9 @@ def set_detached_value(state,program,path,literal,group,line):
         except rt.KarelRuntimeError:return 5
         return 0
     source=re.fullmatch(VARIABLE_SELECTOR,literal,re.IGNORECASE)
+    if (source and literal.upper() not in ('TRUE','FALSE')
+            and (rt.collection_type(target.spec) or rt.collection_array_type(target.spec))):
+        return set_detached_collection(state,key,reference,root_location,target,path[len(var):],source,line)
     if source and literal.upper() not in ('TRUE','FALSE') and kind in ('ARRAY','STRUCTURE'):
         # Charge before validating/copying data. Checkpoints may change a binding,
         # parent container, protection or timer claim; retain the selected target.

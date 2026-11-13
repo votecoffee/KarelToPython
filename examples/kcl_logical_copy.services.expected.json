@@ -1,0 +1,14 @@
+{
+  "kcl": {
+    "replies": {},
+    "limit": 500,
+    "history": [
+      {"sequence": 1, "program": "KCL_LOGICAL_COPY", "operation": "KCL", "command": "SET VAR CACHED_ROUTE=ROUTE", "phase": "completed", "status": 0},
+      {"sequence": 2, "program": "KCL_LOGICAL_COPY", "operation": "KCL", "command": "SET VAR CACHED_QUEUE=QUEUE", "phase": "completed", "status": 0},
+      {"sequence": 3, "program": "KCL_LOGICAL_COPY", "operation": "KCL", "command": "SET VAR CACHED_ROUTES=ROUTES", "phase": "completed", "status": 0}
+    ],
+    "sequence": 3,
+    "last_status": 0,
+    "variable_commands": true
+  }
+}

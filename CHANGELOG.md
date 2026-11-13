@@ -1,5 +1,17 @@
 # Changelog
 
+## 26.1113.115951 - 2026-11-13
+
+- Extend opt-in KCL named copies to exact detached scalar PATH/QUEUE_TYPE
+  values, whole collection banks and complete indexed or named components.
+  Preserve valid partial PATH data and uninitialized queue state.
+- Charge descriptor/content units for both source and receiver before copying.
+  Recheck the original target location/store, whole-owner protection and admitted
+  counts after checkpoints, then validate both selections before publication.
+- Keep receiver cells/headers live, replace PATH nodes independently and reset
+  only copied queue buffer links. Add standalone/linked examples, exact replay,
+  ownership/budget regressions and the public logical-copy policy.
+
 ## 26.1113.114732 - 2026-11-13
 
 - Check captured dynamic-display scalar/label locations and label ARRAY layout

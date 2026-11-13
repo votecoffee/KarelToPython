@@ -370,8 +370,11 @@ ownership, aliases and timer protection. Read the source's current value after
 the last copy checkpoint. Validate the destination shape and the complete source
 before publication, with no further checkpoints. Budget exhaustion returns 4;
 changed or protected targets return 204; invalid/incomplete/mismatched data returns
-205. Existing 32767-leaf and 64-level data limits apply. FILE, PATH and QUEUE_TYPE
-data, aggregate literals and implicit reshaping remain excluded. The
+205. Existing 32767-leaf and 64-level data limits apply. FILE data, aggregate
+literals and implicit reshaping remain excluded. Separate
+[logical collection copies](kcl-collection-copies.md) now support exact scalar
+PATH/QUEUE_TYPE values, whole banks and complete indexed/named components to
+detached storage, including valid partial PATH and uninitialized queue data. The
 [ARRAY example](../examples/kcl_data_copy.kl) verifies that later source edits
 leave the copied values unchanged; [regressions](../tests/test_kcl_data_edits.py)
 cover records, ownership and failures.

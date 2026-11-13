@@ -1,0 +1,29 @@
+{
+  "version": "26.1113.115951",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "contract": {
+    "guide": "../kcl-collection-copies.md",
+    "syntax": "Opt-in SET VAR/SET VARIABLE exact named copies; existing KCL_NO_WAIT status and scripted reply precedence",
+    "values": "Scalar PATH/QUEUE_TYPE, whole collection banks, complete indexed cells and named ARRAY components with identical concrete schemas",
+    "partial": "Preserve valid partial PATH data and uninitialized queue state through the existing logical codecs; ordinary data copies remain complete-only",
+    "budget": "Preflight source/receiver descriptor and content counts, at most 32767 units each; charge both selections before snapshotting and require unchanged admitted counts after checkpoints",
+    "target": "Retain target location/store/root/selected cell and recheck detached whole-owner aliases, timers and protection after charges",
+    "source": "Resolve the current named source after final charges; allow replacement with exact schema and equal admitted count; compiled source data allowed",
+    "publication": "Validate both logical values, including owned-cell independence, before publishing; retain receiver cells and compatible headers, replace PATH node lists and clear only copied queue buffer links",
+    "persistence": "Existing typed context JSON retains values, queue sequences, creation metadata and command history, with no queue buffer links, active aliases or task restoration"
+  },
+  "boundaries": [
+    "No incomplete collection prefixes or paused-local collection roots",
+    "No FILE copying, resource fields, aggregate literals, schema conversion or implicit reshape",
+    "No rollback of earlier independent callback/checkpoint effects",
+    "Offline authored command contract; no native/controller/strict equivalence"
+  ],
+  "validation": [
+    "tests/test_kcl_collection_copies.py",
+    "tests/test_kcl_data_edits.py",
+    "tests/test_kcl_data_prefixes.py",
+    "examples/kcl_logical_copy.kl",
+    "examples/kcl_logical_copy_project"
+  ]
+}

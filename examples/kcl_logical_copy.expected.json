@@ -1,0 +1,22 @@
+{
+  "ROUTE": {"nodes": [{"VALUE": 99}], "data": {"COUNT": 1}},
+  "SEEN_ROUTE": {"nodes": [{"VALUE": 17}], "data": {"COUNT": 1}},
+  "ROUTES": [
+    {"nodes": [], "data": {"COUNT": 0}},
+    {"nodes": [{"VALUE": 99}], "data": {"COUNT": 1}}
+  ],
+  "SEEN_ROUTES": [
+    {"nodes": [], "data": {"COUNT": 0}},
+    {"nodes": [{"VALUE": 17}], "data": {"COUNT": 1}}
+  ],
+  "QUEUE": {"initialized": true, "entries": [[1, 17], [2, 99]]},
+  "SEEN_QUEUE": {"initialized": true, "entries": [[1, 17]]},
+  "BUFFER": [17, 99],
+  "ENTRY": 3,
+  "STATUS": 0,
+  "SEQUENCE": 2,
+  "PATH_STATUS": 0,
+  "QUEUE_STATUS": 0,
+  "BANK_STATUS": 0,
+  "DONE": true
+}

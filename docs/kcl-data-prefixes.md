@@ -30,8 +30,10 @@ coercion, reshape, aggregate literal or whole resource serialization is added.
 An unqualified local source uses the selected paused frame first, then that
 frame's source module. A declared missing local does not fall back to a global.
 Explicit program qualifiers use attached/store globals. Detached PATH node/header
-data fields retain their existing lookup; whole PATH and local resource roots
-remain excluded. Copies preserve receiver containers/children and do not retain
+data fields retain their existing lookup. Separate [logical collection copies](kcl-collection-copies.md)
+support detached whole PATH/queue values, banks and complete indexed/named
+components. Incomplete collection prefixes and local resource roots remain
+excluded. Copies preserve receiver containers/children and do not retain
 aliases into the source.
 
 ## Preparation and ownership

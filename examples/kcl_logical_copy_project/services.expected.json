@@ -1,0 +1,12 @@
+{
+  "kcl": {
+    "replies": {},
+    "limit": 500,
+    "history": [
+      {"sequence": 1, "program": "MAIN", "operation": "KCL", "command": "SET VAR [MAIN]CACHED=[MAIN]SOURCE", "phase": "completed", "status": 0}
+    ],
+    "sequence": 1,
+    "last_status": 0,
+    "variable_commands": true
+  }
+}

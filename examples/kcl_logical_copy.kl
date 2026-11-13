@@ -1,0 +1,35 @@
+PROGRAM KCL_LOGICAL_COPY
+TYPE node_t=STRUCTURE value:INTEGER ENDSTRUCTURE
+     header_t=STRUCTURE count:INTEGER ENDSTRUCTURE
+     route_t=PATH NODEDATA=node_t PATHHEADER=header_t
+     routes_t=ARRAY[2]OF route_t
+VAR route,seen_route:route_t
+    routes,seen_routes:routes_t
+    queue,seen_queue:QUEUE_TYPE
+    buffer:ARRAY[2]OF INTEGER
+    entry,status,sequence,path_status,queue_status,bank_status:INTEGER
+    done:BOOLEAN
+BEGIN
+  IF UNINIT(done) THEN
+    APPEND_NODE(route,status)
+    route[1].value=17
+    route.count=1
+    routes[1].count=0
+    routes[2]=route
+    INIT_QUEUE(queue)
+    APPEND_QUEUE(17,queue,buffer,sequence,status)
+    CREATE_VAR('','CACHED_ROUTE','','route_t',0,0,0,0,status,-1)
+    CREATE_VAR('','CACHED_QUEUE','','QUEUE_TYPE',0,0,0,0,status,-1)
+    CREATE_VAR('','CACHED_ROUTES','','routes_t',0,0,0,0,status,-1)
+    KCL('SET VAR CACHED_ROUTE=ROUTE',path_status)
+    KCL('SET VAR CACHED_QUEUE=QUEUE',queue_status)
+    KCL('SET VAR CACHED_ROUTES=ROUTES',bank_status)
+    route[1].value=99
+    routes[2][1].value=99
+    APPEND_QUEUE(99,queue,buffer,sequence,status)
+    GET_VAR(entry,'','CACHED_ROUTE',seen_route,status)
+    GET_VAR(entry,'','CACHED_QUEUE',seen_queue,status)
+    GET_VAR(entry,'','CACHED_ROUTES',seen_routes,status)
+    done=TRUE
+  ENDIF
+END KCL_LOGICAL_COPY
