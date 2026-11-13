@@ -31,6 +31,7 @@ a malformed old row with an explicit Cartesian SET before using modeled SET.
 Preparation retains the endpoint's robot bank, group object, table, selected row
 and active selection where applicable. It also retains ordinary output reference
 locations, selected values and containers, the variable resolver and cache bank.
+Joint-axis addresses participate in metadata/output overlap checks.
 Budgeted source capture and final publication recheck these participants. A new
 explicit full-path binding cannot silently replace a captured system endpoint.
 

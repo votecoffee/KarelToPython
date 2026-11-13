@@ -1,0 +1,44 @@
+{
+  "groups": {
+    "1": {
+      "dh": [
+        {
+          "a": 10
+        },
+        {
+          "a": 10
+        }
+      ]
+    },
+    "2": {
+      "dh": [
+        {
+          "a": 100
+        },
+        {
+          "type": "prismatic",
+          "min": 0,
+          "max": 100
+        }
+      ],
+      "external_axes": 1,
+      "current": {
+        "joints": {
+          "type": [
+            "JOINTPOS",
+            2
+          ],
+          "value": {
+            "axes": [
+              0.0,
+              42.0
+            ]
+          }
+        },
+        "axis_limit_mask": 0,
+        "overtravel_mask": 0
+      }
+    }
+  },
+  "active_group": 1
+}

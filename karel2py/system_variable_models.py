@@ -1,5 +1,5 @@
 """Retained publication contracts for explicit model-backed robot table transfers."""
-from .reference_contracts import capture_location,same_location
+from .reference_contracts import capture_location,same_location,capture_model_value,same_model_value
 
 
 class SystemModelGuard:
@@ -17,28 +17,14 @@ class SystemModelGuard:
             # Cartesian SET remains available to repair malformed old storage.
             rt.frame_value(self.row,line)
             self.row_reference=rt.Reference(self.row.spec,endpoint.table,endpoint.number)
-            self.row_state=self._capture(self.row_reference)
+            self.row_state=capture_model_value(self.row_reference,line)
         self.references=(args[0],args[4],args[3]) if operation=='GET_VAR' else (args[0],args[4])
         self.locations=tuple(capture_location(reference) for reference in self.references)
-        self.data=tuple(self._capture(reference) for reference in self.references)
-
-    def _capture(self,reference):
-        from . import runtime as rt
-        raw=reference.raw();copy=rt._aggregate_value(reference.spec,raw,self.line,allow_partial=True)
-        held=[]
-        def containers(value):
-            if type(value) in (rt.Structure,rt.JointPosition):
-                held.extend((value,value.values))
-                if type(value) is rt.Structure:
-                    for member in value.values.values():containers(member)
-        containers(raw)
-        return raw,rt.snapshot_value(copy),rt._reference_cells(reference),tuple(held)
-
-    def _same(self,reference,captured):
-        original,snapshot,cells,held=captured
-        current,values,locations,objects=self._capture(reference)
-        return (current is original and values==snapshot and locations==cells
-                and len(objects)==len(held) and all(a is b for a,b in zip(objects,held)))
+        self.data=tuple(capture_model_value(reference,line) for reference in self.references)
+        seen=set()
+        for _,_,cells,_ in self.data:
+            if seen&cells:raise rt.KarelRuntimeError('System model transfer outputs overlap',line)
+            seen.update(cells)
 
     def verify(self):
         from . import runtime as rt,extended as ex
@@ -57,13 +43,13 @@ class SystemModelGuard:
                 or table.get(endpoint.number,rt.UNINITIALIZED) is not self.row):fail()
         if self.present:
             rt.frame_value(self.row,self.line)
-            if not self._same(self.row_reference,self.row_state):fail()
+            if not same_model_value(self.row_reference,self.row_state,self.line):fail()
         current=context.resolve(state,self.program,self.path,self.line,system_transfer=self.operation)
         if (type(current) is not ex._SystemVariableTarget or current.robot is not endpoint.robot
                 or current.table is not endpoint.table or current.kind!=endpoint.kind
                 or current.number!=endpoint.number or current.path!=endpoint.path):fail()
         for reference,location,data in zip(self.references,self.locations,self.data):
-            if not same_location(reference,location) or not self._same(reference,data):fail()
+            if not same_location(reference,location) or not same_model_value(reference,data,self.line):fail()
         endpoint.guard(self.references,self.line)
 
     def check(self):

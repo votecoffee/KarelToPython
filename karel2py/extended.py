@@ -3019,7 +3019,11 @@ class ExecutionContext:
             if code==0:
                 if name=='GET_POS_REG' and value.spec[0]!='JOINTPOS': value=pose_extended(value,line)
                 elif name=='GET_JPOS_REG' and value.spec[0]=='JOINTPOS': value=rt.padded_joints(value,line)
-                elif (name=='GET_JPOS_REG')!=(value.spec[0]=='JOINTPOS'): code=3
+                elif (name=='GET_JPOS_REG')!=(value.spec[0]=='JOINTPOS'):
+                    if rt._pythonic() and self.robot is not None:
+                        from .position_register_models import read
+                        return read(self,state,name,bank,number,group,value,args[1],line)
+                    code=3
             args[1].set(code,line)
             if code: fail('Position register is absent, out of range or has a different representation',line)
             return value
@@ -3647,13 +3651,14 @@ class ExecutionContext:
         result.values['CONFIG_DATA']=config.raw().clone()
         return result
 
-    def kinematic_assignment(self,state,target,value,line=None):
+    def kinematic_assignment(self,state,target,value,line=None,*,group=None,check=None):
         """Use the ordinary model/adapters with explicit selected frame/tool data."""
         rt=runtime();poses=(('POSITION',),('XYZWPR',),('XYZWPREXT',))
         forward=isinstance(value,rt.JointPosition) and target in poses
         inverse=isinstance(value,rt.Structure) and value.spec in poses and type(target) is tuple and len(target)==2 and target[0]=='JOINTPOS'
         if not forward and not inverse: fail('Kinematic assignment requires JOINTPOS and Cartesian storage',line)
-        group=rt.task_root(state).robot_group;robot=self.require('robot',line).for_group(group)
+        group=rt.task_root(state).robot_group if group is None else rt.integer(group,line)
+        robot=self.require('robot',line).for_group(group)
         frame=robot.frame(robot.active_frame);tool=robot.tool(robot.active_tool)
         if forward:
             result=self._forward_pose(value,frame,tool,group,line)
@@ -3665,7 +3670,7 @@ class ExecutionContext:
         point=pose_extended(value,line);axes=rt.Array(('ARRAY',3,('REAL',)))
         axes.values[:]=[point.values[f'EXT{i+1}'] for i in range(3)];result=output(target)
         self.kinematics('POS2JOINT',[reference,point,frame,tool,0,point.values['CONFIG_DATA'],axes,result,status],
-                        line,group=group,check=lambda:state.tick(line))
+                        line,group=group,check=check if check is not None else lambda:state.tick(line))
         rt.joint_values(result.raw(),rt.joint_width(target),line)
         return result.raw().clone()
 

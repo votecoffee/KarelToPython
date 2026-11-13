@@ -1,0 +1,11 @@
+PROGRAM MAIN
+VAR good,done:BOOLEAN
+    x FROM LIB:REAL z FROM LIB:REAL ext FROM LIB:REAL axis FROM LIB:REAL
+ROUTINE read_stored FROM LIB
+BEGIN
+  IF UNINIT(done) THEN
+    read_stored
+    good=(x=100) AND (z=42) AND (ext=42) AND (axis=42)
+    done=TRUE
+  ENDIF
+END MAIN

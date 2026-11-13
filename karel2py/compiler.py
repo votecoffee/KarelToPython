@@ -6279,6 +6279,15 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         limits='Standalone explicit joint_limits contexts can be serialized with or without current snapshots; DH models retain limits in their rows, not a second joint_limits field',
         boundary='Offline model/limit interoperability only; custom callbacks without a model keep exact output width; no physical axes inferred, native padding encoding, collision checking or controller acceptance',
         guide='docs/joint-interoperability.md',controller_validated=False)
+    report['position_register_model_policy']=dict(
+        getters='Pythonic GET_POS_REG converts stored JOINTPOS to XYZWPREXT; GET_JPOS_REG converts stored complete Cartesian poses to independent nine-slot joints when an explicit robot context is supplied',
+        group='Use the selected register group for its model/adapters, active frame/tool and inverse current seed; omitted group follows the calling root, including linked routines',
+        capture='Resolve argument expressions once, read a detached source, charge its complete schema and one conversion before the model, then meter numerical inverse evaluations',
+        publication='Retain ordinary position bank, count/groups/values, selected source data/containers, robot/group and captured status location/data; reject overlap, callback conflicts and sticky abort before result/status publication',
+        storage='Reads do not change stored representation, width, values or comments; matching getter forms retain their existing path and typed setters retain their input contracts',
+        failure='No robot context keeps representation-mismatch status3 and error; attempted model failures preserve prior status and assignment, retaining earlier explicit effects',
+        boundary='Explicit offline models only; no discovery, physical register reads, native group/unit defaults, certified reachability or strict equivalence',
+        guide='docs/position-register-models.md',controller_validated=False)
     report['cooperative_policy'] = dict(
         enabled=report['cooperative_execution'],
         generation='Automatic for FILE READ, PULSE, task control, handlers, connected timers or external routines; optional cooperative=True for host-controlled ordinary source',

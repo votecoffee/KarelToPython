@@ -1,0 +1,8 @@
+{
+  "MAIN": {"state": "completed", "values": {
+    "GOOD": true, "DONE": true, "X": 100.0, "Z": 42.0, "EXT": 42.0, "AXIS": 42.0
+  }},
+  "LIB": {"state": "ready", "values": {
+    "X": 100.0, "Z": 42.0, "EXT": 42.0, "AXIS": 42.0, "STATUS": 0
+  }}
+}

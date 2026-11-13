@@ -4512,11 +4512,13 @@ class State:
         captured=checked(expected,value,line)
         return self._kinematic_conversion(('XYZWPREXT',),captured,line,'JOINT_GEOMETRY')
 
-    def _kinematic_conversion(self,target,value,line,operation,*,source_spec=None):
+    def _kinematic_conversion(self,target,value,line,operation,*,source_spec=None,group=None,check=None):
         row=dict(operation=operation,line=line,outcome='requested');self.service_requests.append(row)
         try:
             convert=self.execution.kinematic_array if operation.startswith('KINEMATIC_ARRAY_') else self.execution.kinematic_assignment
-            result=self.execution.kinematic_record(self,target,value,line,source_spec=source_spec) if operation.startswith('KINEMATIC_RECORD_') else convert(self,target,value,line)
+            if operation=='POSITION_REGISTER_MODEL':
+                result=self.execution.kinematic_assignment(self,target,value,line,group=group,check=check)
+            else:result=self.execution.kinematic_record(self,target,value,line,source_spec=source_spec) if operation.startswith('KINEMATIC_RECORD_') else convert(self,target,value,line)
             root=task_root(self)
             if root._aborted: raise KarelAbort(root._abort_line)
             if self._aborted: raise KarelAbort(self._abort_line)

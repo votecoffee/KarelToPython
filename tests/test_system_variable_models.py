@@ -198,6 +198,12 @@ class SystemModelPublicationTests(unittest.TestCase):
         with self.assertRaises(rt.KarelRuntimeError):p.run()
         self.assertEqual((storage['code'],other['code'],ctx.entries),(77,77,{}))
 
+    def test_metadata_cannot_alias_a_joint_output_axis_through_a_host_reference(self):
+        p,_,ctx=build();values=p._state.values['J'].values;values[0]=0
+        p._state.values['E']=rt.Reference(('INTEGER',),values,0)
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'outputs overlap'):p.run()
+        self.assertEqual(values,[0,42.]);self.assertEqual(ctx.entries,{})
+
     def test_unrelated_adapter_effects_are_retained_on_success(self):
         p,ctx=self.change_during_adapter(lambda c,p:p._state.values.__setitem__('N',7))
         data=p.run();self.assertEqual((data['N'],data['S']),(7,0))

@@ -37,7 +37,7 @@ change selection IDs or supplied current robot state.
 
 The existing complete geometry, CONFIG, width, zero-padding, joint-limit and
 table guards apply. A joint value cannot replace a LOCATION, CONFIG_DATA or EXT
-field. READ/service outputs and BYNAME gain no live table aliases. Generic
+field. READ/service outputs and BYNAME gain no live table aliases.
 Whole [GET_VAR/SET_VAR system model transfers](system-variable-models.md) now
 have their own retained endpoint/output contract. The context's direct
 `system_pose_write` host API still requires Cartesian input.

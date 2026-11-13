@@ -1,5 +1,17 @@
 # Changelog
 
+## 26.1113.143256 - 2026-11-13
+
+- Add model-backed GET_POS_REG reads of stored joints and GET_JPOS_REG reads
+  of stored Cartesian poses. Use the selected register group's explicit model,
+  active frame/tool and inverse seed, preserving original stored types/widths.
+- Retain bank/domain/source/model/status bindings and data through charged
+  preparation and numerical solving. Reject callback conflicts and source/bank
+  status aliases before result/status publication, with sticky abort preserved.
+- Share bounded model-value publication snapshots, including joint-axis
+  addresses, with system transfers. Add model/callback/group/budget and linked
+  CLI/replay checks, independent fixtures and current documentation.
+
 ## 26.1113.140913 - 2026-11-13
 
 - Add explicit model-backed whole frame/tool GET_VAR row-to-JOINTPOS and

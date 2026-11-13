@@ -1,0 +1,29 @@
+{
+  "version": "26.1113.143256",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "evidence": "Authored mixed-register model/callback, selected-group, ownership, budget, linked/handler and ordinary JSON checks; no controller execution",
+  "contract": {
+    "guide": "../position-register-models.md",
+    "forms": "GET_POS_REG stored JOINTPOS to independent XYZWPREXT; GET_JPOS_REG stored complete Cartesian pose to nine-slot JOINTPOS",
+    "context": "Explicit selected register group model/adapters and active frame/tool; inverse requires supplied current joints; explicit group overrides caller and omission follows calling root",
+    "data": "Existing finite complete geometry, limits and zero padding; preserve forward CONFIG/external outputs and inverse extended axes, with zero axes for plain poses",
+    "admission": "Capture detached selected source, charge complete declared source schema and one conversion before adapter; meter numerical inverse evaluations",
+    "publication": "Retain ordinary bank/count/groups/value dictionary, selected source data/containers, robot/group and status location/data; protect source and bank metadata from status overlap",
+    "failure": "Conflicts preserve callback edits and unpublished result/status; sticky abort retained. No robot context keeps old type-mismatch status3; attempted model failures preserve prior status",
+    "storage": "Getters do not alter stored type, width, contents or comments; matching getters and typed setters keep their existing paths",
+    "persistence": "Existing position/model/global context JSON only; no retained guard, callback or suspended execution restoration"
+  },
+  "boundaries": [
+    "No implicit model/axis discovery, controller register access or physical motion",
+    "Custom callbacks keep existing exact output contracts; failed numerical solving is not proof of unreachability",
+    "Source and variable-transfer conversions retain their caller-group contracts; typed register setters are unchanged",
+    "Native/controller and strict equivalence remain unverified"
+  ],
+  "validation": [
+    "tests/test_position_register_models.py",
+    "tests/test_system_variable_models.py",
+    "tests/test_joint_interoperability.py",
+    "examples/position_register_model_project/main.kl"
+  ]
+}

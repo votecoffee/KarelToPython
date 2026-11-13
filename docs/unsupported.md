@@ -295,6 +295,10 @@ bare ARRAY type-string layers remain excluded.
 
 ## Registers, variables and I/O
 
+[Position-register model getters](position-register-models.md) now bridge stored
+joint/Cartesian values through an explicit selected-group model, retaining bank
+type/width and guarded source/status publication. They add no live bank access.
+
 - Live controller banks, physical I/O reads/writes, rack/slot discovery, hardware
   routing, automatic polling and native alarm/status mappings. Numeric, string,
   position and port services use explicit offline banks.

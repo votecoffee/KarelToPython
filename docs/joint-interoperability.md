@@ -18,6 +18,12 @@ model-derived CURPOS, source inverse conversions and reachability seeds.
 
 CURJPOS and GET_JPOS_REG return independent nine-slot values. A narrow register
 value is padded on read without changing its stored type, width or contents.
+[Model-backed register getters](position-register-models.md) now also bridge
+stored joint/Cartesian representations using the selected register group's
+explicit model and selected frame/tool, with supplied current joints for inverse
+conversion. These reads keep the original bank value and guard source/status
+publication. Matching forms and typed setters keep their existing paths.
+
 Model POS2JOINT can write any JOINTPOS width from the configured axis count
 through nine. It pads unused result slots with zeros and rejects an output that
 would omit a modeled axis. Model-backed source conversions use the same rule.
