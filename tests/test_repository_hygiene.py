@@ -71,6 +71,15 @@ class RepositoryHygieneTests(unittest.TestCase):
         _,errors=checker.check_repository(self.root)
         self.assertEqual(errors,[])
 
+    def test_discovery_instances_are_private_but_contract_documentation_is_allowed(self):
+        value=dict(schema='karel2py.inputs.v1',target={},inputs=[],unresolved=[])
+        path=self.root/'discovery.json';path.write_text(json.dumps(value),encoding='utf-8')
+        _,errors=checker.check_repository(self.root)
+        self.assertTrue(any('private input-discovery report' in error for error in errors))
+        path.write_text(json.dumps(dict(schema=value['schema'],contracts={'inputs':'Source candidates'})),encoding='utf-8')
+        _,errors=checker.check_repository(self.root)
+        self.assertEqual(errors,[])
+
     def test_missing_documentation_target_is_rejected(self):
         (self.root / 'guide.md').unlink()
         _, errors = checker.check_repository(self.root)

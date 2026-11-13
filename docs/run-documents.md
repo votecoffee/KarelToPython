@@ -4,7 +4,8 @@ The standalone Pythonic runner executes an explicitly selected generated Python
 module and stores supplied inputs and results in separate sections of one JSON
 document. It uses the existing offline runtime and adds no controller connection.
 This is the first foundation of the [runner milestone](roadmap.md#python-runner-and-parameter-editor).
-Automatic input discovery and the GUI parameter editor remain future work.
+[Bounded input discovery](input-discovery.md) is available through the CLI;
+automatic value population and the GUI parameter editor remain future work.
 
 ## Prepare and run
 
@@ -54,8 +55,9 @@ context data rather than sharing the input dictionaries with execution. Results
 are never used as implicit inputs, so repeated runs begin with the same values
 unless the saved inputs are edited. Source-specific restoration still follows
 the generated Program's checked constructor; constructor failures are recorded
-without running the KAREL body. No parameters or initial values are discovered
-or invented in this version.
+without running the KAREL body. Preparation does not populate discovered values;
+review a discovery report and supply the context explicitly. No initial values
+are invented.
 
 Before loading the target, the runner atomically saves the supplied document with
 a `running` result. Terminal results contain:
@@ -112,7 +114,7 @@ The recommended `.run.json` suffix is ignored; the public repository check also
 rejects run-document instances saved under another JSON name.
 
 This version runs one standalone Pythonic generated Program. Linked-project
-execution, read-before-write discovery, automatic input editing, worker control
+execution, complete input discovery, automatic input editing, worker control
 and GUI integration remain planned. It preserves existing offline service
 restrictions and does not authenticate native compiler/controller behavior.
 The [semantic ledger](semantics/run_document_semantics.json) records this contract.

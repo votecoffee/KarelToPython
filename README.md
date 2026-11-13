@@ -458,7 +458,7 @@ SET_JPOS_REG. They capture inputs before later selectors and stage converted
 values under destination/status guards in the selected register group.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1113.170837**. It is a
+tool are named **karel2py**. The current implementation is **26.1113.180825**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 [Formatted empty collection output](docs/empty-collection-output.md) lets the same
@@ -643,6 +643,7 @@ without importing or executing it; running it is an explicit command.
 
 ```sh
 python -c "from pathlib import Path; Path('.local').mkdir(exist_ok=True)"
+python -m karel2py.runner discover converted.py --output .local/inputs.report.json
 python -m karel2py.runner create converted.py .local/session.run.json --context input-context.json
 python -m karel2py.runner run .local/session.run.json
 ```
@@ -650,7 +651,10 @@ python -m karel2py.runner run .local/session.run.json
 Each run starts from `inputs.context` and checks the pinned Python hash. Results
 include variables, available offline banks, WRITE text and completion/failure
 details, preserving the supplied inputs. Edit the saved inputs before replaying.
-Automatic input discovery and the workbench parameter editor remain planned.
+[Input discovery](docs/input-discovery.md) now reports bounded read-before-write
+candidates from checked generated Python, with typed paths, routine aliases,
+source locations and explicit unresolved dependencies. Review the report and
+supply context values; automatic value editing and the workbench editor remain planned.
 
 ### Translation mode
 
@@ -1445,8 +1449,9 @@ will extract registers, variables and other values read before they are written
 from generated Python, provide a tab or popup for editing those inputs, and
 save both inputs and execution results in one JSON file. The standalone
 [CLI execution service](docs/run-documents.md) now provides the run-document
-foundation with manually supplied context. Input discovery, the parameter
-editor and workbench execution remain future work.
+foundation with manually supplied context. Bounded input discovery is now
+available; complete discovery, the parameter editor and workbench execution
+remain future work.
 
 [Strict mode](docs/numeric-modes.md#compatibility-and-the-strict-milestone)
 remains a later milestone. See the [roadmap](docs/roadmap.md) for planned scope
@@ -1480,7 +1485,7 @@ workflows. To run hosted checks, open the repository's **Actions** tab, select
 **Tests (manual)** or **GUI checks (manual)**, then choose **Run workflow**.
 Routine development validation uses the local CLI commands above.
 
-The example runner translates 590 authored runnable examples, checks complete
+The example runner translates 591 authored runnable examples, checks complete
 expected snapshots and validates their output, delay, context and termination
 fixtures, plus 243 complete linked source projects. It also checks that nested
 MOVE actions inside local handlers are rejected.

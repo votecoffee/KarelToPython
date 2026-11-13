@@ -1,0 +1,12 @@
+PROGRAM DISCOVERY_INPUTS
+TYPE data_t=STRUCTURE a:INTEGER b:INTEGER ENDSTRUCTURE
+VAR selector:BOOLEAN source:data_t answer:INTEGER
+ROUTINE choose(value:INTEGER):INTEGER
+BEGIN
+  RETURN value
+END choose
+BEGIN
+  source.a=1
+  IF selector THEN answer=choose(source.b) ELSE answer=source.a ENDIF
+  WRITE('answer=',answer,CR)
+END DISCOVERY_INPUTS

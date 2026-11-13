@@ -1,5 +1,19 @@
 # Changelog
 
+## 26.1113.180825 - 2026-11-13
+
+- Add nonexecuting Python input discovery through the runner CLI/API. Follow
+  source assignments, branches, loops, SELECT and known routine reference/value
+  arguments; retain typed field/element paths and original include locations.
+- Identify direct ports, numeric/string/position register reads and own-program
+  static GET_VAR paths, separating required and conditional source candidates.
+  Keep dynamic addresses, unknown effects, local/derived missing data and limits explicit.
+- Embed bounded literal source contracts with payload and Python AST fingerprints;
+  reject stale execution syntax or metadata without importing the target.
+  Leave unavailable analysis explicit without blocking source conversion.
+- Add authored discovery/execution fixtures, CLI/report protection and focused
+  regressions; keep automatic value population, full discovery and GUI work planned.
+
 ## 26.1113.170837 - 2026-11-13
 
 - Add the standalone Pythonic run-document API and CLI. Prepare versioned JSON

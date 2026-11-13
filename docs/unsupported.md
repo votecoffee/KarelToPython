@@ -682,8 +682,10 @@ queue-entry policies; FILE banks remain excluded.
 - The workbench currently validates/translates/reviews/exports. The standalone
   [run-document CLI](run-documents.md) now runs pinned generated Python with
   supplied context and separate inputs/results, including partial failures.
-  Automatic read-before-write discovery, linked-project runs, the parameter
-  editor and workbench execution remain [future work](roadmap.md).
+  [Bounded read-before-write discovery](input-discovery.md) now reports typed
+  source candidates and unresolved effects. Complete discovery, automatic value
+  population, linked-project runs, the parameter editor and workbench execution
+  remain [future work](roadmap.md).
 - Public strict mode remains a future milestone. `--mode strict` is rejected;
   preserved historical exactness work is not an available public execution mode.
 

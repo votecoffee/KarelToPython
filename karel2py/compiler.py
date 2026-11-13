@@ -13,6 +13,7 @@ from . import runtime as rt
 from . import extended as ex
 from .inspection import TYPE_CODES as VARIABLE_TYPE_CODES
 from . import __version__
+from .input_contract import build as build_input_plan
 
 
 @dataclass
@@ -4930,6 +4931,9 @@ class Emitter:
         self.line(f'routine_interfaces = { {r.name:dict(parameters=tuple(spec for _,spec in r.parameters),result=r.return_type,external=r.external) for r in self.program.routines}!r}')
         self.line(f'external_array_shapes = {tuple(self.array_shapes.items())!r}')
         self.line(f'variable_types = {self.user_types!r}')
+        if self.mode=='pythonic':
+            self.line('input_analysis = None')
+            self.line('input_analysis_sha256 = None')
         self.line(f'@_rt._with_numeric_mode({self.mode!r})')
         self.line('def __init__(self, *, sleep=None, write=None, read=None, joint_axes=None, pose_tolerance=None, external_tolerance=None, clock_us=None, registers=None, context=None):')
         self.indent = 2
@@ -5334,6 +5338,7 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict', 
         escaped_string_literals=parser.escaped_string_literals,
         python_sha256=hashlib.sha256(generated.encode('utf-8')).hexdigest(),
         features=sorted(emitter.features), source_map=emitter.source_map,
+        **({'_input_analysis_plan':build_input_plan(program,emitter)} if mode=='pythonic' else {}),
         source_checkpoints=sorted(emitter.source_checkpoints),
         skippable_checkpoints=sorted(emitter.skippable_checkpoints),
         constant_dependencies=emitter.constant_dependency_uses,constant_resolution_order=emitter.constant_resolution_order,
@@ -8105,4 +8110,14 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         report['features']=sorted(set(report['features'])|{'source %INCLUDE expansion'})
         report['translation_context']['includes']=expansion.files
         report['translation_context_sha256']=hashlib.sha256(json.dumps(report['translation_context'],sort_keys=True,separators=(',',':')).encode('ascii')).hexdigest()
+    plan = report.pop('_input_analysis_plan', None)
+    if plan is not None:
+        from .input_contract import attach
+        plan['filename'] = str(filename)
+        plan['origins'] = expansion.spans
+        result.python_source = attach(result.python_source, plan)
+        report['python_sha256'] = hashlib.sha256(result.python_source.encode('utf-8')).hexdigest()
+        report['input_discovery_policy'] = dict(source='Literal source-analysis contract bound to generated Python syntax and payload checksums',
+            execution='Discovery parses without target imports or execution; unsupported flow remains explicit',
+            boundary='Generated Python only; metadata is not code authenticity or controller proof',controller_validated=False)
     return result

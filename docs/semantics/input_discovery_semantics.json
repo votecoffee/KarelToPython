@@ -1,0 +1,31 @@
+{
+  "translator_version": "26.1113.180825",
+  "mode": "pythonic",
+  "schema": "karel2py.inputs.v1",
+  "scope": "Bounded static source-access discovery from newly generated standalone Python",
+  "contracts": {
+    "inspection": "Literal payload extraction and checked whole-module AST fingerprint; no target import, execution or eval",
+    "identity": "Payload checksum included in syntax fingerprint; stale execution/metadata edits require retranslation; no authenticity or security guarantee",
+    "inputs": "Required/conditional read-before-definite-write candidates with type, logical address and physical/Python locations; no invented values",
+    "flow": "Structured branches, widened loops, bounded constant FOR expansion, SELECT, internal routine aliases/private arguments and return merges",
+    "storage": "Independent aggregate leaves, direct ports, numeric/string/position banks and static own-program GET_VAR/SET_VAR paths",
+    "context": "Service/address requirements are separate from initial values; selected leaves need whole-root context restoration and manual values",
+    "gaps": "Dynamic access, unsupported effects/schemas, external linkage, nonstructured flow, locals/derived missing values and limits remain explicit",
+    "complete": "Supported bounded source-access coverage only; no successful execution, termination, host callback completeness or native equivalence claim",
+    "publication": "New output only, protected target aliases, UTF-8 LF JSON; full report instances excluded from public Git"
+  },
+  "limits": {
+    "python_bytes": 16777216,
+    "analysis_steps": 100000,
+    "storage_facts": 32767,
+    "input_entries": 2048,
+    "routine_frames": 32,
+    "constant_for_iterations": 32,
+    "contract_nodes": 50000,
+    "contract_depth": 100
+  },
+  "future": ["Complete discovery", "Automatic root-value population and parameter editor", "Linked-project runs", "GUI parameter tab", "Strict-mode discovery"],
+  "guide": "../input-discovery.md",
+  "tests": ["tests/test_input_discovery.py", "tests/test_repository_hygiene.py"],
+  "controller_validated": false
+}

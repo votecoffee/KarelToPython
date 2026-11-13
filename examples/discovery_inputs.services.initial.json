@@ -1,0 +1,6 @@
+{
+  "variables": [
+    {"program": "DISCOVERY_INPUTS", "path": "SELECTOR", "type": ["BOOLEAN"], "value": true},
+    {"program": "DISCOVERY_INPUTS", "path": "SOURCE", "type": ["STRUCTURE", "DATA_T", [["A", ["INTEGER"]], ["B", ["INTEGER"]]]], "value": {"A": {"uninitialized": true}, "B": 41}}
+  ]
+}

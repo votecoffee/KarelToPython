@@ -247,11 +247,23 @@ def main(argv=None):
     create.add_argument('--context', type=Path, help='Existing execution-context JSON copied into inputs')
     create.add_argument('--max-steps', type=int, default=100000)
     create.add_argument('--max-output-chars', type=int, default=1048576)
+    discover = subparsers.add_parser('discover', help='Inspect read-before-write inputs without importing or executing Python')
+    discover.add_argument('target', type=Path)
+    discover.add_argument('--output', type=Path, help='New private JSON report; otherwise print the full report')
     run = subparsers.add_parser('run', help='Explicitly execute the pinned trusted Python target')
     run.add_argument('document', type=Path)
     args = parser.parse_args(argv)
     print(f'KarelToPython {__version__}', file=sys.stderr)
     try:
+        if args.command == 'discover':
+            from .input_discovery import discover_file
+            report = discover_file(args.target)
+            if args.output:
+                _store(args.output, report, protected=(args.target,))
+                print(json.dumps(dict(complete=report['complete'], inputs=len(report['inputs']), unresolved=len(report['unresolved']))))
+            else:
+                print(json.dumps(report, indent=2, allow_nan=False))
+            return 0
         if args.command == 'create':
             context = _decode(_read(args.context)) if args.context else None
             document = create_document(args.target, args.document, context=context,

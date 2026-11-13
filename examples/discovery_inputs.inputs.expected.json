@@ -1,0 +1,4 @@
+[
+  {"kind": "variable", "path": "SELECTOR", "certainty": "required"},
+  {"kind": "variable", "path": "SOURCE.B", "certainty": "conditional"}
+]

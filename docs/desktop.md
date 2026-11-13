@@ -108,7 +108,7 @@ button. Generated modules retain the existing [offline runtime](offline-services
 and must be run explicitly with the required context outside the workbench.
 The standalone [run-document CLI](run-documents.md) now saves supplied inputs
 and execution results in one JSON file. The [workbench runner milestone](roadmap.md#python-runner-and-parameter-editor)
-will add input discovery, a parameter tab or popup and GUI execution. Those
+will integrate CLI input discovery, a parameter tab or popup and GUI execution. Those
 interfaces are not implemented in the current workbench.
 
 ## Development checks

@@ -9,12 +9,19 @@ and [desktop guide](desktop.md).
 
 **Status: in progress.** The standalone [run-document service and CLI](run-documents.md)
 now run pinned Pythonic generated modules with explicitly supplied context,
-separate inputs/results and partial failure capture. Automatic input discovery,
-the parameter editor, linked-project runs and GUI execution remain future work.
+separate inputs/results and partial failure capture. [Bounded input discovery](input-discovery.md)
+now follows generated source contracts without target execution. Complete
+discovery, automatic value population, the parameter editor, linked-project runs
+and GUI execution remain future work.
 Expose the shared execution behavior through a workbench tab or popup after
 those input and worker interfaces are ready.
 
 ### Discover inputs from Python
+
+The first CLI/API discovery slice now reports supported source-flow candidates,
+typed selectors, known routine aliases and explicit unresolved dependencies.
+It does not populate run-document values or claim to analyze every source form.
+The requirements below describe the complete milestone.
 
 Analyze the generated Python without importing or running it. An input is a
 register, variable or other state value that a reachable execution path reads

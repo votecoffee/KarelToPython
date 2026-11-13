@@ -76,7 +76,7 @@ def check_repository(root=ROOT):
             continue
         if PROFILE_PATH.search(text):
             errors.append(relative + ': contains a machine/profile-specific absolute path')
-        if path.suffix.lower() == '.json' and 'karel2py.run.v1' in text:
+        if path.suffix.lower() == '.json' and any(schema in text for schema in ('karel2py.run.v1', 'karel2py.inputs.v1')):
             try:
                 document = json.loads(text)
             except (ValueError, RecursionError):
@@ -84,6 +84,9 @@ def check_repository(root=ROOT):
             if (type(document) is dict and document.get('schema') == 'karel2py.run.v1'
                     and {'target', 'inputs', 'results'} <= set(document)):
                 errors.append(relative + ': private run document belongs outside public source')
+            if (type(document) is dict and document.get('schema') == 'karel2py.inputs.v1'
+                    and {'target', 'inputs', 'unresolved'} <= set(document)):
+                errors.append(relative + ': private input-discovery report belongs outside public source')
         if path.suffix == '.py':
             try:
                 ast.parse(text, filename=relative, feature_version=(3, 11))
