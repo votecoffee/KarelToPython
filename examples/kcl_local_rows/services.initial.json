@@ -1,0 +1,6 @@
+{
+  "kcl": {
+    "task_commands": true,
+    "variable_commands": true
+  }
+}

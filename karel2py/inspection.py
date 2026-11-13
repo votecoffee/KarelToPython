@@ -348,7 +348,7 @@ def kcl_variable_listing(state,operation,args,line=None):
         if kind is not None:
             names=[(name,spec) for name,spec in names if matches_type(spec,kind)]
     def resolve(path):
-        return context.resolve(state,selector,path,line,path_nodes=True)
+        return context.resolve(state,selector,path,line,path_nodes=True,prefixes=runtime()._pythonic())
     return _kcl_value_rows(state,program,names,values,radix,resolve,line)
 
 
@@ -447,7 +447,8 @@ def _kcl_routine_frame(root,routine_filter,module_filter):
 
 
 def _kcl_local_write(state,root,frame,path,literal,line,selector):
-    from .dynamic import IDENTIFIER,VARIABLE_SELECTOR,assign_scalar_literal,kcl_record_literal,variable_checkpoint
+    from .dynamic import (IDENTIFIER,VARIABLE_SELECTOR,assign_scalar_literal,kcl_record_literal,
+                          variable_checkpoint,kcl_data_reference,kcl_data_value,same_kcl_data_target)
     from .variable_archives import cells
 
     rt=runtime()
@@ -460,7 +461,7 @@ def _kcl_local_write(state,root,frame,path,literal,line,selector):
     reference=rt.Reference(declarations[name],storage,name)
     try:
         units=rt._validate_data_schema(reference.spec,line)
-        target=owner.execution.descend(reference,path[len(name):],line)
+        target=kcl_data_reference(owner.execution,reference,path[len(name):],line)
     except (ValueError,TypeError,KeyError,rt.KarelRuntimeError):return 5
     writable=(rt.Reference,rt.ConfigFieldReference,rt.AssociationFieldReference)
     if type(target) not in writable:return 4
@@ -480,10 +481,9 @@ def _kcl_local_write(state,root,frame,path,literal,line,selector):
         if current is None or current[2] is not declarations or current[3] is not storage:return 4
         counter_roots=getattr(owner.program,'local_for_roots',{}).get(routine)
         if counter_roots is None or name in counter_roots:return 4
-        try:current=owner.execution.descend(reference,path[len(name):],line)
+        try:current=kcl_data_reference(owner.execution,reference,path[len(name):],line)
         except (ValueError,TypeError,KeyError,rt.KarelRuntimeError):return 4
-        if (type(current) is not type(target) or current.spec!=spec or current.storage is not target.storage
-                or current.key!=target.key or current.raw() is not selected):return 4
+        if current.spec!=spec or not same_kcl_data_target(target,current,selected):return 4
     records=('VECTOR','CONFIG','POSITION','XYZWPR','XYZWPREXT','JOINTPOS')
     try:
         if root_spec[0] in ('ARRAY','JOINTPOS',*rt.RECORD_TYPES) and original is not rt.UNINITIALIZED:
@@ -511,8 +511,8 @@ def _kcl_local_write(state,root,frame,path,literal,line,selector):
             if not program and source_name in declarations:
                 value=storage[source_name]
                 source_ref=value if isinstance(value,rt.Reference) else rt.Reference(declarations[source_name],storage,source_name)
-                source_ref=owner.execution.descend(source_ref,suffix,line)
-            else:source_ref=owner.execution.resolve(owner,program or owner.program_name,source_name+suffix,line)
+                source_ref=owner.execution.descend(source_ref,suffix,line,prefixes=rt._pythonic(),defer_prefix_data=rt._pythonic())
+            else:source_ref=owner.execution.resolve(owner,program or owner.program_name,source_name+suffix,line,prefixes=rt._pythonic(),defer_prefix_data=rt._pythonic())
             if source_ref.spec!=spec and (spec[0]!='STRING' or source_ref.spec[0]!='STRING'):return 5
             if spec[0]=='STRING':
                 value=rt.ascii_string(source_ref.raw(),line)
@@ -520,7 +520,7 @@ def _kcl_local_write(state,root,frame,path,literal,line,selector):
             elif spec[0] in records:
                 value=(rt.vector_value(source_ref.raw(),line) if spec[0]=='VECTOR'
                        else rt.positional_value(spec,source_ref.raw(),line))
-            else:value=rt._aggregate_value(spec,source_ref.raw(),line,allow_partial=False)
+            else:value=rt._aggregate_value(spec,kcl_data_value(source_ref,line),line,allow_partial=False)
             if type(target) is not rt.Reference:target.validate_storage(line)
             target.set(value,line)
         except (ValueError,TypeError,KeyError,IndexError,AttributeError,rt.KarelRuntimeError):return 5
@@ -559,7 +559,7 @@ def kcl_local_operation(state,operation,args,line=None):
             raise rt.KarelRuntimeError('Local variable is absent from the selected frame',line)
         key=base[0];value=storage[key]
         reference=value if isinstance(value,rt.Reference) else rt.Reference(declarations[key],storage,key)
-        return owner.execution.descend(reference,path[base.end():],line,path_nodes=True)
+        return owner.execution.descend(reference,path[base.end():],line,path_nodes=True,prefixes=rt._pythonic())
 
     return _kcl_value_rows(state,owner.program_name,names,values,radix,resolve,line,
                            routine=routine,task=selector or root.program_name)

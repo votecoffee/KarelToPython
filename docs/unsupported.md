@@ -548,7 +548,8 @@ queue-entry policies; FILE banks remain excluded.
   associations, Data ID discovery and exact widget/layout semantics remain
   unsupported. [Display value paths](display-named-rows.md) now accept chained
   indexes and matching ordinary rows for form choices/function labels and table
-  columns; dictionary formatting still requires scalars. Nested tree groups retain
+  columns; dictionary formatting still requires scalars. [KCL row/plane copies](kcl-data-prefixes.md)
+  now support exact named data under detached or paused-local ownership guards. Nested tree groups retain
   the documented language prohibition.
 - Native DAQ sampling, timing and monitor integration. The six calls now have
   an [offline pipe model](data-acquisition.md), with chosen record/view layouts

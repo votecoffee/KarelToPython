@@ -1,0 +1,27 @@
+{
+  "feature": "kcl_prefix_data",
+  "version": "26.1113.053732",
+  "mode": "pythonic",
+  "policy": "kcl_prefix_data_policy",
+  "guide": "docs/kcl-data-prefixes.md",
+  "source": "Exact named ordinary ARRAY rows/planes in SET VAR/SET LOCAL VAR and selected SHOW paths, with comma/chained indexes, record fields and named components",
+  "targets": "Independent detached roots or eligible owned paused-local data, preserving whole-owner aliases/timers/FOR/frame checks",
+  "capture": "Metadata-only prefix location before copy charges; selected detached leaves or whole local-root charges, re-resolved original cells and stable detached reference locations before publication",
+  "values": "Complete source leaves and exact schemas; detach selected windows without aliases, reshaping or implicit casts; preserve receiver identities",
+  "persistence": "Ordinary roots and command history, without live row aliases or paused continuations",
+  "verification": [
+    "tests/test_kcl_data_prefixes.py",
+    "tests/test_kcl_local_data_paths.py",
+    "tests/test_kcl_variable_commands.py",
+    "examples/kcl_data_rows.kl",
+    "examples/kcl_local_rows/main.kl"
+  ],
+  "exclusions": [
+    "compiled global or borrowed-owner writes",
+    "whole resource serialization",
+    "aggregate literals",
+    "expression indexes",
+    "native KCL/controller/strict equivalence"
+  ],
+  "controller_validated": false
+}

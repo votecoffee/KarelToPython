@@ -1,5 +1,18 @@
 # Changelog
 
+## 26.1113.053732 - 2026-11-13
+
+- Extend opt-in KCL SET VAR and SET LOCAL VAR named data copies to final
+  ordinary ARRAY rows/planes, including chained static indexes, record fields
+  and exact named components. SHOW VAR/SHOW LOCAL VAR report selected data.
+- Defer prefix payload copies until copy budget admission. Re-resolve target
+  prefixes against original cells after charges and retain whole-owner alias,
+  timer, FOR, paused-frame and lifecycle checks. Guard detached root bindings
+  against retargeting to another location holding the same value.
+- Keep complete source validation, exact schemas, independent copied data
+  and stable receiver identities. Add standalone/linked examples and focused
+  row/plane, ownership, budgeting, callback-change, listing and replay checks.
+
 ## 26.1113.050704 - 2026-11-13
 
 - Extend shared dictionary/form/table value paths to chained static indexes

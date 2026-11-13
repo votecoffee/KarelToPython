@@ -1,0 +1,10 @@
+PROGRAM MAIN
+VAR count FROM WORKER:INTEGER
+    started,paused,copied,continued,finished:INTEGER
+BEGIN
+  KCL_NO_WAIT('RUN WORKER',started)
+  KCL('WAIT WORKER PAUSE',paused)
+  KCL('SET LOCAL VAR grid[2] IN stage FROM WORKER WORKER = row',copied)
+  KCL('CONT WORKER',continued)
+  KCL('WAIT WORKER DONE',finished)
+END MAIN

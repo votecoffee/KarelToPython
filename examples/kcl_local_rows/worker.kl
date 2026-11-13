@@ -1,0 +1,10 @@
+PROGRAM WORKER
+VAR count:INTEGER
+ROUTINE stage
+VAR row:ARRAY[2]OF INTEGER grid:ARRAY[2,2]OF INTEGER
+BEGIN
+  row[1]=7 row[2]=9
+  PAUSE
+  count=grid[2,1]+grid[2,2]
+END stage
+BEGIN stage END WORKER

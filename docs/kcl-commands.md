@@ -356,7 +356,9 @@ read-only field and connected-timer checks.
 
 Named ARRAYs and user STRUCTURE records also copy with exactly matching concrete
 schemas, including nested data, named ARRAY components and fully selected fields
-or elements. Every source leaf must be initialized and valid. STRING capacities,
+or elements. Final ordinary ARRAY rows/planes also copy as exact remaining
+ARRAY schemas, with comma or chained static indexes; see [KCL data selections](kcl-data-prefixes.md).
+Every source leaf must be initialized and valid. STRING capacities,
 nominal record/ARRAY names, dimensions and terminal types remain exact. A source
 may be compiled storage; the destination must remain independent explicit storage.
 The copy retains existing destination containers and never aliases source data.
@@ -466,7 +468,9 @@ Python frames and follow MARRC75KR07091E Rev N, PDF pages 740–741.
 accepts the full VARIABLE spelling. It edits owned data in a paused routine,
 using the same routine, module and task selectors. Static fields and complete
 one-based ARRAY/JOINTPOS indices select original storage. Indices are integer
-literals, with optional spaces; expressions and incomplete ARRAY prefixes reject.
+literals, with optional spaces; adjacent numeric bracket groups normalize.
+Final ordinary ARRAY rows/planes can be named data sources or destinations.
+Expressions, aggregate literals and incompatible remaining shapes still reject.
 
 Scalar and positional literals use the SET VAR formats above. VECTOR, CONFIG,
 POSITION, XYZWPR, XYZWPREXT and JOINTPOS roots or selected cells use complete typed

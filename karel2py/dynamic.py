@@ -1,6 +1,7 @@
 """Bounded, explicit variable creation, naming and routine aliases."""
 import re
 from .extended import runtime, fail, outputs_checked, FUNCTIONS
+from .reference_contracts import capture_location,same_location
 
 
 NAMES={'CREATE_VAR','RENAME_VAR','RENAME_VARS'}
@@ -395,6 +396,33 @@ def remove_detached(state,program,var,line):
     return 0
 
 
+def kcl_data_reference(context,reference,suffix,line=None,*,path_nodes=False):
+    """Locate selected original cells without copying prefix data before charges."""
+    rt=runtime()
+    target=context.descend(reference,suffix,line,path_nodes=path_nodes,prefixes=rt._pythonic(),defer_prefix_data=rt._pythonic())
+    return rt.array_prefix_reference(target,line) if type(target) is rt._ArrayPrefixTarget else target
+
+
+def same_kcl_data_target(target,current,selected):
+    """Re-resolved prefixes must select the same original cells after charging."""
+    rt=runtime()
+    try:
+        if type(current) is not type(target) or current.spec!=target.spec or target.raw() is not selected:return False
+        if (type(target) is rt.Reference and type(selected) is rt.Array
+                and type(selected.values) is rt._ArrayWindow):
+            return rt.same_array_storage(selected,current.raw())
+        return current.storage is target.storage and current.key==target.key and current.raw() is selected
+    except (ValueError,TypeError,KeyError,IndexError,AttributeError,rt.KarelRuntimeError):return False
+
+
+def kcl_data_value(reference,line=None):
+    """Detach a selected window before the unchanged complete-data copy check."""
+    rt=runtime();value=reference.raw()
+    if type(value) is rt.Array and type(value.values) is rt._ArrayWindow:
+        value=rt._aggregate_value(reference.spec,value,line,allow_partial=True)
+    return value
+
+
 def set_detached_value(state,program,path,literal,group,line):
     """Assign a literal, captured source value or recorded pose to an independent cell."""
     from .inspection import attached_programs
@@ -409,10 +437,11 @@ def set_detached_value(state,program,path,literal,group,line):
     if any(var in owner.types for owner in attached_programs(context,state).get(program,())):return 4
     key=(program,var);reference=context.variables.bindings.get(key)
     if reference is None:return 1
+    root_location=capture_location(reference)
     code=detached_storage(state,{key:reference})
     if code:return code
     try:
-        target=context.descend(reference,path[len(var):],line,path_nodes=True)
+        target=kcl_data_reference(context,reference,path[len(var):],line,path_nodes=True)
     except (ValueError,TypeError,rt.KarelRuntimeError):return 5
     if type(target) is not rt.Reference:return 4
     kind=target.spec[0]
@@ -439,20 +468,19 @@ def set_detached_value(state,program,path,literal,group,line):
         try:units=rt._validate_data_schema(spec,line)
         except rt.KarelRuntimeError:return 5
         for _ in range(units):variable_checkpoint(state,line)
-        if context.variables.bindings.get(key) is not reference or reference.spec!=root_spec:return 4
+        if (context.variables.bindings.get(key) is not reference or reference.spec!=root_spec
+                or not same_location(reference,root_location)):return 4
         code=detached_storage(state,{key:reference})
         if code:return code
-        try:current=context.descend(reference,path[len(var):],line,path_nodes=True)
+        try:current=kcl_data_reference(context,reference,path[len(var):],line,path_nodes=True)
         except (ValueError,TypeError,rt.KarelRuntimeError):return 4
-        if (type(current) is not rt.Reference or current.spec!=spec
-                or current.storage is not target.storage or current.key!=target.key
-                or current.raw() is not original):return 4
+        if current.spec!=spec or not same_kcl_data_target(target,current,original):return 4
         try:
             source_owner,root,suffix=source.groups()
-            source_ref=context.resolve(state,source_owner or program,(root+suffix.replace(' ','')).upper(),line,path_nodes=True)
+            source_ref=context.resolve(state,source_owner or program,(root+suffix.replace(' ','')).upper(),line,path_nodes=True,prefixes=rt._pythonic(),defer_prefix_data=rt._pythonic())
             if source_ref.spec!=spec:return 5
             rt.checked(spec,original,line)
-            value=rt._aggregate_value(spec,source_ref.raw(),line,allow_partial=False)
+            value=rt._aggregate_value(spec,kcl_data_value(source_ref,line),line,allow_partial=False)
             target.set(value,line)
         except (ValueError,TypeError,KeyError,IndexError,AttributeError,rt.KarelRuntimeError):return 5
         return 0
@@ -460,7 +488,7 @@ def set_detached_value(state,program,path,literal,group,line):
         if source and literal.upper() not in ('TRUE','FALSE'):
             source_owner,root,suffix=source.groups()
             source_path=(root+suffix.replace(' ','')).upper()
-            source_ref=context.resolve(state,source_owner or program,source_path,line,path_nodes=True)
+            source_ref=context.resolve(state,source_owner or program,source_path,line,path_nodes=True,prefixes=rt._pythonic(),defer_prefix_data=rt._pythonic())
             if kind not in ('INTEGER','BYTE','SHORT','REAL','BOOLEAN','STRING',*records):return 5
             if source_ref.spec!=target.spec and (kind!='STRING' or source_ref.spec[0]!='STRING'):return 5
             value=source_ref.raw()

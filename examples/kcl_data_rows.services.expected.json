@@ -1,0 +1,75 @@
+{
+  "kcl": {
+    "replies": {},
+    "limit": 500,
+    "history": [
+      {
+        "sequence": 1,
+        "program": "KCL_DATA_ROWS",
+        "operation": "KCL",
+        "command": "CREATE VAR [CACHE]GRID:ARRAY[2,2] OF INTEGER",
+        "phase": "completed",
+        "status": 0
+      },
+      {
+        "sequence": 2,
+        "program": "KCL_DATA_ROWS",
+        "operation": "KCL",
+        "command": "CREATE VAR [CACHE]ROW:ARRAY[2] OF INTEGER",
+        "phase": "completed",
+        "status": 0
+      },
+      {
+        "sequence": 3,
+        "program": "KCL_DATA_ROWS",
+        "operation": "KCL",
+        "command": "CREATE VAR [CACHE]COPY:ARRAY[2] OF INTEGER",
+        "phase": "completed",
+        "status": 0
+      },
+      {
+        "sequence": 4,
+        "program": "KCL_DATA_ROWS",
+        "operation": "KCL",
+        "command": "SET VAR [CACHE]ROW[1]=7",
+        "phase": "completed",
+        "status": 0
+      },
+      {
+        "sequence": 5,
+        "program": "KCL_DATA_ROWS",
+        "operation": "KCL",
+        "command": "SET VAR [CACHE]ROW[2]=9",
+        "phase": "completed",
+        "status": 0
+      },
+      {
+        "sequence": 6,
+        "program": "KCL_DATA_ROWS",
+        "operation": "KCL",
+        "command": "SET VAR [CACHE]GRID[2]=[CACHE]ROW",
+        "phase": "completed",
+        "status": 0
+      },
+      {
+        "sequence": 7,
+        "program": "KCL_DATA_ROWS",
+        "operation": "KCL",
+        "command": "SET VAR [CACHE]COPY=[CACHE]GRID[2]",
+        "phase": "completed",
+        "status": 0
+      },
+      {
+        "sequence": 8,
+        "program": "KCL_DATA_ROWS",
+        "operation": "KCL",
+        "command": "SET VAR [CACHE]ROW[2]=99",
+        "phase": "completed",
+        "status": 0
+      }
+    ],
+    "sequence": 8,
+    "last_status": 0,
+    "variable_commands": true
+  }
+}

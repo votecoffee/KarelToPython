@@ -1,0 +1,18 @@
+PROGRAM KCL_DATA_ROWS
+VAR result,copied,source:ARRAY[2]OF INTEGER entry,status:INTEGER done:BOOLEAN
+BEGIN
+  IF UNINIT(done) THEN
+    KCL('CREATE VAR [CACHE]GRID:ARRAY[2,2] OF INTEGER',status)
+    KCL('CREATE VAR [CACHE]ROW:ARRAY[2] OF INTEGER',status)
+    KCL('CREATE VAR [CACHE]COPY:ARRAY[2] OF INTEGER',status)
+    KCL('SET VAR [CACHE]ROW[1]=7',status)
+    KCL('SET VAR [CACHE]ROW[2]=9',status)
+    KCL('SET VAR [CACHE]GRID[2]=[CACHE]ROW',status)
+    KCL('SET VAR [CACHE]COPY=[CACHE]GRID[2]',status)
+    KCL('SET VAR [CACHE]ROW[2]=99',status)
+    GET_VAR(entry,'CACHE','GRID[2]',result,status)
+    GET_VAR(entry,'CACHE','COPY',copied,status)
+    GET_VAR(entry,'CACHE','ROW',source,status)
+    done=TRUE
+  ENDIF
+END KCL_DATA_ROWS
