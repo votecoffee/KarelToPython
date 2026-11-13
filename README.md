@@ -169,6 +169,10 @@ depth-preserving role; `pre_**` and `***` each repeat one directory name. Ordina
 file banks, virtual volumes, rooted folders and configured plain pipes retain
 complete batch preflight.
 
+[Directory question captures](docs/directory-question-captures.md) now reuse
+fixed-width source-directory characters in COPY_FILE/RENAME_FILE targets, alongside
+repeated stars and globstars. Ambiguous source alignments reject the complete batch.
+
 [Cross-group WITH settings](docs/cross-group-settings.md) now capture separate
 values for owned configured groups through an explicit offline opt-in. All 21
 settings may appear once per group, up to 651 rows, across ordinary, queued and
@@ -425,7 +429,7 @@ existing collision, busy-file, quota and publication checks remain active.
 and RENAME_FILE reuse matched characters in their destination filenames.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1113.014008**. It is a
+tool are named **karel2py**. The current implementation is **26.1113.015600**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -1376,7 +1380,7 @@ workflows. To run hosted checks, open the repository's **Actions** tab, select
 **Tests (manual)** or **GUI checks (manual)**, then choose **Run workflow**.
 Routine development validation uses the local CLI commands above.
 
-The example runner translates 575 authored runnable examples, checks complete
+The example runner translates 576 authored runnable examples, checks complete
 expected snapshots and validates their output, delay, context and termination
 fixtures, plus 234 complete linked source projects. It also checks that nested
 MOVE actions inside local handlers are rejected.

@@ -25,6 +25,10 @@ different count or ambiguous source returns status 2 before any mutation.
 Directory selection can still use stars, questions and globstar. Directory
 captures are excluded from filename substitution.
 
+[Directory destination questions](directory-question-captures.md) now capture
+characters separately for each consumed source directory. Directory captures
+never fill filename questions, and filename captures never fill directory ones.
+
 Destination stars still substitute the whole source stem or extension and can
 appear alongside destination questions. A question capture must be a portable
 filename character. Expanded paths retain the ordinary batch validation.

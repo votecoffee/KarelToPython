@@ -37,7 +37,8 @@ become a recursive destination placeholder.
 
 [Ordinary directory component stars](directory-components.md) substitute full
 source-relative names with optional literal tags, alongside one **. Directory
-question marks, multiple whole destination ** components,
+question captures now follow the [fixed-width capture rules](directory-question-captures.md).
+Multiple whole destination ** components,
 bracket classes, empty/dot components, traversal, absolute host paths, reserved
 names and unsafe device syntax remain rejected. Template and expanded names stay
 within the existing 254-character ASCII bound.

@@ -1,0 +1,6 @@
+PROGRAM DIRECTORY_CAPTURES
+VAR copied,renamed:INTEGER
+BEGIN
+ COPY_FILE('src/A?/**/B?/*.KL','dst/first_?/**/last_?/*.py',TRUE,FALSE,copied)
+ RENAME_FILE('src/A?/**/B?/*.KL','moved/first_?/**/last_?/*.dat',FALSE,renamed)
+END DIRECTORY_CAPTURES

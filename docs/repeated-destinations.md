@@ -45,8 +45,9 @@ separator. A source with only filename matchers has no relative directory levels
 A directory component exactly ** retains its distinct depth-preserving role;
 `pre_**`, `**_post` and `***` each repeat one source directory name rather than
 inserting several levels. At most one exact ** directory component is allowed.
-Directory question and bracket destination templates, traversal, empty/dot
-components and absolute host paths remain excluded.
+Directory questions now follow [fixed-width per-component captures](directory-question-captures.md).
+Bracket destination templates, traversal, empty/dot components and absolute host
+paths remain excluded.
 [Fixed-width filename captures](question-file-wildcards.md) can supply destination
 question marks.
 

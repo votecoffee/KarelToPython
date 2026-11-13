@@ -181,7 +181,9 @@ class ComponentSyntaxTests(unittest.TestCase):
         bank=rt.MemoryFiles(DATA);before=bank.snapshot()
         with self.assertRaises(rt.KarelRuntimeError):perform(bank,target=target)
         self.assertEqual(bank.snapshot(),before)
-    def test_question_directory_is_not_a_substitution(self):self.reject('dst/pre_?/*/*.py')
+    def test_directory_questions_reject_star_source_capture(self):
+        bank=rt.MemoryFiles(DATA);before=bank.snapshot()
+        self.assertEqual(perform(bank,target='dst/pre_?/*/*.py'),2);self.assertEqual(bank.snapshot(),before)
     def test_adjacent_stars_repeat_one_source_component(self):
         bank=rt.MemoryFiles(DATA);self.assertEqual(perform(bank,target='dst/pre_**/*/*.py'),0)
         self.assertEqual(bank.snapshot(),{**DATA,'dst/pre_AlphaAlpha/One/a.py':b'\0a','dst/pre_BetaBeta/Two/b.py':b'b'})

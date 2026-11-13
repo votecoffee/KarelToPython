@@ -1,0 +1,9 @@
+{
+  "files": {
+    "keep.dat": {"hex": "4b"},
+    "dst/first_1/mid/last_2/a.py": {"hex": "00ff61"},
+    "dst/first_3/last_4/b.py": {"hex": "62"},
+    "moved/first_1/mid/last_2/a.dat": {"hex": "00ff61"},
+    "moved/first_3/last_4/b.dat": {"hex": "62"}
+  }
+}

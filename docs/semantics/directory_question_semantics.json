@@ -1,0 +1,17 @@
+{
+  "feature": "fixed_width_directory_question_captures",
+  "mode": "pythonic",
+  "procedures": ["COPY_FILE", "RENAME_FILE"],
+  "source": "Every complete source globstar alignment must supply the same star-free fixed-width question captures at each queried directory",
+  "substitution": "One source-relative level per ordinary destination star/question component; stars repeat the full name and questions consume that component's captures in order; filename captures remain separate",
+  "alignment": "Bounded forward/backward grids; no alignment enumeration or greedy guesses; charge three times grid cells before allocating",
+  "admission": "Capture once, validate complete paths/depth, aliases, collisions, busy state, rescans, bytes and quotas before publication",
+  "status": "Missing, mismatched or ambiguous captures use 2; existing no-match, runtime-error and guarded cross-bank boundaries remain",
+  "bounds": "254-character input/expanded paths; 32767 scan entries; 64 MiB COPY snapshots; existing execution/backend quotas; one destination whole-directory **",
+  "publication": "Prepared memory/device state, retained rename bytes/accounting; rooted per-file errors can retain earlier changes",
+  "persistence": "Result bytes/accounting only, without captures, grids, templates, handles or pending plans",
+  "boundary": "No bracket templates, target searches/creation, PIP directories, socket/DAQ batches, host transaction or native/controller/strict equivalence",
+  "guide": "docs/directory-question-captures.md",
+  "controller_validated": false,
+  "tests": ["tests/test_directory_question_captures.py"]
+}

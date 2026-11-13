@@ -9,7 +9,7 @@
   "bounds": "254-character input/expanded names; 32767 scanned entries; 64 MiB COPY snapshots; existing budgets and backend quotas",
   "publication": "Prepared logical state, retained rename bytes and device garbage; rooted per-file host errors may retain earlier changes",
   "persistence": "Result bytes/accounting only; no templates, scans, handles or pending plans",
-  "boundary": "No directory question/bracket destination templates, multiple whole-directory ** placeholders, directory creation/search, host transactions or native/controller/strict equivalence; filename questions retain fixed-width capture rules",
+  "boundary": "Directory questions follow directory_question_capture_policy; no bracket destination templates, multiple whole-directory ** placeholders, directory creation/search, host transactions or native/controller/strict equivalence; filename questions retain separate fixed-width capture rules",
   "guide": "docs/repeated-destinations.md",
   "controller_validated": false,
   "tests": [

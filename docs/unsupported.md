@@ -367,8 +367,10 @@ queue-entry policies; FILE banks remain excluded.
   inserts multiple levels; other repeated-star components consume one level.
   [Extensionless/hidden filenames](filename-substitutions.md) now share checked
   COPY/RENAME batch expansion, including stem-only templates and optional types.
-  Question/bracket directory templates, multiple whole-directory ** placeholders,
-  PIP directory sources, separate
+  [Directory question captures](directory-question-captures.md) now reuse
+  fixed-width source characters, including unambiguous globstar alignments.
+  Missing/ambiguous question captures, bracket directory templates, multiple
+  whole-directory ** placeholders, PIP directory sources and separate
   ordinary-bank discovery, socket/DAQ batches and cross-file atomic host
   transactions remain unsupported.
   [Plain PIP batches](pipe-wildcard-files.md) now copy/delete finite snapshots with

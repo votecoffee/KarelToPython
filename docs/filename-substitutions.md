@@ -73,7 +73,8 @@ configured where required by those routes.
 
 Input and expanded names stay at most 254 ASCII characters. Scans retain 32767
 entries, COPY retains its 64 MiB snapshot bound, and per-file, device, pipe and
-execution limits remain. Directory question and bracket templates,
+execution limits remain. Directory questions follow their separate
+[fixed-width capture rules](directory-question-captures.md). Bracket templates,
 trailing dots/spaces, empty/dot/traversal components, reserved names and absolute
 host paths remain rejected. [Fixed-width filename captures](question-file-wildcards.md)
 can supply destination question marks. Ordinary runtime-error/status boundaries

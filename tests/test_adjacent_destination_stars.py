@@ -114,12 +114,12 @@ class AdjacentGuardTests(unittest.TestCase):
         with self.assertRaises(rt.KarelRuntimeError):call(bank,source='src/*/*.KL',target='dst/**/**/**.py')
         self.assertEqual(bank.snapshot(),SEED)
 
-    def test_questions_and_brackets_in_directory_templates_stay_rejected(self):
-        for target in ('dst/**?/**.py','dst/[A]**/**.py'):
-            bank=rt.MemoryFiles(SEED)
-            with self.subTest(target=target),self.assertRaises(rt.KarelRuntimeError):
-                call(bank,source='src/*/*.KL',target=target)
-            self.assertEqual(bank.snapshot(),SEED)
+    def test_directory_questions_reject_star_source_and_brackets_stay_rejected(self):
+        bank=rt.MemoryFiles(SEED)
+        self.assertEqual(call(bank,source='src/*/*.KL',target='dst/**?/**.py'),2)
+        self.assertEqual(bank.snapshot(),SEED)
+        with self.assertRaises(rt.KarelRuntimeError):call(bank,source='src/*/*.KL',target='dst/[A]**/**.py')
+        self.assertEqual(bank.snapshot(),SEED)
 
     def test_filename_question_count_and_star_source_restrictions_remain(self):
         for source,target in (('src/p?.KL','dst/**??.py'),('src/*.KL','dst/**?.py')):

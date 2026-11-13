@@ -1,5 +1,14 @@
 # Changelog
 
+## 26.1113.015600 - 2026-11-13
+
+- Accept fixed-width source-directory question captures in Pythonic COPY_FILE and
+  RENAME_FILE destinations, independently of final-filename captures. Combine
+  captures with repeated whole-component stars and one destination globstar.
+- Check all source globstar alignments with bounded, precharged match grids.
+  Missing, ambiguous or count-mismatched captures use status 2 before publication.
+  Preserve complete-batch path, alias, collision, busy, quota and rescan checks.
+
 ## 26.1113.014008 - 2026-11-13
 
 - Extend Pythonic SET LOCAL VAR to checked static field/element destinations and

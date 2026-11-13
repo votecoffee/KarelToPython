@@ -12,7 +12,7 @@
   "bounds": "254-character paths, 32767 scanned entries, 64 MiB COPY snapshots, backend/device/pipe quotas and execution budgets",
   "publication": "Prepared logical state, retained rename byte/configuration identity and device garbage; rooted per-file errors can retain earlier changes",
   "persistence": "Resulting bytes/accounting only; no templates, scans, handles or pending plans",
-  "boundary": "Portable path rules, fixed-width filename-question capture rules, directory question/bracket restrictions and plain pipe name syntax retained; no implicit discovery, directory creation, host transaction or native/controller/strict equivalence",
+  "boundary": "Portable path rules, separate fixed-width filename/directory-question capture rules, bracket restrictions and plain pipe name syntax retained; no implicit discovery, directory creation, host transaction or native/controller/strict equivalence",
   "guide": "docs/filename-substitutions.md",
   "controller_validated": false,
   "tests": [

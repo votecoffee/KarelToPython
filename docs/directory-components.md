@@ -6,6 +6,10 @@ source-relative directory name. [Repeated adjacent or separated stars](repeated-
 reuse that same name, with optional literal tags between them. Filename stem and extension
 substitutions remain independent.
 
+[Fixed-width question captures](directory-question-captures.md) also substitute
+source-directory characters. Each component containing stars or questions
+consumes one relative level. Questions retain their own per-component captures.
+
 ```karel
 COPY_FILE('src/*/*/*.KL','dst/pre_*/post_*/*.PY',FALSE,FALSE,status)
 RENAME_FILE('src/*/**/*.KL','done/first_*/**/last_*/saved_*.DAT',FALSE,status)
@@ -27,7 +31,7 @@ after that matcher remain part of the relative directory sequence. An exact
 source, or a source with only a filename matcher, has zero relative directories.
 
 Without **, the number of source-relative directories must equal the number of
-destination directory components containing stars for every selected file,
+destination directory components containing stars or questions for every selected file,
 regardless of repetition inside a component. Extra source levels are
 not silently dropped. Literal destination components do not consume source levels.
 A wholly literal destination retains its existing flattening behavior.
@@ -75,7 +79,7 @@ backend and per-file quotas remain. Both NOWAIT values stay synchronous.
 
 ## Exclusions and saved state
 
-Directory question marks, bracket templates, multiple whole ** components,
+Ambiguous or missing question captures, bracket templates, multiple whole ** components,
 empty/dot/traversal components, unsafe device
 syntax, reserved expanded names and absolute host paths remain rejected. Plain
 PIP sources have no relative directories, so they cannot supply ordinary directory
