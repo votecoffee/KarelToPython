@@ -331,8 +331,8 @@ class StructureRejectionTests(unittest.TestCase):
     def test_array_of_unknown_structure_type_blocked(self):
         self.rejected(declarations='items: ARRAY[2] OF missing_type')
 
-    def test_nested_arrays_inside_field_blocked(self):
-        self.rejected(types='TYPE inner = STRUCTURE x: ARRAY[2] OF ARRAY[2] OF INTEGER ENDSTRUCTURE', declarations='item: inner')
+    def test_legacy_nested_arrays_inside_field_blocked(self):
+        self.rejected(types='TYPE inner = STRUCTURE x: ARRAY[2] OF ARRAY[2] OF INTEGER ENDSTRUCTURE', declarations='item: inner',_translator=legacy_translate)
 
     def test_forbidden_controller_field_types_blocked(self):
         for spec in ('FILE', 'PATH', 'VISION', 'QUEUE_TYPE'):

@@ -321,7 +321,7 @@ class BoundaryTests(unittest.TestCase):
             with self.subTest(spec=spec): self.rejected(declarations='a: ' + spec, code='E_ARRAY_SIZE')
 
     def test_nested_type_syntax_and_unknown_structure_type_remain_blocked(self):
-        self.rejected(declarations='a: ARRAY[2] OF ARRAY[3] OF INTEGER', code='E_TYPE')
+        self.rejected(declarations='a: ARRAY[2] OF ARRAY[3] OF INTEGER', code='E_TYPE',_translator=legacy_translate)
         self.rejected(types='TYPE item_t = STRUCTURE n: INTEGER ENDSTRUCTURE', declarations='a: ARRAY[2,2] OF missing_type', code='E_TYPE')
 
     def test_routine_calls_in_multi_indexes_remain_blocked(self):

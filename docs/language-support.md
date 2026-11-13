@@ -1,5 +1,9 @@
 # Language support
 
+[Inline ARRAY source spellings](inline-arrays.md) now combine directly written
+anonymous layers into existing dimensions across storage, parameters and results.
+Named component identities, concrete shapes and resource ownership remain checked.
+
 [PATH integral FOR counters](path-for-counters.md) now use owned header/node/bank leaves with whole-root proof, retained-alias checks and narrow cleanup. Named USING node selectors retain the original node object across deletion/replacement.
 
 [PATH-header USING](path-header-using.md) now selects explicit header fields from named/indexed storage or private computed PATH results, with normal lexical, lifetime, counter and timer checks.

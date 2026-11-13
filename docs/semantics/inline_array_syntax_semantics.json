@@ -1,0 +1,23 @@
+{
+  "feature": "inline_array_syntax",
+  "version": "26.1113.030641",
+  "mode": "pythonic",
+  "policy": "inline_array_syntax_policy",
+  "guide": "docs/inline-arrays.md",
+  "normalization": "Combine directly written anonymous ARRAY dimensions before type resolution; stop at named component references",
+  "contexts": ["global", "local", "type", "record_field", "parameter", "result"],
+  "retained_guards": ["rank", "shape", "capacity", "initialization", "ownership", "exact_linkage", "saved_schema", "resource_values"],
+  "verification": [
+    "tests/test_inline_arrays.py",
+    "tests/test_pythonic_array_results.py",
+    "examples/inline_arrays.kl"
+  ],
+  "exclusions": [
+    "anonymous nested runtime schemas",
+    "dynamic CREATE_VAR nested type-string grammar",
+    "ragged arrays or equal-count reshaping",
+    "FILE copies or live resource restoration",
+    "native compiler, controller or strict equivalence"
+  ],
+  "controller_validated": false
+}

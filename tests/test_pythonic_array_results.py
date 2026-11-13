@@ -269,8 +269,8 @@ class ResultFailureTests(unittest.TestCase):
     def test_inherited_string_capacity_still_rejects_integer_return_storage(self):
         self.reject('E_RETURN',result='ARRAY[2] OF STRING')
 
-    def test_inline_anonymous_nested_component_remains_blocked(self):
-        self.reject('E_RETURN_TYPE',result='ARRAY[2] OF ARRAY[2] OF INTEGER')
+    def test_inline_anonymous_result_normalizes_before_shape_validation(self):
+        self.assertEqual(execute(result='ARRAY[2] OF ARRAY[3] OF INTEGER',storage='ARRAY[2,3]OF INTEGER',fill=MATRIX_FILL,declarations='target:ARRAY[2,3]OF INTEGER')['TARGET'],[[1,2,3],[4,5,6]])
 
     def test_named_type_declared_after_routine_executes(self):
         source='PROGRAM T VAR output:row_t ROUTINE build:row_t VAR local:row_t BEGIN local[1]=7 local[2]=8 RETURN local END build TYPE row_t=ARRAY[2]OF INTEGER BEGIN output=build END T'

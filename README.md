@@ -8,6 +8,10 @@ Translate a supported subset of FANUC KAREL into Python modules with a checked
 offline runtime and practical Python numeric equivalents. Unsupported syntax produces explicit
 diagnostics or runtime errors. The translator does not connect to a robot.
 
+[Inline ARRAY declarations](docs/inline-arrays.md) now accept nested source
+spellings in storage, parameters and results. Direct anonymous layers combine
+into existing dimensions; named components retain their identities.
+
 [PASSALL keyboard reads](docs/keyboard-raw-read.md#explicit-cr-record-discards)
 now combine fixed STRING/numeric/BOOLEAN fields with explicit CR record discards.
 Quoted STRINGs retain doubled-apostrophe escapes. Fixed fields finish without
@@ -429,7 +433,7 @@ existing collision, busy-file, quota and publication checks remain active.
 and RENAME_FILE reuse matched characters in their destination filenames.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1113.024622**. It is a
+tool are named **karel2py**. The current implementation is **26.1113.030641**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 [Formatted empty collection output](docs/empty-collection-output.md) lets the same
@@ -1388,7 +1392,7 @@ workflows. To run hosted checks, open the repository's **Actions** tab, select
 **Tests (manual)** or **GUI checks (manual)**, then choose **Run workflow**.
 Routine development validation uses the local CLI commands above.
 
-The example runner translates 577 authored runnable examples, checks complete
+The example runner translates 578 authored runnable examples, checks complete
 expected snapshots and validates their output, delay, context and termination
 fixtures, plus 234 complete linked source projects. It also checks that nested
 MOVE actions inside local handlers are rejected.

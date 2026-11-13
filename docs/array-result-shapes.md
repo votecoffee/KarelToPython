@@ -28,6 +28,11 @@ The result is `MATRIX=[[1,2],[3,4]]`, `ROWS=2` and `LAST=4`. The
 and mixed result shapes, with [expected values](../examples/pythonic_array_shapes.expected.json)
 and [expected output](../examples/pythonic_array_shapes.write.expected.json).
 
+[Inline ARRAY results](inline-arrays.md) also accept directly written nested
+spellings such as `ARRAY OF ARRAY[3] OF INTEGER`, equivalent to
+`ARRAY[*,3] OF INTEGER`. Normalization preserves named component boundaries
+and the existing concrete returned-shape and capacity checks.
+
 ## Declaration forms
 
 | Result declaration | Contract |
@@ -110,9 +115,11 @@ same interface information at each RETURN site. `array_routine_policy` and
 
 Composition, argument ownership and aggregate access follow the
 [ARRAY values guide](pythonic-arrays.md). Omitted STRING element capacities follow
-the [inherited-capacity rules](inherited-string-array-results.md). Anonymous nested
-ARRAY component syntax, unsupported ranks and conversions outside the explicit
-source policies remain blocked. Public strict mode is still a future milestone.
+the [inherited-capacity rules](inherited-string-array-results.md). Direct inline
+ARRAY layers normalize under the [source-spelling policy](inline-arrays.md).
+Anonymous nested runtime schemas, unsupported ranks and conversions outside
+the explicit source policies remain blocked. Public strict mode is still a
+future milestone.
 
 These are chosen Pythonic declaration and length policies. Passing authored
 offline tests does not establish native compiler, call ABI or controller behavior.

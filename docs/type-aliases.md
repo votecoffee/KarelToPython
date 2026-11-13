@@ -84,8 +84,10 @@ BYTE and SHORT aliases support ARRAY elements, STRUCTURE fields and Pythonic
 retain their type; numeric conversion creates a checked private value.
 Aliases preserve INTEGER range/MAXINT, narrow-element sentinel, ASCII, capacity,
 initialization, allocation, ownership and positional-context checks. Unsupported
-types, local TYPE sections, wildcard TYPE dimensions and inline anonymous nested
-ARRAY definitions remain outside this subset. Full [external FROM declarations](external-types.md)
+types, local TYPE sections and wildcard TYPE dimensions remain outside this
+subset. [Inline ARRAY declarations](inline-arrays.md) now normalize directly
+written layers to ordinary dimensions before alias resolution. Full
+[external FROM declarations](external-types.md)
 retain owner metadata and receive exact source-layout checks in linked projects.
 
 `user_types` contains resolved type specs. `type_aliases` records each alias's

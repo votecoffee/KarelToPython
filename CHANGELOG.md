@@ -1,5 +1,15 @@
 # Changelog
 
+## 26.1113.030641 - 2026-11-13
+
+- Accept inline ARRAY OF ARRAY source spellings in globals, locals, TYPEs,
+  record fields, wildcard parameters and fixed/wildcard function results.
+  Normalize adjacent anonymous layers to existing comma-separated dimensions
+  before resolution, preserving named component identities and resource rules.
+- Retain rank, shape, capacity, wildcard, initialization, ownership and exact
+  linkage checks. Add source-origin report metadata, a runnable example and
+  focused data/resource, linked-interface and saved-schema regressions.
+
 ## 26.1113.024622 - 2026-11-13
 
 - Accept uniform WRITE formats on empty headerless PATHs, initialized queues and

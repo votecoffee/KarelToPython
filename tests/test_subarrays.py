@@ -222,7 +222,7 @@ class SubarrayRejectionTests(unittest.TestCase):
     def test_effectful_indexed_result_guard_preserved(self): self.rejected('plane[1]=choose()', routines='ROUTINE choose: INTEGER BEGIN x=7 RETURN 1 END choose', code='E_EVALUATION_ORDER', _translator=legacy_translate)
     def test_subarray_assignment_target_user_call_guard(self): self.rejected('plane[choose()]=row', routines='ROUTINE choose: INTEGER BEGIN RETURN 1 END choose', code='E_EVALUATION_ORDER', _translator=legacy_translate)
     def test_transitive_subarray_reference_effect_guard(self): self.rejected('x=change(plane[1])+1', routines='ROUTINE change(p: row_t): INTEGER BEGIN p[1]=7 RETURN 1 END change', code='E_EVALUATION_ORDER', _translator=legacy_translate)
-    def test_inline_anonymous_nested_syntax_remains_blocked(self): self.rejected(declarations='a: ARRAY[2] OF ARRAY[2] OF INTEGER')
+    def test_legacy_inline_anonymous_nested_syntax_remains_blocked(self): self.rejected(declarations='a: ARRAY[2] OF ARRAY[2] OF INTEGER',_translator=legacy_translate)
     def test_aggregate_uninit_remains_blocked(self): self.rejected('x=UNINIT(plane[1])')
 
 

@@ -286,7 +286,7 @@ class AliasBoundaryTests(unittest.TestCase):
     def test_alias_for_write_protection(self): self.reject('E_FOR_COUNTER', body='FOR value=1 TO 2 DO change(value) ENDFOR', routines='ROUTINE change(p: count_t) BEGIN p=7 END change')
     def test_alias_wrong_result_type(self): self.reject('E_RETURN', routines="ROUTINE work: count_t BEGIN RETURN 'bad' END work")
     def test_unsupported_type_alias(self): self.reject('E_TYPE', types='TYPE count_t=VISION')
-    def test_inline_nested_array_alias(self): self.reject('E_TYPE', types='TYPE count_t=ARRAY[2] OF ARRAY[2] OF INTEGER')
+    def test_legacy_inline_nested_array_alias(self): self.reject('E_TYPE', types='TYPE count_t=ARRAY[2] OF ARRAY[2] OF INTEGER',translator=legacy_translate)
 
     def test_legacy_alias_guards(self):
         for types in ('TYPE count_t=INTEGER', 'TYPE count_t=STRING[3]', 'TYPE row_t=ARRAY[2] OF INTEGER count_t=row_t'):

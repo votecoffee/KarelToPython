@@ -268,6 +268,7 @@ class Parser:
         self.predefined_uses = []
         self.directive_metadata = []
         self.path_clause_uses = []
+        self.inline_array_uses = []
         self.storage_declarations = []
         self.tokens = tokenize(source, filename, continuations=self.continuations)
         self.position = 0
@@ -478,7 +479,7 @@ class Parser:
         self.storage_declarations.extend(dict(owner=owner,name=key.value,pool=pool.value,
             line=key.line,column=key.column) for key in names)
 
-    def type_spec(self):
+    def type_spec(self,array_rank=0):
         if self.mode == 'pythonic': self.skip_newlines()
         token = self.take()
         if self.mode=='pythonic' and token.value in ('FILE','QUEUE_TYPE'): return (token.value,)
@@ -522,13 +523,13 @@ class Parser:
             while self.accept(','):
                 sizes.append(Expr('array_wildcard', self.take()) if self.current.value == '*' else self.expression())
             self.expect(']')
-            if len(sizes) > 3:
-                self.error('E_ARRAY_RANK', 'Arrays support at most three dimensions', token)
+            if array_rank+len(sizes) > 3:
+                self.error('E_ARRAY_RANK', 'Arrays support at most three logical dimensions', token)
             self.expect('OF')
-            element = self.type_spec()
-            if element[0] == 'ARRAY':
+            element = self.type_spec(array_rank+len(sizes) if self.mode=='pythonic' else 0)
+            if self.mode!='pythonic' and element[0] == 'ARRAY':
                 self.error('E_TYPE', 'Nested ARRAY type syntax needs named-array type rules; use comma-separated dimensions', token)
-            return ('ARRAY', sizes[0] if len(sizes) == 1 else tuple(sizes), element)
+            return self.inline_array_spec(sizes[0] if len(sizes)==1 else tuple(sizes),element,token)
         if token.kind == 'NAME' and token.value not in RESERVED:
             return ('NAMED', token)
         self.error('E_TYPE', f'{token.value} data type is not implemented', token)
@@ -538,6 +539,62 @@ class Parser:
         if self.mode!='pythonic': self.error('E_POSITION_GROUP','Group-qualified data requires Pythonic context',token)
         self.take(); self.expect('GROUP'); self.expect('['); group=self.expression(); self.expect(']')
         return ('GROUPED',spec,group,token)
+
+    def inline_array_spec(self,dimensions,element,token):
+        """Normalize directly written ARRAY layers; named components stay opaque."""
+        if self.mode=='pythonic' and element[0]=='ARRAY':
+            outer=dimensions if isinstance(dimensions,tuple) else (dimensions,)
+            inner=element[1] if isinstance(element[1],tuple) else (element[1],)
+            dimensions=outer+inner
+            if len(dimensions)>3:
+                self.error('E_ARRAY_RANK','Inline ARRAYs support at most three logical dimensions',token)
+            element=element[2]
+            self.inline_array_uses.append(dict(line=token.line,column=token.column,
+                normalized_outer_rank=len(dimensions),terminal=element[0]))
+        return ('ARRAY',dimensions,element)
+
+    def array_result_type(self,array_rank=0):
+        array_token = self.take()
+        dimensions = None
+        if self.current.value == '[':
+            if self.mode == 'strict':
+                self.error('E_RETURN_TYPE', 'ARRAY function results must omit sizes; multidimensional result declarations remain blocked', array_token)
+            self.take()
+            sizes = [Expr('array_wildcard', self.take()) if self.current.value == '*' else self.expression()]
+            while self.accept(','):
+                sizes.append(Expr('array_wildcard', self.take()) if self.current.value == '*' else self.expression())
+            self.expect(']')
+            if len(sizes) > 3:
+                self.error('E_ARRAY_RANK', 'ARRAY results support at most three dimensions', array_token)
+            dimensions = sizes[0] if len(sizes) == 1 else tuple(sizes)
+        rank=len(dimensions) if isinstance(dimensions,tuple) else 1
+        if array_rank+rank>3:
+            self.error('E_ARRAY_RANK','ARRAY results support at most three logical dimensions',array_token)
+        self.expect('OF')
+        if self.mode=='pythonic':self.skip_newlines()
+        element = self.take()
+        if self.mode=='pythonic' and element.value=='ARRAY':
+            self.position-=1
+            element_spec=self.array_result_type(array_rank+rank)
+        elif element.value in ('INTEGER', 'BOOLEAN', 'REAL', 'BYTE', 'SHORT', *DATA_RECORD_TYPES):
+            element_spec = (element.value,)
+        elif self.mode=='pythonic' and element.value in ('PATH','QUEUE_TYPE'):
+            element_spec=('PATH',None,None) if element.value=='PATH' else ('QUEUE_TYPE',)
+        elif element.value == 'STRING':
+            if self.accept('['):
+                element_spec=('STRING',self.expression())
+                self.expect(']')
+            elif self.mode=='pythonic':element_spec=('STRING',None)
+            else:self.error('E_RETURN_TYPE','STRING ARRAY results require an explicit element capacity in brackets',element)
+        elif element.value in rt.JOINT_TYPE_NAMES:
+            element_spec = rt.joint_spec(element.value)
+        elif element.kind == 'NAME' and element.value not in RESERVED | BUILTINS:
+            element_spec = ('NAMED', element)
+        else:
+            self.error('E_RETURN_TYPE', 'ARRAY results require supported scalars, bounded STRINGs, data records, joints or prior named aggregate elements', element)
+        if self.current.value == 'IN':
+            element_spec=self.group_spec(element_spec,element)
+        return self.inline_array_spec(dimensions,element_spec,array_token)
 
     def routine(self):
         token = self.expect('ROUTINE')
@@ -560,40 +617,7 @@ class Parser:
         string_result_defaulted = False
         if self.accept(':'):
             if self.current.value == 'ARRAY':
-                array_token = self.take()
-                dimensions = None
-                if self.current.value == '[':
-                    if self.mode == 'strict':
-                        self.error('E_RETURN_TYPE', 'ARRAY function results must omit sizes; multidimensional result declarations remain blocked', array_token)
-                    self.take()
-                    sizes = [Expr('array_wildcard', self.take()) if self.current.value == '*' else self.expression()]
-                    while self.accept(','):
-                        sizes.append(Expr('array_wildcard', self.take()) if self.current.value == '*' else self.expression())
-                    self.expect(']')
-                    if len(sizes) > 3:
-                        self.error('E_ARRAY_RANK', 'ARRAY results support at most three dimensions', array_token)
-                    dimensions = sizes[0] if len(sizes) == 1 else tuple(sizes)
-                self.expect('OF')
-                element = self.take()
-                if element.value in ('INTEGER', 'BOOLEAN', 'REAL', 'BYTE', 'SHORT', *DATA_RECORD_TYPES):
-                    element_spec = (element.value,)
-                elif self.mode=='pythonic' and element.value in ('PATH','QUEUE_TYPE'):
-                    element_spec=('PATH',None,None) if element.value=='PATH' else ('QUEUE_TYPE',)
-                elif element.value == 'STRING':
-                    if self.accept('['):
-                        element_spec=('STRING',self.expression())
-                        self.expect(']')
-                    elif self.mode=='pythonic':element_spec=('STRING',None)
-                    else:self.error('E_RETURN_TYPE','STRING ARRAY results require an explicit element capacity in brackets',element)
-                elif element.value in rt.JOINT_TYPE_NAMES:
-                    element_spec = rt.joint_spec(element.value)
-                elif element.kind == 'NAME' and element.value not in RESERVED | BUILTINS:
-                    element_spec = ('NAMED', element)
-                else:
-                    self.error('E_RETURN_TYPE', 'ARRAY results require supported scalars, bounded STRINGs, data records, joints or prior named aggregate elements', element)
-                if self.current.value == 'IN':
-                    element_spec=self.group_spec(element_spec,element)
-                return_type = ('ARRAY', dimensions, element_spec)
+                return_type = self.array_result_type()
             elif self.mode == 'pythonic' and self.current.value == 'STRING':
                 string_token = self.take()
                 if self.accept('['):
@@ -642,7 +666,7 @@ class Parser:
         return Routine(name, token, return_type, body, declarations, parameters=parameters,
                        local_declarations=local_declarations, string_result_defaulted=string_result_defaulted)
 
-    def parameter_type(self):
+    def parameter_type(self,array_rank=0):
         if self.mode == 'pythonic': self.skip_newlines()
         if self.mode=='pythonic' and self.current.value in ('FILE','PATH','QUEUE_TYPE'): return self.type_spec()
         token = self.take()
@@ -670,9 +694,15 @@ class Parser:
                 self.expect(']')
                 if rank > 3:
                     self.error('E_ARRAY_RANK', 'ARRAY formals support at most three dimensions', token)
+            if array_rank+rank>3:
+                self.error('E_ARRAY_RANK','ARRAY formals support at most three logical dimensions',token)
             shape = None if rank == 1 else (None,) * rank
             self.expect('OF')
+            if self.mode=='pythonic':self.skip_newlines()
             element = self.take()
+            if self.mode=='pythonic' and element.value=='ARRAY':
+                self.position-=1
+                return self.inline_array_spec(shape,self.parameter_type(array_rank+rank),token)
             if self.mode=='pythonic' and element.value in ('PATH','QUEUE_TYPE'):
                 self.position-=1
                 return ('ARRAY',shape,self.type_spec())
@@ -5172,6 +5202,8 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict', 
         emitter.array_shapes,context_selected=array_context.select(program,emitter.array_shapes,filename)
     if parser.continuations:
         emitter.features.add('physical line continuation')
+    if parser.inline_array_uses:
+        emitter.features.add('inline ARRAY syntax normalization')
     if parser.escaped_string_literals:
         emitter.features.add('doubled apostrophe STRING literal')
     emitter.features.update('predefined ' + use['name'] for use in parser.predefined_uses)
@@ -5401,6 +5433,7 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict', 
         type_aliases=emitter.type_aliases,file_prefix_arguments=emitter.file_prefix_argument_uses,
         imported_types=program.imported_types,
         path_clause_uses=parser.path_clause_uses,
+        inline_array_syntaxes=parser.inline_array_uses,
         predefined_structure_uses=emitter.predefined_structure_uses,
         predefined_structures={row['name']:rt.PREDEFINED_STRUCTURES[row['name']] for row in emitter.predefined_structure_uses},
         named_array_policy=dict(definitions='Fixed ARRAY with supported scalar, declared STRUCTURE or declared named ARRAY elements; total logical rank at most three; Pythonic forward dependencies follow forward_type_policy',
@@ -7880,6 +7913,20 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         boundary='Authored Pythonic empty-output extension; no native PATH/queue framing, physical device connection, input allocation, controller or strict equivalence',
         guide='docs/empty-collection-output.md',controller_validated=False)
     report['aggregate_format_policy']['empty_output']='Empty PATH/queue output validates declared scalar text/binary format domains under empty_collection_write_policy and publishes one empty item'
+    report['inline_array_syntax_policy']=dict(
+        source='Directly written ARRAY OF ARRAY layers in global/local/TYPE/field declarations, wildcard routine parameters and fixed/wildcard routine results',
+        normalization='Combine adjacent anonymous ARRAY dimensions before type resolution; ARRAY[2] OF ARRAY[3] OF INTEGER has the same schema as ARRAY[2,3] OF INTEGER',
+        identity='Named component references remain opaque; preserve their existing identities and storage boundaries',
+        shapes='Existing one-through-three logical dimension, positive fixed size, 32767-leaf/resource and concrete wildcard specialization rules apply to the normalized declaration',
+        interfaces='Equivalent nested and comma spellings share exact source-linked interfaces; ordinary private/borrowed argument, source conversion and resource rules remain unchanged',
+        persistence='Use existing normalized ARRAY schemas and JSON; no new anonymous nested runtime containers, reshape or live resource restoration',
+        boundary='Authored Pythonic source spelling; no native syntax/compiler/controller or public strict-mode claim',
+        guide='docs/inline-arrays.md',controller_validated=False)
+    report['named_array_policy']['aliases']='Transparent aliases preserve original nominal identity; direct inline ARRAY layers normalize under inline_array_syntax_policy before named component resolution'
+    report['array_routine_policy']['boundary']='Direct inline ARRAY layers normalize before result/interface resolution; ragged/mixed-capacity storage, rank/dimension reshape and native ABI/controller equivalence remain excluded; generic helpers remain exact'
+    for row in report['inline_array_syntaxes']:
+        label,line,stack=expansion.origin(row['line']) or (str(filename),row['line'],())
+        row.update(source_file=label,source_line=line,source_column=row['column'],include_stack=list(stack))
     from .reporting import finalize_pythonic_report
     finalize_pythonic_report(report)
     expansion.annotate(report)

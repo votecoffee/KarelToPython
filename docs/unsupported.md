@@ -175,6 +175,11 @@ components with complete-batch pose validation and bounded rounding normalizatio
   windows and screen composition. [List/table controls](table-controls.md) now use
   DISP_DAT_T resident-list metadata and portable COL_DESC_T/XWORK_T records; native
   memory layouts and widget rendering remain unverified.
+[Inline ARRAY source spellings](inline-arrays.md) now normalize directly written
+anonymous layers to ordinary dimensions, including declarations and routine
+interfaces. Named components retain their identities; anonymous nested runtime
+schemas and dynamic CREATE_VAR type-string grammar remain excluded.
+
 - Dynamically resized/ragged arrays, unknown runtime wildcard dimensions, ranks
   above three and aggregates exceeding the 32767-leaf prototype bound. Global
   wildcard declarations require translation-time shapes; no native VR auto-discovery.
