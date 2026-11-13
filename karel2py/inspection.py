@@ -447,7 +447,8 @@ def _kcl_routine_frame(root,routine_filter,module_filter):
 
 
 def _kcl_local_write(state,root,frame,name,literal,line):
-    from .dynamic import assign_scalar_literal
+    from .dynamic import assign_scalar_literal,kcl_record_literal
+    from .variable_archives import cells
 
     rt=runtime()
     owner,routine,declarations,storage=frame
@@ -455,8 +456,14 @@ def _kcl_local_write(state,root,frame,name,literal,line):
     if root.task_state!='paused' or root._driving or root._abort_requested:return 4
     counter_roots=getattr(owner.program,'local_for_roots',{}).get(routine)
     if counter_roots is None or name in counter_roots or isinstance(storage[name],rt.Reference):return 4
-    if declarations[name][0] not in ('INTEGER','SHORT','BYTE','REAL','BOOLEAN','STRING'):return 4
-    key=id(storage),name
+    records=('VECTOR','CONFIG','POSITION','XYZWPR','XYZWPREXT','JOINTPOS')
+    kind=declarations[name][0]
+    if kind not in ('INTEGER','SHORT','BYTE','REAL','BOOLEAN','STRING',*records):return 4
+    target=rt.Reference(declarations[name],storage,name)
+    try:
+        if kind in records:rt.checked(target.spec,target.raw(),line)
+        occupied=cells(target)
+    except (ValueError,TypeError,KeyError,rt.KarelRuntimeError):return 5
     def references():
         contexts={state.execution:state,owner.execution:owner}
         for context,caller in contexts.items():
@@ -467,11 +474,15 @@ def _kcl_local_write(state,root,frame,name,literal,line):
                     for _,locals_ in active._timer_frames:
                         yield from locals_.values()
 
-    if key in owner.execution._timer_claims:return 4
+    if any(key in occupied for key in owner.execution._timer_claims):return 4
     for index,value in enumerate(references(),1):
         if index>32767:return 5
-        if isinstance(value,rt.Reference) and (id(value.storage),value.key)==key:return 4
-    return assign_scalar_literal(rt.Reference(declarations[name],storage,name),literal,line)
+        if isinstance(value,rt.Reference) and (id(value.storage),value.key) in occupied:return 4
+    if kind in records:
+        try:target.set(kcl_record_literal(rt,target.spec,literal,line),line)
+        except (ValueError,TypeError,rt.KarelRuntimeError):return 5
+        return 0
+    return assign_scalar_literal(target,literal,line)
 
 
 def kcl_local_operation(state,operation,args,line=None):

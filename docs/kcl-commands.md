@@ -354,14 +354,34 @@ Types must match and a copied STRING must fit. A source pose or vector is
 detached before publication. Updates retain the existing destination ownership,
 read-only field and connected-timer checks.
 
+Named ARRAYs and user STRUCTURE records also copy with exactly matching concrete
+schemas, including nested data, named ARRAY components and fully selected fields
+or elements. Every source leaf must be initialized and valid. STRING capacities,
+nominal record/ARRAY names, dimensions and terminal types remain exact. A source
+may be compiled storage; the destination must remain independent explicit storage.
+The copy retains existing destination containers and never aliases source data.
+
+For these ARRAY/record copies, charge one execution step per declared scalar leaf
+before validating or copying contents. Retain the selected destination through
+those checkpoints, then recheck its binding, selected parent, storage identity,
+ownership, aliases and timer protection. Read the source's current value after
+the last copy checkpoint. Validate the destination shape and the complete source
+before publication, with no further checkpoints. Budget exhaustion returns 4;
+changed or protected targets return 204; invalid/incomplete/mismatched data returns
+205. Existing 32767-leaf and 64-level data limits apply. FILE, PATH and QUEUE_TYPE
+data, aggregate literals and implicit reshaping remain excluded. The
+[ARRAY example](../examples/kcl_data_copy.kl) verifies that later source edits
+leave the copied values unchanged; [regressions](../tests/test_kcl_data_edits.py)
+cover records, ownership and failures.
+
 Comma-separated literals follow the destination type. VECTOR takes three
 components. JOINTPOS takes the declared axis count. POSITION and XYZWPR
 take X, Y, Z, W, P and R. XYZWPREXT adds EXT1, EXT2 and EXT3. Supply an
 optional quoted CONFIG after the last numeric component, using the existing
 [portable CONFIG text](config-text.md) syntax. Omitted CONFIG uses `N R D B`
 with zero turns. The same quoted text can initialize a detached CONFIG field.
-Lists validate all components before publication. Generic arrays, user-record
-literals and system-variable writes remain outside these forms.
+Lists validate all components before publication. Generic ARRAY literals,
+user-record literals and system-variable writes remain outside these forms.
 
 RECORD uses the KCL group selection or the calling task's group with the
 supplied [current robot state](current-robot-state.md). It accepts detached
@@ -443,17 +463,25 @@ Missing frames, tasks or local paths return 201. These forms use retained
 Python frames and follow MARRC75KR07091E Rev N, PDF pages 740–741.
 
 `SET LOCAL VAR name [IN routine] [FROM module] [task] = literal` also
-accepts the full VARIABLE spelling. It assigns one checked scalar literal
+accepts the full VARIABLE spelling. It assigns one checked literal
 to a paused routine's owned local variable. The same routine, module and
 task selectors apply. Supported targets are INTEGER, SHORT, BYTE, REAL,
-BOOLEAN and STRING roots. Reads still support paths and borrowed formals.
+BOOLEAN and STRING roots, plus VECTOR, CONFIG, POSITION, XYZWPR, XYZWPREXT and
+JOINTPOS roots. Positional literals use the same component counts, optional
+CONFIG text and finite-value checks as SET VAR above. All components validate
+before any field changes, and existing destination objects retain their identity.
+Reads still support paths and borrowed formals.
 
 The compiler records FOR roots per routine. The whole routine's listed
-roots, retained aliases, borrowed formals and connected timers are
+roots, retained aliases into any selected field or joint axis, borrowed formals
+and connected timers are
 protected. Running tasks and code without the required compiler metadata
 also reject writes with 204. Missing targets use 201 and invalid literals
 or a scan over 32,767 storage cells use 205. This subset follows
 MARRC75KR07091E Rev N, PDF pages 734–735 and 740–741.
+Local ARRAY/user-record writes, named-source local assignments and local field
+destinations remain excluded. The additional positional literals are a portable
+Pythonic extension, without a native/controller equivalence claim.
 
 ### Declared types and typed variable filters
 

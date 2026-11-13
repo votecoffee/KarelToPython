@@ -52,12 +52,15 @@ against the execution step budget. [KCL RESET](docs/kcl-commands.md#scripted-res
 uses the supplied logical controller response.
 
 [KCL pose recording and assignment](docs/kcl-commands.md#pose-recording-and-value-assignment)
-use supplied robot state and checked detached values. The command channel also
+use supplied robot state and checked detached values. Named ARRAYs and user
+records now copy into independent storage with exact schemas and complete
+validation. The command channel also
 supports [logical holds](docs/kcl-commands.md#logical-hold-and-release) and
 [offline storage listings](docs/kcl-commands.md#system-and-memory-inspection).
 
 [KCL local edits and type views](docs/kcl-commands.md#local-variable-inspection)
-add checked scalar assignments in paused source routines, declared-type
+add checked scalar, VECTOR, CONFIG, Cartesian pose and JOINTPOS literal assignments
+in paused source routines, declared-type
 listings, and typed variable filters.
 
 [KCL command procedures](docs/kcl-commands.md#command-procedures) add blocking
@@ -422,7 +425,7 @@ existing collision, busy-file, quota and publication checks remain active.
 and RENAME_FILE reuse matched characters in their destination filenames.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1113.010346**. It is a
+tool are named **karel2py**. The current implementation is **26.1113.012240**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -1373,7 +1376,7 @@ workflows. To run hosted checks, open the repository's **Actions** tab, select
 **Tests (manual)** or **GUI checks (manual)**, then choose **Run workflow**.
 Routine development validation uses the local CLI commands above.
 
-The example runner translates 574 authored runnable examples, checks complete
+The example runner translates 575 authored runnable examples, checks complete
 expected snapshots and validates their output, delay, context and termination
 fixtures, plus 233 complete linked source projects. It also checks that nested
 MOVE actions inside local handlers are rejected.

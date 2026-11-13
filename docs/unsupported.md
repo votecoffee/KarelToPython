@@ -579,9 +579,13 @@ queue-entry policies; FILE banks remain excluded.
   port, calendar and robot context banks. [Inspection commands](kcl-commands.md#variable-inspection)
   expose bounded variables, virtual media and the active dictionary language.
   Session defaults and live source-frame listings use the supplied offline
-  task and robot contexts. Guarded scalar local edits use paused source
+  task and robot contexts. Guarded scalar and positional local literals use paused source
   frames, with compiler metadata for FOR roots. Native routine symbol
-  files and aggregate local writes remain outside this model.
+  files, local ARRAY/user-record edits and local field destinations remain outside
+  this model. Named global ARRAY/user-record SET copies now validate exact
+  complete data and retain independent destination storage with budget and
+  ownership rechecks. Aggregate literals, resource copies and reshaping remain
+  excluded from those KCL forms.
   [Command procedures](kcl-commands.md#command-procedures) execute bounded
   ASCII CF inputs and relative includes over enabled offline services.
   The portable form uses blocking KCL, stops on the first error and saves

@@ -1,5 +1,15 @@
 # Changelog
 
+## 26.1113.012240 - 2026-11-13
+
+- Extend Pythonic KCL SET VAR named-value copies to exact initialized ARRAYs and
+  user records, including nested data and complete selected components. Retain
+  receiver storage, precharge declared leaves, and recheck captured targets and
+  protection after checkpoints before copying and publishing.
+- Accept VECTOR, CONFIG, POSITION, XYZWPR, XYZWPREXT and JOINTPOS literals in
+  paused owned SET LOCAL VAR roots. Preserve retained field/axis references,
+  timer claims, borrowed storage and compiler FOR protections.
+
 ## 26.1113.010346 - 2026-11-13
 
 - Accept adjacent destination stars in Pythonic COPY_FILE and RENAME_FILE.

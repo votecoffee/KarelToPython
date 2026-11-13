@@ -422,6 +422,30 @@ def set_detached_value(state,program,path,literal,group,line):
         except rt.KarelRuntimeError:return 5
         return 0
     source=re.fullmatch(VARIABLE_SELECTOR,literal,re.IGNORECASE)
+    if source and literal.upper() not in ('TRUE','FALSE') and kind in ('ARRAY','STRUCTURE'):
+        # Charge before validating/copying data. Checkpoints may change a binding,
+        # parent container, protection or timer claim; retain the selected target.
+        spec=target.spec;root_spec=reference.spec;original=target.raw()
+        try:units=rt._validate_data_schema(spec,line)
+        except rt.KarelRuntimeError:return 5
+        for _ in range(units):variable_checkpoint(state,line)
+        if context.variables.bindings.get(key) is not reference or reference.spec!=root_spec:return 4
+        code=detached_storage(state,{key:reference})
+        if code:return code
+        try:current=context.descend(reference,path[len(var):],line,path_nodes=True)
+        except (ValueError,TypeError,rt.KarelRuntimeError):return 4
+        if (type(current) is not rt.Reference or current.spec!=spec
+                or current.storage is not target.storage or current.key!=target.key
+                or current.raw() is not original):return 4
+        try:
+            source_owner,root,suffix=source.groups()
+            source_ref=context.resolve(state,source_owner or program,(root+suffix.replace(' ','')).upper(),line,path_nodes=True)
+            if source_ref.spec!=spec:return 5
+            rt.checked(spec,original,line)
+            value=rt._aggregate_value(spec,source_ref.raw(),line,allow_partial=False)
+            target.set(value,line)
+        except (ValueError,TypeError,KeyError,IndexError,AttributeError,rt.KarelRuntimeError):return 5
+        return 0
     try:
         if source and literal.upper() not in ('TRUE','FALSE'):
             source_owner,root,suffix=source.groups()

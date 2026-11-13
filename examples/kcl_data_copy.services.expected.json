@@ -1,0 +1,13 @@
+{
+  "kcl": {
+    "replies": {},
+    "limit": 500,
+    "history": [
+      {"sequence": 1, "program": "KCL_DATA_COPY", "operation": "KCL", "command": "CREATE VAR [CACHE]GRID:ARRAY[2,2] OF INTEGER", "phase": "completed", "status": 0},
+      {"sequence": 2, "program": "KCL_DATA_COPY", "operation": "KCL", "command": "SET VAR [CACHE]GRID=[KCL_DATA_COPY]SOURCE", "phase": "completed", "status": 0}
+    ],
+    "sequence": 2,
+    "last_status": 0,
+    "variable_commands": true
+  }
+}
