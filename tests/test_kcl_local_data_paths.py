@@ -203,7 +203,7 @@ class LocalOwnershipTests(unittest.TestCase):
         ctx.variables.bind('ALIAS','VALUE',rt.Reference(('INTEGER',),storage['DATA'].values,0))
         self.assertEqual(edit(ctx,'data[2]','7')['S'],204);self.assertEqual(storage['DATA'].values,[1,2])
 
-    def test_resource_roots_and_targets_remain_excluded(self):
+    def test_resource_copies_require_matching_sources_and_files_stay_excluded(self):
         ctx,_,storage=paused('files:ARRAY[2]OF FILE route:PATH queue:QUEUE_TYPE data:INTEGER')
         for path in ('files[1]','route','queue'):
             with self.subTest(path=path):self.assertNotEqual(edit(ctx,path,'data')['S'],0)

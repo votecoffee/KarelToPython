@@ -1,0 +1,31 @@
+{
+  "version": "26.1113.123928",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "contract": {
+    "guide": "../kcl-local-collections.md",
+    "syntax": "SET LOCAL VAR/VARIABLE exact named logical copies into owned paused locals; scalar PATH/QUEUE_TYPE, banks, complete components and final rows/planes; typed local SHOW prefixes",
+    "source": "Selected frame locals/readable formals before module-global fallback, explicit program global lookup; a borrowed row uses its captured actual schema and cells",
+    "budget": "Charge complete receiver local root plus complete local source root/formal view or existing global source scope before copying; at most 32767 descriptor/header/node/entry units per scope",
+    "capture": "Retain task binding/run/continuation/frames/declarations/root/selected storage, both contexts/stores and program/module metadata across charges; require unchanged admitted schemas/counts",
+    "ownership": "Require paused, undriven, nonaborting task and compiler FOR-root permission; complete known aliases, formal views and connected timers in both contexts protect the containing root",
+    "publication": "Resolve current source after final charges, validate both scopes and publish independent selected data; retain receiver cells/headers, detach PATH nodes and reset only copied queue buffer links",
+    "inspection": "Existing bounded typed local listings report selected dimensions/task/module/routine and values without storage edits, new aliases or cache entries",
+    "persistence": "Copied ordinary globals/history only; no saved local frame, borrowed view, queue link or suspended execution"
+  },
+  "boundaries": [
+    "No formal/borrowed local destinations, running/currently driven tasks or absent compiler metadata",
+    "No FILE copying, resource STRUCTURE fields or local PATH data-field/literal edits",
+    "No implicit conversion, reshape, expression selectors or caller-variable discovery",
+    "No rollback of independent prior host/checkpoint changes",
+    "Authored offline Pythonic behavior; no native/controller/strict equivalence"
+  ],
+  "validation": [
+    "tests/test_kcl_local_collections.py",
+    "tests/test_kcl_local_data_paths.py",
+    "tests/test_kcl_collection_copies.py",
+    "tests/test_kcl_collection_prefixes.py",
+    "tests/test_kcl_data_prefixes.py",
+    "examples/kcl_local_collections"
+  ]
+}

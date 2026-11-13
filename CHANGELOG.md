@@ -1,5 +1,18 @@
 # Changelog
 
+## 26.1113.123928 - 2026-11-13
+
+- Add exact KCL named copies into owned PATH/QUEUE_TYPE locals in paused routines,
+  including banks, selected components and final rows/planes. Read local or
+  borrowed formal sources before module-global fallback; add local prefix SHOW.
+- Charge complete receiver/source local scopes and validate retained task/run/
+  continuation/frame/root/target, contexts/stores and compiler metadata after
+  checkpoints. Whole-root aliases and timer claims still protect the receiver.
+- Preserve partial PATH data, queue state and receiver identities while copying
+  independent payloads. Keep borrowed destinations, FILE/literal/data-field edits
+  and suspended-frame persistence excluded. Add linked worker/library execution,
+  source-scope, budgeting, ownership and continuation checks.
+
 ## 26.1113.121848 - 2026-11-13
 
 - Extend detached KCL logical copies to final PATH/queue ARRAY rows and planes,

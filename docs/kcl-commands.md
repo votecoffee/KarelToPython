@@ -491,6 +491,10 @@ that is missing or uninitialized never falls back to a global. An explicit
 `[program]` qualifier uses ordinary global lookup. ARRAY/record schemas must match
 exactly and every source leaf must be initialized. Scalar STRING copies may use
 different capacities if the value fits. Copies create no aliases to source data.
+Separate [local logical copies](kcl-local-collections.md) now support owned
+PATH/queue locals, banks, complete components and final rows/planes. They accept
+valid partial PATH and uninitialized queue data, and readable borrowed sources,
+while formal destinations remain protected. SHOW LOCAL VAR supports logical rows.
 
 ```text
 SET LOCAL VAR target IN stage WORKER = source
@@ -518,7 +522,7 @@ paths, incomplete/mismatched data or a scan over 32,767 storage cells use 205.
 Budget exhaustion uses 4. Data schemas retain the 32767-leaf and 64-level limits.
 This subset follows
 MARRC75KR07091E Rev N, PDF pages 734–735 and 740–741.
-FILE/PATH/QUEUE_TYPE resources, aggregate literal syntax, reshaping, computed
+FILE storage, local PATH data-field/literal edits, aggregate literal syntax, reshaping, computed
 selectors and implicit routine discovery outside these explicit frame commands
 remain excluded. Extended data/positional edits are a portable Pythonic model,
 without a native/controller equivalence claim. See the

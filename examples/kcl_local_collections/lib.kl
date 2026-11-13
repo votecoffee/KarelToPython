@@ -1,0 +1,14 @@
+PROGRAM LIB
+%INCLUDE 'types.inc'
+VAR path_result FROM WORKER:ARRAY[2]OF route_t
+    queue_result FROM WORKER:ARRAY[2]OF QUEUE_TYPE
+ROUTINE stage(paths:ARRAY OF route_t; queues:ARRAY[*,*]OF QUEUE_TYPE)
+VAR path_target:ARRAY[2,2]OF route_t
+    queue_target:ARRAY[2,2]OF QUEUE_TYPE
+BEGIN
+  PAUSE
+  path_result=path_target[2]
+  queue_result=queue_target[1]
+END stage
+BEGIN
+END LIB

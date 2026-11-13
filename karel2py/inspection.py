@@ -450,6 +450,98 @@ def _kcl_routine_frame(root,routine_filter,module_filter):
     return None
 
 
+def _kcl_local_collection_owned(state,owner,reference,storage,name):
+    """Protect the complete owned root against aliases in both live contexts."""
+    from .variable_archives import cells
+
+    rt=runtime();contexts={state.execution:state,owner.execution:owner};scanned=0
+    def references(context,caller):
+        yield from context.variables.bindings.values()
+        for instances in attached_programs(context,caller).values():
+            for active in instances:
+                for declarations,values in ((active.types,active.values),*active._timer_frames):
+                    for key,spec in declarations.items():
+                        if values is storage and key==name:continue
+                        value=values[key]
+                        yield value if isinstance(value,rt.Reference) else rt.Reference(spec,values,key)
+    try:
+        occupied=cells(reference)
+        for context,caller in contexts.items():
+            if any(key in occupied for key in context._timer_claims):return 4
+            for other in references(context,caller):
+                scanned+=1
+                if scanned>32767:return 5
+                if not isinstance(other,rt.Reference):return 5
+                if occupied&cells(other):return 4
+    except (ValueError,TypeError,KeyError,IndexError,AttributeError,rt.KarelRuntimeError):return 5
+    return 0
+
+
+def _kcl_local_collection_write(state,root,frame,reference,path,literal,line,selector):
+    from .dynamic import (VARIABLE_SELECTOR,variable_checkpoint,kcl_data_reference,
+                          same_kcl_data_target,kcl_collection_source,kcl_collection_snapshot)
+    from .storage import _collection_array_rows
+    from .variable_archives import schema,replace_collections
+
+    rt=runtime();owner,routine,declarations,storage=frame;name=reference.key
+    source=re.fullmatch(VARIABLE_SELECTOR,literal,re.IGNORECASE)
+    if source is None or literal.upper() in ('TRUE','FALSE'):return 5
+    suffix=path[len(name):];root_spec=reference.spec;original=reference.raw()
+    def source_units(reference):
+        value=reference.raw()
+        if (rt.collection_array_type(reference.spec) and type(value) is rt.Array
+                and type(value.values) is rt._ArrayWindow):
+            return _collection_array_rows(reference.spec,value,False,allow_windows=True)[1]
+        return schema(reference.spec,value)
+    def resolve_source():
+        program,key,rest=source.groups();key=key.upper();rest=rest.replace(' ','').upper()
+        if not program and key in declarations:
+            value=storage[key]
+            containing=value if isinstance(value,rt.Reference) else rt.Reference(declarations[key],storage,key)
+            return kcl_data_reference(owner.execution,containing,rest,line,path_nodes=True),containing,rest
+        return kcl_collection_source(owner.execution,owner,program or owner.program_name,key,rest,line)
+    try:
+        target=kcl_data_reference(owner.execution,reference,suffix,line,path_nodes=True)
+        if type(target) is not rt.Reference or not (rt.collection_type(target.spec) or rt.collection_array_type(target.spec)):return 5
+        spec=target.spec;selected=target.raw()
+        source_ref,source_owner,source_suffix=resolve_source();source_schema=source_owner.spec
+        if source_ref.spec!=spec:return 5
+        admitted_source=source_units(source_owner);admitted_target=schema(root_spec,original)
+    except (ValueError,TypeError,KeyError,IndexError,AttributeError,rt.KarelRuntimeError):return 5
+    run=root._task_run;continued=root._lifecycle['CONTINUE'];frames=tuple(root._task_frames)
+    entered=tuple((id(d),id(s)) for d,s in owner._timer_frames)
+    caller_context=state.execution;owner_context=owner.execution
+    stores={context:context.variables for context in (caller_context,owner_context)}
+    program=owner.program;module=owner.program_name
+    for _ in range(admitted_source+admitted_target):variable_checkpoint(state,line)
+    if (state.execution is not caller_context or owner.execution is not owner_context
+            or any(context.variables is not store for context,store in stores.items())
+            or _kcl_task_root(state,selector,line) is not root or root._task_run is not run
+            or root._lifecycle['CONTINUE']!=continued or tuple(root._task_frames)!=frames
+            or tuple((id(d),id(s)) for d,s in owner._timer_frames)!=entered
+            or owner.program is not program or owner.program_name!=module
+            or declarations.get(name)!=root_spec or storage.get(name) is not original
+            or root.task_state!='paused' or root._driving or root._abort_requested):return 4
+    current=_kcl_routine_frame(root,routine,module)
+    if current is None or current[0] is not owner or current[2] is not declarations or current[3] is not storage:return 4
+    counters=getattr(owner.program,'local_for_roots',{}).get(routine)
+    if counters is None or name in counters:return 4
+    try:current=kcl_data_reference(owner_context,reference,suffix,line,path_nodes=True)
+    except (ValueError,TypeError,KeyError,IndexError,AttributeError,rt.KarelRuntimeError):return 4
+    if not same_kcl_data_target(target,current,selected):return 4
+    code=_kcl_local_collection_owned(state,owner,reference,storage,name)
+    if code:return code
+    try:
+        source_ref,source_owner,source_suffix=resolve_source()
+        if (source_ref.spec!=spec or source_owner.spec!=source_schema
+                or source_units(source_owner)!=admitted_source or schema(root_spec,original)!=admitted_target):return 5
+        value=kcl_collection_snapshot(owner_context,source_owner,source_suffix,line)
+        kcl_collection_snapshot(owner_context,reference,'',line)
+    except (ValueError,TypeError,KeyError,IndexError,AttributeError,rt.KarelRuntimeError):return 5
+    target.storage[target.key]=replace_collections(selected,value)
+    return 0
+
+
 def _kcl_local_write(state,root,frame,path,literal,line,selector):
     from .dynamic import (IDENTIFIER,VARIABLE_SELECTOR,assign_scalar_literal,kcl_record_literal,
                           variable_checkpoint,kcl_data_reference,kcl_data_value,same_kcl_data_target)
@@ -463,6 +555,8 @@ def _kcl_local_write(state,root,frame,path,literal,line,selector):
     counter_roots=getattr(owner.program,'local_for_roots',{}).get(routine)
     if counter_roots is None or name in counter_roots or isinstance(storage[name],rt.Reference):return 4
     reference=rt.Reference(declarations[name],storage,name)
+    if rt.collection_type(reference.spec) or rt.collection_array_type(reference.spec):
+        return _kcl_local_collection_write(state,root,frame,reference,path,literal,line,selector)
     try:
         units=rt._validate_data_schema(reference.spec,line)
         target=kcl_data_reference(owner.execution,reference,path[len(name):],line)
@@ -563,7 +657,8 @@ def kcl_local_operation(state,operation,args,line=None):
             raise rt.KarelRuntimeError('Local variable is absent from the selected frame',line)
         key=base[0];value=storage[key]
         reference=value if isinstance(value,rt.Reference) else rt.Reference(declarations[key],storage,key)
-        return owner.execution.descend(reference,path[base.end():],line,path_nodes=True,prefixes=rt._pythonic())
+        return owner.execution.descend(reference,path[base.end():],line,path_nodes=True,prefixes=rt._pythonic(),
+                                       resources='collections' if rt._pythonic() else False)
 
     return _kcl_value_rows(state,owner.program_name,names,values,radix,resolve,line,
                            routine=routine,task=selector or root.program_name)

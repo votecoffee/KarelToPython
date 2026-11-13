@@ -1,9 +1,11 @@
 * text=auto
+/.gitattributes text eol=lf
 *.py text eol=lf
 *.md text eol=lf
 *.json text eol=lf
 *.toml text eol=lf
 *.yml text eol=lf
 *.kl -text
+*.inc -text
 *.input.txt text eol=lf
 /LICENSE -text

@@ -1,0 +1,3 @@
+TYPE node_t=STRUCTURE value:INTEGER ENDSTRUCTURE
+     header_t=STRUCTURE count:INTEGER ENDSTRUCTURE
+     route_t=PATH NODEDATA=node_t PATHHEADER=header_t

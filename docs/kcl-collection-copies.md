@@ -69,8 +69,9 @@ is allocated by a copy.
 
 ## Boundaries and replay
 
-Paused-local collection roots/prefixes, FILE values/banks, resource STRUCTURE
-fields, aggregate literals, conversions and
+Owned paused-local collection roots/prefixes now use the separate
+[local logical-copy contract](kcl-local-collections.md). FILE values/banks,
+resource STRUCTURE fields, aggregate literals, conversions and
 reshaping remain outside this command contract. Complete named ARRAY components
 are supported. [Ordinary data prefixes](kcl-data-prefixes.md) and paused-local
 data edits keep their separate ownership and initialization rules.

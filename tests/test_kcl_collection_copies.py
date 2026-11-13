@@ -327,7 +327,8 @@ class KclLogicalCopyBoundaryTests(unittest.TestCase):
         _,result=compile_program('')
         policy=result.report['kcl_collection_copy_policy']
         self.assertIn('PATH',policy['values']);self.assertIn('QUEUE_TYPE',policy['values'])
-        self.assertIn('both',policy['budget']);self.assertIn('paused-local',policy['boundary'])
+        self.assertIn('both',policy['budget']);self.assertIn('FILE',policy['boundary'])
+        self.assertEqual(policy['local_guide'],'docs/kcl-local-collections.md')
         self.assertEqual(policy['guide'],'docs/kcl-collection-copies.md')
         self.assertFalse(policy['controller_validated'])
 

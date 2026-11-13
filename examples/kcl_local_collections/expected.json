@@ -1,0 +1,33 @@
+{
+  "MAIN": {
+    "state": "completed",
+    "values": {"COUNT": 36, "STARTED": 0, "PAUSED": 0, "PATH_STATUS": 0, "QUEUE_STATUS": 0, "CONTINUED": 0, "FINISHED": 0, "DONE": true}
+  },
+  "WORKER": {
+    "state": "completed",
+    "values": {
+      "PATH_SOURCE": [
+        [{"nodes": [{"VALUE": 99}], "data": {"COUNT": 1}}, {"nodes": [{"VALUE": 19}], "data": {"COUNT": 1}}],
+        [{"nodes": [], "data": {"COUNT": {"uninitialized": true}}}, {"nodes": [], "data": {"COUNT": {"uninitialized": true}}}]
+      ],
+      "QUEUE_SOURCE": [
+        [{"initialized": false, "entries": []}, {"initialized": false, "entries": []}],
+        [{"initialized": true, "entries": [[1, 31], [2, 99]]}, {"initialized": true, "entries": [[1, 37]]}]
+      ],
+      "PATH_RESULT": [{"nodes": [{"VALUE": 17}], "data": {"COUNT": 1}}, {"nodes": [{"VALUE": 19}], "data": {"COUNT": 1}}],
+      "QUEUE_RESULT": [{"initialized": true, "entries": [[1, 31]]}, {"initialized": true, "entries": [[1, 37]]}],
+      "BUFFERS": [[31, 99], [37, 0]],
+      "COUNT": 36,
+      "ENTRY": 1,
+      "STATUS": 0,
+      "SEQUENCE": 2
+    }
+  },
+  "LIB": {
+    "state": "ready",
+    "values": {
+      "PATH_RESULT": [{"nodes": [{"VALUE": 17}], "data": {"COUNT": 1}}, {"nodes": [{"VALUE": 19}], "data": {"COUNT": 1}}],
+      "QUEUE_RESULT": [{"initialized": true, "entries": [[1, 31]]}, {"initialized": true, "entries": [[1, 37]]}]
+    }
+  }
+}

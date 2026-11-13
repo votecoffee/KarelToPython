@@ -24,7 +24,9 @@ whole banks and complete named components retain their earlier behavior.
 The destination remains independent explicit storage. The source can come from
 supplied compiled globals or explicit namespaces. Explicit full-path bindings
 retain lookup precedence; a borrowed live view must match its named containing
-owner. Paused-local collection roots/prefixes and system discovery are excluded.
+owner. [Owned paused-local copies](kcl-local-collections.md) use their own retained
+frame and source-scope checks. Borrowed local destinations and system discovery
+remain excluded.
 
 Partial PATH data and uninitialized queues remain valid logical values. Generic
 data codecs, FILE copying, resource STRUCTURE fields, conversions, expression

@@ -1,0 +1,18 @@
+{
+  "kcl": {
+    "replies": {},
+    "limit": 500,
+    "history": [
+      {"sequence": 1, "program": "MAIN", "operation": "KCL_NO_WAIT", "command": "RUN WORKER", "phase": "completed", "status": 0},
+      {"sequence": 2, "program": "MAIN", "operation": "KCL", "command": "WAIT WORKER PAUSE", "phase": "completed", "status": 0},
+      {"sequence": 3, "program": "MAIN", "operation": "KCL", "command": "SET LOCAL VAR path_target[2] IN stage FROM LIB WORKER = paths", "phase": "completed", "status": 0},
+      {"sequence": 4, "program": "MAIN", "operation": "KCL", "command": "SET LOCAL VAR queue_target[1] IN stage FROM LIB WORKER = queues[2]", "phase": "completed", "status": 0},
+      {"sequence": 5, "program": "MAIN", "operation": "KCL", "command": "CONT WORKER", "phase": "completed", "status": 0},
+      {"sequence": 6, "program": "MAIN", "operation": "KCL", "command": "WAIT WORKER DONE", "phase": "completed", "status": 0}
+    ],
+    "sequence": 6,
+    "last_status": 0,
+    "task_commands": true,
+    "variable_commands": true
+  }
+}

@@ -33,8 +33,9 @@ Explicit program qualifiers use attached/store globals. Detached PATH node/heade
 data fields retain their existing lookup. Separate [logical collection copies](kcl-collection-copies.md)
 support detached whole PATH/queue values, banks and complete indexed/named
 components. [Collection row/plane copies](kcl-collection-prefixes.md) now add
-complete containing-bank charges and checks. Local resource roots/prefixes remain
-excluded. Copies preserve receiver containers/children and do not retain
+complete containing-bank charges and checks. [Owned local collection copies](kcl-local-collections.md)
+add their own frame/source-scope rules; borrowed/formal destinations stay protected.
+Copies preserve receiver containers/children and do not retain
 aliases into the source.
 
 ## Preparation and ownership

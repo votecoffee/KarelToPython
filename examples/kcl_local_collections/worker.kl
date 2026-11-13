@@ -1,0 +1,20 @@
+PROGRAM WORKER
+%INCLUDE 'types.inc'
+VAR path_source:ARRAY[2,2]OF route_t
+    queue_source:ARRAY[2,2]OF QUEUE_TYPE
+    path_result:ARRAY[2]OF route_t
+    queue_result:ARRAY[2]OF QUEUE_TYPE
+    buffers:ARRAY[2,2]OF INTEGER
+    count,entry,status,sequence:INTEGER
+ROUTINE stage(paths:ARRAY OF route_t; queues:ARRAY[*,*]OF QUEUE_TYPE) FROM LIB
+BEGIN
+  APPEND_NODE(path_source[1,1],status) path_source[1,1][1].value=17 path_source[1,1].count=1
+  APPEND_NODE(path_source[1,2],status) path_source[1,2][1].value=19 path_source[1,2].count=1
+  INIT_QUEUE(queue_source[2,1]) INIT_QUEUE(queue_source[2,2])
+  APPEND_QUEUE(31,queue_source[2,1],buffers[1],sequence,status)
+  APPEND_QUEUE(37,queue_source[2,2],buffers[2],sequence,status)
+  stage(BYNAME('','PATH_SOURCE[1]',entry),queue_source)
+  path_source[1,1][1].value=99
+  APPEND_QUEUE(99,queue_source[2,1],buffers[1],sequence,status)
+  count=path_result[1][1].value+path_result[2][1].value
+END WORKER

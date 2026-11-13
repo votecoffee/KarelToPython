@@ -439,6 +439,18 @@ def kcl_collection_snapshot(context,reference,suffix,line):
     return value
 
 
+def kcl_collection_source(context,state,program,root,rest,line):
+    """Resolve global logical data with explicit-path precedence and prefix owners."""
+    rt=runtime();root=root.upper();rest=rest.replace(' ','').upper()
+    selected=context.resolve(state,program,root+rest,line,path_nodes=True,prefixes=True,
+                             resources='collections',defer_prefix_data=True)
+    if not kcl_collection_window(selected):return selected,selected,''
+    containing=context.resolve(state,program,root,line,path_nodes=True)
+    current=kcl_data_reference(context,containing,rest,line,path_nodes=True)
+    if not rt.same_array_storage(selected.raw(),current.raw()):raise ValueError('Collection source prefix is detached from its named owner')
+    return selected,containing,rest
+
+
 def set_detached_collection(state,key,reference,root_location,target,suffix,source,line):
     """Copy exact owned logical data after charging both current selections."""
     from .variable_archives import replace_collections,schema
@@ -449,14 +461,7 @@ def set_detached_collection(state,key,reference,root_location,target,suffix,sour
     target_original=target_owner.raw()
     def resolve_source():
         owner,root,rest=source.groups()
-        program=owner or key[0];root=root.upper();rest=rest.replace(' ','').upper()
-        selected=context.resolve(state,program,root+rest,line,path_nodes=True,prefixes=True,
-                                 resources='collections',defer_prefix_data=True)
-        if not kcl_collection_window(selected):return selected,selected,''
-        containing=context.resolve(state,program,root,line,path_nodes=True)
-        current=kcl_data_reference(context,containing,rest,line,path_nodes=True)
-        if not rt.same_array_storage(selected.raw(),current.raw()):raise ValueError('Collection source prefix is detached from its named owner')
-        return selected,containing,rest
+        return kcl_collection_source(context,state,owner or key[0],root,rest,line)
     try:
         source_ref,source_owner,source_suffix=resolve_source();source_schema=source_owner.spec
         if source_ref.spec!=spec:return 5

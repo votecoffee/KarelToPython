@@ -1,0 +1,15 @@
+PROGRAM MAIN
+VAR count FROM WORKER:INTEGER
+    started,paused,path_status,queue_status,continued,finished:INTEGER
+    done:BOOLEAN
+BEGIN
+  IF UNINIT(done) THEN
+    KCL_NO_WAIT('RUN WORKER',started)
+    KCL('WAIT WORKER PAUSE',paused)
+    KCL('SET LOCAL VAR path_target[2] IN stage FROM LIB WORKER = paths',path_status)
+    KCL('SET LOCAL VAR queue_target[1] IN stage FROM LIB WORKER = queues[2]',queue_status)
+    KCL('CONT WORKER',continued)
+    KCL('WAIT WORKER DONE',finished)
+    done=TRUE
+  ENDIF
+END MAIN
