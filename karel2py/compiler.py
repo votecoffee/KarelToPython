@@ -6911,14 +6911,16 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         service='Explicit DynamicDisplays plus PendantDisplay; read-only static global references and supplied port banks; no background threads or native display task',
         binding='Capture scalar/field/index/USING storage once; typed read references allow uninitialized data and active-counter observation; local/formal/computed sources rejected',
         values='BOOLEAN/enum labels from live static STRING arrays; checked INTEGER/REAL/STRING formats; supplied BOOLEAN/INTEGER port type_codes; stars for missing data, question marks for invalid enum/data',
+        recovery='Recheck captured locations and label ARRAY layout/capacity per sample; missing values or whole labels yield stars; missing cells, retargeted references and malformed data yield question marks; restored original locations can recover',
         fields='One-line window fields, fixed-width truncation/padding or width-zero variable text; atomic batches preserve FILE cursors; recognized attribute/size intent has no glyph effect',
+        publication='Preflight all due windows before poll publication and all affected windows before ordinary cancellation; invalid surface/bounds/capacity leave grids, history and poll deadlines unchanged; interrupted cleanup remains best effort',
         clock='Deterministic quantum_ms per leaf source/call-entry checkpoint while active; explicit host advance/force polling; minimum intervals without catch-up bursts or wall-clock discovery; bounded clock saturates',
         cancellation='Match type, storage or bank/port identity and window; cancel all locations; clear nonzero widths and restore surviving last samples; cleanup permitted at exhausted history sequence',
         interruption='Optional cancel_on_interrupt releases watches from the stopped, aborted or failed task run; pause and normal completion retain watches; an invalid surface cannot block unbinding',
         limits='At most 256 bindings and 512 field changes per batch, finite binding/history sequences; background repaint failures retain surfaces and expose watch status without blocking source cleanup',
         persistence='Active bindings must be cancelled before saving; retain logical clock/settings and sequence only, plus pendant grid/history; no live reference rebinding or task restoration',
         boundary='Portable statuses and checkpoint timing; no form/list/table managers, keyboard input, native styling/preemption/controller acceptance or strict-mode equivalence',
-        guide='docs/dynamic-displays.md',controller_validated=False)
+        guide='docs/dynamic-displays.md',recovery_ledger='docs/semantics/dynamic_display_recovery_semantics.json',controller_validated=False)
     report['keyboard_policy']=dict(
         calls=sorted(rt.KEYBOARD_CALLS),constants=dict(rt.KEYBOARD_CONSTANTS),
         service='Explicit KeyboardInput event queues; KB:TPKB and WD:name/TPKB text endpoints, captured root DEVICE_STAT pane; no host keyboard or GUI acquisition',

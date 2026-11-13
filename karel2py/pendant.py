@@ -280,17 +280,28 @@ class PendantDisplay:
         handle.position+=count;handle.status=0
         self.record(binding['state'],'WINDOW_WRITE',window=binding['window'],bytes=count)
 
-    def paint_fields(self,state,window,fields,line=None,*,cleanup=False):
-        """Paint fixed character fields without moving source FILE cursors."""
+    def prepare_fields(self,window,fields,line=None,*,cleanup=False):
+        """Validate and stage one field batch without publishing grid or history."""
         if not cleanup:self.reserve()
         if window not in self.windows or type(fields) is not list or len(fields)>512:raise rt().KarelRuntimeError('Invalid dynamic field batch',line)
-        surface=self.windows[window];lines=list(surface['lines']);count=0
+        surface=self.windows[window]
+        if (type(surface) is not dict or type(surface.get('rows')) is not int or type(surface.get('cols')) is not int
+                or not 1<=surface['rows']<=256 or not 1<=surface['cols']<=256
+                or type(surface.get('lines')) is not list or len(surface['lines'])!=surface['rows']
+                or any(not printable(text,surface['cols'],surface['cols']) for text in surface['lines'])):
+            raise rt().KarelRuntimeError('Invalid dynamic window storage',line)
+        lines=list(surface['lines']);count=0
         for field in fields:
             if type(field) is not tuple or len(field)!=3:raise rt().KarelRuntimeError('Invalid dynamic field',line)
             row,col,text=field
             if type(row) is not int or type(col) is not int or not 1<=row<=surface['rows'] or not 1<=col<=surface['cols'] or not printable(text,0,256) or len(text)>surface['cols']-col+1:raise rt().KarelRuntimeError('Dynamic field exceeds window bounds',line)
             lines[row-1]=lines[row-1][:col-1]+text+lines[row-1][col-1+len(text):];count+=len(text)
-        surface['lines']=lines
+        return lines,count
+
+    def paint_fields(self,state,window,fields,line=None,*,cleanup=False):
+        """Paint fixed character fields without moving source FILE cursors."""
+        lines,count=self.prepare_fields(window,fields,line,cleanup=cleanup)
+        self.windows[window]['lines']=lines
         if self.sequence<2147483646:self.record(state,'DYNAMIC_WRITE',window=window,fields=len(fields),bytes=count)
 
     def render(self,screen=None):

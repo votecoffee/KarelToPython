@@ -66,11 +66,20 @@ clears positive-width fields and retains width-zero text. Surviving overlapping
 fields are restored in registration order from their last sampled text, without
 bypassing their update intervals. Due fields paint in registration order.
 
-BOOLEAN labels need at least two one-dimensional STRING cells. Enum labels use
+BOOLEAN labels need at least two declared one-dimensional STRING cells. Enum labels use
 zero-based values. Missing scalar/port/selected-label data displays stars; an
 out-of-range enum displays question marks. Placeholder length is width or one
 character for width zero. Other invalid data, including embedded control
 characters, displays question marks rather than moving a cursor.
+
+A whole uninitialized label ARRAY is also unknown data: initiation accepts its
+declared shape, displays stars, and later polls can display supplied labels.
+Each sample checks the captured scalar/label reference location. A removed cell,
+retargeted reference, malformed label ARRAY shape/storage, or selected STRING
+exceeding its declared capacity produces question marks with last_status 4.
+Restoring valid data at the original captured location allows a later poll to
+recover. A live ARRAY row keeps its original cells across root/list replacement;
+resizing the captured containing list makes that row invalid until repaired.
 
 INTEGER formats support d/o/x/X/u; REAL supports f/e/E/g/G; STRING supports s.
 Formats are exactly one percent conversion, optionally with bounded flags,
@@ -85,7 +94,12 @@ Attribute masks 0..15 and character sizes 0/2 are accepted intent. The grid keep
 normal one-cell ASCII characters; native bold, colors, underline, reverse video
 and double-size glyph rendering are not applied.
 
-A paint batch validates all field locations/text before replacing any grid data.
+A paint batch validates the window's dimensions, printable row storage and all
+field locations/text before replacing any grid data. Each poll preflights all
+due windows before publishing any batch. Ordinary cancellation also preflights
+every affected window before clearing fields or removing bindings. A bad later
+window therefore leaves earlier windows and history unchanged. Repair the
+surface and retry; a rejected explicit poll retains its clock and deadlines.
 It does not move ordinary FILE cursors, change FILE positions or open a hidden
 FILE handle. Accepted batches add DYNAMIC_WRITE pendant history rows with field
 and character counts. History names the task triggering the paint; binding
@@ -120,8 +134,9 @@ last text and last_status; they contain no executable references.
 
 Per-watch last_status is 0 valid, 1 unknown data, 2 invalid enum index, 4 invalid
 data/format and 5 background repaint failure. Background failures retain the
-surface and allow source cancellation to proceed. An explicit host advance
-raises on exhausted paint capacity before any window in that poll changes.
+surfaces and deadlines, advance the logical checkpoint clock, and allow source
+cancellation to proceed. An explicit host advance raises on invalid window
+storage/bounds or exhausted paint capacity before any window in that poll changes.
 The bounded logical clock saturates at 2147483646; host advances beyond that
 limit reject. Forced polling and cancellation remain possible. Cleanup can clear
 fields even after pendant history sequence exhaustion, without adding a row.
@@ -151,6 +166,10 @@ python -m karel2py.project examples/dynamic_display_project --entry MAIN --conte
 
 The report's dynamic_display_policy and the
 [semantics ledger](semantics/dynamic_display_semantics.json) record this contract.
+The [recovery ledger](semantics/dynamic_display_recovery_semantics.json) records
+captured-data checks and publication behavior. Initiation rechecks its writable
+status location after sampling and before paint; a host callback that retargets
+that reference fails before any registration or initial field is published.
 [Keyboard input](keyboard-input.md) separately models injected events and selected
 headless menus. [List/table controls](table-controls.md) separately add resident
 navigation and typed array editing; [FTX forms](forms.md) add scalar fields,

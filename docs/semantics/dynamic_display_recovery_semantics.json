@@ -1,0 +1,32 @@
+{
+  "version": "26.1113.114732",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "contract": {
+    "guide": "../dynamic-displays.md",
+    "service": "Explicit headless DynamicDisplays and PendantDisplay, using captured static variables or supplied ports",
+    "unknown": "UNINITIALIZED/UNKNOWN_BYTE scalar or port values, whole UNINITIALIZED label arrays and UNINITIALIZED selected labels display stars with last_status 1",
+    "invalid": "Missing captured cells, changed reference locations/schema, malformed label ARRAY layout, invalid selected values or declared STRING capacity overflow display question marks with last_status 4",
+    "index": "Zero-based enum/INTEGER port index is checked against the declared label count before reading whole unknown labels; out-of-range is last_status 2",
+    "recovery": "Polls can recover from repaired data at the original captured location. Selected ARRAY rows keep captured cells and reject a resized containing list.",
+    "initiation": "Declared BOOLEAN labels still require two cells. Validate surface storage and recheck the captured status reference after sampling before initial paint or registration.",
+    "poll": "Prepare every due window's printable rows, dimensions, fields and aggregate history capacity before publishing any window. Rejected explicit polls preserve grids, history, elapsed time, binding status/text and deadlines.",
+    "background": "Source checkpoints retain grids/history and deadlines on repaint failure, advance logical time and mark due bindings last_status 5 without preventing source cleanup",
+    "cancel": "Ordinary cancellation validates every affected window before clearing fields or removing watches. Repair and retry. Interrupted cleanup attempts each window and releases the interrupted run's bindings even if a surface cannot paint.",
+    "persistence": "Cancel all bindings before saving ordinary JSON. No captured locations, active references, background task, GUI or live controller state are serialized."
+  },
+  "boundaries": [
+    "Offline Pythonic statuses and logical checkpoint timing; no strict/native/controller equivalence",
+    "Preflight covers the built-in model's deterministic validation failures; no rollback of arbitrary host callback side effects or overridden paint methods",
+    "No automatic source-reference rebinding, controller storage repair or active-watch persistence"
+  ],
+  "validation": [
+    "tests/test_dynamic_display_recovery.py",
+    "tests/test_dynamic_display.py",
+    "tests/test_pendant_display.py",
+    "tests/test_service_array_prefixes.py",
+    "examples/dynamic_values.kl",
+    "examples/dynamic_ports.kl",
+    "examples/dynamic_display_project"
+  ]
+}

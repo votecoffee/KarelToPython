@@ -1,5 +1,6 @@
 """Read-only live bindings and deterministic headless dynamic display updates."""
 from copy import deepcopy
+from .reference_contracts import capture_location,same_location
 
 
 DYNAMIC_DISPLAY_CALLS={prefix+kind for prefix in ('INI_DYN_DIS','CNC_DYN_DIS') for kind in 'BEIPRS'}
@@ -57,30 +58,41 @@ class DynamicDisplays:
 
     def _sample(self,binding,line=None):
         runtime=rt();kind=binding['kind'];reference=binding['reference']
-        if kind=='P':
-            bank=binding['ports'];bank.poll_pulses(line)
-            value=bank.values.get(binding['port'],runtime.UNINITIALIZED)
-        else:value=reference.raw()
-        if value is runtime.UNINITIALIZED or value is runtime.UNKNOWN_BYTE:return marker(binding,'*'),1
         try:
+            if kind=='P':
+                bank=binding['ports'];bank.poll_pulses(line)
+                value=bank.values.get(binding['port'],runtime.UNINITIALIZED)
+            else:
+                if not same_location(reference,binding['reference_location']):return marker(binding,'?'),4
+                value=reference.raw()
+            if value is runtime.UNINITIALIZED or value is runtime.UNKNOWN_BYTE:return marker(binding,'*'),1
             if kind in 'BEP':
                 if kind=='B' or kind=='P' and binding['port_kind']=='BOOLEAN':
                     index=int(runtime.boolean(value,line))
                 else:index=runtime.integer(value,line)
-                labels=binding['labels'].raw()
-                if not 0<=index<len(labels.values):return marker(binding,'?'),2
-                text=labels.values[index]
+                labels_ref=binding['labels']
+                if not same_location(labels_ref,binding['labels_location']):return marker(binding,'?'),4
+                labels=labels_ref.raw()
+                if not 0<=index<runtime.array_dimensions(labels_ref.spec)[0]:return marker(binding,'?'),2
+                if labels is runtime.UNINITIALIZED:return marker(binding,'*'),1
+                if type(labels) is not runtime.Array or labels.spec!=labels_ref.spec:return marker(binding,'?'),4
+                _,values=runtime._service_array_layout(labels,labels_ref.spec,line)
+                text=values[index]
                 if text is runtime.UNINITIALIZED:return marker(binding,'*'),1
                 text=runtime.ascii_string(text,line)
+                if len(text)>runtime.array_leaf_spec(labels_ref.spec)[1]:return marker(binding,'?'),4
             else:
                 from .dictionaries import format_value
+                if kind=='S' and len(runtime.ascii_string(value,line))>reference.spec[1]:return marker(binding,'?'),4
                 text='%' if binding['match'][4]=='%' else format_value(binding['match'],reference,line)
             if any(not 32<=ord(char)<=126 for char in text):return marker(binding,'?'),4
-        except (ValueError,OverflowError,runtime.KarelRuntimeError):return marker(binding,'?'),4
+        except (ValueError,TypeError,KeyError,IndexError,AttributeError,OverflowError,runtime.KarelRuntimeError):return marker(binding,'?'),4
         return text,0
 
     def field(self,binding,text):
-        available=binding['pendant'].windows[binding['window']]['cols']-binding['col']+1
+        try:available=binding['pendant'].windows[binding['window']]['cols']-binding['col']+1
+        except (KeyError,TypeError,AttributeError) as error:
+            raise rt().KarelRuntimeError('Invalid dynamic window storage') from error
         return text[:binding['width']].ljust(binding['width']) if binding['width'] else text[:available]
 
     def advance(self,milliseconds,*,force=False,state=None,line=None):
@@ -96,6 +108,7 @@ class DynamicDisplays:
             groups.setdefault(key,[]).append((binding['row'],binding['col'],text))
         for pendant in {key[0] for key in groups}:
             if pendant.sequence+sum(key[0] is pendant for key in groups)>MAX_SEQUENCE:raise rt().KarelRuntimeError('Display request sequence exhausted',line)
+        for (pendant,window),fields in groups.items():pendant.prepare_fields(window,fields,line)
         for (pendant,window),fields in groups.items():
             owner=state or next(binding['state'] for binding,_,_ in prepared if binding['pendant'] is pendant and binding['window']==window)
             pendant.paint_fields(owner,window,fields,line)
@@ -114,6 +127,9 @@ class DynamicDisplays:
         for (pendant,window),fields in groups.items():
             fields.extend((binding['row'],binding['col'],binding['last_text']) for binding in self._bindings
                 if binding['id'] not in selected_ids and binding['pendant'] is pendant and binding['window']==window)
+        if not interrupted:
+            for (pendant,window),fields in groups.items():pendant.prepare_fields(window,fields,line,cleanup=True)
+        for (pendant,window),fields in groups.items():
             owner=state or next(binding['state'] for binding in selected if binding['pendant'] is pendant and binding['window']==window)
             try:pendant.paint_fields(owner,window,fields,line,cleanup=True)
             except rt().KarelRuntimeError:
@@ -130,6 +146,7 @@ class DynamicDisplays:
     def invoke(self,state,name,args,line=None):
         from .extended import PORT_TYPES
         runtime=rt();status=args[-1];kind=name[-1];port=kind=='P';offset=1 if port else 0
+        status_location=capture_location(status)
         try:
             from .pendant import ordinary_name
             window=ordinary_name(args[1+offset]);pendant=state.execution.require('pendant',line)
@@ -144,6 +161,7 @@ class DynamicDisplays:
                     and binding['pendant'] is pendant and binding['identity']==identity and (not port or binding['ports'] is bank)]
                 status.set(self.cancel(selected,state,line),line);return
             width,attributes,size,row,col,interval=args[2+offset:8+offset]
+            pendant.prepare_fields(window,[],line,cleanup=True)
             surface=pendant.windows[window]
             if not 0<=width<=256 or not 0<=attributes<=15 or size not in (0,2) or not 1<=row<=surface['rows'] or not 1<=col<=surface['cols'] or width>surface['cols']-col+1 or not 1<=interval<=86400000:
                 status.set(1,line);return
@@ -151,18 +169,20 @@ class DynamicDisplays:
             root=runtime.task_root(state)
             binding=dict(id=self.sequence+1,kind=kind,window=window,width=width,attributes=attributes,char_size=size,row=row,col=col,
                 interval=interval,reference=None if port else args[0],identity=identity,state=state,pendant=pendant,
+                reference_location=None if port else capture_location(args[0]),
                 program=state.program_name,owner=root.program_name,line=line or 0,
                 buffer_size=None,format=None,labels=None,match=None,next_due=self.elapsed_ms+interval)
             if kind in 'BEP':
                 labels=args[8+offset]
-                if kind=='B' and len(labels.raw().values)<2:status.set(1,line);return
-                binding['labels']=labels
+                if kind=='B' and runtime.array_dimensions(labels.spec)[0]<2:status.set(1,line);return
+                binding['labels']=labels;binding['labels_location']=capture_location(labels)
                 if port:
                     binding.update(ports=bank,port=identity,port_kind=PORT_TYPES[key])
-                    if binding['port_kind']=='BOOLEAN' and len(labels.raw().values)<2:status.set(1,line);return
+                    if binding['port_kind']=='BOOLEAN' and runtime.array_dimensions(labels.spec)[0]<2:status.set(1,line);return
             else:
                 binding['buffer_size']=args[8];binding['format']=args[9];binding['match']=checked_format(args[9],kind)
             text,code=self.sample(binding,line);text=self.field(binding,text)
+            if not same_location(status,status_location):raise runtime.KarelRuntimeError('Dynamic display status binding changed during preparation',line)
             pendant.paint_fields(state,window,[(row,col,text)],line)
             binding.update(last_text=text,last_status=code)
             if self.cancel_on_interrupt and root._task_run is not None:

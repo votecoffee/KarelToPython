@@ -1,5 +1,18 @@
 # Changelog
 
+## 26.1113.114732 - 2026-11-13
+
+- Check captured dynamic-display scalar/label locations and label ARRAY layout
+  on every sample. Whole missing label arrays display stars; malformed or
+  retargeted storage displays question marks and can recover when repaired.
+- Validate every due window before polling publishes fields, and every affected
+  window before ordinary cancellation clears fields or removes bindings. Failed
+  explicit polls preserve grids, history, clock and deadlines. Interrupted
+  cleanup still releases bindings when a surface cannot paint.
+- Validate initial window storage and recheck the status location after sampling
+  before initial paint/registration. Document the offline recovery contract and
+  add focused recovery, multiwindow failure, cleanup and saved-state checks.
+
 ## 26.1113.053732 - 2026-11-13
 
 - Extend opt-in KCL SET VAR and SET LOCAL VAR named data copies to final

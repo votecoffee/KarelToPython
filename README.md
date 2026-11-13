@@ -433,7 +433,7 @@ existing collision, busy-file, quota and publication checks remain active.
 and RENAME_FILE reuse matched characters in their destination filenames.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1113.053732**. It is a
+tool are named **karel2py**. The current implementation is **26.1113.114732**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 [Formatted empty collection output](docs/empty-collection-output.md) lets the same
@@ -927,6 +927,8 @@ ports, updating logical window fields at deterministic checkpoint intervals.
 Cancellation matches storage identity and clears fixed-width fields while
 preserving ordinary FILE cursors. Set `cancel_on_interrupt` to release a task's
 watches when it stops, aborts or fails. Cancel retained bindings before saving context.
+Polls validate captured data and all due windows before painting. Missing labels
+show stars; malformed source data shows question marks and can recover when repaired.
 See [dynamic displays](docs/dynamic-displays.md).
 
 Seven dictionary calls now load supplied text catalogs, read numbered/named

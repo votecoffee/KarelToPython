@@ -520,7 +520,9 @@ queue-entry policies; FILE banks remain excluded.
   encodings remain blocked.
   Twelve [dynamic display calls](dynamic-displays.md) now watch static globals and
   explicit ports, with bounded logical checkpoint intervals, atomic field updates
-  and typed cancellation. Opt-in cleanup releases watches on stop, abort or
+  and typed cancellation. Captured data checks distinguish unknown values from
+  malformed storage; all-window preflight prevents partial poll/cancel paints.
+  Opt-in cleanup releases watches on stop, abort or
   failure. Native background timing, live binding persistence and native form
   widgets remain unsupported. Six
   [keyboard/menu calls](keyboard-input.md) now use injected key events, editable
