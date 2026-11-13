@@ -104,15 +104,21 @@ def format_spec(text,kind):
 
 
 class Cell:
-    def __init__(self,reference,bank=None,port=None):self.reference=reference;self.bank=bank;self.port=port
+    def __init__(self,reference,bank=None,port=None,*,window=None):
+        self.reference=reference;self.bank=bank;self.port=port;self.window=window
+    def validate(self,line=None):
+        if self.window is not None:self.window.validate(line)
     def read(self):
+        self.validate()
         if self.bank is None:return self.reference.raw()
         self.bank.poll_pulses()
         return self.bank.values.get(self.port,rt().UNINITIALIZED)
     def writable(self):
         from .extended import OUTPUT_PORTS
+        self.validate()
         return self.bank is None or self.port[0] in OUTPUT_PORTS or self.port in self.bank.simulated
     def write(self,value,line):
+        self.validate(line)
         if self.bank is None:self.reference.set(value,line)
         else:self.bank.write(*self.port,value,line)
 
@@ -175,18 +181,20 @@ class TableControls:
             name=runtime.ascii_string(runtime.require(paths.values[index]),line)
             target=static_value_reference(state,name,line,default_owner=state.program_name)
             if type(target) is not runtime.Reference or target.spec[0]!='ARRAY' or len(runtime.array_dimensions(target.spec))!=1 or runtime.array_leaf_spec(target.spec)[0]!=kind:invalid('Table requires a static global array matching its column type')
-            if len(target.raw().values)<rows:invalid('Table backing array is too short')
+            array=target.raw()
+            if len(array.values)<rows:invalid('Table backing array is too short')
             if occupied&runtime._reference_cells(target):invalid('Table backing data overlaps output/resource storage')
+            window=array.values if type(array.values) is runtime._ArrayWindow else None
             cells=[]
             for row in range(rows):
-                ref=runtime.index_reference(target.raw(),row+1,line)
+                ref=runtime.index_reference(array,row+1,line)
                 if item in (10,11):
                     from .extended import PORT_TYPES
                     port=re.fullmatch(r'([A-Za-z]+)\[(0|[1-9][0-9]*)\]',reference_value(ref))
                     if port is None or PORT_TYPES.get(port[1].upper())!=('BOOLEAN' if item==10 else 'INTEGER'):invalid('Port table requires a matching explicit port path')
                     bank=state.execution.require('ports',line);key=port[1].upper(),int(port[2]);bank._key(*key,line)
-                    cells.append(Cell(ref,bank,key))
-                else:cells.append(Cell(ref))
+                    cells.append(Cell(ref,bank,key,window=window))
+                else:cells.append(Cell(ref,window=window))
             display_kind='BOOLEAN' if item==10 else 'INTEGER' if item in (3,4,8,9,11) else kind
             labels=None
             if item in (3,4,7,10):

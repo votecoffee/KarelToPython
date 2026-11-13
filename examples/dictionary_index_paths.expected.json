@@ -1,0 +1,40 @@
+{
+  "GRID": [
+    [
+      {
+        "uninitialized": true
+      },
+      {
+        "uninitialized": true
+      }
+    ],
+    [
+      7,
+      {
+        "uninitialized": true
+      }
+    ]
+  ],
+  "AXES": [
+    {
+      "axes": [
+        {
+          "uninitialized": true
+        },
+        1.5
+      ]
+    }
+  ],
+  "PATHS": [
+    "GRID[2][1]",
+    "AXES[1][2]"
+  ],
+  "LINES": [
+    "Count=7 Axis=1.5",
+    {
+      "uninitialized": true
+    }
+  ],
+  "STATUS": 0,
+  "DONE": true
+}

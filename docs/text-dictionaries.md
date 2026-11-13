@@ -126,7 +126,11 @@ READ_DICT_V('USER',2,values,lines,status)
 ```
 
 Paths resolve through the existing checked variable service. They can contain
-fields, fixed subscripts and PATH node fields. [PROGRAM] selects an explicitly
+fields, comma or chained fixed subscripts and PATH node fields. Adjacent
+numeric brackets normalize, so `GRID[2][1]` and `GRID[2,1]` select the same scalar.
+Formats still require scalar values; whole ARRAYs and selected rows are not
+formatted implicitly. The shared [display path policy](display-named-rows.md)
+also enables matching rows for headless form metadata and table columns. [PROGRAM] selects an explicitly
 attached owner; omission selects the executing module's globals. Routine-local
 names, arbitrary Python attributes and expressions are unavailable. Only used
 argument slots need initialized paths. Values are fully rendered before output

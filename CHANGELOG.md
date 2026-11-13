@@ -1,5 +1,19 @@
 # Changelog
 
+## 26.1113.050704 - 2026-11-13
+
+- Extend shared dictionary/form/table value paths to chained static indexes
+  and final ordinary ARRAY rows. Dictionary formats retain scalar inputs;
+  form choices/function labels and table columns accept matching STRING or
+  typed data rows with existing bounds and owner rules.
+- Reuse ordinary live prefix capture and complete containing-data validation.
+  Retain original cells across root/list replacement, preserve real-cell
+  overlap checks and reject resized table-row storage before cell reads/writes.
+- Add headless refresh/edit/cleanup, source ownership, system binding and
+  saved-state checks plus an authored chained dictionary-path example.
+- Refresh runtime-only test copies for the shared reference helper and align
+  older malformed-ARRAY/PASSALL CONFIG expectations with supported syntax/input.
+
 ## 26.1113.045148 - 2026-11-13
 
 - Extend Pythonic DAQ_REGPIPE/DAQ_WRITE named paths to selected PATH nodes,

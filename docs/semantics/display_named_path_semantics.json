@@ -1,0 +1,28 @@
+{
+  "feature": "display_named_path",
+  "version": "26.1113.050704",
+  "mode": "pythonic",
+  "policy": "display_named_path_policy",
+  "guide": "docs/display-named-rows.md",
+  "source": "Shared dictionary/form/table static paths; comma/chained indexes, exact named components, executing/explicit owners and supplied system roots",
+  "consumers": "Scalar dictionary formats/form fields; matching one-dimensional STRING choice/function rows and typed table backing rows",
+  "capture": "Existing complete containing-data checks and original-cell live prefixes; root/list replacement retains captured cells; resizing rejects later window or table-cell access",
+  "guards": "Actual-cell output/resource overlap and existing data, field protection, bounds, active FOR and session cleanup rules",
+  "persistence": "Ordinary roots and inactive service configuration; no registered row aliases or live sessions restored",
+  "verification": [
+    "tests/test_display_named_rows.py",
+    "tests/test_dictionaries.py",
+    "tests/test_forms.py",
+    "tests/test_table_controls.py",
+    "examples/dictionary_index_paths.kl"
+  ],
+  "exclusions": [
+    "implicit ARRAY formatting",
+    "nonfinal vectorized fields",
+    "resource rows",
+    "implicit system or routine-local discovery",
+    "physical input or desktop UI",
+    "native widgets/controller/strict equivalence"
+  ],
+  "controller_validated": false
+}

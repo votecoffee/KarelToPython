@@ -6874,6 +6874,15 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         statuses='Portable 0 success, 1 invalid, 2 duplicate, 3 missing, 4 unattached/non-window, 5 capacity; activation requires USER/USER2 menu (9093), unavailable language 33003',
         boundary='Output only: no keyboard suffix/READ, binary/XML, byte seeking, native rendering, glyph styling, abort screen restoration or controller UI acceptance; strict deferred',
         guide='docs/pendant-display.md',controller_validated=False)
+    report['display_named_path_policy']=dict(
+        source='Shared dictionary/form/table static value paths normalize adjacent comma/chained numeric indexes; current/executing linked owner, explicit foreign roots and supplied system qualifiers retain their existing rules',
+        rows='Final ordinary data ARRAY rows/planes use existing complete containing-data validation and live prefix references; form choice/function arrays and table columns still require one remaining dimension and exact scalar kind',
+        scalars='Dictionary formats and ordinary form fields retain scalar type/protection checks; no implicit ARRAY formatting or vectorized field selection',
+        ownership='Capture original cells once; root/list replacement does not redirect them; retained choice/function windows and table cells reject resized backing lists before access without copyback',
+        guards='Existing actual-cell output/resource overlap, bounded choices/labels/rows, writable fields and active FOR rules; generic ARRAY conversions and resource references are unchanged',
+        persistence='Save ordinary roots and inactive service configuration; no named row alias, live window, active session or continuation is restored',
+        boundary='Explicit headless Pythonic data paths only; no hardware input, desktop UI, native widget/ABI behavior, implicit system discovery, controller or strict equivalence',
+        guide='docs/display-named-rows.md',controller_validated=False)
     report['dictionary_policy']=dict(
         calls=['ADD_DICT','CHECK_DICT','READ_DICT','READ_DICT_V','REMOVE_DICT','WRITE_DICT','WRITE_DICT_V'],constants=dict(rt.DICTIONARY_CONSTANTS),
         service='Explicit TextDictionaries with supplied ASCII text source labels; DP_DRAM loads immutable per-language snapshots; no native compressed TX decoding or host file access',

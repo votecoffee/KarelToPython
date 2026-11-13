@@ -47,7 +47,7 @@ it does not render inverse-video highlighting.
 
 Each data item consumes one entry from `value_array`, including display-only
 fields. Entries name static scalar globals, fields, array elements or PATH node
-fields. Use an attached `[PROGRAM]` prefix or `[*SYSTEM*]$path` for an
+fields, with comma or chained static indexes. Use an attached `[PROGRAM]` prefix or `[*SYSTEM*]$path` for an
 explicitly supplied system binding. An optional dot after the system
 qualifier is accepted. The system qualifier uses the existing
 variable lookup over supplied bindings. Native robot tables and controller
@@ -81,7 +81,11 @@ Subwindow enums contain at most 35 choices and end at an empty element or the
 native `"\a"` terminator. Variable enums use a two-line descriptor containing a
 program and array path: element 1 is skipped, value 1 starts at element 2, and
 the first uninitialized entry ends the choices. Variable choices refresh while
-the form is active. Display fields use bounded flags, width and precision.
+the form is active. The descriptor may select an ordinary STRING ARRAY row,
+including a final chained row of a three-dimensional ARRAY. Function-key arrays
+can use the same row selections. These retain original cells and keep existing
+metadata/data overlap checks; see [display value paths](display-named-rows.md).
+Display fields use bounded flags, width and precision.
 
 Program-name selectors use the form-specific manual codes: 1 for TP programs,
 2 for PC, 6 for TP/PC/VR, and 16 for TP/PC. These differ from `PROG_LIST` codes.

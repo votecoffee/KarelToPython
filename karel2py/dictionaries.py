@@ -332,7 +332,10 @@ def static_value_reference(state,path,line=None,*,default_owner=''):
         if program.upper()=='*SYSTEM*':
             path=path.removeprefix('.')
             if not path.startswith('$'):raise DictionaryError(4,'System value paths require a system variable')
-    return state.execution.resolve(state,program,path,line,path_nodes=True)
+    reference=state.execution.resolve(state,program,path,line,path_nodes=True,prefixes=rt()._pythonic())
+    if type(reference) is rt()._ArrayPrefixTarget:
+        reference=rt().array_prefix_reference(reference,line)
+    return reference
 
 
 class TextDictionaries:

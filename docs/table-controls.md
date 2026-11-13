@@ -15,7 +15,10 @@ They open no desktop windows and acquire no physical keyboard input.
 ```
 
 Define the configured window with `DEF_WINDOW` and load the header dictionary
-with `ADD_DICT`.
+with `ADD_DICT`. Named column paths may select an ordinary ARRAY row, including
+a chained row of a three-dimensional ARRAY. The selected result must still be
+one-dimensional and match the column type. See [display value paths](display-named-rows.md)
+for original-cell ownership, overlap and retained-row length checks.
 
 ## Header controls
 

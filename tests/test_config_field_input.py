@@ -316,9 +316,16 @@ class ConfigKeyboardInputTests(unittest.TestCase):
     def test_adjacent_fixed_width_config_fields(self):
         p,_,_=self.keyboard(line_keys('-87'),statement='READ f(cfg.cfg_turn_no1::2,cfg.cfg_turn_no2::1,CR)');v=p.run()['CFG'];self.assertEqual((v['CFG_TURN_NO1'],v['CFG_TURN_NO2']),(-8,7))
 
-    def test_passall_numeric_config_stays_rejected(self):
+    def test_passall_numeric_config_uses_bounded_fixed_field_input(self):
         p,ctx,_=self.keyboard(['7'],statement='READ f(cfg.cfg_turn_no1::1)',prefix='SET_FILE_ATR(f,ATR_PASSALL) ')
-        with self.assertRaisesRegex(rt.KarelRuntimeError,'STRING'):p.run()
+        self.assertEqual(p.run()['CFG']['CFG_TURN_NO1'],7);self.assertEqual(ctx.keyboard.events,[])
+        p,ctx,_=self.keyboard(['8'],statement='READ f(cfg.cfg_turn_no1::1)',prefix='SET_FILE_ATR(f,ATR_PASSALL) ')
+        with self.assertRaises(rt.KarelRuntimeError):p.run()
+        self.assertEqual(p.snapshot()['CFG'],DEFAULT);self.assertEqual(ctx.keyboard.events,[]);close_file(p)
+
+    def test_passall_numeric_config_requires_explicit_positive_width(self):
+        p,ctx,_=self.keyboard(['7'],statement='READ f(cfg.cfg_turn_no1)',prefix='SET_FILE_ATR(f,ATR_PASSALL) ')
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'explicit positive width'):p.run()
         self.assertEqual(p.snapshot()['CFG'],DEFAULT);self.assertEqual([event['key'] for event in ctx.keyboard.events],['7']);close_file(p)
 
     def test_cancel_keyboard_wait_preserves_config(self):

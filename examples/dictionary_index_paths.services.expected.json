@@ -1,0 +1,13 @@
+{
+  "dictionaries": {
+    "sources": {
+      "LABELS.TX": "$1 \"Count=%d Axis=%.1f\""
+    },
+    "languages": [
+      "ENGLISH"
+    ],
+    "default_language": "ENGLISH",
+    "language": "ENGLISH",
+    "loaded": {}
+  }
+}

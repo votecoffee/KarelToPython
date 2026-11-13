@@ -1,0 +1,14 @@
+PROGRAM DICTIONARY_INDEX_PATHS
+VAR grid:ARRAY[2,2]OF INTEGER axes:ARRAY[1]OF JOINTPOS2
+    paths:ARRAY[2]OF STRING[32] lines:ARRAY[2]OF STRING[32]
+    status:INTEGER done:BOOLEAN
+BEGIN
+  IF UNINIT(done) THEN
+    grid[2,1]=7 axes[1][2]=1.5
+    paths[1]='GRID[2][1]' paths[2]='AXES[1][2]'
+    ADD_DICT('labels','USER',DP_DEFAULT,DP_DRAM,status)
+    READ_DICT_V('USER',1,paths,lines,status)
+    REMOVE_DICT('USER',DP_DEFAULT,status)
+    done=TRUE
+  ENDIF
+END DICTIONARY_INDEX_PATHS
