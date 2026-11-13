@@ -1,0 +1,13 @@
+PROGRAM CONSTANT_BUILTIN_LOCALS
+CONST c_character=CHR(ORD('XYZ',2))
+VAR first,second:INTEGER text:STRING[8]
+ROUTINE work(seed:INTEGER):INTEGER
+VAR values:ARRAY[c_count]OF INTEGER
+CONST c_count=STR_LEN(c_token) c_token=SUB_STR('abcde',2,2)
+BEGIN
+  values[1]=seed values[2]=seed+1
+  RETURN values[1]+values[2]
+END work
+BEGIN
+  first=work((3)) second=work((5)) text=c_character
+END CONSTANT_BUILTIN_LOCALS

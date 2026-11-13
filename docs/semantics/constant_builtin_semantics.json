@@ -1,0 +1,20 @@
+{
+  "translator_version": "26.1113.190359",
+  "mode": "pythonic",
+  "scope": "Bounded pure scalar compile-time built-ins in constants and static schemas",
+  "functions": ["ABS", "ACOS", "ASIN", "ATAN2", "CHR", "COS", "EXP", "INDEX", "LN", "ORD", "ROUND", "SIN", "SQRT", "STR_LEN", "SUB_STR", "TAN", "TRUNC"],
+  "contracts": {
+    "evaluation": "Existing checked Pythonic math/string helpers and scalar values; no user/service call or arbitrary Python eval",
+    "dependencies": "Forward/module/local argument references participate in the iterative lexical constant graph; unused definitions, cycles and unknown names remain checked",
+    "schemas": "Constants and direct static dimension/capacity/group expressions resolve before allocation and exact linked interfaces; existing bounds remain",
+    "arguments": "Eager left-to-right evaluation after dependency resolution, fixed arity, finite numeric and bounded ASCII domains, no Boolean truthiness or implicit text parsing",
+    "persistence": "Resolved scalar values only; generated modules never repeat compile-time calls or create runtime constant cells",
+    "metadata": "Scoped function/type/origin rows, optional declaring constant and explicit call bounds/policy",
+    "limits": "4096 distinct cached evaluations per translation and 64 nested pure calls; E_CONSTANT at the source on exhaustion",
+    "exclusions": "User/external routines, callbacks, services, time/system/port/register/FILE/ARRAY/geometry/resource state and Python eval; internal strict call rejection preserved"
+  },
+  "guide": "../constant-builtins.md",
+  "tests": ["tests/test_constant_builtins.py", "tests/test_forward_constants.py", "tests/test_local_constants.py"],
+  "examples": ["examples/constant_builtin_values.kl", "examples/constant_builtin_shapes.kl", "examples/constant_builtin_locals.kl", "examples/constant_builtins_linked/main.kl"],
+  "controller_validated": false
+}

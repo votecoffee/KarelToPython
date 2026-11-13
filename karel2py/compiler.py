@@ -228,6 +228,10 @@ BUILTIN_PROCEDURES = {'CNV_STR_INT': ('STRING',), 'CNV_INT_STR': ('INTEGER', 'IN
                       'CNV_STR_REAL': ('STRING',), 'CNV_REAL_STR': ('REAL', 'INTEGER', 'INTEGER')}
 CONVERSION_OUTPUT_TYPES = {'CNV_STR_INT': 'INTEGER', 'CNV_INT_STR': 'STRING', 'CNV_STR_REAL': 'REAL',
                            'CNV_REAL_STR': 'STRING'}
+CONSTANT_BUILTINS = frozenset({'ABS', 'STR_LEN', 'SUB_STR', 'INDEX', 'CHR', 'ORD',
+    'ROUND', 'TRUNC', 'SQRT', 'EXP', 'LN', 'ATAN2', *rt.UNARY_TRIG_FUNCTIONS})
+MAX_CONSTANT_BUILTIN_CALLS = 4096
+MAX_CONSTANT_BUILTIN_DEPTH = 64
 JOINT_PROCEDURES = {'CNV_REL_JPOS', 'CNV_JPOS_REL'}
 CONFIG_TEXT_PROCEDURES = {'CNV_CONF_STR', 'CNV_STR_CONF'}
 TIME_TEXT_PROCEDURES = {'CNV_STR_TIME', 'CNV_TIME_STR'}
@@ -1275,6 +1279,8 @@ class Emitter:
         self.type_aliases = []
         self.file_prefix_argument_uses=[]
         self.constant_dependency_uses=[];self.constant_resolution_order=[]
+        self.constant_builtin_uses=[];self._constant_builtin_cache={};self._constant_builtin_depth=0
+        self._constant_declaration=None
         self.type_dependency_uses=[];self.type_resolution_order=[];self._type_schema_costs={}
         self.predefined_structure_uses = []
         self.lines, self.source_map, self.features = [], [], set()
@@ -1411,6 +1417,8 @@ class Emitter:
             if expr.kind == 'group': return self.constant(expr.args[0])
             if expr.kind == 'name' and expr.value in self.visible_constants():
                 return self.visible_constants()[expr.value]
+            if self.mode=='pythonic' and expr.kind=='call' and expr.value in CONSTANT_BUILTINS:
+                return self.constant_builtin(expr)
             if self.is_minimum_literal(expr):
                 self.error('E_MININT_LITERAL', 'The manual requires MININT instead of the INTEGER literal -2147483648', expr.token)
             if expr.kind == 'unary': return rt.unary(expr.value, self.constant(expr.args[0]))
@@ -1418,6 +1426,35 @@ class Emitter:
         except rt.KarelRuntimeError as exc:
             self.error('E_CONSTANT', str(exc), expr.token)
         self.error('E_CONSTANT', 'Expected a literal or previously declared constant expression', expr.token)
+
+    def constant_builtin(self,expr):
+        """Evaluate an explicit bounded pure whitelist, never user/service code."""
+        signature,_=BUILTIN_SIGNATURES[expr.value]
+        if len(expr.args)!=len(signature):
+            self.error('E_CONSTANT',f'{expr.value} requires {len(signature)} constant arguments',expr.token)
+        if self._constant_builtin_depth>=MAX_CONSTANT_BUILTIN_DEPTH:
+            self.error('E_CONSTANT','Compile-time built-in call nesting limit reached',expr.token)
+        self._constant_builtin_depth+=1
+        try:values=[self.constant(argument) for argument in expr.args]
+        finally:self._constant_builtin_depth-=1
+        if any(type(value) not in (bool,int,float,str) for value in values):
+            self.error('E_CONSTANT','Compile-time built-ins require scalar constant arguments',expr.token)
+        routine=self.current_routine.name if self.current_routine else None
+        key=(routine,expr.token.line,expr.token.column,expr.value,tuple((type(value),value) for value in values))
+        if key in self._constant_builtin_cache:return self._constant_builtin_cache[key]
+        if len(self._constant_builtin_cache)>=MAX_CONSTANT_BUILTIN_CALLS:
+            self.error('E_CONSTANT','Compile-time built-in evaluation limit reached',expr.token)
+        value=rt.builtin(expr.value,values,expr.token.line)
+        if type(value) not in (bool,int,float,str):
+            self.error('E_CONSTANT','Compile-time built-ins must return scalar data',expr.token)
+        self._constant_builtin_cache[key]=value
+        types={bool:'BOOLEAN',int:'INTEGER',float:'REAL',str:'STRING'}
+        self.constant_builtin_uses.append(dict(function=expr.value,scope='routine' if routine else 'module',routine=routine,
+            constant=self._constant_declaration,line=expr.token.line,column=expr.token.column,
+            argument_types=[types[type(argument)] for argument in values],result_type=types[type(value)],
+            evaluated_at_translation=True,runtime_call=False))
+        self.features.update(('pure scalar compile-time built-in calls',expr.value))
+        return value
 
     def resolve_constants(self,declarations,target,routine=None):
         """Resolve pure scalar declarations without recursive dependency chasing."""
@@ -1428,9 +1465,10 @@ class Emitter:
             while pending:
                 node=pending.pop()
                 if node.kind=='name':references[name].append(node)
-                elif node.kind in ('group','unary','binary'):pending.extend(reversed(node.args))
+                elif node.kind in ('group','unary','binary') or node.kind=='call' and node.value in CONSTANT_BUILTINS:
+                    pending.extend(reversed(node.args))
                 elif node.kind not in ('literal','real_literal','predefined'):
-                    self.error('E_CONSTANT','CONST requires literals, visible constants and pure scalar operators',node.token)
+                    self.error('E_CONSTANT','CONST permits only scalar operators and whitelisted pure built-ins over visible constants',node.token)
         marks={};active=[];positions={}
         global_tokens={token.value:token for token,_ in self.program.constants}
         scope='routine' if routine else 'module'
@@ -1441,7 +1479,9 @@ class Emitter:
             while pending:
                 name,children=pending[-1];reference=next(children,None)
                 if reference is None:
-                    token,expr=definitions[name];value=self.constant(expr)
+                    token,expr=definitions[name];previous=self._constant_declaration;self._constant_declaration=name
+                    try:value=self.constant(expr)
+                    finally:self._constant_declaration=previous
                     if type(value) is int:
                         try:rt.integer(value)
                         except rt.KarelRuntimeError as exc:self.error('E_CONSTANT',str(exc),token)
@@ -5342,6 +5382,7 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict', 
         source_checkpoints=sorted(emitter.source_checkpoints),
         skippable_checkpoints=sorted(emitter.skippable_checkpoints),
         constant_dependencies=emitter.constant_dependency_uses,constant_resolution_order=emitter.constant_resolution_order,
+        constant_builtin_uses=emitter.constant_builtin_uses,
         global_constants=[dict(name=t.value,value=emitter.constants[t.value],line=t.line,column=t.column) for t,_ in program.constants],
         local_constant_policy=dict(scope='Declaring routine only; lexical resolution, not caller inheritance',
                                    declarations='Source order; existing literal/previous-constant expression subset',
@@ -6703,11 +6744,19 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
     report['forward_constant_policy']=dict(
         declarations='Acyclic global CONST sections resolve before types/globals/interfaces; each routine resolves its own CONST sections before local VAR shapes and capacities',
         resolution='Iterative dependency-first walk validates every definition, including unused ones; E_CONSTANT for unknown/nonconstant expressions and bounded explicit cycle paths',
-        evaluation='Existing checked scalar literal, predefined, grouping, unary and binary operators only; no built-in/user calls, storage reads, callbacks or arbitrary Python evaluation',
+        evaluation='Checked scalar literals/operators and explicitly whitelisted pure built-in calls under constant_builtin_policy; no user calls, storage reads, callbacks or arbitrary Python evaluation',
         scope='Module constants plus declaring-routine constants only; interfaces use module constants and never local or caller/sibling names; existing namespace and immutability guards remain',
         metadata='global_constants and local_constants retain source declaration order; constant_dependencies records reference origins, scope and forward edges; constant_resolution_order records actual evaluation order',
         boundary='Authored offline Pythonic extension; no recursive constants, local TYPE sections, native compiler/controller or strict equivalence; internal legacy declaration ordering remains',
         guide='docs/forward-constants.md',controller_validated=False)
+    report['constant_builtin_policy']=dict(functions=sorted(CONSTANT_BUILTINS),
+        evaluation='Eager left-to-right scalar argument evaluation using existing Pythonic runtime math/string helpers during translation; resolved scalar values only in generated code',
+        dependencies='Module or declaring-routine constant graphs, including forward names inside nested call arguments; existing cycle, namespace and immutability checks remain',
+        domains='Existing INTEGER/REAL/BOOLEAN/ASCII STRING domains, argument arity, one-based indexing, finite math and checked dimensions/capacities; no invented values',
+        bounds=dict(evaluations=MAX_CONSTANT_BUILTIN_CALLS,nested_calls=MAX_CONSTANT_BUILTIN_DEPTH),
+        excluded='User/external routines, services, state/time/array/geometry/resource reads, arbitrary Python eval and callback execution; internal strict calls remain rejected',
+        boundary='Authored Pythonic source extension; no native CONST-call/compiler/controller equivalence',
+        guide='docs/constant-builtins.md',controller_validated=False)
     report['local_constant_policy']['declarations']='Pythonic acyclic dependencies across all declaring-routine CONST sections, resolved before local VAR schemas; forward_constant_policy retains module-only interfaces'
     report['forward_type_policy']=dict(
         source='Acyclic named dependencies across module TYPE sections, aliases, ARRAY elements, STRUCTURE fields, PATH NODEDATA/PATHHEADER and routine interfaces declared before their types',
@@ -6868,7 +6917,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         persistence='Existing STRUCTURE/PATH tuple schemas and codecs; no new JSON format or native binary layout',
         boundary='No obsolete COMMON_ASSOC/GROUP_ASSOC layouts, native screen execution, automatic UFRAME/UTOOL recording or controller storage/ABI claim',
         guide='docs/path-declarations.md',controller_validated=False)
-    for row in [*report['path_clause_uses'],*report['predefined_structure_uses'],*report['type_dependencies'],*report['constant_dependencies'],*report['global_constants'],*[row for rows in report['local_constants'].values() for row in rows]]:
+    for row in [*report['path_clause_uses'],*report['predefined_structure_uses'],*report['type_dependencies'],*report['constant_dependencies'],*report['constant_builtin_uses'],*report['global_constants'],*[row for rows in report['local_constants'].values() for row in rows]]:
         label,line,stack=expansion.origin(row['line']) or (str(filename),row['line'],())
         row.update(source_file=label,source_line=line,source_column=row['column'],include_stack=list(stack))
     report['diagnostic_policy']=dict(

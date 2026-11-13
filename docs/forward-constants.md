@@ -32,9 +32,11 @@ produce E_CONSTANT with a bounded dependency path. A false Boolean operand does
 not hide an invalid dependency; constant operators retain their eager policy.
 
 Expressions retain the existing checked scalar evaluator: literals, predefined
-constants, grouping, unary and binary operators. Built-in/user calls, storage
-selectors, system reads, Python evaluation and callbacks are not executed to
-discover constants. INTEGER ranges, MININT spelling, finite REAL values, ASCII
+constants, grouping, unary and binary operators. [Pure scalar built-in calls](constant-builtins.md)
+now use an explicit 17-function whitelist, with checked arity and bounded nested
+evaluation. Their argument references participate in the same dependency graph.
+User/external calls, storage selectors, system reads, Python evaluation and
+callbacks remain excluded. INTEGER ranges, MININT spelling, finite REAL values, ASCII
 STRING bounds and Boolean domains retain their existing diagnostics. MAXINT may
 remain a constant but cannot become ordinary initialized INTEGER storage.
 

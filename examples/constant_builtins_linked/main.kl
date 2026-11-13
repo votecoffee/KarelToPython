@@ -1,0 +1,8 @@
+PROGRAM MAIN
+CONST c_count=STR_LEN('ab')
+TYPE row_t=ARRAY[c_count]OF INTEGER
+VAR values:row_t done:BOOLEAN
+ROUTINE fill(p:row_t) FROM LIB
+BEGIN
+  IF UNINIT(done) THEN fill(values) done=TRUE ENDIF
+END MAIN

@@ -1,0 +1,7 @@
+PROGRAM LIB
+CONST c_count=ROUND(2.5)
+TYPE row_t=ARRAY[c_count]OF INTEGER
+ROUTINE fill(p:row_t)
+CONST c_value=ABS(-7)
+BEGIN p[1]=c_value p[2]=c_value+1 END fill
+BEGIN END LIB

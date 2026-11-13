@@ -40,7 +40,9 @@ not inferred or persisted.
 
 [Forward constants](forward-constants.md) now resolve acyclic chains across module
 CONST sections and each routine's own CONST sections before dependent schemas.
-Unknown names, cycles, calls and runtime reads remain errors. Local constants do
+Whitelisted [pure math/string calls](constant-builtins.md) now fold under bounded
+checked evaluation. Unknown names, cycles, user/service calls and runtime reads
+remain errors. Local constants do
 not enter global type declarations, routine interfaces or caller/sibling scopes.
 
 ## Language and source forms

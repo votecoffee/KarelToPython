@@ -299,8 +299,8 @@ class LocalConstantRejectionTests(unittest.TestCase):
     def test_routine_local_type_still_prohibited(self):
         self.reject('ROUTINE work CONST size=2 TYPE row_t=ARRAY[size] OF INTEGER BEGIN END work', 'E_ROUTINE_LOCALS')
 
-    def test_builtin_calls_in_constants_remain_blocked(self):
-        self.reject('ROUTINE work CONST root=SQRT(4.0) BEGIN END work', 'E_CONSTANT')
+    def test_stateful_builtin_calls_in_constants_remain_blocked(self):
+        self.reject('ROUTINE work CONST root=GET_USEC_TIM() BEGIN END work', 'E_CONSTANT')
 
     def test_user_calls_in_constants_remain_blocked(self):
         self.reject('ROUTINE value: INTEGER BEGIN RETURN 7 END value\nROUTINE work CONST a=value() BEGIN END work', 'E_CONSTANT')

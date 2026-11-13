@@ -1,0 +1,16 @@
+PROGRAM CONSTANT_BUILTIN_VALUES
+CONST c_abs=ABS(-7) c_round=ROUND(2.5) c_trunc=TRUNC(-2.9)
+  c_sqrt=SQRT(9) c_exp=EXP(0) c_ln=LN(1)
+  c_sin=SIN(0) c_cos=COS(0) c_tan=TAN(0)
+  c_asin=ASIN(0) c_acos=ACOS(1) c_atan=ATAN2(1,1)
+  c_length=STR_LEN('ready') c_fragment=SUB_STR('abcde',2,3)
+  c_index=INDEX('abc','b') c_character=CHR(65) c_code=ORD('AZ',2)
+VAR integers:ARRAY[6]OF INTEGER reals:ARRAY[9]OF REAL text:STRING[8]
+BEGIN
+  integers[1]=c_abs integers[2]=c_round integers[3]=c_trunc
+  integers[4]=c_length integers[5]=c_index integers[6]=c_code
+  reals[1]=c_sqrt reals[2]=c_exp reals[3]=c_ln
+  reals[4]=c_sin reals[5]=c_cos reals[6]=c_tan
+  reals[7]=c_asin reals[8]=c_acos reals[9]=c_atan
+  text=c_fragment+c_character
+END CONSTANT_BUILTIN_VALUES

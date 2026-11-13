@@ -1,5 +1,18 @@
 # Changelog
 
+## 26.1113.190359 - 2026-11-13
+
+- Add checked compile-time evaluation for 17 pure scalar math/string built-ins
+  in Pythonic CONST expressions and static schemas. Support nested calls,
+  forward dependencies, local declarations and linked-module interfaces.
+- Reuse the existing runtime numeric/string domains, enforce arity, nesting and
+  evaluation limits, and emit resolved scalar values without runtime calls.
+  Keep user/external routines, services, storage and geometry/resource reads blocked.
+- Record scoped call/type/source origins and policy metadata. Preserve internal
+  strict call rejection, existing namespace/cycle checks and exact linked schemas.
+- Add three standalone authored examples, one linked project and focused value,
+  shape, nonexecution, diagnostics and compatibility checks. Update the README.
+
 ## 26.1113.184321 - 2026-11-13
 
 - Add `runner refresh old.run.json new.run.json [--target converted-v2.py]`.

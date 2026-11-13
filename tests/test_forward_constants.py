@@ -110,7 +110,7 @@ class ForwardConstantGuards(unittest.TestCase):
     def test_unknown(self):self.assertIn('MISSING',str(self.reject('CONST first=missing')))
     def test_unused_invalid_chain(self):self.reject('CONST first=7 unused=missing')
     def test_unused_cycle(self):self.reject('CONST first=7 a=b b=a')
-    def test_builtin_call_rejected(self):self.reject('CONST first=SQRT(4.0)')
+    def test_stateful_builtin_call_rejected(self):self.reject('CONST first=GET_USEC_TIM()')
     def test_user_call_rejected(self):self.reject('CONST first=answer()',routines='ROUTINE answer:INTEGER BEGIN RETURN 7 END answer')
     def test_variable_read_rejected(self):self.reject('CONST first=n')
     def test_index_read_rejected(self):self.reject('CONST first=items[1]',decl='items:ARRAY[1]OF INTEGER')

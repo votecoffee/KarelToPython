@@ -258,6 +258,11 @@ and routine chains before dependent schemas. Local VAR declarations may precede
 their local size/capacity constants; lexical scope, checked values and module-only
 routine interfaces remain enforced.
 
+[Pure compile-time calls](docs/constant-builtins.md) now resolve 17 scalar math
+and string built-ins in CONST expressions and static schemas. Nested calls and
+forward/local dependencies use checked Pythonic values; user routines, services
+and runtime storage remain excluded from constant evaluation.
+
 [Forward type references](docs/forward-types.md) now resolve acyclic aliases,
 ARRAY/STRUCTURE components, PATH layouts and routine interfaces before allocation.
 Original nominal identities and source-order metadata remain; cycles, unknown
@@ -458,7 +463,7 @@ SET_JPOS_REG. They capture inputs before later selectors and stage converted
 values under destination/status guards in the selected register group.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1113.184321**. It is a
+tool are named **karel2py**. The current implementation is **26.1113.190359**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 [Formatted empty collection output](docs/empty-collection-output.md) lets the same
@@ -1495,9 +1500,9 @@ workflows. To run hosted checks, open the repository's **Actions** tab, select
 **Tests (manual)** or **GUI checks (manual)**, then choose **Run workflow**.
 Routine development validation uses the local CLI commands above.
 
-The example runner translates 591 authored runnable examples, checks complete
+The example runner translates 594 authored runnable examples, checks complete
 expected snapshots and validates their output, delay, context and termination
-fixtures, plus 243 complete linked source projects. It also checks that nested
+fixtures, plus 244 complete linked source projects. It also checks that nested
 MOVE actions inside local handlers are rejected.
 It uses an injected sleeper, so the delay fixture does not wait in real time.
 
