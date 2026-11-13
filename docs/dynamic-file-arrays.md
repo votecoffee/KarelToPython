@@ -1,5 +1,9 @@
 # Dynamic FILE arrays
 
+[Fixed CREATE_VAR ARRAY type strings](dynamic-fixed-arrays.md) now supply
+literal shapes, including normalized inline layers, under the existing
+resource ownership and persistence rules.
+
 Pythonic CREATE_VAR now accepts `FILE` with dimensions, `ARRAY OF FILE`, transparent
 FILE aliases and supplied named FILE ARRAY types. Each new cell owns a fresh closed
 descriptor. It uses the [static FILE ARRAY](file-arrays.md) borrowed-storage rules

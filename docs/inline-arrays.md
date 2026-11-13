@@ -66,7 +66,8 @@ Each fixed dimension is positive; the existing 32767-leaf/resource and 64-level
 schema bounds remain. A fourth directly written ARRAY layer is rejected during
 parsing, before arbitrarily deep source nesting can recurse. Ragged dimensions,
 equal-count reshaping and wildcard TYPE/field/local storage remain rejected.
-Dynamic CREATE_VAR type strings retain their separate grammar.
+[Fixed CREATE_VAR type strings](dynamic-fixed-arrays.md) now use a separate
+bounded literal grammar, with existing dimension slots for extra outer storage.
 
 Reports include `inline_array_syntax_policy` and `inline_array_syntaxes`.
 Each normalization records its rank, terminal source category, physical source

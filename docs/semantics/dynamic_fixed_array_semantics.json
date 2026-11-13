@@ -1,0 +1,24 @@
+{
+  "feature": "dynamic_fixed_array_types",
+  "version": "26.1113.031802",
+  "mode": "pythonic",
+  "policy": "dynamic_fixed_array_policy",
+  "guide": "docs/dynamic-fixed-arrays.md",
+  "normalization": "Combine literal fixed ARRAY layers and prepend supplied outer dimensions before allocation; retain named components",
+  "terminals": ["data", "FILE", "PATH", "QUEUE_TYPE", "supplied_aliases"],
+  "dimensions": "Positive bounded decimal literals in type text; contiguous dimension slots retain inner-to-outer order",
+  "publication": "Existing preflight, shared quota and checkpoint rechecks; budget failures preserve status and unpublished roots",
+  "persistence": "Existing concrete schemas, data/logical collection state and created FILE closed-allocation markers",
+  "verification": [
+    "tests/test_dynamic_fixed_arrays.py",
+    "examples/dynamic_fixed_arrays.kl"
+  ],
+  "exclusions": [
+    "wildcard, signed or expression dimensions",
+    "repeated bare ARRAY layers",
+    "anonymous nested runtime schemas or inferred type owners",
+    "live FILE, buffer-link or suspended-stack restoration",
+    "native compiler, allocation, controller or strict equivalence"
+  ],
+  "controller_validated": false
+}

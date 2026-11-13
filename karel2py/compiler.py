@@ -7927,6 +7927,17 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
     for row in report['inline_array_syntaxes']:
         label,line,stack=expansion.origin(row['line']) or (str(filename),row['line'],())
         row.update(source_file=label,source_line=line,source_column=row['column'],include_stack=list(stack))
+    report['dynamic_fixed_array_policy']=dict(
+        syntax='Pythonic CREATE_VAR fixed ARRAY[positive decimal literals] OF layers; comma or adjacent fixed layers normalize to existing outer dimensions; one optional bare ARRAY OF prefix still requires positive dimension slots',
+        shape='Literal dimensions are outer-to-inner; existing contiguous inner/middle/outer slots prepend new outer dimensions in reversed order; total logical rank includes named components and stays at most three',
+        identity='Resolve terminal data/FILE/PATH/QUEUE types or supplied aliases through the explicit type program; named ARRAY components preserve identity and storage boundaries',
+        validation='Parse bounded ASCII type text without source evaluation; existing per-root schemas, 32767 leaf/resource units, group/pool, shared reservations, collisions and checkpoint rechecks precede publication',
+        persistence='Existing concrete ARRAY schemas, created FILE closed-allocation markers and logical collection/data JSON or supported archives; no new anonymous nested runtime layouts or live resources',
+        boundary='No wildcard, signed or expression dimensions, repeated bare ARRAY layers, implicit type discovery, ragged storage, native allocation/compiler/controller or strict equivalence',
+        guide='docs/dynamic-fixed-arrays.md',controller_validated=False)
+    report['dynamic_array_creation_policy']['syntax']='Existing ARRAY OF data/aliases and named outer dimensions, plus fixed literal ARRAY type strings under dynamic_fixed_array_policy'
+    report['dynamic_array_creation_policy']['boundaries']='No runtime wildcard/ragged dimensions, expression dimensions or repeated bare ARRAY layers; resource banks retain separate FILE/collection rules; no native allocation/layout/group effects, controller or strict equivalence'
+    report['dynamic_file_array_policy']['source']+='; fixed literal type strings follow dynamic_fixed_array_policy'
     from .reporting import finalize_pythonic_report
     finalize_pythonic_report(report)
     expansion.annotate(report)

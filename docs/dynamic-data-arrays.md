@@ -17,6 +17,10 @@ CREATE_VAR('CACHE','ITEM','','ROW_T',0,2,0,0,status)
 The [named-array example](../examples/dynamic_array_named.kl) fills it through an
 exact BYNAME formal and transfers its second row using GET_VAR.
 
+[Fixed ARRAY type strings](dynamic-fixed-arrays.md) now also supply literal
+shapes such as `ARRAY[2]OF ARRAY[3]OF INTEGER`, with optional extra outer
+dimension slots and unchanged data/resource ownership checks.
+
 ## Type forms and dimensions
 
 | Requested type | Dimension arguments | Result |
@@ -37,10 +41,10 @@ are introduced. Used slots remain contiguous positive INTEGER values in 1..32767
 `ARRAY OF` requires a positive inner slot. It accepts existing scalar data,
 bounded STRING, VECTOR/CONFIG/Cartesian/joint and resolved data-record/ARRAY
 aliases. STRING defaults to capacity 12; explicit capacities stay within 1..254.
-Case and surrounding/repeated separating spaces are normalized. Inline recursive
-syntax such as `ARRAY OF ARRAY OF INTEGER` is not parsed: supply a named inner
-type. [FILE arrays](dynamic-file-arrays.md) use separate descriptor-allocation
-rules. [PATH/QUEUE arrays](collection-arrays.md) now use separate reference-only
+Case and surrounding/repeated separating spaces are normalized. Repeated bare
+syntax such as `ARRAY OF ARRAY OF INTEGER` remains rejected: supply fixed literal
+layers or a named inner type. [FILE arrays](dynamic-file-arrays.md) use separate
+descriptor-allocation rules. [PATH/QUEUE arrays](collection-arrays.md) use separate reference-only
 contracts; resource fields remain excluded.
 
 The type program still selects explicitly attached source layouts. A blank type

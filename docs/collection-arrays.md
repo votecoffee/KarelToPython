@@ -1,5 +1,9 @@
 # PATH and QUEUE_TYPE arrays
 
+[Fixed CREATE_VAR ARRAY type strings](dynamic-fixed-arrays.md) now supply
+literal shapes, including normalized inline layers, under the existing
+resource ownership and persistence rules.
+
 [Owned PATH counters](path-for-counters.md) now support integral header/node/bank
 leaves under complete-root and retained-alias proof. PATH node USING captures
 retain the selected node object across later deletion or replacement.

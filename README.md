@@ -433,7 +433,7 @@ existing collision, busy-file, quota and publication checks remain active.
 and RENAME_FILE reuse matched characters in their destination filenames.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1113.030641**. It is a
+tool are named **karel2py**. The current implementation is **26.1113.031802**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 [Formatted empty collection output](docs/empty-collection-output.md) lets the same
@@ -1160,9 +1160,11 @@ through GET_VAR/SET_VAR. Receivers bind an explicit buffer on their next queue
 operation. Whole-queue transfers charge the step budget for source and receiver
 entries. See [queue transfers](docs/queue-transfers.md).
 
-[Dynamic typed data arrays](docs/dynamic-data-arrays.md) now accept ARRAY OF data
-types/aliases and extra outer dimensions around named arrays. Created layouts
-retain typed children through BYNAME, transfers, JSON and portable archives.
+[Dynamic typed data arrays](docs/dynamic-data-arrays.md) accept ARRAY OF data
+types/aliases and extra outer dimensions around named arrays. [Fixed CREATE_VAR
+type strings](docs/dynamic-fixed-arrays.md) now also supply literal ARRAY shapes
+for data, FILE, PATH and queue banks. Created layouts retain checked ownership
+through BYNAME, transfers, JSON and supported portable archives.
 
 [Selected ARRAY variable transfers](docs/prefix-variable-transfers.md) now let
 GET_VAR/SET_VAR copy named rows/planes, capture SET source prefixes and write GET
@@ -1392,7 +1394,7 @@ workflows. To run hosted checks, open the repository's **Actions** tab, select
 **Tests (manual)** or **GUI checks (manual)**, then choose **Run workflow**.
 Routine development validation uses the local CLI commands above.
 
-The example runner translates 578 authored runnable examples, checks complete
+The example runner translates 579 authored runnable examples, checks complete
 expected snapshots and validates their output, delay, context and termination
 fixtures, plus 234 complete linked source projects. It also checks that nested
 MOVE actions inside local handlers are rejected.

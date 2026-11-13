@@ -1,0 +1,19 @@
+PROGRAM DYNAMIC_FIXED_ARRAYS
+VAR entry,status,total:INTEGER
+    row:ARRAY[3]OF INTEGER
+    done:BOOLEAN
+ROUTINE fill(data:ARRAY OF ARRAY OF INTEGER)
+BEGIN
+  data[1,1]=1 data[1,2]=2 data[1,3]=3
+  data[2,1]=4 data[2,2]=5 data[2,3]=6
+  row=data[2]
+  total=row[1]+row[2]+row[3]
+  WRITE(data::2,CR)
+END fill
+BEGIN
+  IF UNINIT(done) THEN
+    CREATE_VAR('CACHE','ITEM','','ARRAY[2]OF ARRAY[3]OF INTEGER',0,0,0,0,status)
+    fill(BYNAME('CACHE','ITEM',entry))
+    done=TRUE
+  ENDIF
+END DYNAMIC_FIXED_ARRAYS

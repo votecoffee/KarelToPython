@@ -1,5 +1,16 @@
 # Changelog
 
+## 26.1113.031802 - 2026-11-13
+
+- Accept fixed literal ARRAY type strings in Pythonic CREATE_VAR, including
+  comma-separated dimensions and normalized inline layers for data, FILE,
+  PATH and QUEUE_TYPE banks. Supplied dimension slots add outer dimensions;
+  named components keep their identities and explicit owner resolution.
+- Retain schema, quota, group/pool, collision, budget and checkpoint guards.
+  Add an authored example and allocation, data/resource, linkage, archive,
+  JSON replay and failed-publication regressions. Repeated bare layers,
+  wildcard/expression dimensions and anonymous nested runtime schemas remain blocked.
+
 ## 26.1113.030641 - 2026-11-13
 
 - Accept inline ARRAY OF ARRAY source spellings in globals, locals, TYPEs,
