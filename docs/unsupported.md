@@ -401,7 +401,9 @@ queue-entry policies; FILE banks remain excluded.
   native streaming/error equivalence. All five [XML input calls](xml-input.md)
   now support bounded ASCII FILE scanning and [checked nested scalar/ARRAY leaf updates](xml-aggregate-paths.md),
   including BYTE/SHORT and [explicit built-in record roots](xml-record-roots.md),
-  with atomic publication. An explicit qualified tag registration adds
+  with atomic publication. [Captured target checks](xml-publication.md) now retain
+  data/storage and status bindings through staging, preserving callback edits on
+  conflicting publication. An explicit qualified tag registration adds
   URI-based scanning and expanded attribute names. Live scanners and
   registrations are omitted from saved JSON.
 

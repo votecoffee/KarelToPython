@@ -102,6 +102,9 @@ before publication, preserving existing nested storage identities on success.
 Staging charges the execution budget for every declared scalar leaf and each
 attribute. Unmentioned fields retain their values, including uninitialized
 markers. No variables or types are created implicitly.
+[Publication checks](xml-publication.md) retain target values, storage and status
+bindings through staging. Post-capture conflicts preserve callback edits and fail
+before a valid staged update or completion status can overwrite prior state.
 
 The call needs an attribute-bearing start or self-closing event; an ordinary end
 event is not eligible. Output overlap checks include the target and status cell.

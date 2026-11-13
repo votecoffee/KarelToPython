@@ -1,5 +1,16 @@
 # Changelog
 
+## 26.1113.041016 - 2026-11-13
+
+- Fix XML_SETVAR overwriting callback edits made after target copying. Retain
+  bounded data/storage witnesses and captured target/status bindings, then verify
+  the target before publishing any valid staged XML update.
+- Preserve completed edits, status, FILE position/status and current event on a
+  publication conflict. Keep pre-copy edits, same-value scalar writes, unrelated
+  data changes and ordinary status-value completion behavior.
+- Add nested record/ARRAY/joint, live-view, builtin/PATH, signed-zero, binding,
+  linked-source and pause/resume regressions; retain existing XML root/path guards.
+
 ## 26.1113.034417 - 2026-11-13
 
 - Extend Pythonic ADD_BYNAMEPC to complete ordinary ARRAY, record and joint

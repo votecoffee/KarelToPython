@@ -1,5 +1,9 @@
 # Built-in record roots for XML_SETVAR
 
+[XML publication checks](xml-publication.md) now detect post-capture target or
+status-binding changes, preserving completed callback edits and rejecting stale
+staged updates under the existing root/path contracts.
+
 Pythonic XML_SETVAR accepts explicit VECTOR, CONFIG, XYZWPR, XYZWPREXT and POSITION
 record roots alongside user STRUCTURE roots. The root may be a declared global,
 supplied binding, attached program's record, selected ARRAY element or static

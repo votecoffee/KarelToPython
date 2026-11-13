@@ -1,5 +1,9 @@
 # XML attributes targeting aggregate leaves
 
+[XML publication checks](xml-publication.md) now detect post-capture target or
+status-binding changes, preserving completed callback edits and rejecting stale
+staged updates under the existing root/path contracts.
+
 Pythonic `XML_SETVAR` can apply attributes to scalar leaves inside an explicitly
 resolved user STRUCTURE or [built-in record root](xml-record-roots.md). Flat
 attribute names retain their previous behavior.

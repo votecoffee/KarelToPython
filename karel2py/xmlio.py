@@ -235,21 +235,95 @@ class XMLInput:
         self.current.update(offset=offset,read=True);self.handle.status=0
 
 
+def _reference_location(reference):
+    return type(reference),reference.spec,reference.storage,reference.key
+
+
+def _same_location(reference,location):
+    kind,spec,storage,key=location
+    try:
+        return (type(reference) is kind and reference.spec==spec and reference.storage is storage
+                and type(reference.key) is type(key) and reference.key==key
+                and (type(storage) is dict and key in storage
+                     or type(storage) is list and type(key) is int and 0<=key<len(storage)))
+    except (AttributeError,TypeError,KeyError,IndexError):return False
+
+
+def _variable_stamp(spec,value):
+    """Bounded data tokens plus strong storage owners; never call task hooks."""
+    runtime=rt();rows=[];owners=[]
+    def visit(expected,item):
+        kind=expected[0]
+        if kind=='ARRAY':
+            shape=runtime.array_shape(expected)
+            size=1
+            for dimension in shape:size*=dimension
+            if (type(item) is not runtime.Array or item.spec!=expected or item.shape!=shape
+                    or not runtime._array_storage(item.values) or len(item.values)!=size):raise ValueError('ARRAY storage changed')
+            mapping=item.values
+            view=(() if type(mapping) is list else
+                  (id(mapping.storage),mapping.start,mapping.size,mapping.length))
+            if type(mapping) is not list:owners.append(mapping.storage)
+            owners.extend((item,mapping));rows.append(('ARRAY',id(item),id(mapping),shape,view))
+            for child in mapping:visit(expected[2],child)
+        elif kind in runtime.RECORD_TYPES:
+            fields=runtime.record_fields(expected)
+            if (type(item) is not runtime.Structure or item.spec!=expected
+                    or type(item.types) is not dict or item.types!=dict(fields)
+                    or type(item.values) is not dict or item.values.keys()!=item.types.keys()
+                    or type(item.read_only) is not bool):raise ValueError('Record storage changed')
+            owners.extend((item,item.values,item.types))
+            rows.append(('RECORD',id(item),id(item.values),id(item.types),item.read_only))
+            for name,member in fields:visit(member,item.values[name])
+        elif kind=='JOINTPOS':
+            if (type(item) is not runtime.JointPosition or item.spec!=expected
+                    or type(item.values) is not list or len(item.values)!=expected[1]):raise ValueError('Joint storage changed')
+            owners.extend((item,item.values));rows.append(('JOINTPOS',id(item),id(item.values)))
+            for axis in item.values:visit(runtime.REAL,axis)
+        elif item is runtime.UNINITIALIZED:rows.append(('missing',))
+        elif item is runtime.UNKNOWN_BYTE:rows.append(('unknown_byte',))
+        elif type(item) in (int,bool,str):rows.append((type(item),item))
+        elif type(item) is float:rows.append((float,item.hex()))
+        else:raise ValueError('Scalar storage changed')
+    visit(spec,value)
+    return tuple(rows),tuple(owners)
+
+
+class _VariablePublication:
+    def __init__(self,target,location,line):
+        self.target,self.location,self.line=target,location,line
+        self.original=target.raw()
+        self.stamp,self.owners=_variable_stamp(location[1],self.original)
+
+    def verify(self):
+        try:
+            if not _same_location(self.target,self.location) or self.target.raw() is not self.original:raise ValueError('Target binding changed')
+            current,_=_variable_stamp(self.location[1],self.original)
+            if current!=self.stamp:raise ValueError('Target data changed')
+        except (ValueError,TypeError,KeyError,IndexError,AttributeError,rt().KarelRuntimeError) as error:
+            raise rt().KarelRuntimeError('XML_SETVAR target changed during staging',self.line) from error
+
+
 def prepare_variables(context,state,session,args,line=None):
     runtime=rt();current=session.current;status=args[3]
     if current is None or not current['attributes_valid']: return 1,None
     try: target=context.resolve(state,runtime.ascii_string(args[1],line),runtime.ascii_string(args[2],line),line,path_nodes=True)
     except runtime.KarelRuntimeError: return 1,None
     if target.spec[0] not in runtime.RECORD_TYPES or type(target) is not runtime.Reference: return 2,None
+    location=_reference_location(target)
     try: cost=runtime._validate_data_schema(target.spec,line)
     except runtime.KarelRuntimeError: return 2,None
     for _ in range(cost):state.tick(line)
+    if not _same_location(target,location):
+        raise runtime.KarelRuntimeError('XML_SETVAR target binding changed during preparation',line)
     if runtime._reference_cells(target)&runtime._reference_cells(status):
         raise runtime.KarelRuntimeError('XML_SETVAR target overlaps status output',line)
     # Stage the complete value so a late path/domain/protection failure cannot
     # publish an earlier attribute. Replacing preserves existing storage identities.
-    try: staged=runtime.checked(target.spec,target.raw(),line)
-    except runtime.KarelRuntimeError: return 2,None
+    try:
+        staged=runtime.checked(target.spec,target.raw(),line)
+        publication=_VariablePublication(target,location,line)
+    except (ValueError,TypeError,KeyError,IndexError,AttributeError,runtime.KarelRuntimeError): return 2,None
     seen=set()
     for key,value in current['attrs']:
         state.tick(line)
@@ -291,13 +365,14 @@ def prepare_variables(context,state,session,args,line=None):
             reference.set(converted,line)
         except (ValueError,OverflowError,runtime.KarelRuntimeError):
             return 2,None
-    return 0,(target,staged)
+    return 0,(target,staged,publication)
 
 
 def invoke_xml(context,state,name,args,line=None):
     from .fileops import charge_file_bytes
 
     handle=args[0];handle.require_open(line)
+    status_location=_reference_location(args[-1]) if name=='XML_SETVAR' else None
     if not handle.xml or handle.mode!='R' or handle.binary:
         raise rt().KarelRuntimeError('XML requires ATR_XML and a text FILE opened RO',line)
     fresh = handle.xml_session is None
@@ -325,8 +400,11 @@ def invoke_xml(context,state,name,args,line=None):
         if name=='XML_SETVAR':
             code, plan = prepare_variables(context, state, session, args, line)
             verify()
+            if not _same_location(args[-1],status_location):
+                raise rt().KarelRuntimeError('XML_SETVAR status binding changed during preparation',line)
             if plan is not None:
-                target, staged = plan
+                target, staged, publication = plan
+                publication.verify()
                 target.set(staged, line)
         else:
             if not fresh:

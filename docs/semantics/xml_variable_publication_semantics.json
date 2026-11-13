@@ -1,0 +1,15 @@
+{
+  "feature": "xml_variable_publication",
+  "version": "26.1113.041016",
+  "mode": "pythonic",
+  "policy": "xml_variable_publication_policy",
+  "guide": "docs/xml-publication.md",
+  "capture": "Existing leaf charges precede target copying and bounded data/storage witnesses with strong owners",
+  "verification": ["reference_binding", "schema", "container_identity", "backing_storage", "shape", "type_map", "protection", "typed_scalar_values"],
+  "conflict": "Preserve callback edits, original status, FILE cursor/status and event; publish no staged XML fields",
+  "allowed": "Pre-copy data edits, unchanged typed scalar values and unrelated edits; ordinary status-value completion semantics",
+  "persistence": "Ordinary data only; no publication witness or active session restoration",
+  "regressions": ["tests/test_xml_publication.py", "tests/test_xml_budget.py", "tests/test_xml_aggregate_paths.py", "tests/test_xml_record_roots.py"],
+  "exclusions": ["new root forms", "XML output", "native concurrency/controller or strict equivalence"],
+  "controller_validated": false
+}

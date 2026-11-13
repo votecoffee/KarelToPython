@@ -7959,6 +7959,15 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         guide='docs/pc-named-data.md',controller_validated=False)
     report['pc_exchange_policy']['lookup']='Existing INTEGER/REAL/STRING and complete Pythonic ordinary data under pc_named_data_policy; current/attached globals or explicit roots with static paths; system/resource and incomplete flat-prefix lookup remain excluded'
     report['pc_exchange_policy']['buffers']='One-dimensional ordinary BYTE ARRAY storage, 1..244 bytes; checked disjoint buffer/index/status references; builders stage a complete scalar item or named-data batch plus one marker and retain untouched prefix/tail bytes'
+    report['xml_variable_publication_policy']=dict(
+        capture='Retain target/status reference locations and schema; after existing leaf budget charges, copy partial target data and retain bounded value/storage tokens with strong owners',
+        validation='Before publishing a valid staged update, verify root/child/backing storage, record type maps/protection flags, ARRAY shapes, joint storage and scalar values including signed zero and missing/unknown markers',
+        effects='Data edits completed before capture are included; same-value scalar writes and unrelated variable edits remain allowed; post-capture conflicts preserve completed edits and raise without overwriting target or status',
+        status='Check captured status binding even when attribute validation returns an XML error; ordinary status-value changes still receive the operation completion code',
+        lifetime='Recheck the original XML FILE first, then publish with no task callbacks between target verification and replacement; release session.active on every exit; no automatic retry, rollback or saved guard state',
+        boundary='Existing record roots, scalar attribute paths, readonly POSITION/CONFIG, overlap, parser, budgets and data-error statuses retained; no new root types, XML writing, native concurrency/controller or strict equivalence',
+        guide='docs/xml-publication.md',controller_validated=False)
+    report['xml_input_policy']['writes']+='; captured-target/status publication checks follow xml_variable_publication_policy'
     from .reporting import finalize_pythonic_report
     finalize_pythonic_report(report)
     expansion.annotate(report)
