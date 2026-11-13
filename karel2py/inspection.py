@@ -477,6 +477,56 @@ def _kcl_local_collection_owned(state,owner,reference,storage,name):
     return 0
 
 
+def _kcl_local_scope_snapshot(context,reference,suffix,line):
+    """Copy an admitted local data/logical owner before selecting its value."""
+    from .dynamic import kcl_collection_snapshot,kcl_data_reference
+
+    rt=runtime();spec=reference.spec
+    if rt.collection_type(spec) or rt.collection_array_type(spec):
+        return kcl_collection_snapshot(context,reference,suffix,line)
+    value=rt._aggregate_value(spec,reference.raw(),line,allow_partial=True)
+    if suffix:value=kcl_data_reference(context,rt.Reference(spec,{'value':value},'value'),suffix,line,path_nodes=True).raw()
+    return value
+
+
+def _kcl_local_path_data_value(target,source,literal,line):
+    """Apply one checked data edit to private storage or its validated live cell."""
+    from .dynamic import kcl_data_value,kcl_record_literal,assign_scalar_literal
+
+    rt=runtime();kind=target.spec[0]
+    if source is not None:
+        if kind=='STRING':
+            value=rt.ascii_string(source.raw(),line)
+            if len(value)>target.spec[1]:return 5
+        else:value=rt._aggregate_value(target.spec,kcl_data_value(source,line),line,allow_partial=False)
+        target.set(value,line)
+        return 0
+    if kind in ('VECTOR','CONFIG','POSITION','XYZWPR','XYZWPREXT','JOINTPOS'):
+        target.set(kcl_record_literal(rt,target.spec,literal,line),line)
+        return 0
+    return assign_scalar_literal(target,literal,line)
+
+
+def _kcl_local_path_data_validate(spec,value,line):
+    """Check the prepared logical owner, including complete POSITION geometry."""
+    from .storage import collection_payload,collection_array_payload
+
+    rt=runtime()
+    if rt.collection_array_type(spec):collection_array_payload(spec,value)
+    else:collection_payload(spec,value)
+    pending=[(spec,value)]
+    while pending:
+        schema,item=pending.pop()
+        if item is rt.UNINITIALIZED:continue
+        if schema[0]=='PATH':
+            pending.extend((item.node_spec,node) for node in item.nodes)
+            if schema[2] is not None:pending.append((schema[2],item.data))
+        elif schema[0]=='ARRAY':pending.extend((schema[2],child) for child in item.values)
+        elif schema[0] in rt.RECORD_TYPES:
+            if schema==('POSITION',) and rt.fully_initialized(item):rt.frame_value(item,line)
+            pending.extend((field,item.values[name]) for name,field in rt.record_fields(schema))
+
+
 def _kcl_local_collection_write(state,root,frame,reference,path,literal,line,selector):
     from .dynamic import (VARIABLE_SELECTOR,variable_checkpoint,kcl_data_reference,
                           same_kcl_data_target,kcl_collection_source,kcl_collection_snapshot)
@@ -485,7 +535,7 @@ def _kcl_local_collection_write(state,root,frame,reference,path,literal,line,sel
 
     rt=runtime();owner,routine,declarations,storage=frame;name=reference.key
     source=re.fullmatch(VARIABLE_SELECTOR,literal,re.IGNORECASE)
-    if source is None or literal.upper() in ('TRUE','FALSE'):return 5
+    if literal.upper() in ('TRUE','FALSE'):source=None
     suffix=path[len(name):];root_spec=reference.spec;original=reference.raw()
     def source_units(reference):
         value=reference.raw()
@@ -498,15 +548,21 @@ def _kcl_local_collection_write(state,root,frame,reference,path,literal,line,sel
         if not program and key in declarations:
             value=storage[key]
             containing=value if isinstance(value,rt.Reference) else rt.Reference(declarations[key],storage,key)
-            return kcl_data_reference(owner.execution,containing,rest,line,path_nodes=True),containing,rest
-        return kcl_collection_source(owner.execution,owner,program or owner.program_name,key,rest,line)
+            return kcl_data_reference(owner.execution,containing,rest,line,path_nodes=True,defer_node_data=True),containing,rest
+        return kcl_collection_source(owner.execution,owner,program or owner.program_name,key,rest,line,defer_node_data=True)
     try:
-        target=kcl_data_reference(owner.execution,reference,suffix,line,path_nodes=True)
-        if type(target) is not rt.Reference or not (rt.collection_type(target.spec) or rt.collection_array_type(target.spec)):return 5
+        target=kcl_data_reference(owner.execution,reference,suffix,line,path_nodes=True,defer_node_data=True)
+        if type(target) not in (rt.Reference,rt.ConfigFieldReference,rt.AssociationFieldReference):return 4
         spec=target.spec;selected=target.raw()
-        source_ref,source_owner,source_suffix=resolve_source();source_schema=source_owner.spec
-        if source_ref.spec!=spec:return 5
-        admitted_source=source_units(source_owner);admitted_target=schema(root_spec,original)
+        logical=rt.collection_type(spec) or rt.collection_array_type(spec)
+        if logical and source is None:return 5
+        if not logical:rt._validate_data_schema(spec,line)
+        source_schema=None;admitted_source=0
+        if source is not None:
+            source_ref,source_owner,source_suffix=resolve_source();source_schema=source_owner.spec
+            if source_ref.spec!=spec and (spec[0]!='STRING' or source_ref.spec[0]!='STRING'):return 5
+            admitted_source=source_units(source_owner)
+        admitted_target=schema(root_spec,original)
     except (ValueError,TypeError,KeyError,IndexError,AttributeError,rt.KarelRuntimeError):return 5
     run=root._task_run;continued=root._lifecycle['CONTINUE'];frames=tuple(root._task_frames)
     entered=tuple((id(d),id(s)) for d,s in owner._timer_frames)
@@ -526,17 +582,29 @@ def _kcl_local_collection_write(state,root,frame,reference,path,literal,line,sel
     if current is None or current[0] is not owner or current[2] is not declarations or current[3] is not storage:return 4
     counters=getattr(owner.program,'local_for_roots',{}).get(routine)
     if counters is None or name in counters:return 4
-    try:current=kcl_data_reference(owner_context,reference,suffix,line,path_nodes=True)
+    try:current=kcl_data_reference(owner_context,reference,suffix,line,path_nodes=True,defer_node_data=True)
     except (ValueError,TypeError,KeyError,IndexError,AttributeError,rt.KarelRuntimeError):return 4
     if not same_kcl_data_target(target,current,selected):return 4
     code=_kcl_local_collection_owned(state,owner,reference,storage,name)
     if code:return code
     try:
-        source_ref,source_owner,source_suffix=resolve_source()
-        if (source_ref.spec!=spec or source_owner.spec!=source_schema
-                or source_units(source_owner)!=admitted_source or schema(root_spec,original)!=admitted_target):return 5
-        value=kcl_collection_snapshot(owner_context,source_owner,source_suffix,line)
-        kcl_collection_snapshot(owner_context,reference,'',line)
+        value=None;data_source=None
+        if schema(root_spec,original)!=admitted_target:return 5
+        if source is not None:
+            source_ref,source_owner,source_suffix=resolve_source()
+            if ((source_ref.spec!=spec and (spec[0]!='STRING' or source_ref.spec[0]!='STRING'))
+                    or source_owner.spec!=source_schema or source_units(source_owner)!=admitted_source):return 5
+            value=_kcl_local_scope_snapshot(owner_context,source_owner,source_suffix,line)
+            if not logical:data_source=rt.Reference(source_ref.spec,{'value':value},'value')
+        prepared=kcl_collection_snapshot(owner_context,reference,'',line)
+        if not logical:
+            staged=kcl_data_reference(owner_context,rt.Reference(root_spec,{'value':prepared},'value'),suffix,line,path_nodes=True,defer_node_data=True)
+            code=_kcl_local_path_data_value(staged,data_source,literal,line)
+            if code:return code
+            # Validate geometry, compact fields and every unselected sibling before
+            # writing only the original selected cell, preserving other live nodes.
+            _kcl_local_path_data_validate(root_spec,prepared,line)
+            return _kcl_local_path_data_value(target,data_source,literal,line)
     except (ValueError,TypeError,KeyError,IndexError,AttributeError,rt.KarelRuntimeError):return 5
     target.storage[target.key]=replace_collections(selected,value)
     return 0

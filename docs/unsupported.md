@@ -622,8 +622,10 @@ queue-entry policies; FILE banks remain excluded.
   complete containing banks, recheck original receiver storage and support SHOW.
   [Owned paused-local collection copies](kcl-local-collections.md) now include
   PATH/queue roots, banks and rows, with exact local/global/borrowed sources and
-  retained frame/context checks. Borrowed/formal destinations, local PATH
-  data-field/literal edits, FILE copies, aggregate
+  retained frame/context checks. [Local PATH data edits](kcl-local-path-data.md)
+  now support header/node literals, named records/rows and pose fields through
+  private containing-owner validation and original-cell publication.
+  Borrowed/formal destinations, FILE copies, aggregate
   literals and reshaping remain excluded from those KCL forms.
   [Command procedures](kcl-commands.md#command-procedures) execute bounded
   ASCII CF inputs and relative includes over enabled offline services.

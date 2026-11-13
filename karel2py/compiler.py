@@ -6854,8 +6854,17 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         lifetime='Retain task binding/run/continuation/frame/declaration/root/target and contexts/stores/program metadata across charges. Recheck original selected cells, paused ownership, compiler FOR roots, complete known aliases and connected timers before publication.',
         publication='Resolve current named source after final charges; validate both complete admitted scopes and prepare independent selected data before writing. Retain receiver cells/headers, detach old PATH nodes and reset only copied queue buffer links.',
         persistence='Closed ordinary globals retain copied results/history; local frames, borrowed views, queue links and suspended task execution are not restored',
-        boundary='No borrowed local destinations, running/currently driven tasks, absent metadata, FILE data, resource fields, PATH data-field/literal edits, conversions or implicit discovery; no native/controller/strict equivalence',
+        path_data='Owned local PATH header/node data selections use kcl_local_path_data_policy for literals and exact named copies, with private containing-owner validation before updating original cells',
+        boundary='No borrowed local destinations, running/currently driven tasks, absent metadata, FILE data, resource-bearing STRUCTURE fields, conversions or implicit discovery; no native/controller/strict equivalence',
         guide='docs/kcl-local-collections.md',controller_validated=False)
+    report['kcl_local_path_data_policy']=dict(
+        syntax='SET LOCAL VAR/VARIABLE existing owned PATH header/node data, including selected bank cells, ordinary ARRAY rows, records, compact fields, poses and joint axes; static comma/chained paths',
+        values='Existing checked scalar/positional literal formats and exact complete selected named data; STRING sources may differ in capacity when the value fits; no user-record/ARRAY literals or implicit conversions',
+        admission='Bounded metadata-only selection, including deferred bank NODEDATA; charge complete local receiver and named-source scopes before payload copying, then reuse retained frame/context/owner/alias/timer/FOR guards',
+        preparation='Clone the admitted logical receiver, stage the selected data edit privately, validate the complete containing owner and check every complete POSITION before writing; partial unselected data remains explicit',
+        publication='Update only the original selected data cell/container after preparation; preserve PATH/header/node objects, node lists, unselected fields and earlier independent callback effects',
+        boundary='No borrowed/formal receivers, readonly POSITION orientation writes, missing-container discovery, unallocated nodes, resource fields, FILE copying, conversions, native/controller or strict equivalence',
+        guide='docs/kcl-local-path-data.md',controller_validated=False)
     report['kcl_policy']=dict(
         calls=['KCL','KCL_NO_WAIT','KCL_STATUS'],service='Explicit KclCommands channel with exact scripted replies and optional task, file, variable, virtual device, decoded dictionary, program, environment, procedure and debugging dispatch',
         requests='Printable ASCII 1..126 characters; trim outer spaces, exact case/internal-space reply matching; one accepted pending command; bounded request history',

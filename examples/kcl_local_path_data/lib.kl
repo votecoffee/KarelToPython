@@ -1,0 +1,17 @@
+PROGRAM LIB
+%INCLUDE 'types.inc'
+VAR total FROM WORKER:INTEGER
+    label FROM WORKER:STRING[6]
+    offset FROM WORKER:REAL
+    row_result FROM WORKER:ARRAY[2]OF INTEGER
+ROUTINE stage(values:ARRAY OF INTEGER)
+VAR route:route_t status:INTEGER
+BEGIN
+  APPEND_NODE(route,status)
+  PAUSE
+  total=route.count+route[1].value+route[1].numbers[2,1]+route[1].numbers[2,2]
+  label=route.label offset=route[1].pose.location.x
+  row_result=route[1].numbers[2]
+END stage
+BEGIN
+END LIB

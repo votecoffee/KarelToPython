@@ -76,7 +76,9 @@ rows, continues, and observes independent global results after source changes.
 Its MAIN DONE guard avoids replaying commands against absent saved frames;
 fresh tasks still start with fresh execution states.
 
-FILE copying, resource STRUCTURE fields, local PATH data-field/literal edits,
+Owned [local PATH data edits](kcl-local-path-data.md) now cover header/node fields,
+named record/row copies and checked scalar/pose literals through private preflight.
+FILE copying, resource STRUCTURE fields,
 formal destinations, conversions, expression selectors and implicit discovery
 remain outside this contract. Reports expose `kcl_local_collection_policy`; see
 the [semantic ledger](semantics/kcl_local_collection_semantics.json) and

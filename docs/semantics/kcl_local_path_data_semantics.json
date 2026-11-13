@@ -1,0 +1,28 @@
+{
+  "version": "26.1113.131556",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "contract": {
+    "guide": "../kcl-local-path-data.md",
+    "syntax": "Owned paused-local PATH header/node data and PATH-bank selections; static comma/chained fields and final ordinary ARRAY rows",
+    "values": "Existing checked scalar/pose/CONFIG/joint literals and exact complete selected named data; STRING copies fit without truncation; SHORT clear convention retained",
+    "sources": "Selected frame locals/readable formals before module-global fallback; explicit program lookup; complete admitted source snapshots before selected data copies",
+    "admission": "Metadata-only bank NODEDATA selection for this explicit caller; charge complete receiver local and named-source scopes before payload copying; retained local frame/context/alias/timer/FOR guards",
+    "preparation": "Clone receiver owner, stage selected data privately, validate all known containing data and every complete POSITION; retain explicit unselected missing markers",
+    "publication": "Apply only the validated selected value/literal to original live storage; keep PATH/header/node objects and lists plus unselected fields; preserve earlier independent callback effects",
+    "persistence": "Closed ordinary global results/history only; no local frame, selected reference or suspended execution restoration"
+  },
+  "boundaries": [
+    "No formal/borrowed receiver, readonly POSITION orientation writes or implicit robot context",
+    "No inferred nested containers, allocated nodes, FILE/resource fields, arbitrary ARRAY/user-record literals or conversions",
+    "Other deferred-node callers and generic data guards retain their existing behavior",
+    "Authored offline Pythonic behavior; native/controller and strict equivalence unverified"
+  ],
+  "validation": [
+    "tests/test_kcl_local_path_data.py",
+    "tests/test_kcl_local_collections.py",
+    "tests/test_kcl_local_data_paths.py",
+    "tests/test_kcl_data_edits.py",
+    "examples/kcl_local_path_data"
+  ]
+}

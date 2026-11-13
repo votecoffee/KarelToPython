@@ -288,13 +288,14 @@ class LocalCollectionInterfaces(unittest.TestCase):
         self.assertEqual(edit(ctx,'target[2]','source[1]',scope='IN work FROM LIB WORKER')['S'],0)
         task.resume();self.assertEqual([item['entries'] for item in instance.programs['LIB'].snapshot()['RESULT']],[[[1,7]],[[1,7]]])
 
-    def test_path_scalar_fields_file_and_resource_literals_stay_excluded(self):
+    def test_path_fields_edit_while_files_and_resource_literals_stay_excluded(self):
         ctx,_,storage=paused('target,source:route_t files:ARRAY[2]OF FILE',prefix=PREFIX)
         seed(storage['TARGET']);seed(storage['SOURCE'])
-        before=rt.snapshot_value(storage['TARGET'])
-        for path,value in (('target[1].value','42'),('target.count','7'),('files[1]','files[2]')):
+        self.assertEqual(edit(ctx,'target[1].value','42')['S'],0)
+        self.assertEqual(edit(ctx,'target.count','7')['S'],0)
+        self.assertEqual((storage['TARGET'].nodes[0].values['VALUE'],storage['TARGET'].data.values['COUNT']),(42,7))
+        for path,value in (('target','1,2'),('files[1]','files[2]')):
             with self.subTest(path=path):self.assertNotEqual(edit(ctx,path,value)['S'],0)
-        self.assertEqual(rt.snapshot_value(storage['TARGET']),before)
 
     def test_reference_catalog_bound_rejects_before_publishing(self):
         ctx,_,storage=paused('source,target:QUEUE_TYPE');seed(storage['SOURCE'])

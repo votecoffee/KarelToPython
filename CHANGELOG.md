@@ -1,5 +1,17 @@
 # Changelog
 
+## 26.1113.131556 - 2026-11-13
+
+- Add KCL edits of owned paused-local PATH header/node data, including PATH-bank
+  selections, scalar literals, named records/ARRAY rows, poses, CONFIG fields and
+  joint/external-axis values. Preserve exact selected data rules and SHORT clearing.
+- Select bank NODEDATA through metadata before admission. Charge complete local
+  scopes, retain frame/context/owner protections, and stage each data edit in an
+  independent containing PATH before validating known data and complete POSITIONs.
+- Publish only the selected original cell/container, keeping live header/node
+  objects and unselected data. Add linked worker/library continuation, geometry,
+  ownership, budget, alias and failure checks plus current report/documentation.
+
 ## 26.1113.123928 - 2026-11-13
 
 - Add exact KCL named copies into owned PATH/QUEUE_TYPE locals in paused routines,

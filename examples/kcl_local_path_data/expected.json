@@ -1,0 +1,14 @@
+{
+  "MAIN": {
+    "state": "completed",
+    "values": {"TOTAL": 40, "LABEL": "MiXeD", "OFFSET": 12.5, "STARTED": 0, "PAUSED": 0, "HEADER_STATUS": 0, "LABEL_STATUS": 0, "NODE_STATUS": 0, "ROW_STATUS": 0, "POSE_STATUS": 0, "LOCATION_STATUS": 0, "CONTINUED": 0, "FINISHED": 0, "DONE": true}
+  },
+  "WORKER": {
+    "state": "completed",
+    "values": {"INPUT_ROW": [7, 99], "ROW_RESULT": [7, 9], "TOTAL": 40, "LABEL": "MiXeD", "OFFSET": 12.5}
+  },
+  "LIB": {
+    "state": "ready",
+    "values": {"TOTAL": 40, "LABEL": "MiXeD", "OFFSET": 12.5, "ROW_RESULT": [7, 9]}
+  }
+}

@@ -1,0 +1,9 @@
+PROGRAM WORKER
+VAR input_row,row_result:ARRAY[2]OF INTEGER
+    total:INTEGER label:STRING[6] offset:REAL
+ROUTINE stage(values:ARRAY OF INTEGER) FROM LIB
+BEGIN
+  input_row[1]=7 input_row[2]=9
+  stage(input_row)
+  input_row[2]=99
+END WORKER

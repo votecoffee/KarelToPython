@@ -1,0 +1,21 @@
+PROGRAM MAIN
+VAR total FROM WORKER:INTEGER
+    label FROM WORKER:STRING[6]
+    offset FROM WORKER:REAL
+    started,paused,header_status,label_status,node_status,row_status,pose_status,location_status,continued,finished:INTEGER
+    done:BOOLEAN
+BEGIN
+  IF UNINIT(done) THEN
+    KCL_NO_WAIT('RUN WORKER',started)
+    KCL('WAIT WORKER PAUSE',paused)
+    KCL('SET LOCAL VAR route.count IN stage FROM LIB WORKER = 7',header_status)
+    KCL('SET LOCAL VAR route.label IN stage FROM LIB WORKER = "MiXeD"',label_status)
+    KCL('SET LOCAL VAR route[1].value IN stage FROM LIB WORKER = 17',node_status)
+    KCL('SET LOCAL VAR route[1].numbers[2] IN stage FROM LIB WORKER = values',row_status)
+    KCL('SET LOCAL VAR route[1].pose IN stage FROM LIB WORKER = 1,2,3,0,0,0',pose_status)
+    KCL('SET LOCAL VAR route[1].pose.location.x IN stage FROM LIB WORKER = 12.5',location_status)
+    KCL('CONT WORKER',continued)
+    KCL('WAIT WORKER DONE',finished)
+    done=TRUE
+  ENDIF
+END MAIN

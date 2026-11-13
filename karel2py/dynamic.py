@@ -396,11 +396,12 @@ def remove_detached(state,program,var,line):
     return 0
 
 
-def kcl_data_reference(context,reference,suffix,line=None,*,path_nodes=False):
+def kcl_data_reference(context,reference,suffix,line=None,*,path_nodes=False,defer_node_data=False):
     """Locate selected original cells without copying prefix data before charges."""
     rt=runtime()
     target=context.descend(reference,suffix,line,path_nodes=path_nodes,prefixes=rt._pythonic(),
-                           resources='collections' if rt._pythonic() else False,defer_prefix_data=rt._pythonic())
+                           resources='collections' if rt._pythonic() else False,defer_prefix_data=rt._pythonic(),
+                           defer_node_data=defer_node_data)
     return rt.array_prefix_reference(target,line) if type(target) is rt._ArrayPrefixTarget else target
 
 
@@ -439,14 +440,14 @@ def kcl_collection_snapshot(context,reference,suffix,line):
     return value
 
 
-def kcl_collection_source(context,state,program,root,rest,line):
+def kcl_collection_source(context,state,program,root,rest,line,*,defer_node_data=False):
     """Resolve global logical data with explicit-path precedence and prefix owners."""
     rt=runtime();root=root.upper();rest=rest.replace(' ','').upper()
     selected=context.resolve(state,program,root+rest,line,path_nodes=True,prefixes=True,
-                             resources='collections',defer_prefix_data=True)
+                             resources='collections',defer_prefix_data=True,defer_node_data=defer_node_data)
     if not kcl_collection_window(selected):return selected,selected,''
     containing=context.resolve(state,program,root,line,path_nodes=True)
-    current=kcl_data_reference(context,containing,rest,line,path_nodes=True)
+    current=kcl_data_reference(context,containing,rest,line,path_nodes=True,defer_node_data=defer_node_data)
     if not rt.same_array_storage(selected.raw(),current.raw()):raise ValueError('Collection source prefix is detached from its named owner')
     return selected,containing,rest
 

@@ -1,0 +1,22 @@
+{
+  "kcl": {
+    "replies": {},
+    "limit": 500,
+    "history": [
+      {"sequence": 1, "program": "MAIN", "operation": "KCL_NO_WAIT", "command": "RUN WORKER", "phase": "completed", "status": 0},
+      {"sequence": 2, "program": "MAIN", "operation": "KCL", "command": "WAIT WORKER PAUSE", "phase": "completed", "status": 0},
+      {"sequence": 3, "program": "MAIN", "operation": "KCL", "command": "SET LOCAL VAR route.count IN stage FROM LIB WORKER = 7", "phase": "completed", "status": 0},
+      {"sequence": 4, "program": "MAIN", "operation": "KCL", "command": "SET LOCAL VAR route.label IN stage FROM LIB WORKER = \"MiXeD\"", "phase": "completed", "status": 0},
+      {"sequence": 5, "program": "MAIN", "operation": "KCL", "command": "SET LOCAL VAR route[1].value IN stage FROM LIB WORKER = 17", "phase": "completed", "status": 0},
+      {"sequence": 6, "program": "MAIN", "operation": "KCL", "command": "SET LOCAL VAR route[1].numbers[2] IN stage FROM LIB WORKER = values", "phase": "completed", "status": 0},
+      {"sequence": 7, "program": "MAIN", "operation": "KCL", "command": "SET LOCAL VAR route[1].pose IN stage FROM LIB WORKER = 1,2,3,0,0,0", "phase": "completed", "status": 0},
+      {"sequence": 8, "program": "MAIN", "operation": "KCL", "command": "SET LOCAL VAR route[1].pose.location.x IN stage FROM LIB WORKER = 12.5", "phase": "completed", "status": 0},
+      {"sequence": 9, "program": "MAIN", "operation": "KCL", "command": "CONT WORKER", "phase": "completed", "status": 0},
+      {"sequence": 10, "program": "MAIN", "operation": "KCL", "command": "WAIT WORKER DONE", "phase": "completed", "status": 0}
+    ],
+    "sequence": 10,
+    "last_status": 0,
+    "task_commands": true,
+    "variable_commands": true
+  }
+}
