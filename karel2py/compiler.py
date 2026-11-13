@@ -7728,9 +7728,10 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
     report['system_variable_transfer_policy']=dict(
         source='Explicit GET_VAR/SET_VAR static robot paths in empty, SYSTEM or *SYSTEM* namespace, after existing full/root bindings',
         targets='Numbered/active frame/tool rows, LOCATION and CONFIG_DATA fields, read-only orientation values, XYZWPREXT EXT1/EXT2/EXT3 and active IDs',
-        values='Whole GET retains configured Cartesian representation and external axes; whole SET retains complete supplied Cartesian representation; ordinary numeric/CONFIG data conversions, no implicit joint model',
+        values='Whole GET retains configured Cartesian representation and external axes; Cartesian SET retains its supplied representation; whole joint/row pairs use explicit caller-model conversion, with SET storing XYZWPREXT; ordinary numeric/CONFIG conversions remain',
         capture='SET typed input before later argument selectors; GET snapshot after output selectors; literal bounded decimal path indexes only, no expression evaluation',
         publication='Complete data and geometry validation before one detached table row or active ID, then cache/entry/status; metadata/output aliases to selected configured storage are rejected',
+        models='Whole row GET to JOINTPOS and JOINTPOS SET to XYZWPREXT use the calling root group model, selected frame/tool and inverse current seed. Retain endpoint bank/group/table/row/selection and output locations/data/containers, resolver and cache before publication; malformed existing SET rows require Cartesian repair. See docs/system-variable-models.md.',
         persistence='Existing RobotContext JSON retains published rows and selections; endpoint snapshots, cache IDs, references and continuations are not serialized',
         boundary='No BYNAME system aliases, direct READ/service output aliases, unknown dollar discovery, native layouts, controller writes or strict equivalence',
         guide='docs/system-variable-transfers.md',controller_validated=False)
@@ -7741,7 +7742,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         publication='Existing explicit RobotContext/group required; numbered whole writes may populate a row, active and field writes require existing rows; publish one independent validated table entry',
         persistence='Existing table/current/model JSON retains published rows and active selections; no hardware or current robot-state update',
         joint_values='Whole source assignments only, including linked routines/handlers and supplied joint widths. The destination group chooses storage, not the conversion model. See docs/system-pose-joints.md.',
-        boundary='No orientation-column edits, model-backed system GET_VAR/SET_VAR conversion, service/READ output references, generic system-variable discovery, controller write or strict equivalence; active IDs follow frame_selection_policy',
+        boundary='No orientation-column edits, service/READ output references, generic system-variable discovery, controller write or strict equivalence; active IDs follow frame_selection_policy and modeled system transfers follow system_variable_transfer_policy',
         guide='docs/system-pose-writes.md',controller_validated=False)
     report['frame_selection_policy']=dict(
         source='$MNUFRAMENUM[group] and $MNUTOOLNUM[group] as INTEGER reads or dedicated assignments',

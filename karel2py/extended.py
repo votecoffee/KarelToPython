@@ -2418,11 +2418,12 @@ class _SystemVariableTarget:
         self.reference=rt.Reference(spec,{'value':value},'value')
         return self.reference
 
-    def prepare(self,source,line):
+    def prepare(self,source,line,*,model=False):
         rt=runtime()
         if not self.selection and not self.path:
-            if source.spec not in (('POSITION',),('XYZWPR',),('XYZWPREXT',)):return False
-            self.reference=rt.Reference(source.spec,{'value':rt.initial_value(source.spec)},'value')
+            spec=('XYZWPREXT',) if model and source.spec[0]=='JOINTPOS' else source.spec
+            if spec not in (('POSITION',),('XYZWPR',),('XYZWPREXT',)):return False
+            self.reference=rt.Reference(spec,{'value':rt.initial_value(spec)},'value')
         return True
 
     def guard(self,outputs,line):
@@ -3248,6 +3249,13 @@ class ExecutionContext:
             system_target.guard((entry,status,value) if name=='GET_VAR' else (entry,status),line)
             try:target=system_target.capture(line)
             except rt.KarelRuntimeError:status.set(1,line);return
+        model_guard=None
+        model_spec=getattr(value,'spec',())
+        if (system_target is not None and not system_target.selection and not system_target.path
+                and type(model_spec) is tuple and model_spec[0:1]==('JOINTPOS',)):
+            from .system_variable_models import SystemModelGuard
+            model_guard=SystemModelGuard(self,state,system_target,name,args,line)
+            check=model_guard.check
         if rt._pythonic() and type(target) is rt.AssociationFieldReference:
             # An explicit named data transfer; never expose a borrowed field alias.
             target.validate_storage(line);target=rt.Reference(target.spec,target.storage,target.key)
@@ -3270,17 +3278,19 @@ class ExecutionContext:
                 if spec is None: fail('SET_VAR requires a typed data input',line)
                 source=variable_value(spec,value,line,check=check)
             if system_target is not None:
-                if not system_target.prepare(source,line):status.set(3,line);return
+                if not system_target.prepare(source,line,model=model_guard is not None):status.set(3,line);return
                 target=system_target.reference
             destination=target
         from .variable_kinematics import transfer as model_transfer
-        prepared=None if system_target is not None else model_transfer(state,destination,source,line)
+        prepared=(model_transfer(state,destination,source,line)
+                  if system_target is None or model_guard is not None else None)
         if prepared is None and system_target is None and pythonic:
             prepared=self._converted_path_transfer(state,destination,source,entry,status,line,check)
         if prepared is None:
             prepared=variable_transfer(destination,source,numeric=True,representations=True,records=True,paths=True,line=line,check=check)
         if prepared is None: status.set(3,line);return
         copied,missing=prepared
+        if model_guard is not None:model_guard.verify()
         key=(program.upper() or state.program_name,path.upper())
         prefix=rt._pythonic() and type(destination) is rt._ArrayPrefixTarget
         if prefix and _variable_cells(destination,line) & (rt._reference_cells(entry)|rt._reference_cells(status)):

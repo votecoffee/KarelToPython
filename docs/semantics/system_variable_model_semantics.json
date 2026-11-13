@@ -1,0 +1,29 @@
+{
+  "version": "26.1113.140913",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "evidence": "Authored supplied-model and callback transfers, participant mutation rejection, linked/handler execution, CLI and ordinary JSON replay; no native/controller execution",
+  "contract": {
+    "guide": "../system-variable-models.md",
+    "forms": "Whole numbered/active frame and tool GET_VAR row-to-JOINTPOS and SET_VAR JOINTPOS-to-XYZWPREXT transfers",
+    "context": "Explicit calling root group model/adapters and selected frame/tool; inverse uses supplied current joints, never previous receiver contents; system path group chooses table storage",
+    "capture": "SET typed input before later selectors, GET row after output selectors; complete private conversion before data/cache/entry/status publication",
+    "values": "Complete finite model geometry with checked widths, zero padding and limits; forward CONFIG and three external axes retained, plain inverse poses supply zero external values",
+    "participants": "Retain selected bank/group/table/row/selection, resolver/cache, source state and ordinary output locations, values and containers; reject replacement by new explicit path bindings",
+    "publication": "Recheck during budgeted source capture and after model preparation; conflicts preserve completed callback edits and unpublished outputs; sticky abort and source budgets retained",
+    "targets": "Modeled SET populates absent numbered rows or replaces complete existing rows; malformed old rows require an explicit Cartesian repair first",
+    "persistence": "Existing model/robot/global data JSON only; no guards, callbacks, cache IDs, references or suspended execution restoration"
+  },
+  "boundaries": [
+    "No joint conversion for system fields, selection IDs or whole ARRAY/resource banks",
+    "Explicit VariableStore bindings retain precedence; no BYNAME or writable system alias discovery",
+    "Direct context host table writes still require Cartesian input; source assignments retain their separate capture order",
+    "No inferred model, native/controller layout, physical motion or strict equivalence"
+  ],
+  "validation": [
+    "tests/test_system_variable_models.py",
+    "tests/test_system_variable_transfers.py",
+    "tests/test_kinematic_variable_transfers.py",
+    "examples/system_variable_model_project/main.kl"
+  ]
+}

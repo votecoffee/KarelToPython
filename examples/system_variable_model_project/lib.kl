@@ -1,0 +1,15 @@
+PROGRAM LIB
+VAR result FROM MAIN:JOINTPOS2 entry,status:INTEGER
+ROUTINE transfer(joints:JOINTPOS2)
+BEGIN
+  SET_VAR(entry,'SYSTEM','$MNUFRAME[1,7]',joints,status)
+  GET_VAR(entry,'SYSTEM','$MNUFRAME[1,7]',result,status)
+  SET_VAR(entry,'SYSTEM','$GROUP[1].$UTOOL',result,status)
+  GET_VAR(entry,'SYSTEM','$GROUP[1].$UTOOL',result,status)
+  SET_VAR(entry,'SYSTEM','$MNUTOOL[1,9]',result,status)
+  GET_VAR(entry,'SYSTEM','$MNUTOOL[1,9]',result,status)
+  SET_VAR(entry,'SYSTEM','$GROUP[1].$UFRAME',result,status)
+  GET_VAR(entry,'SYSTEM','$GROUP[1].$UFRAME',result,status)
+END transfer
+BEGIN
+END LIB

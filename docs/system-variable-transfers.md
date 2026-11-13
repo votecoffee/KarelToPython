@@ -46,8 +46,12 @@ existing XYZWPREXT row. Direct source axis fields use the same table, and whole
 direct reads return POSITION. See [source assignments](system-pose-writes.md).
 
 The existing numeric narrowing, CONFIG-word and Cartesian data rules apply.
-Joint/Cartesian model conversions are excluded at these endpoints: explicitly
-convert a source value first. Partial or invalid data cannot be published into a
+Whole [model-backed system transfers](system-variable-models.md) now convert
+rows to JOINTPOS GET outputs and JOINTPOS SET inputs to XYZWPREXT using the
+calling root group's explicit model. Field and selection paths keep their
+ordinary data rules. Modeled SET requires an absent numbered or complete old
+row; use an explicit Cartesian SET to repair malformed existing storage.
+Partial or invalid data cannot be published into a
 robot table. Whole numbered writes can repair a malformed old row; field edits
 require a complete valid old row. A selection setter can repair a missing old
 selected row, but its new row must be complete and configured.
@@ -57,8 +61,10 @@ selected row, but its new row must be complete and configured.
 SET_VAR snapshots its typed input before later argument selector effects.
 GET_VAR reads the named row after output selectors. Existing ordinary expression
 effects remain if a subsequent lookup or validation fails. An active target uses
-the selected row at lookup. No callback, pause or native interrupt occurs during
-final staging and publication.
+the selected row at lookup. Final validation and publication introduce no
+callback or pause. Model-backed calls run their synchronous model
+during preparation and retain the selected endpoint and output participants
+through budgeted capture and final publication; conflicting edits reject.
 
 Lookup and configured-row validation failures return status 1; incompatible data
 returns status 3. These change only status, preserving data, entry and cache.

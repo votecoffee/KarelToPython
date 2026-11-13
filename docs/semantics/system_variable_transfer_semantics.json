@@ -12,7 +12,7 @@
   },
   "remaining": [
     "BYNAME and writable direct source system references",
-    "Orientation-column writes, inferred axes and implicit joint model conversion",
+    "Orientation-column writes, inferred axes and implicit robot-context discovery",
     "Native/controller storage or execution and public strict mode"
   ],
   "verification": [
@@ -28,5 +28,8 @@
     "examples/system_variable_linked/main.kl",
     "examples/system_variable_handler/main.kl"
   ],
-  "guide": "../system-variable-transfers.md"
+  "guide": "../system-variable-transfers.md",
+  "extensions": [
+    "system_variable_model_semantics.json"
+  ]
 }

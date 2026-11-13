@@ -1,0 +1,11 @@
+PROGRAM MAIN
+VAR joints,result:JOINTPOS2 IN GROUP[2] good,done:BOOLEAN
+ROUTINE transfer(joints:JOINTPOS2) FROM LIB
+BEGIN
+  IF UNINIT(done) THEN
+    joints=CURJPOS(0,0)
+    transfer(joints)
+    good=(result[1]=joints[1]) AND (result[2]=joints[2])
+    done=TRUE
+  ENDIF
+END MAIN

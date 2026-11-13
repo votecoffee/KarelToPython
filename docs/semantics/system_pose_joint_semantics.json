@@ -16,7 +16,7 @@
   },
   "boundaries": [
     "No joint-to-field writes, writable system aliases or implicit model discovery",
-    "Generic GET_VAR/SET_VAR system endpoints and direct context host table writes keep their existing data contracts",
+    "Direct context host table writes remain Cartesian; whole system model transfers use their separate publication contract",
     "No native calibration, configuration branch selection, controller writes, motion or strict equivalence"
   ],
   "validation": [
@@ -25,5 +25,8 @@
     "tests/test_system_pose_writes.py",
     "tests/test_kinematic_assignments.py",
     "examples/system_pose_joint_project/main.kl"
+  ],
+  "extensions": [
+    "system_variable_model_semantics.json"
   ]
 }

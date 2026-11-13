@@ -1,0 +1,94 @@
+{
+  "robot": {
+    "groups": {
+      "1": {
+        "frames": {
+          "7": {
+            "type": [
+              "XYZWPREXT"
+            ],
+            "value": {
+              "X": 100.0,
+              "Y": 0.0,
+              "Z": 42.0,
+              "W": 0.0,
+              "P": 0.0,
+              "R": 0.0,
+              "CONFIG_DATA": {
+                "CFG_TURN_NO1": 0,
+                "CFG_TURN_NO2": 0,
+                "CFG_TURN_NO3": 0,
+                "CFG_FLIP": false,
+                "CFG_LEFT": false,
+                "CFG_UP": false,
+                "CFG_FRONT": false
+              },
+              "EXT1": 42.0,
+              "EXT2": 0.0,
+              "EXT3": 0.0
+            }
+          }
+        },
+        "tools": {
+          "8": {
+            "type": [
+              "XYZWPREXT"
+            ],
+            "value": {
+              "X": 100.0,
+              "Y": 0.0,
+              "Z": 42.0,
+              "W": 0.0,
+              "P": 0.0,
+              "R": 0.0,
+              "CONFIG_DATA": {
+                "CFG_TURN_NO1": 0,
+                "CFG_TURN_NO2": 0,
+                "CFG_TURN_NO3": 0,
+                "CFG_FLIP": false,
+                "CFG_LEFT": false,
+                "CFG_UP": false,
+                "CFG_FRONT": false
+              },
+              "EXT1": 42.0,
+              "EXT2": 0.0,
+              "EXT3": 0.0
+            }
+          }
+        },
+        "frame": 7,
+        "tool": 8
+      },
+      "2": {
+        "dh": [
+          {
+            "a": 100
+          },
+          {
+            "type": "prismatic",
+            "min": 0,
+            "max": 100
+          }
+        ],
+        "external_axes": 1,
+        "current": {
+          "joints": {
+            "type": [
+              "JOINTPOS",
+              2
+            ],
+            "value": {
+              "axes": [
+                0.0,
+                42.0
+              ]
+            }
+          },
+          "axis_limit_mask": 0,
+          "overtravel_mask": 0
+        }
+      }
+    },
+    "active_group": 1
+  }
+}

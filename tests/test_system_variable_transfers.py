@@ -155,10 +155,16 @@ class SystemVariableFailureTests(unittest.TestCase):
         v,p,_=execute("entry=77 GET_VAR(entry,'OTHER','$MNUFRAME[1,2]',p,s)");self.assertEqual((v['ENTRY'],v['S']),(77,1));self.assertEqual(p._state.execution.entries,{})
     def test_incompatible_whole_write_sets_type_status(self):
         v,p,_=execute("entry=77 SET_VAR(entry,'','$MNUFRAME[1,2]',42,s)");self.assertEqual((v['ENTRY'],v['S'],p._state.execution.robot.frames[2].values['X']),(77,3,12.));self.assertEqual(p._state.execution.entries,{})
-    def test_joint_write_does_not_infer_kinematics(self):
-        v,p,_=execute("entry=77 SET_VAR(entry,'','$MNUFRAME[1,2]',j,s)",decl='j:JOINTPOS2 entry,s:INTEGER');self.assertEqual((v['ENTRY'],v['S']),(77,3));self.assertEqual(p._state.execution.entries,{})
-    def test_joint_read_does_not_infer_kinematics(self):
-        v,p,_=execute("entry=77 GET_VAR(entry,'','$MNUFRAME[1,2]',j,s)",decl='j:JOINTPOS2 entry,s:INTEGER');self.assertEqual((v['ENTRY'],v['S']),(77,3));self.assertEqual(p._state.execution.entries,{})
+    def test_joint_write_requires_an_explicit_model(self):
+        p,_=program("entry=77 s=88 j[1]=0 j[2]=0 SET_VAR(entry,'','$MNUFRAME[1,2]',j,s)",decl='j:JOINTPOS2 entry,s:INTEGER')
+        old=p._state.execution.robot.frames[2]
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'adapter'):p.run()
+        self.assertEqual((p.snapshot()['ENTRY'],p.snapshot()['S']),(77,88))
+        self.assertIs(p._state.execution.robot.frames[2],old);self.assertEqual(p._state.execution.entries,{})
+    def test_joint_read_requires_supplied_current_joints(self):
+        p,_=program("entry=77 s=88 GET_VAR(entry,'','$MNUFRAME[1,2]',j,s)",decl='j:JOINTPOS2 entry,s:INTEGER')
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'current joints'):p.run()
+        self.assertEqual((p.snapshot()['ENTRY'],p.snapshot()['S']),(77,88));self.assertEqual(p._state.execution.entries,{})
     def test_bad_last_config_field_rolls_back(self):
         p,_=program("entry=77 s=88 p=$MNUFRAME[1,2] p.config_data.cfg_turn_no1=8 SET_VAR(entry,'','$MNUFRAME[1,2]',p,s)");old=p._state.execution.robot.frames[2]
         with self.assertRaises(rt.KarelRuntimeError):p.run()
@@ -270,9 +276,9 @@ class SystemVariableLifetimeTests(unittest.TestCase):
         ctx=context();p,_=program("SET_VAR(entry,'','$MNUFRAME[1,2].LOCATION.X',30,s) PAUSE SET_VAR(entry,'','$MNUFRAME[1,2].LOCATION.X',42,s)",context=ctx,cooperative=True)
         with self.assertRaises(rt.KarelPause):p.run()
         p.stop();self.assertEqual(ctx.robot.frames[2].values['X'],30.);self.assertEqual(p.task_state,'stopped');self.assertEqual(len(ctx.entries),1)
-    def test_supplied_model_callbacks_are_not_inferred_for_endpoint(self):
+    def test_cartesian_endpoint_transfers_do_not_invoke_model_callbacks(self):
         ctx=context();ctx.robot.forward=lambda *a:(_ for _ in ()).throw(AssertionError('unexpected model'));ctx.robot.inverse=ctx.robot.forward
-        v,_,_=execute("GET_VAR(entry,'','$MNUFRAME[1,2]',j,s) i=s SET_VAR(entry,'','$MNUFRAME[1,2]',j,s)",context=ctx,decl='j:JOINTPOS2 entry,s,i:INTEGER');self.assertEqual((v['I'],v['S']),(3,3));self.assertEqual(ctx.entries,{})
+        v,_,_=execute("GET_VAR(entry,'','$MNUFRAME[1,2]',a,s) i=s SET_VAR(entry,'','$MNUFRAME[1,2]',a,s)",context=ctx,decl='a:XYZWPR entry,s,i:INTEGER');self.assertEqual((v['I'],v['S']),(0,0));self.assertEqual(len(ctx.entries),1)
     def test_explicit_set_binding_preserves_configured_row(self):
         ctx=context();storage={'value':77.};ctx.variables.bind('','$MNUFRAME[1,2].LOCATION.X',rt.Reference(('REAL',),storage,'value'));execute("SET_VAR(entry,'','$MNUFRAME[1,2].LOCATION.X',30,s)",context=ctx);self.assertEqual((storage['value'],ctx.robot.frames[2].values['X']),(30.,12.))
 

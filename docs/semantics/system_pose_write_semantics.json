@@ -14,7 +14,7 @@
   "remaining": [
     "Writable table aliases through READ/services/BYNAME",
     "Orientation-column edits",
-    "Implicit robot-context discovery and model-backed GET_VAR/SET_VAR system conversions",
+    "Implicit robot-context discovery",
     "Native/controller storage and execution, hardware motion and public strict mode"
   ],
   "verification": [
@@ -32,6 +32,7 @@
   ],
   "guide": "../system-pose-writes.md",
   "extensions": [
-    "system_pose_joint_semantics.json"
+    "system_pose_joint_semantics.json",
+    "system_variable_model_semantics.json"
   ]
 }

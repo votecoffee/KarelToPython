@@ -29,8 +29,9 @@ value is detached: changing it after assignment leaves the table unchanged.
 POSITION basis, finite numeric and CONFIG domain checks apply before publication.
 Whole [JOINTPOS source assignments](system-pose-joints.md) now use the existing
 model-backed XYZWPREXT conversion in the calling root task group, before target
-selectors. The destination group chooses storage. Generic system variable
-transfers still require an explicit Cartesian conversion first.
+selectors. The destination group chooses storage. Whole
+[system variable model transfers](system-variable-models.md) now use the same
+caller model with their separate retained endpoint/output publication checks.
 
 Field writes support LOCATION as a VECTOR, LOCATION.X/Y/Z as REAL cells,
 CONFIG_DATA as a CONFIG record, and its individual turn/Boolean fields. They stage

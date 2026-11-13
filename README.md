@@ -442,8 +442,13 @@ JOINTPOS source values through the calling root group's explicit model and
 selected frame/tool before destination selectors. All four table forms retain
 CONFIG and external axes, including linked routines and handlers.
 
+[Model-backed system transfers](docs/system-variable-models.md) now convert
+whole frame/tool GET_VAR rows to JOINTPOS and JOINTPOS SET_VAR inputs to
+XYZWPREXT. Retained endpoint/output checks reject conflicting callback edits
+before publishing data, cache IDs or status.
+
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1113.135123**. It is a
+tool are named **karel2py**. The current implementation is **26.1113.140913**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 [Formatted empty collection output](docs/empty-collection-output.md) lets the same
@@ -1443,7 +1448,7 @@ Routine development validation uses the local CLI commands above.
 
 The example runner translates 589 authored runnable examples, checks complete
 expected snapshots and validates their output, delay, context and termination
-fixtures, plus 240 complete linked source projects. It also checks that nested
+fixtures, plus 241 complete linked source projects. It also checks that nested
 MOVE actions inside local handlers are rejected.
 It uses an injected sleeper, so the delay fixture does not wait in real time.
 

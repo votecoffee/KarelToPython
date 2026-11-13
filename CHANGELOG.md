@@ -1,5 +1,17 @@
 # Changelog
 
+## 26.1113.140913 - 2026-11-13
+
+- Add explicit model-backed whole frame/tool GET_VAR row-to-JOINTPOS and
+  JOINTPOS SET_VAR-to-XYZWPREXT transfers using the calling root group model,
+  selected frame/tool and supplied inverse seed. Retain CONFIG/external axes.
+- Retain endpoint bank/group/table/row/selection, resolver/cache, source state
+  and output locations/data/containers through preparation. Reject conflicting
+  callback or checkpoint edits before publication, preserving completed effects.
+- Keep modeled writes limited to absent numbered or complete existing rows;
+  Cartesian repairs, field contracts and explicit binding precedence remain.
+  Add linked/handler, callback, budget and saved JSON checks plus current docs.
+
 ## 26.1113.135123 - 2026-11-13
 
 - Accept complete JOINTPOS source values for whole numbered and active frame/

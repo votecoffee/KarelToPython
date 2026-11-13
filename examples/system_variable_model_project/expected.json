@@ -1,0 +1,9 @@
+{
+  "MAIN": {"state": "completed", "values": {
+    "JOINTS": {"axes": [0.0, 42.0]}, "RESULT": {"axes": [0.0, 42.0]},
+    "GOOD": true, "DONE": true
+  }},
+  "LIB": {"state": "ready", "values": {
+    "RESULT": {"axes": [0.0, 42.0]}, "ENTRY": 4, "STATUS": 0
+  }}
+}

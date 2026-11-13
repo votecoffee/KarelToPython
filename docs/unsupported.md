@@ -152,9 +152,10 @@ existing XYZWPREXT rows.
 [Active selection IDs](frame-tool-selection.md) now support checked source reads
 and assignments using supplied rows. Whole [JOINTPOS source writes](system-pose-joints.md)
 now convert through the calling root group's explicit model before target
-selectors. Writable aliases, direct orientation-column writes, model-backed
-GET_VAR/SET_VAR system conversions, native special-ID interpretation and
-native/controller writes remain excluded.
+selectors. Whole [GET_VAR/SET_VAR system model transfers](system-variable-models.md)
+now add retained endpoint/output checks for these supplied rows. Writable
+aliases, direct orientation-column writes, inferred model/context conversion,
+native special-ID interpretation and native/controller writes remain excluded.
 
 [Root PATH READ/WRITE](path-io-and-file-initialization.md) now expands supplied
 header/node data through scalar transports. Automatic node allocation, native

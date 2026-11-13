@@ -4,6 +4,8 @@ Pythonic GET_VAR and SET_VAR now convert joint/Cartesian values through an
 explicitly supplied robot context. This includes individual values, same-rank
 ARRAY prefixes and compatible user STRUCTURE fields, including nested ARRAYs.
 The portable conventions match existing source model conversions.
+Whole [robot system row/joint transfers](system-variable-models.md) now use
+this caller model with a separate retained endpoint/output contract.
 
 With no robot service supplied, model-backed pairs remain incompatible with
 status 3. A configured model/adapter still requires its selected frame/tool and,
