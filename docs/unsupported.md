@@ -297,7 +297,10 @@ bare ARRAY type-string layers remain excluded.
 
 [Position-register model getters](position-register-models.md) now bridge stored
 joint/Cartesian values through an explicit selected-group model, retaining bank
-type/width and guarded source/status publication. They add no live bank access.
+type/width and guarded source/status publication. All three
+[mixed register setters](position-register-model-writes.md) now stage complete
+converted values with retained destination/status checks. These calls add no
+live bank access.
 
 - Live controller banks, physical I/O reads/writes, rack/slot discovery, hardware
   routing, automatic polling and native alarm/status mappings. Numeric, string,

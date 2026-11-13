@@ -3014,6 +3014,12 @@ class ExecutionContext:
         if name in ('GET_POS_REG','GET_JPOS_REG','SET_POS_REG','SET_EPOS_REG','SET_JPOS_REG'):
             bank=self.require('positions',line); number=args[0]; group=(rt.task_root(state).robot_group or 1) if args[-1] is None else args[-1]
             if name.startswith('SET_'):
+                spec=getattr(args[1],'spec',())
+                if (rt._pythonic() and type(spec) is tuple and spec
+                        and spec[0] in ('POSITION','XYZWPR','XYZWPREXT','JOINTPOS')
+                        and (name=='SET_JPOS_REG')!=(spec[0]=='JOINTPOS')):
+                    from .position_register_models import write
+                    return write(self,state,name,bank,number,group,args[1],args[2],line)
                 code=bank.write(number,args[1],group); args[2].set(code,line); return
             code,value=bank.read(number,group)
             if code==0:

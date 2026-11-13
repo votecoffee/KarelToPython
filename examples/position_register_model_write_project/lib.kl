@@ -1,0 +1,15 @@
+PROGRAM LIB
+VAR x,z,ext,axis:REAL status:INTEGER
+ROUTINE write_stored
+VAR point:XYZWPREXT joints:JOINTPOS2
+BEGIN
+  joints=CURJPOS(0,0,2)
+  SET_POS_REG(1,joints,status,2)
+  SET_EPOS_REG(3,joints,status,2)
+  point=GET_POS_REG(1,status,2)
+  SET_JPOS_REG(2,point,status,2)
+  joints=GET_JPOS_REG(2,status,2)
+  x=point.x z=point.z ext=point.ext1 axis=joints[2]
+END write_stored
+BEGIN
+END LIB

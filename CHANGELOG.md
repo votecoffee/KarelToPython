@@ -1,5 +1,17 @@
 # Changelog
 
+## 26.1113.145430 - 2026-11-13
+
+- Add Pythonic model-backed JOINTPOS inputs to SET_POS_REG/SET_EPOS_REG and
+  Cartesian inputs to SET_JPOS_REG. Use the selected register group model,
+  preserving typed input snapshots before later status/group selectors.
+- Stage complete XYZWPREXT or JOINTPOS9 values before one destination update
+  and zero status. Retain destination presence/data, bank/domain/model/status
+  bindings through charged preparation, callbacks and numerical solving.
+- Share read/write guards and protect aliases before failure statuses too.
+  Preserve matching input paths and conservative types; add all-setter, linked,
+  handler, callback, budget and JSON checks plus current reports/documentation.
+
 ## 26.1113.143256 - 2026-11-13
 
 - Add model-backed GET_POS_REG reads of stored joints and GET_JPOS_REG reads

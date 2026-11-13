@@ -1,0 +1,29 @@
+{
+  "version": "26.1113.145430",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "evidence": "Authored mixed setter, selected-group, typed capture, callback conflict, budget, linked/handler and JSON checks; no native/controller execution",
+  "contract": {
+    "guide": "../position-register-model-writes.md",
+    "forms": "SET_POS_REG/SET_EPOS_REG JOINTPOS inputs convert to XYZWPREXT; SET_JPOS_REG complete Cartesian inputs convert to nine-slot JOINTPOS",
+    "context": "Explicit selected register group model/adapters and active frame/tool; inverse uses supplied current joints; explicit group overrides caller and omission follows root",
+    "capture": "Number, independent complete typed input, status selector and optional group once left-to-right; conversion after selectors; no source copy-back",
+    "admission": "Absent or complete existing receiver; charge complete source plus existing receiver schema and one conversion before model; meter numerical inverse evaluations",
+    "publication": "Retain ordinary bank/domain/dictionary, destination presence/data/containers, robot/group and status location/data; reject status overlap before failure statuses too",
+    "results": "Check complete independent result before one ordinary destination-cell update and zero status; preserve CONFIG/external fields and zero padding",
+    "failure": "Statuses2/3 for invalid address or missing robot context without writing data; attempted model errors preserve pending value/status and completed callback edits; sticky abort retained",
+    "matching": "Existing Cartesian setter inputs retain representation; existing joint setter inputs retain width; matching inputs do not invoke models and can repair malformed old storage",
+    "persistence": "Written ordinary typed bank/model/global JSON only; no guard, callback or suspended execution restoration"
+  },
+  "boundaries": [
+    "No scalar/ARRAY/resource or unrelated-record inputs, implicit model/axis discovery or old-value inverse seed",
+    "Custom adapters retain existing exact output contracts; failed numerical search is inconclusive",
+    "No live controller register writes, physical motion, native alarm mapping or strict equivalence"
+  ],
+  "validation": [
+    "tests/test_position_register_model_writes.py",
+    "tests/test_position_register_models.py",
+    "tests/test_joint_interoperability.py",
+    "examples/position_register_model_write_project/main.kl"
+  ]
+}

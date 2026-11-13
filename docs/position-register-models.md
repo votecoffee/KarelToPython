@@ -25,7 +25,9 @@ conversions keep their separate caller-group rules.
 Matching stored/getter representations keep their existing path and do not call
 a model. Reads leave stored type, width, values and comments unchanged.
 POS_REG_TYPE therefore still reports the original stored representation.
-SET_POS_REG, SET_EPOS_REG and SET_JPOS_REG retain their typed input contracts.
+Matching setter inputs retain their existing data path.
+[Model-backed setters](position-register-model-writes.md) now accept mixed
+joint/Cartesian inputs under their own capture and publication contract.
 
 ## Capture and failures
 

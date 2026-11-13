@@ -22,7 +22,10 @@ value is padded on read without changing its stored type, width or contents.
 stored joint/Cartesian representations using the selected register group's
 explicit model and selected frame/tool, with supplied current joints for inverse
 conversion. These reads keep the original bank value and guard source/status
-publication. Matching forms and typed setters keep their existing paths.
+publication. Matching forms keep their existing paths.
+[Mixed register setters](position-register-model-writes.md) now convert joint
+inputs for Cartesian setters and Cartesian inputs for SET_JPOS_REG, using
+the same explicit register group with staged destination/status publication.
 
 Model POS2JOINT can write any JOINTPOS width from the configured axis count
 through nine. It pads unused result slots with zeros and rejects an output that

@@ -11,13 +11,13 @@
     "admission": "Capture detached selected source, charge complete declared source schema and one conversion before adapter; meter numerical inverse evaluations",
     "publication": "Retain ordinary bank/count/groups/value dictionary, selected source data/containers, robot/group and status location/data; protect source and bank metadata from status overlap",
     "failure": "Conflicts preserve callback edits and unpublished result/status; sticky abort retained. No robot context keeps old type-mismatch status3; attempted model failures preserve prior status",
-    "storage": "Getters do not alter stored type, width, contents or comments; matching getters and typed setters keep their existing paths",
+    "storage": "Getters do not alter stored type, width, contents or comments; matching input/output forms keep their existing paths",
     "persistence": "Existing position/model/global context JSON only; no retained guard, callback or suspended execution restoration"
   },
   "boundaries": [
     "No implicit model/axis discovery, controller register access or physical motion",
     "Custom callbacks keep existing exact output contracts; failed numerical solving is not proof of unreachability",
-    "Source and variable-transfer conversions retain their caller-group contracts; typed register setters are unchanged",
+    "Source and variable-transfer conversions retain their caller-group contracts; mixed register setters use their separate capture/publication contract",
     "Native/controller and strict equivalence remain unverified"
   ],
   "validation": [
@@ -25,5 +25,8 @@
     "tests/test_system_variable_models.py",
     "tests/test_joint_interoperability.py",
     "examples/position_register_model_project/main.kl"
+  ],
+  "extensions": [
+    "position_register_model_write_semantics.json"
   ]
 }

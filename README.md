@@ -452,8 +452,13 @@ stored joint and Cartesian representations using the selected register group's
 explicit model. Reads retain original bank types and guard source/status
 publication through callbacks and numerical inverse-model execution budgets.
 
+[Position-register model setters](docs/position-register-model-writes.md) now
+accept joint inputs for SET_POS_REG/SET_EPOS_REG and Cartesian inputs for
+SET_JPOS_REG. They capture inputs before later selectors and stage converted
+values under destination/status guards in the selected register group.
+
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1113.143256**. It is a
+tool are named **karel2py**. The current implementation is **26.1113.145430**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 [Formatted empty collection output](docs/empty-collection-output.md) lets the same
@@ -1453,7 +1458,7 @@ Routine development validation uses the local CLI commands above.
 
 The example runner translates 589 authored runnable examples, checks complete
 expected snapshots and validates their output, delay, context and termination
-fixtures, plus 242 complete linked source projects. It also checks that nested
+fixtures, plus 243 complete linked source projects. It also checks that nested
 MOVE actions inside local handlers are rejected.
 It uses an injected sleeper, so the delay fixture does not wait in real time.
 

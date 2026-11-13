@@ -3125,6 +3125,11 @@ class Emitter:
         explicit_node_flag=node_flag and len(expr.args)==maximum
         if not default_masks and not minimum<=len(expr.args)<=maximum: self.error('E_ARGUMENTS',f'{expr.value} requires {minimum}..{maximum} arguments',expr.token)
         signature=ex.signature_for(expr.value,len(expr.args))
+        if self.mode=='pythonic' and expr.value in ('SET_POS_REG','SET_EPOS_REG','SET_JPOS_REG'):
+            # Capture the supplied positional value before later selectors. The
+            # selected register group chooses any runtime model conversion.
+            signature=tuple((mode,'RANGE_POSITION') if index==1 else (mode,kind)
+                            for index,(mode,kind) in enumerate(signature))
         self.check_for_call(expr.token)
         if ex.variable_write_call(expr.value,expr.args) and self.named_active_counters(): self.error('E_FOR_COUNTER',expr.value+' cannot indirectly write an active FOR counter',expr.token)
         codes=[]
@@ -6281,10 +6286,14 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         guide='docs/joint-interoperability.md',controller_validated=False)
     report['position_register_model_policy']=dict(
         getters='Pythonic GET_POS_REG converts stored JOINTPOS to XYZWPREXT; GET_JPOS_REG converts stored complete Cartesian poses to independent nine-slot joints when an explicit robot context is supplied',
+        setters='Pythonic SET_POS_REG/SET_EPOS_REG convert complete JOINTPOS input to XYZWPREXT; SET_JPOS_REG converts complete Cartesian input to JOINTPOS9. Matching typed inputs retain their existing path. See docs/position-register-model-writes.md.',
+        setter_capture='Number, independent complete typed input, status selector and optional group once left-to-right; convert after selectors with selected group context; charge source plus existing receiver schema and one conversion',
+        setter_publication='Stage complete converted value for absent or complete existing receiver; retain bank/domain/dictionary, destination presence/data/containers, robot/group and status location/data; protect aliases before failure statuses; publish one value then zero status',
+        setter_status='Portable2 for invalid bank address, 3 for missing robot context; modeled failures preserve pending value and prior status. A matching typed setter may repair malformed existing storage.',
         group='Use the selected register group for its model/adapters, active frame/tool and inverse current seed; omitted group follows the calling root, including linked routines',
         capture='Resolve argument expressions once, read a detached source, charge its complete schema and one conversion before the model, then meter numerical inverse evaluations',
         publication='Retain ordinary position bank, count/groups/values, selected source data/containers, robot/group and captured status location/data; reject overlap, callback conflicts and sticky abort before result/status publication',
-        storage='Reads do not change stored representation, width, values or comments; matching getter forms retain their existing path and typed setters retain their input contracts',
+        storage='Reads do not change stored representation, width, values or comments; matching input/output forms retain their existing path; mixed setters publish independent XYZWPREXT or JOINTPOS9 while preserving unrelated data',
         failure='No robot context keeps representation-mismatch status3 and error; attempted model failures preserve prior status and assignment, retaining earlier explicit effects',
         boundary='Explicit offline models only; no discovery, physical register reads, native group/unit defaults, certified reachability or strict equivalence',
         guide='docs/position-register-models.md',controller_validated=False)
