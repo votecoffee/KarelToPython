@@ -429,8 +429,12 @@ existing collision, busy-file, quota and publication checks remain active.
 and RENAME_FILE reuse matched characters in their destination filenames.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1113.015600**. It is a
+tool are named **karel2py**. The current implementation is **26.1113.022600**. It is a
 development prototype, with no claim of controller runtime equivalence.
+
+[Translation reports](docs/translation-reports.md) summarize the active Pythonic
+mode and link stable limitation categories to detailed policies. Supported forward
+types, nested jumps, partial copies and source conversions are described consistently.
 
 ## Table of Contents
 

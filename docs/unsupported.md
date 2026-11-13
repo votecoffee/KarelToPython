@@ -6,6 +6,10 @@ a product backlog, not a controller compatibility certificate. The inventory
 contains statements, actions, clauses, types and directives as well as calls;
 one heading does not equal one executable feature or one percentage of coverage.
 
+[Translation reports](translation-reports.md) provide a current Pythonic summary
+with stable category IDs and links to operation policies. That summary complements
+this backlog; it is not a complete list of every overload or option restriction.
+
 The inventory has 334 distinct built-in names after merging repeated headings.
 Currently, all 334 have a registered Pythonic translation form.
 Registration means a supported form exists; it does not mean every overload,

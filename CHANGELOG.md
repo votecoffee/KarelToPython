@@ -1,5 +1,15 @@
 # Changelog
 
+## 26.1113.022600 - 2026-11-13
+
+- Build public report limitations from current Pythonic policies instead of
+  filtering legacy strict prose. Remove false restrictions on forward types,
+  nested/sibling jumps, partial aggregate copies, conversions and formatted output.
+- Keep the existing limitations string list and add stable category IDs, policy
+  references and guide paths through limitation_details/limitation_policy.
+  Align positional/record/ARRAY policy descriptions with executable source forms;
+  retain the internal legacy report and public strict-mode milestone.
+
 ## 26.1113.015600 - 2026-11-13
 
 - Accept fixed-width source-directory question captures in Pythonic COPY_FILE and

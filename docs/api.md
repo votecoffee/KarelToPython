@@ -1,5 +1,11 @@
 # API and command-line guide
 
+[Successful current-mode translation reports](translation-reports.md) retain the existing
+`limitations` string list and add `limitation_details` with stable IDs, descriptions,
+policy references and guide paths. `limitation_policy` identifies the Pythonic
+summary schema and its scope. Summaries describe current Pythonic behavior;
+operation policies and the support guide retain their detailed accepted forms.
+
 [Direct FILE prefix arguments](direct-file-prefixes.md) add typed source borrowing
 for FILE rows/planes. Reports expose file_prefix_call_policy and physical-origin
 file_prefix_arguments; runtime context and constructor APIs are unchanged.

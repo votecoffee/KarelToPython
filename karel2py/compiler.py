@@ -6637,22 +6637,6 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
     for key in ('vector_routine_policy', 'structure_routine_policy', 'positional_routine_policy', 'array_routine_policy'):
         report[key]['boundary'] = (report[key]['boundary'].replace('direct STRING results, ', '').replace(' or direct STRING results', '')
                                    .replace('whole ARRAY value arguments, ', '').replace('whole ARRAY values, ', '').replace(', whole ARRAY values', ''))
-    strict_only = ('REAL uses exact binary32', 'Underflow follows the manual', 'Signed MOD with negative',
-                   'SQRT accepts', 'SIN/COS/TAN', 'ATAN2 accepts', 'CNV_REAL_STR accepts',
-                   'CNV_STR_INT accepts', 'CNV_INT_STR accepts', 'WRITE accepts', 'STRING reference parameters retain',
-                   'Boolean operands evaluated eagerly', 'Side-effecting routine calls in multi-argument',
-                   'Whole ARRAY reference parameters support', 'ARRAY_LEN on multidimensional arrays',
-                   'INDEX with an empty search', 'SUB_STR beyond the source end',
-                   'FOR-body routine calls and RETURN require', 'Labels and GO TO/GOTO stay', 'USING qualifies fields lexically',
-                   'Named arrays/subarrays retain nominal identity')
-    report['limitations'] = [item for item in report['limitations'] if not item.startswith(strict_only)]
-    report['limitations']=[item for item in report['limitations'] if not item.startswith('BYTE/SHORT storage is limited')]
-    report['limitations'].append('Pythonic numerical results use Python floating-point and math conventions; strict mode is a future milestone')
-    report['limitations'].append('ARRAY value arguments require every scalar leaf known and initialized; concrete type, shape, nominal identity and capacity are preserved without resizing')
-    report['limitations'].append('Pythonic SUB_STR keeps positive one-based starts and nonnegative counts; clips at source end and 254 characters; INDEX empty search returns one')
-    report['limitations'].append('FOR calls must exclude active-global-counter writes; active references require read-only formals; direct writes, formal counters, nonlocal counters in parameterized routines and entry into a new FOR scope remain blocked')
-    report['limitations'].append('USING supports lexical nesting, captured storage and independent computed record values; FOR counters protect declared storage roots or isolated private capture identities')
-    report['limitations'].append('TYPE aliases resolve prior definitions transparently; aggregate identity and capacities remain checked; inline anonymous nested ARRAY syntax and local TYPE sections remain blocked; external types follow external_type_policy')
     report['frame_policy']['boundary'] = 'POSITION/XYZWPR/XYZWPREXT operands; no JOINTPOS/VECTOR frames, automatic interface coercion, group/frame discovery or native kinematics; see extended_geometry_policy'
     report['position_axis_policy']['boundary'] = 'POSITION/XYZWPR/XYZWPREXT only; complete checked poses, no robot acquisition or orientation defaults'
     report['position_conversion_policy']['boundary'] = 'Whole POSITION/XYZWPR/XYZWPREXT assignments only; exact routine/array interfaces, checked proper matrices; widening zeros axes and narrowing drops axes'
@@ -6713,7 +6697,6 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         boundary='Portable partial-record rule rather than native allocation flags; existing scalar/joint behavior and exact interfaces retained; strict remains future work',
         guide='docs/initialization-queries.md',controller_validated=False)
     report['data_record_policy']['initialization']='Scalar leaves start uninitialized; whole builtin-record UNINIT follows initialization_query_policy; copies still require complete values'
-    report['limitations']=[item.replace('aggregate UNINIT remains blocked','whole user STRUCTURE and ARRAY UNINIT remain blocked') for item in report['limitations']]
     report['position_conversion_policy']['boundary']='Context-free Cartesian representation changes only; model-backed joint assignments follow kinematic_assignment_policy; exact routine/array interfaces and checked proper matrices remain'
     report['data_record_policy']['boundary']='Cartesian whole assignments follow position_conversion_policy; joint/Cartesian whole assignments require kinematic_assignment_policy; no automatic routine/array conversion or physical motion'
     report['positional_routine_policy']['boundary']='Exact parameter/RETURN types; whole assignments follow position_conversion_policy and kinematic_assignment_policy; no controller ABI, native branch selection or orientation defaults'
@@ -6762,7 +6745,6 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
     report['position_comparison_policy']['boundary']='Explicit pose and external tolerances, Cartesian metrics after joint conversion; no scalar/VECTOR or raw joint-coordinate comparisons, defaults or native equivalence'
     for key in ('vector_routine_policy','structure_routine_policy','positional_routine_policy','array_routine_policy'):
         report[key]['boundary'] = report[key]['boundary'].replace('external routines or ', '').replace('external routines, ', '').replace('external types/routines, ', '')
-    report['limitations'].append('New services follow explicit offline context and cooperative policies; binary file layout, task scheduling, handler timing, MIRROR orientation and external axes use documented portable conventions')
     report['include_policy']=dict(
         directive='%INCLUDE',lookup='Explicit text mapping or selected file roots/device mappings; .KL default, case-insensitive relative names, including-directory lookup before ordered roots',
         expansion='Full source fragments at declaration, routine or executable positions; three nested files, cycle detection, no token fusion across file boundaries',
@@ -7032,7 +7014,6 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         reports='reference_for_counters records selector text, source line/column, root, selector kind and capture/cleanup/protection policy; dispatcher for_scopes retain selector text',
         boundary='No BYTE/SHORT promotion, CONFIG-domain subfields, PATH/FILE/QUEUE roots, readonly POSITION descendants, formal roots, new FOR/USING scope entry, dynamic host-write prevention or native FOR-counter ABI claim',
         guide='docs/reference-for-counters.md',controller_validated=False)
-    report['limitations'].append('Labels and GO TO/GOTO remain body-scoped; Pythonic FOR jumps retain active iteration state or clear exited counters; direct entry into new FOR/USING scopes is blocked')
     report['aggregate_copy_policy']=dict(
         types=['ARRAY','STRUCTURE','VECTOR','POSITION','XYZWPR','XYZWPREXT','CONFIG','JOINTPOS'],
         transfers='Pythonic assignment, grouped value arguments and exact function results preserve scalar UNINITIALIZED and BYTE-only UNKNOWN_BYTE markers in detached resource-free aggregate storage',
@@ -7059,8 +7040,6 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         storage='Validated deep copy preserves missing/unknown leaves, concrete shapes, nominal identities and STRING capacities',
         limits='32767 scalar leaves and 64 schema levels; exact formal rank/type checks; no resources, resizing, coercion or acquired robot context')
     report['named_array_policy']['results']='Exact named outer identity and shape with validated independent copies, including preserved missing scalar leaves'
-    report['limitations']=[row for row in report['limitations'] if not row.startswith('ARRAY value arguments require every scalar leaf')]
-    report['limitations'].append('Partial data aggregate copies preserve missing markers; scalar reads and complete geometry/kinematics/vision consumers still reject unavailable values')
     report['keyboard_policy']['files']='READ_KB, typed line FILE READ and bounded PASSALL fixed ASCII fields; printable EOL and fixed numeric text are portable keyboard extensions; shared pane, echo/noecho, buffering and cleanup; no binary/XML/native-key layouts or byte queries'
     report['keyboard_policy']['file_binding']=dict(
         capture='Original FILE identity/cursor/token, calling state/root, open binding, pane, echo, history list, input mode, registry mappings and clock domain',
@@ -7890,6 +7869,8 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         guide='docs/external-collection-results.md',controller_validated=False)
     report['queue_transfer_policy']['boundary']='Logical source values follow scalar_collection_source_policy; embedded resources and metadata initialization queries retain guards; no native queue/VR bytes, ownership, status equivalence or controller execution; strict deferred'
     report['joint_policy']['representation']='Explicit joint storage with checked Pythonic axis subscripts under joint_axis_policy; no direct joint field syntax'
+    from .reporting import finalize_pythonic_report
+    finalize_pythonic_report(report)
     expansion.annotate(report)
     if expansion.events:
         for row in report['storage_declarations']:
