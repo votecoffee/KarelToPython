@@ -86,6 +86,34 @@ and CLOSE is blocked while a read is active. Saving context requires all keyboar
 FILEs closed, active reads finished and suspension frames popped. Saved events
 never include consumed keys or closed-handle buffers.
 
+## Pending FILE binding checks
+
+Edited and PASSALL FILE reads retain the exact open handle, descriptor attributes,
+starting position, source-operation token, calling state/root and clock domain.
+They also capture the original binding row, pane, echo binding, history list,
+input mode and handle/active registry mappings. Polling, resume and cancellation
+check that claim before consuming more events or publishing destinations.
+Direct host FILE-read generators use the same binding checks while retaining
+their separate cancellation API boundary.
+
+Replacing a binding or registry, changing a captured attribute/pane/cursor, or
+removing an active owner rejects the read. The newly supplied state is never
+silently adopted. Source values and committed position stay unchanged; keys
+consumed before failure stay consumed, and future keys remain queued. Ordinary
+event feeds and PUSH/POP suspension keep their existing arbitration behavior.
+
+Owned cleanup removes only the exact original active slot and matching binding
+reservation. Foreign or missing owner slots leave the FILE reserved: CLOSE,
+another typed READ and READ_KB cannot claim it while ownership is uncertain.
+Predefined FILE cleanup checks those reservations before closing any handle in
+its batch. These cases require explicit ownership recovery or a fresh context;
+cleanup does not guess an owner. Ordinary failures with intact ownership release
+their claim and keep the existing explicit-close lifetime.
+
+Failure history uses the captured request, root program, operation and pane even
+if the live job metadata changes. The checks run at cooperative boundaries over
+the supplied offline objects; they provide no native terminal acceptance evidence.
+
 Lines are limited to 254 printable characters; each statement processes at most
 4096 keys and retains at most 4096 submitted bytes. The existing 64 active reads,
 256 handles, finite sequence IDs and bounded history limits also apply.

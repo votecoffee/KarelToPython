@@ -2588,6 +2588,7 @@ class ExecutionContext:
             owner=handle.owner;rt=runtime()
             writing = handle._write_operation is not None or type(owner) is rt.SerialStreams and id(handle) in owner._writes
             reading = (handle._read_operation is not None
+                       or type(owner) is rt.KeyboardInput and owner._handles.get(handle,{}).get('_file_read_job') is not None
                        or type(owner) is rt.KeyboardInput and any(job.get('handle') is handle for job in owner._active.values())
                        or type(owner) is rt.SerialStreams and id(handle) in owner._pending
                        or type(owner) is rt.FilePipes and id(handle) in owner._reads)

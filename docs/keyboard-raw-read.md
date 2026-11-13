@@ -175,6 +175,10 @@ control bytes as printable display text.
 ## Atomicity, buffering and lifetime
 
 All raw fields are collected and validated before any source destination changes.
+The [pending FILE binding checks](keyboard-file-read.md#pending-file-binding-checks)
+retain the same open binding, pane, history, mode and registry ownership through
+raw waits and pauses. Stale bindings reject publication and cancellation; foreign
+or missing owner slots remain reserved during cleanup.
 A later wait or unsupported key preserves every old destination and the committed
 input position. Already collected ASCII bytes stay in the open FILE's raw buffer,
 and consumed events stay consumed. Exactly one READ observation records success,

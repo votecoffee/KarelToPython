@@ -13,9 +13,11 @@ now combine fixed STRING/numeric/BOOLEAN fields with explicit CR record discards
 Quoted STRINGs retain doubled-apostrophe escapes. Fixed fields finish without
 ENTER unless a CR marker requests a terminator.
 
-[Waiting serial reads](docs/serial-waiting.md#scheduling-and-cancellation) now
-retain their original buffers and port registrations across waits and pauses.
-Replacing a pending source rejects the read before publishing input.
+[Waiting serial reads](docs/serial-waiting.md#scheduling-and-cancellation) and
+[keyboard FILE reads](docs/keyboard-file-read.md#pending-file-binding-checks)
+retain their original bindings and registrations across waits and pauses.
+Replaced keyboard bindings reject input publication and stale cancellation;
+uncertain owner slots remain reserved during cleanup.
 
 [Persistent serial readers](docs/serial-streams.md#reclaiming-consumed-input)
 can opt into reclaiming consumed input after each successful READ, allowing
@@ -418,7 +420,7 @@ existing collision, busy-file, quota and publication checks remain active.
 and RENAME_FILE reuse matched characters in their destination filenames.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1113.002947**. It is a
+tool are named **karel2py**. The current implementation is **26.1113.004611**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents

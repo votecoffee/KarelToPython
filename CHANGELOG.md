@@ -1,5 +1,14 @@
 # Changelog
 
+## 26.1113.004611 - 2026-11-13
+
+- Retain edited and PASSALL keyboard FILE read bindings across waits and pauses.
+  Check descriptor, pane/history/echo, registry, calling-root and cursor ownership
+  before continuing or accepting cancellation; direct host generators also check.
+- Keep foreign or missing owner slots reserved during cleanup. Block reuse and
+  preflight predefined cleanup before releasing other handles. Record failures
+  using captured request/root/pane metadata when live job metadata changes.
+
 ## 26.1113.002947 - 2026-11-13
 
 - Accept explicit CR markers in PASSALL keyboard reads, including leading,
