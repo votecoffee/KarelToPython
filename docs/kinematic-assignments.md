@@ -104,6 +104,11 @@ An external kinematic joint is part of the supplied DH model. No external
 geometry is inferred from an EXT field alone. Plain-pose inverse conversion
 supplies zero external values, so use XYZWPREXT when those values matter.
 
+Whole [frame/tool source writes](system-pose-joints.md) now accept JOINTPOS
+under this same caller-group conversion contract, storing independent XYZWPREXT
+values before evaluating destination selectors. Their numbered/active table
+publication rules remain separate from ordinary writable data storage.
+
 ## Ownership, errors and interfaces
 
 Conversion completes before an assignment's target selector is evaluated.

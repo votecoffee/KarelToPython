@@ -13,8 +13,8 @@
   },
   "remaining": [
     "Writable table aliases through READ/services/BYNAME",
-    "Orientation-column and active selection ID assignments",
-    "Automatic joint conversion and inferred robot context",
+    "Orientation-column edits",
+    "Implicit robot-context discovery and model-backed GET_VAR/SET_VAR system conversions",
     "Native/controller storage and execution, hardware motion and public strict mode"
   ],
   "verification": [
@@ -30,5 +30,8 @@
     "examples/system_pose_write_project/main.kl",
     "examples/system_pose_write_handler_project/main.kl"
   ],
-  "guide": "../system-pose-writes.md"
+  "guide": "../system-pose-writes.md",
+  "extensions": [
+    "system_pose_joint_semantics.json"
+  ]
 }

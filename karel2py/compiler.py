@@ -4263,14 +4263,22 @@ class Emitter:
                 self.error('E_SYSTEM_POSE_TARGET','System pose writes require a whole pose or a LOCATION, CONFIG_DATA or external-axis field',target.token)
             value,actual=self.expression(expr)
             expected=self.access_type(target)
+            joint_conversion=not path and self.mode=='pythonic' and actual[0]=='JOINTPOS'
             if not path:
-                if actual[0] not in ('POSITION','XYZWPR','XYZWPREXT'):
-                    self.error('E_TYPE','System pose assignment requires a Cartesian pose',expr.token)
+                if actual[0] not in ('POSITION','XYZWPR','XYZWPREXT') and not joint_conversion:
+                    self.error('E_TYPE','System pose assignment requires a Cartesian pose or Pythonic JOINTPOS value',expr.token)
             elif self.mode=='pythonic' and rt.real_integral_kind(expected,actual):
                 value=f'_rt.real_integral_value({expected!r},{value},{line})'
                 self.features.add('checked REAL to integral system pose field')
             elif not self.compatible(expected,actual):
                 self.error('E_TYPE',f'System pose field requires {expected}',expr.token)
+            if joint_conversion:
+                value=f"self._state.kinematic_assignment(('XYZWPREXT',),{value},{line})"
+                self.features.add('kinematic assignment')
+                if self.current_routine:self.current_routine.may_services=True
+                self.kinematic_assignment_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
+                    line=line,column=token.column,source_type=actual,target_type=('XYZWPREXT',),target_kind='system_pose',
+                    evaluated_once=True,independent_value=True))
             captured=self.fresh();self.line(f'{captured}=_rt.assignment_value({value},{line})',token)
             selectors=[]
             for argument in root.args:
@@ -4280,6 +4288,7 @@ class Emitter:
             self.line(f'self._state.system_pose_write({root.value!r},{selectors[0]},{number},{captured},{tuple(path)!r},{line})',token)
             self.system_pose_writes.append(dict(operation=root.value,body=self.current_routine.name if self.current_routine else self.program.name,
                 line=line,column=token.column,path=tuple(path),source_type=actual,evaluated_once=True,rhs_before_selectors=True,atomic_table_publication=True))
+            if joint_conversion:self.system_pose_writes[-1].update(kinematic_conversion=True,stored_type=('XYZWPREXT',))
             self.features.update(('robot system pose assignment','extended services'));return
         if kind == 'assign':
             target, expr = stmt.args
@@ -7727,11 +7736,12 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         guide='docs/system-variable-transfers.md',controller_validated=False)
     report['system_pose_write_policy']=dict(
         targets='Whole numbered frame/tool poses or active selected rows; LOCATION and CONFIG_DATA fields; EXT1/EXT2/EXT3 on configured XYZWPREXT rows',
-        values='Complete Cartesian records, private snapshots and staged geometry/config validation; preserve supplied representation and external axes on field edits',
-        capture='RHS snapshot before group/number selectors, selectors once left-to-right; no writable system aliases; active rows selected after selector effects',
+        values='Complete Cartesian records retain representation; whole JOINTPOS source values convert independently to XYZWPREXT through the calling root group model/adapters and selected frame/tool; staged geometry/config validation, retained external axes and unselected fields',
+        capture='RHS and any joint conversion before group/number selectors, selectors once left-to-right; no writable system aliases; active rows selected after conversion and selector effects',
         publication='Existing explicit RobotContext/group required; numbered whole writes may populate a row, active and field writes require existing rows; publish one independent validated table entry',
         persistence='Existing table/current/model JSON retains published rows and active selections; no hardware or current robot-state update',
-        boundary='No orientation-column edits, joint conversion, service/READ output references, generic system-variable discovery, controller write or strict equivalence; active IDs follow frame_selection_policy',
+        joint_values='Whole source assignments only, including linked routines/handlers and supplied joint widths. The destination group chooses storage, not the conversion model. See docs/system-pose-joints.md.',
+        boundary='No orientation-column edits, model-backed system GET_VAR/SET_VAR conversion, service/READ output references, generic system-variable discovery, controller write or strict equivalence; active IDs follow frame_selection_policy',
         guide='docs/system-pose-writes.md',controller_validated=False)
     report['frame_selection_policy']=dict(
         source='$MNUFRAMENUM[group] and $MNUTOOLNUM[group] as INTEGER reads or dedicated assignments',

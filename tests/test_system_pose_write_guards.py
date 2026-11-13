@@ -46,8 +46,10 @@ class SystemPoseWriteGuardTests(unittest.TestCase):
         with self.assertRaises(rt.KarelRuntimeError):p.run()
         self.assertIs(frame(p),old)
     def test_root_scalar_rhs_is_rejected(self):self.assertEqual(self.reject('$MNUFRAME[1,2]=7'),'E_TYPE')
-    def test_joint_rhs_requires_explicit_cartesian_conversion_first(self):
-        with self.assertRaises(TranslationError):program('$MNUFRAME[1,2]=j',decl='j:JOINTPOS2')
+    def test_joint_rhs_requires_an_explicit_model(self):
+        p,_=program('j[1]=0 j[2]=0 $MNUFRAME[1,2]=j',decl='j:JOINTPOS2');old=frame(p)
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'adapter'):p.run()
+        self.assertIs(frame(p),old)
     def test_boolean_location_rhs_is_rejected(self):self.assertEqual(self.reject('$MNUFRAME[1,2].location.x=TRUE'),'E_TYPE')
     def test_wrong_config_boolean_rhs_is_rejected(self):self.assertEqual(self.reject('$MNUFRAME[1,2].config_data.cfg_flip=7'),'E_TYPE')
     def test_whole_location_requires_vector(self):self.assertEqual(self.reject('$MNUFRAME[1,2].location=p'),'E_TYPE')

@@ -1,0 +1,29 @@
+{
+  "version": "26.1113.135123",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "evidence": "Authored source, model/adapter, linked/handler, capture, failure and saved JSON tests; no native compiler or controller execution",
+  "contract": {
+    "guide": "../system-pose-joints.md",
+    "source": "Whole numbered/active frame and tool source assignments accept complete JOINTPOS storage, array elements and function results",
+    "conversion": "Existing independent JOINTPOS-to-XYZWPREXT assignment conversion in the calling root task group with its explicit model/adapter and selected frame/tool",
+    "groups": "Destination group selects table storage only; linked routines retain calling root conversion context",
+    "capture": "Evaluate source and finish checked conversion before group/row selectors, then selectors once left-to-right; active target selection follows all earlier effects",
+    "values": "Retain complete CONFIG and three supplied external-axis fields in a detached row; validate geometry, joint width/padding and model limits",
+    "failure": "Failed conversion prevents selectors/publication; failed selectors retain completed source/callback effects; sticky abort still prevents publication",
+    "publication": "Use existing whole-row replacement; numbered rows may populate/repair, active rows require existing selected storage; selections/current state are not changed",
+    "persistence": "Published rows and explicit model settings use existing robot context JSON; callbacks, aliases and suspended execution are not restored"
+  },
+  "boundaries": [
+    "No joint-to-field writes, writable system aliases or implicit model discovery",
+    "Generic GET_VAR/SET_VAR system endpoints and direct context host table writes keep their existing data contracts",
+    "No native calibration, configuration branch selection, controller writes, motion or strict equivalence"
+  ],
+  "validation": [
+    "tests/test_system_pose_joints.py",
+    "tests/test_system_pose_write_guards.py",
+    "tests/test_system_pose_writes.py",
+    "tests/test_kinematic_assignments.py",
+    "examples/system_pose_joint_project/main.kl"
+  ]
+}

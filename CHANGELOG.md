@@ -1,5 +1,16 @@
 # Changelog
 
+## 26.1113.135123 - 2026-11-13
+
+- Accept complete JOINTPOS source values for whole numbered and active frame/
+  tool assignments. Reuse independent XYZWPREXT conversion with the calling
+  root group's explicit model and selected frame/tool before target selectors.
+- Preserve CONFIG/external axes, one-time evaluation, destination publication,
+  prior callback effects and sticky abort. Destination groups choose storage;
+  linked routines and handlers keep caller conversion context.
+- Add capture/failure/ownership/model checks, a linked external-axis example,
+  saved JSON replay and current report, README and semantic contracts.
+
 ## 26.1113.133642 - 2026-11-13
 
 - Give prismatic DH solver rows a 100 mm update cap, retaining 10 degrees for

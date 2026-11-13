@@ -27,7 +27,10 @@ Whole assignments accept complete POSITION, XYZWPR or XYZWPREXT records. The
 stored row keeps the supplied representation and external-axis values. The source
 value is detached: changing it after assignment leaves the table unchanged.
 POSITION basis, finite numeric and CONFIG domain checks apply before publication.
-Joint values require an explicit Cartesian conversion first.
+Whole [JOINTPOS source assignments](system-pose-joints.md) now use the existing
+model-backed XYZWPREXT conversion in the calling root task group, before target
+selectors. The destination group chooses storage. Generic system variable
+transfers still require an explicit Cartesian conversion first.
 
 Field writes support LOCATION as a VECTOR, LOCATION.X/Y/Z as REAL cells,
 CONFIG_DATA as a CONFIG record, and its individual turn/Boolean fields. They stage
@@ -56,7 +59,9 @@ writes require an existing selected row. Field writes require an existing comple
 row. A failed edit leaves the previous table entry unchanged. Whole replacement
 can repair an invalid existing row when a complete valid source pose is supplied.
 Active selection IDs and the robot's current pose/joints are not changed by a table
-write. Cartesian table updates do not invoke kinematic or reachability callbacks.
+write. Table updates with Cartesian inputs do not invoke kinematic or reachability
+callbacks. JOINTPOS source values use their explicit forward conversion before
+the table write begins; subsequent conversions use any updated selected rows.
 
 ## Persistence and boundaries
 
@@ -67,7 +72,8 @@ and frame/tool-only contexts use the same serialization rules as before.
 
 This extension creates no live system-variable aliases. Generic GET_VAR/SET_VAR
 and BYNAME discovery is unchanged. READ/service outputs, direct orientation-column
-writes, unknown dollar roots and automatic joint conversion remain unavailable.
+writes and unknown dollar roots remain unavailable. Model-backed joint source
+assignments follow their separate conversion policy above.
 [Active ID assignments](frame-tool-selection.md) use a separate checked selection
 operation. Supplied XYZWPREXT whole writes and saved table entries retain all
 three axes.

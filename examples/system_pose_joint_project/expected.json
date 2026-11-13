@@ -1,0 +1,8 @@
+{
+  "MAIN": {
+    "state": "completed",
+    "values": {"JOINTS": {"axes": [0.0, 42.0]}, "VALUE": 100.0, "HEIGHT": 42.0,
+               "FRAME_AXIS": 42.0, "TOOL_AXIS": 42.0, "DONE": true}
+  },
+  "LIB": {"state": "ready", "values": {}}
+}

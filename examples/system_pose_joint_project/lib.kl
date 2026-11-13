@@ -1,0 +1,10 @@
+PROGRAM LIB
+ROUTINE store(joints:JOINTPOS2)
+BEGIN
+  $MNUFRAME[1,7]=joints
+  $MNUTOOL[1,8]=joints
+  $GROUP[1].$UFRAME=joints
+  $GROUP[1].$UTOOL=joints
+END store
+BEGIN
+END LIB

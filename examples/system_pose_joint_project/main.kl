@@ -1,0 +1,15 @@
+PROGRAM MAIN
+VAR joints:JOINTPOS2 IN GROUP[2]
+    value,height,frame_axis,tool_axis:REAL done:BOOLEAN
+ROUTINE store(joints:JOINTPOS2) FROM LIB
+BEGIN
+  IF UNINIT(done) THEN
+    joints=CURJPOS(0,0)
+    store(joints)
+    value=$MNUFRAME[1,7].location.x
+    height=$MNUTOOL[1,8].location.z
+    frame_axis=$GROUP[1].$UFRAME.ext1
+    tool_axis=$GROUP[1].$UTOOL.ext1
+    done=TRUE
+  ENDIF
+END MAIN
