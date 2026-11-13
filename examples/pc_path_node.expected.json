@@ -1,0 +1,30 @@
+{
+  "ROUTE": {
+    "nodes": [
+      {
+        "AMOUNT": 17,
+        "ENABLED": true
+      }
+    ],
+    "data": null
+  },
+  "BUFFER": [
+    0,
+    16,
+    0,
+    0,
+    0,
+    17,
+    0,
+    16,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0
+  ],
+  "CURSOR": 13,
+  "STATUS": 0,
+  "DONE": true
+}

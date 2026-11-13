@@ -1,5 +1,18 @@
 # Changelog
 
+## 26.1113.043110 - 2026-11-13
+
+- Extend Pythonic ADD_BYNAMEPC to selected PATH nodes, fields and headers,
+  including PATH ARRAY cells, explicit foreign roots and linked source owners.
+  Reuse existing typed data items; whole resource serialization stays excluded.
+- Defer selected PATH-bank data copying until schema/capacity and scalar
+  budget admission. Keep default ordinary node validation and lookup guards.
+- Check captured buffer/index/status and expanded-source reference locations
+  across preparation. A changed binding raises before packet writes or send
+  publication, preserving completed host edits and the prior status value.
+- Add a runnable PATH-node packet example and focused lookup, replay,
+  budgeting, linkage, removal and reference-retargeting regressions.
+
 ## 26.1113.041016 - 2026-11-13
 
 - Fix XML_SETVAR overwriting callback edits made after target copying. Retain

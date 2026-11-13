@@ -39,7 +39,21 @@ Names follow current/attached globals and explicit variable roots, with existing
 case-insensitive static paths. Blank program uses the executing source module,
 including a supplied linked routine. Fully selected named ARRAY components can
 be serialized; incomplete flat row/plane selectors remain excluded. Routine-local
-discovery, system paths and FILE/PATH/QUEUE resources remain outside this contract.
+discovery, system paths and whole FILE/PATH/QUEUE resources remain outside this
+contract.
+
+### Selected PATH data
+
+`route[1]`, `route[1].field` and ordinary PATH header fields select data
+without serializing the PATH descriptor or unselected nodes. PATH banks
+accept static `routes[2,1]` and `routes[2][1]` node paths. The complete selected
+record, nested data, Cartesian columns or joints follow the same table above.
+Incomplete selected data returns status 4; absent or invalid node paths return
+status 1. Unselected partial nodes do not prevent a complete selected capture.
+
+Only selected data is captured after scalar budget admission; lookup does not
+clone the whole PATH. See the [runnable PATH example](../examples/pc_path_node.kl)
+and [PATH data contract](semantics/pc_path_node_semantics.json).
 
 ## Wire format and bounds
 
@@ -61,8 +75,13 @@ STRINGs uses 242 bytes; INTEGER/REAL items require six bytes each.
 Retain the existing initial builder checkpoint and index/buffer selection. For
 new data forms, charge one step per scalar before creating detached source
 copies or item bytes. Source edits completed during those checkpoints are read
-by the subsequent capture. A changed source schema, buffer root, backing list,
-contents or index raises before publication and preserves those completed edits.
+by the subsequent capture. A changed source schema or captured source location,
+buffer root, backing list, contents or index raises before publication and
+preserves those completed edits.
+Buffer, index and status must also retain their captured reference type, schema,
+storage and key across the initial checkpoint and expanded scalar charges.
+Deleting a selected node or retargeting a captured reference raises before writes;
+changing the ordinary index value at the initial checkpoint remains allowed.
 Existing INTEGER/REAL/STRING scalar calls retain their earlier behavior.
 
 Prepare all items and one end marker before replacing buffer bytes and advancing

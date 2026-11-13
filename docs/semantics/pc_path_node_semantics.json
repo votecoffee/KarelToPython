@@ -1,0 +1,24 @@
+{
+  "feature": "pc_path_node",
+  "version": "26.1113.043110",
+  "mode": "pythonic",
+  "policy": "pc_path_node_policy",
+  "guide": "docs/pc-named-data.md",
+  "source": "Selected PATH nodes, fields and headers, including static PATH-bank paths, linked source owners and explicit foreign roots",
+  "encoding": "Existing ordinary typed data items; no PATH descriptor or unselected node serialization",
+  "capture": "Defer selected bank data copying until scalar budget admission; preserve default complete ordinary node validation",
+  "publication": "Captured builder/index/status and expanded-source locations retain type, schema, storage and key; SEND_DATAPC checks status before event publication",
+  "verification": [
+    "tests/test_pc_path_nodes.py",
+    "tests/test_pc_named_data.py",
+    "tests/test_xml_publication.py",
+    "examples/pc_path_node.kl"
+  ],
+  "exclusions": [
+    "whole FILE/PATH/QUEUE resources",
+    "system or routine-local discovery",
+    "native PC transport",
+    "controller or strict equivalence"
+  ],
+  "controller_validated": false
+}

@@ -78,7 +78,9 @@ ordered scalar items with one final marker; narrow and Boolean values use INTEGE
 items. New forms charge each scalar before detached capture and retain checked
 source-schema and destination contracts. No aggregate shape/type headers are added.
 
-System-variable paths and FILE/PATH/QUEUE resources remain excluded. No names
+Selected PATH nodes, node fields and ordinary headers also use those data
+rules, including PATH-bank cells. Whole FILE/PATH/QUEUE resources and
+system-variable paths remain excluded. No names
 are discovered from a controller or routine-local frame. Missing paths return
 status 1; incompatible or uninitialized admitted data returns status 4 without
 changing the index/buffer. A schema-based capacity rejection can return status 3
@@ -107,6 +109,12 @@ It is read-only in routine effect analysis. Builder
 reference selectors and value arguments also evaluate once in source order;
 the referenced in/out index is read when the builder operation begins. Active
 FOR-counter, alias and ordinary source-protection rules remain in place.
+
+Builder buffer/index/status references must retain their captured locations
+across preparation checkpoints. SEND_DATAPC checks its captured status location
+at packet preparation before publishing an event. A changed reference binding
+raises and retains completed host edits, the prior status and the unpublished
+buffer or event. These checks do not add callbacks to event-only sends.
 
 ## Outbox, statuses and consumption
 

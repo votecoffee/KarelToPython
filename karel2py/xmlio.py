@@ -2,6 +2,7 @@
 from array import array
 from xml.parsers import expat
 import re
+from .reference_contracts import capture_location as _reference_location,same_location as _same_location
 
 
 XML_CONSTANTS={'ATR_XML':6,'AR_XML':6,'XML_SUCCESS':0,'XML_START':100,'XML_END':101,
@@ -233,20 +234,6 @@ class XMLInput:
         for i,(key,value) in enumerate(attrs,1): names.set(i,key,line);values.set(i,value,line)
         args[1].set(len(attrs),line);text.set(chunk,line);args[5].set(offset==len(self.current['text']),line);args[6].set(0,line)
         self.current.update(offset=offset,read=True);self.handle.status=0
-
-
-def _reference_location(reference):
-    return type(reference),reference.spec,reference.storage,reference.key
-
-
-def _same_location(reference,location):
-    kind,spec,storage,key=location
-    try:
-        return (type(reference) is kind and reference.spec==spec and reference.storage is storage
-                and type(reference.key) is type(key) and reference.key==key
-                and (type(storage) is dict and key in storage
-                     or type(storage) is list and type(key) is int and 0<=key<len(storage)))
-    except (AttributeError,TypeError,KeyError,IndexError):return False
 
 
 def _variable_stamp(spec,value):

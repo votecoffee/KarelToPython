@@ -433,7 +433,7 @@ existing collision, busy-file, quota and publication checks remain active.
 and RENAME_FILE reuse matched characters in their destination filenames.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1113.041016**. It is a
+tool are named **karel2py**. The current implementation is **26.1113.043110**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 [Formatted empty collection output](docs/empty-collection-output.md) lets the same
@@ -952,6 +952,9 @@ the selected ARRAY cells. See [PC data and events](docs/pc-exchange.md).
 [Named PC data batches](docs/pc-named-data.md) now append complete ARRAY/record/
 joint values and BYTE/SHORT/BOOLEAN scalars through ADD_BYNAMEPC, retaining
 existing tags, a single final marker and atomic buffer/index publication.
+Selected PATH nodes, node fields and headers use the same ordinary data rules;
+whole PATH resources remain excluded. Captured builder/index/status bindings
+are checked before publication, including SEND_DATAPC status at preparation.
 MSG_CONNECT/MSG_DISCO/MSG_PING use configured offline socket buffers and host
 results; PIPE_CONFIG provides circular PIP FILE histories. Both support ordinary
 FILE I/O and saved state. Socket FILEs can opt in to cooperative input and output
@@ -1402,7 +1405,7 @@ workflows. To run hosted checks, open the repository's **Actions** tab, select
 **Tests (manual)** or **GUI checks (manual)**, then choose **Run workflow**.
 Routine development validation uses the local CLI commands above.
 
-The example runner translates 581 authored runnable examples, checks complete
+The example runner translates 582 authored runnable examples, checks complete
 expected snapshots and validates their output, delay, context and termination
 fixtures, plus 234 complete linked source projects. It also checks that nested
 MOVE actions inside local handlers are rejected.

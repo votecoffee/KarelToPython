@@ -3,6 +3,7 @@ from copy import deepcopy
 import math
 import re
 import struct
+from .reference_contracts import capture_location,same_location
 
 
 PC_NAMES={'ADD_BYNAMEPC','ADD_INTPC','ADD_REALPC','ADD_STRINGPC','SEND_DATAPC','SEND_EVENTPC'}
@@ -169,17 +170,28 @@ def invoke(state,operation,args,line=None):
     runtime=rt();context=state.execution
     if operation.startswith('SEND_'):
         bank=context.require('pc_exchange',line)
+        status=args[-1];location=capture_location(status)
 
         def check():
             state.tick(line)
             if context.pc_exchange is not bank:
                 raise runtime.KarelRuntimeError('PC outbox changed during preparation', line)
+            if not same_location(status,location):
+                raise runtime.KarelRuntimeError('PC status binding changed during preparation',line)
 
-        args[-1].set(bank.send(args[0],args[1] if operation=='SEND_DATAPC' else None,line,check=check),line);return
+        code=bank.send(args[0],args[1] if operation=='SEND_DATAPC' else None,line,check=check)
+        if not same_location(status,location):
+            raise runtime.KarelRuntimeError('PC status binding changed during preparation',line)
+        status.set(code,line);return
     reference,index=args[:2];status=args[-1]
+    references=(reference,index,status);locations=tuple(capture_location(item) for item in references)
+    def verify_references():
+        if not all(same_location(item,location) for item,location in zip(references,locations)):
+            raise runtime.KarelRuntimeError('PC builder reference binding changed during preparation',line)
     original=reference.raw()
     storage=original.values if type(original) is runtime.Array else None
     state.tick(line)
+    verify_references()
     if reference.raw() is not original or storage is not None and original.values is not storage:
         raise runtime.KarelRuntimeError('PC buffer changed during preparation', line)
     try:values=buffer_values(reference.spec,original,line)
@@ -191,9 +203,9 @@ def invoke(state,operation,args,line=None):
         program=runtime.ascii_string(args[2],line).strip() or state.program_name
         path=runtime.ascii_string(args[3],line)
         if path.startswith('$'):status.set(1,line);return
-        try:source=context.resolve(state,program,path,line)
+        try:source=context.resolve(state,program,path,line,path_nodes=runtime._pythonic(),defer_node_data=runtime._pythonic())
         except runtime.KarelRuntimeError:status.set(1,line);return
-        source_spec=source.spec;kind=source_spec[0]
+        source_spec=source.spec;source_location=capture_location(source);kind=source_spec[0]
         value=source.raw() if kind in ('INTEGER','REAL','STRING') or not runtime._pythonic() else None
     else:kind={'ADD_INTPC':'INTEGER','ADD_REALPC':'REAL','ADD_STRINGPC':'STRING'}[operation];value=args[2]
     expanded=operation=='ADD_BYNAMEPC' and runtime._pythonic() and kind not in ('INTEGER','REAL','STRING')
@@ -206,8 +218,11 @@ def invoke(state,operation,args,line=None):
         if count*4+2>len(values)-position+1:status.set(3,line);return
         expected_spec=reference.spec
         for _ in range(count):state.tick(line)
+        verify_references()
         if source.spec!=source_spec:
             raise runtime.KarelRuntimeError('PC named data schema changed during capture',line)
+        if not same_location(source,source_location):
+            raise runtime.KarelRuntimeError('PC named source binding changed during capture',line)
         if (reference.spec!=expected_spec or reference.raw() is not original
                 or storage is not None and original.values is not storage
                 or buffer_values(reference.spec,original,line)!=values

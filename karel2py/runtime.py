@@ -1352,11 +1352,17 @@ def _collection_path_slot(array,index,expected,line=None):
     return current,integer(indexes[-1],line)
 
 
-def collection_path_reference(array,index,expected,line=None):
-    """Capture and validate the complete node for ordinary data access."""
+def collection_path_reference(array,index,expected,line=None,*,defer_data=False):
+    """Capture a node; PC preparation may defer data checks until budget admission."""
     current,node=_collection_path_slot(array,index,expected,line)
     value=current.node(node,line)
-    _aggregate_value(current.node_spec,value,line,allow_partial=True)
+    if defer_data:
+        # Keep structural selection checks without copying data before PC charges.
+        fields=dict(record_fields(current.node_spec))
+        if (len(current.nodes)>32767 or type(value) is not Structure or value.spec!=current.node_spec
+                or value.types!=fields or type(value.values) is not dict or value.values.keys()!=fields.keys()):
+            raise KarelRuntimeError('PATH node lookup found mismatched NODEDATA storage',line)
+    else:_aggregate_value(current.node_spec,value,line,allow_partial=True)
     return Reference(current.node_spec,current.nodes,node-1)
 
 

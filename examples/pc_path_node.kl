@@ -1,0 +1,14 @@
+PROGRAM PC_PATH_NODE
+TYPE node_t=STRUCTURE amount:INTEGER enabled:BOOLEAN ENDSTRUCTURE
+VAR route:PATH NODEDATA=node_t buffer:ARRAY[14]OF BYTE
+    cursor,status:INTEGER done:BOOLEAN
+BEGIN
+  IF UNINIT(done) THEN
+    APPEND_NODE(route,status)
+    route[1].amount=17 route[1].enabled=TRUE
+    cursor=1
+    ADD_BYNAMEPC(buffer,cursor,'','route[1]',status)
+    SEND_DATAPC(7,buffer,status)
+    done=TRUE
+  ENDIF
+END PC_PATH_NODE

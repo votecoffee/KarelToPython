@@ -7953,12 +7953,19 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         encoding='Expand ARRAYs row-major, records in declaration order and joints by axis; map BYTE/SHORT/BOOLEAN to INTEGER items with false=0 and true=1; retain existing REAL32 and length/NUL STRING items with one final end marker',
         schema='Existing concrete data-only schemas, 64 levels and 32767 leaves; no shape/name headers, field renaming, resource serialization or inferred receiver schema',
         bounds='Before expansion, reject batches whose scalar count times four plus final marker cannot fit remaining buffer space; then check complete captured values and exact encoded size within the existing 244-byte buffer',
-        capture='Existing initial builder checkpoint, then one step per expanded scalar before detached capture; source edits completed during charging are included; source schema, buffer identity/contents/storage and index must retain their captured contracts',
+        capture='Existing initial builder checkpoint, then one step per expanded scalar before detached capture; source edits completed during charging are included; source schema/location, captured buffer/index/status bindings, buffer identity/contents/storage and index must retain their contracts',
         publication='Stage every item, marker and next index before ordinary publication; status 3 for capacity, 4 for incompatible/unknown/unrepresentable data; budget/lifecycle or changed-destination failures propagate without overwriting status or prior state',
-        boundary='Authored Pythonic typed-item sequence; no ARRAY/record native envelope, incomplete flat row/plane lookup, FILE/PATH/QUEUE data, system discovery, transport/controller or strict equivalence',
+        boundary='Authored Pythonic typed-item sequence; no ARRAY/record native envelope, incomplete flat row/plane lookup, whole FILE/PATH/QUEUE data, system discovery, transport/controller or strict equivalence',
         guide='docs/pc-named-data.md',controller_validated=False)
-    report['pc_exchange_policy']['lookup']='Existing INTEGER/REAL/STRING and complete Pythonic ordinary data under pc_named_data_policy; current/attached globals or explicit roots with static paths; system/resource and incomplete flat-prefix lookup remain excluded'
+    report['pc_exchange_policy']['lookup']='Existing INTEGER/REAL/STRING and complete Pythonic ordinary data under pc_named_data_policy; current/attached globals or explicit roots with static paths; selected PATH data follows pc_path_node_policy; system/whole-resource and incomplete flat-prefix lookup remain excluded'
     report['pc_exchange_policy']['buffers']='One-dimensional ordinary BYTE ARRAY storage, 1..244 bytes; checked disjoint buffer/index/status references; builders stage a complete scalar item or named-data batch plus one marker and retain untouched prefix/tail bytes'
+    report['pc_path_node_policy']=dict(
+        source='ADD_BYNAMEPC selected scalar PATH nodes, node fields and ordinary header data; static PATH-bank comma/chained node paths, attached globals and explicit foreign roots; blank program uses executing source owner',
+        capture='Validate node selection without cloning the PATH; selected bank data copying waits for schema/capacity admission and scalar charges; ordinary default node validation remains unchanged',
+        encoding='Complete ordinary selected data expands under pc_named_data_policy into existing scalar items; no PATH descriptor, unselected nodes or resource envelope',
+        publication='Retain captured builder buffer/index/status and expanded-source reference type/schema/storage/key; reject changed bindings before writes; SEND_DATAPC checks status before event publication',
+        boundary='No whole PATH/QUEUE/FILE serialization, system or local discovery, native PC transport, controller or strict equivalence',
+        guide='docs/pc-named-data.md',controller_validated=False)
     report['xml_variable_publication_policy']=dict(
         capture='Retain target/status reference locations and schema; after existing leaf budget charges, copy partial target data and retain bounded value/storage tokens with strong owners',
         validation='Before publishing a valid staged update, verify root/child/backing storage, record type maps/protection flags, ARRAY shapes, joint storage and scalar values including signed zero and missing/unknown markers',

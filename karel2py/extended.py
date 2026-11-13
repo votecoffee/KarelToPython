@@ -3151,7 +3151,7 @@ class ExecutionContext:
         if name in ('JOINT2POS','POS2JOINT'):
             return self.kinematics(name,args,line,group=rt.task_root(state).robot_group,check=lambda:state.tick(line))
         fail('Unsupported extended operation '+name,line)
-    def resolve(self,state,program,path,line=None,*,path_nodes=False,prefixes=False,resources=False,system_transfer=None):
+    def resolve(self,state,program,path,line=None,*,path_nodes=False,prefixes=False,resources=False,system_transfer=None,defer_node_data=False):
         rt=runtime(); program=program.upper(); path=path.upper()
         # Explicit system roots and full-path bindings have precedence over discovery.
         selected=program if program not in ('',state.program_name) else state.program_name
@@ -3163,12 +3163,12 @@ class ExecutionContext:
             candidates=[(key,reference) for (owner,key),reference in self.variables.bindings.items() if owner in (program,selected,'SYSTEM','*SYSTEM*','') and (path==key or path.startswith(key+'.') or path.startswith(key+'['))]
             if candidates:
                 key,reference=max(candidates,key=lambda item:len(item[0])); rest=path[len(key):]
-                return self.descend(reference,rest,line,path_nodes=path_nodes,prefixes=prefixes,resources=resources)
+                return self.descend(reference,rest,line,path_nodes=path_nodes,prefixes=prefixes,resources=resources,defer_node_data=defer_node_data)
         if path.startswith('$') and system_transfer is not None and rt._pythonic() and program in ('','SYSTEM','*SYSTEM*'):
             return _system_variable_target(self,path,system_transfer=='SET_VAR',line)
         if root is not None and (owner is None or root[0] not in owner.types):
             reference=self.variables.bindings.get((selected,root[0])) or self.variables.bindings.get((program,root[0]))
-            if reference is not None: return self.descend(reference,path[root.end():],line,path_nodes=path_nodes,prefixes=prefixes,resources=resources)
+            if reference is not None: return self.descend(reference,path[root.end():],line,path_nodes=path_nodes,prefixes=prefixes,resources=resources,defer_node_data=defer_node_data)
         if program not in ('',state.program_name):
             state=self.variables.programs.get(program)
             if state is None: fail('Variable program is not attached to the explicit context',line)
@@ -3176,8 +3176,8 @@ class ExecutionContext:
         if not tokens or tokens[1] not in state.types: fail('Variable path requires a static declared global',line)
         value=state.values[tokens[1]]
         reference=value if isinstance(value,rt.Reference) else rt.Reference(state.types[tokens[1]],state.values,tokens[1]); rest=tokens[2]
-        return self.descend(reference,rest,line,path_nodes=path_nodes,prefixes=prefixes,resources=resources)
-    def descend(self,reference,rest,line=None,*,path_nodes=False,prefixes=False,resources=False):
+        return self.descend(reference,rest,line,path_nodes=path_nodes,prefixes=prefixes,resources=resources,defer_node_data=defer_node_data)
+    def descend(self,reference,rest,line=None,*,path_nodes=False,prefixes=False,resources=False,defer_node_data=False):
         rt=runtime()
         while rest:
             field=re.match(r'\.([A-Z_][A-Z_0-9]*)',rest)
@@ -3206,7 +3206,7 @@ class ExecutionContext:
                 else:
                     selected=numbers[0] if len(numbers)==1 else numbers
                     if rt._pythonic() and rt.collection_array_node_type(reference.spec,len(numbers)) is not None:
-                        reference=rt.collection_path_reference(value,selected,reference.spec,line)
+                        reference=rt.collection_path_reference(value,selected,reference.spec,line,defer_data=defer_node_data)
                     elif prefixes and rt._pythonic() and consumed==len(rest) and rt.array_prefix_type(reference.spec,len(numbers)) is not None:
                         reference=(rt.resource_array_prefix_reference(value,selected,reference.spec,line)
                                    if resources and rt.resource_array_type(reference.spec) and (resources!='collections' or rt.collection_array_type(reference.spec))
