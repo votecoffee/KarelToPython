@@ -75,8 +75,11 @@ letters, digits or underscores, with at most 36 characters. Custom names and
 repeated declarations are preserved. This is an explicit portable identifier
 subset: quoted filenames, extensions, paths, assignments and lists are rejected.
 
-COMMENT accepts one single-quoted ASCII literal of at most 16 decoded characters,
-including an empty literal. Doubled apostrophes decode to one apostrophe; `--`
+Pythonic COMMENT accepts one single-quoted ASCII literal of at most 254 decoded
+characters, including an empty literal. This is a portable metadata capacity;
+the reference describes a 16-character native program attribute. Longer comments
+retain their complete text without simulating native truncation or writing an
+attribute. Doubled apostrophes decode to one apostrophe; `--`
 and `&` inside the literal remain data. COMMENT must precede CONST, TYPE, VAR and
 routine declarations. Duplicate COMMENT attributes are rejected because this
 translator does not choose a native precedence rule. ALPHABETIZE and NOLOCKGROUP
@@ -99,6 +102,14 @@ the chosen behavior and lists unique `required_environments` in first-use order.
 Generated modules retain immutable `(name, argument)` pairs in
 `Program.source_directives`, available with the small standalone runtime too.
 Changing report dictionaries does not change generated metadata.
+`directive_policy.comment_limits` records both the portable capacity and the
+reference limit. `comments_over_reference_limit` lists each longer comment's
+physical line, column and decoded length; it is empty for comments up to 16
+characters. Runtime state and saved context do not depend on comment length.
+The existing [program attribute view](program-metadata.md#attribute-reads)
+still limits `GET_ATTR_PRG` with `AT_COMMENT` to 16 characters, followed by any
+smaller receiver capacity. Explicit supplied attributes keep precedence. That
+bounded service view leaves complete `Program.source_directives` text intact.
 
 ## Additional source policies
 
@@ -152,7 +163,7 @@ late or duplicate COMMENT attributes produce `E_DIRECTIVE_POSITION` or
 The reviewed [reference edition](references.md), one-based PDF pages 310,
 343-344 and 387-388, describes alphabetical static-variable display, COMMENT's
 length/header placement and ENVIRONMENT definition loading. Metadata preservation,
-the portable name subset, duplicate policy and unchanged offline storage order
+the 254-character portable comment capacity, portable name subset, duplicate policy and unchanged offline storage order
 are explicit implementation choices.
 
 The seven task directives require placement before declarations and reject

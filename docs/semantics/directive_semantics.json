@@ -1,6 +1,6 @@
 {
-  "translator_version": "0.78.0",
-  "date": "2026-10-21",
+  "translator_version": "26.1113.161626",
+  "date": "2026-11-13",
   "mode": "pythonic",
   "scope": "Syntax-checked source metadata without implicit runtime facilities",
   "reference_basis": {
@@ -12,7 +12,10 @@
   "implementation_choices": {
     "allowed": ["%ENVIRONMENT", "%COMMENT", "%ALPHABETIZE", "%NOLOCKGROUP"],
     "environment": "Record bare ASCII letter-starting names of 1..36 characters in uppercase; repeated/custom names preserved; no file or module loading, definitions or implicit built-ins",
-    "comment": "One decoded ASCII literal up to 16 characters before all declaration sections and routines; empty text allowed; duplicate attributes rejected",
+    "comment": "One decoded ASCII literal up to 254 characters before all declaration sections and routines; preserve complete offline metadata without native attribute truncation; empty text allowed; duplicate attributes rejected",
+    "comment_limits": {"portable_decoded_characters": 254, "reference_attribute_characters": 16},
+    "comment_observations": "directive_policy.comments_over_reference_limit records physical line, column and decoded length for comments over the 16-character reference limit",
+    "comment_attribute_view": "Existing GET_ATTR_PRG AT_COMMENT source fallback retains its 16-character service view and smaller receiver truncation; explicit supplied attributes keep precedence without altering source metadata",
     "scanning": "Recognize doubled apostrophes and quote boundaries before stripping a real trailing comment or detecting unsupported continuation; raw token text retained",
     "alphabetize": "Record display request without reordering offline storage, snapshots or declarations",
     "placement": "Line-ending top-level directives after PROGRAM and before BEGIN; ENVIRONMENT and ALPHABETIZE also allowed between declaration sections; no routine-local or executable directives",
@@ -20,7 +23,7 @@
     "generated": "Immutable normalized name/argument tuple pairs in Program.source_directives, independent of mutable report dictionaries"
   },
   "retained_boundaries": [
-    "Unknown/runtime directives, INCLUDE, persistence, scheduling, task/group and device-default mappings remain blocked",
+    "Unknown directives remain blocked; explicit includes and additional source/task policies have separate current contracts",
     "Every source symbol, call and type checked independently; no environment-based grants or native visibility/default-file emulation",
     "No controller attribute writes or native/compiler/controller acceptance claim; strict remains future work"
   ],

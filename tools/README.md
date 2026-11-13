@@ -72,6 +72,43 @@ packaged without resizing or recompression.
 
 ## Optional corpus scanners
 
+### Compatibility audit
+
+`audit_compatibility.py` accepts an explicitly selected source tree without
+requiring a particular corpus layout. It recursively selects case-insensitive
+basename patterns (`*.kl` by default); repeat `--name` to select alternatives.
+Child symbolic links and Windows junctions are skipped. Use a source-only tree
+or select original filenames to avoid counting generated or reconstructed files.
+
+```sh
+python tools/audit_compatibility.py --root .local/corpus --name author.KL --output .local/compatibility-before.json
+python tools/audit_compatibility.py --root .local/corpus --name author.KL --baseline .local/compatibility-before.json --output .local/compatibility-after.json
+```
+
+Every selected file has a relative path, byte length and SHA-256 in the manifest.
+Byte-identical inputs are translated once; the report retains all occurrences
+and separates file counts from distinct-source counts. Generated source is parsed
+with Python 3.11 grammar and compiled without execution. Its hash belongs to the
+explicit representative filename for that group. UTF-8 with an optional BOM is
+required; input bytes and physical line endings are preserved.
+
+A baseline requires the same selected relative paths and bytes, then reports
+outcome changes by source hash. Reports must use new output paths; existing
+reports and inputs are never replaced. Rejected source forms are ordinary audit
+outcomes and give exit code zero, since intentional negative cases may be present.
+Decoding or unexpected translator/Python syntax failures produce a report and
+exit code one. Selection, baseline and report-file errors give exit code two.
+
+These are standalone Pythonic translations, without inferred includes, saved
+ARRAY schemas or linked providers. A rejection may require explicit context, or
+be a non-program include or intentional negative input. Review diagnostics and
+source provenance before calling a rejection a compatibility defect. No input
+or generated code is executed; there is no native compiler or controller check.
+Keep reports private. Distinct sources and byte-identical release copies do not
+establish runtime coverage or production-program compatibility.
+
+### Feature-specific scanners
+
 `audit_*_corpus.py` tools translate or scan an explicitly supplied KAREL corpus
 read-only. The existing adapter expects uppercase `.KL` files below
 `KL/V8.33/`, with optional paired files below `PC/V8.33/`; individual selectors

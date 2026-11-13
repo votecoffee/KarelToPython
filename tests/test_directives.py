@@ -39,6 +39,47 @@ class MetadataDirectiveTests(unittest.TestCase):
     def test_sixteen_decoded_characters(self):
         p,_=compile_program("%COMMENT='"+"''"*16+"'")
         self.assertEqual(p.source_directives,(('%COMMENT',"'"*16),))
+    def test_long_comment_preserves_complete_metadata_and_reports_reference_limit(self):
+        text='Portable conversion example with a descriptive program comment'
+        p,r=compile_program("%COMMENT='"+text+"'")
+        self.assertEqual(p.source_directives,(('%COMMENT',text),))
+        self.assertEqual(p.run()['TOTAL'],4)
+        policy=r.report['directive_policy']
+        self.assertEqual(policy['comment_limits'],dict(portable_decoded_characters=254,reference_attribute_characters=16))
+        self.assertEqual(policy['comments_over_reference_limit'],[dict(line=2,column=1,decoded_characters=len(text))])
+        self.assertEqual(r.report['directive_metadata'][0]['argument'],text)
+    def test_maximum_comment_counts_decoded_apostrophes(self):
+        p,r=compile_program("%COMMENT='"+"''"*254+"'")
+        self.assertEqual(p.source_directives,(('%COMMENT',"'"*254),))
+        self.assertEqual(r.report['directive_policy']['comments_over_reference_limit'][0]['decoded_characters'],254)
+    def test_short_comment_has_no_reference_limit_observation(self):
+        for length in (0,1,16):
+            with self.subTest(length=length):
+                _,r=compile_program("%COMMENT='"+'x'*length+"'")
+                self.assertEqual(r.report['directive_policy']['comments_over_reference_limit'],[])
+    def test_long_literal_markers_are_data(self):
+        text="A descriptive -- & comment can't execute code"
+        p,r=compile_program("%COMMENT='"+text.replace("'","''")+"' -- ignored &")
+        self.assertEqual(p.source_directives,(('%COMMENT',text),))
+        self.assertEqual(r.report['continuations'],[])
+        self.assertEqual(p.run()['TOTAL'],4)
+    def test_long_comment_does_not_bypass_statement_type_checks(self):
+        with self.assertRaises(TranslationError) as caught:
+            compile_program("%COMMENT='A sufficiently descriptive metadata comment'",body='total=TRUE')
+        self.assertEqual(caught.exception.code,'E_TYPE')
+    def test_long_source_metadata_keeps_existing_program_attribute_view(self):
+        text='An authored comment with complete portable metadata'
+        for capacity,override in ((80,None),(8,None),(80,'supplied')):
+            with self.subTest(capacity=capacity,override=override):
+                source=("PROGRAM T\n%COMMENT='"+text+"'\nVAR n,s:INTEGER text:STRING["+str(capacity)+"]\n"
+                        "BEGIN n=91 GET_ATTR_PRG('T',AT_COMMENT,n,text,s) END T")
+                namespace={'__name__':'comment_attribute_test'}
+                exec(translate(source).python_source,namespace)
+                context=(rt.ExecutionContext(program_attributes=rt.ProgramAttributes({'T':{'attributes':{'AT_COMMENT':override}}}))
+                         if override is not None else None)
+                program=namespace['Program'](context=context)
+                self.assertEqual(program.run(),dict(N=91,S=0,TEXT=(override if override is not None else text[:16])[:capacity]))
+                self.assertEqual(program.source_directives,(('%COMMENT',text),))
     def test_literal_comment_marker_is_data(self): self.assertEqual(compile_program("%COMMENT='a--b'")[0].source_directives,(('%COMMENT','a--b'),))
     def test_literal_ampersand_is_data(self): self.assertEqual(compile_program("%COMMENT='a&b'")[0].source_directives,(('%COMMENT','a&b'),))
     def test_literal_markers_and_real_trailing_comment(self):
@@ -120,8 +161,8 @@ class DirectiveBoundaryTests(unittest.TestCase):
         for item in ("%COMMENT 'x'",'%COMMENT=x',"%COMMENT='unterminated","%COMMENT='a' 'b'"):
             with self.subTest(item=item): self.reject(item,'E_DIRECTIVE_SYNTAX')
     def test_comment_character_and_length_bounds(self):
-        for item in ('x'*17,'caf\u00e9'):
-            with self.subTest(item=item): self.reject("%COMMENT='"+item+"'",'E_DIRECTIVE_VALUE')
+        for item in ('x'*255,'caf\u00e9',"'"*255):
+            with self.subTest(item=item): self.reject("%COMMENT='"+item.replace("'","''")+"'",'E_DIRECTIVE_VALUE')
     def test_comment_must_precede_declarations(self): self.reject('', 'E_DIRECTIVE_POSITION',tail="%COMMENT='late'")
     def test_comment_must_precede_routines(self): self.reject('', 'E_DIRECTIVE_POSITION',routines='ROUTINE done BEGIN END done',tail="%COMMENT='late'")
     def test_duplicate_comment_rejected(self): self.reject("%COMMENT='one'\n%COMMENT='two'",'E_DIRECTIVE_DUPLICATE')

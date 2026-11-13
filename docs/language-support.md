@@ -1,5 +1,9 @@
 # Language support
 
+[Program comments](source-directives.md) preserve up to 254 decoded ASCII
+characters as Pythonic metadata. Reports identify comments beyond the reference's
+16-character native attribute limit; native truncation is not simulated.
+
 [Inline ARRAY source spellings](inline-arrays.md) now combine directly written
 anonymous layers into existing dimensions across storage, parameters and results.
 Named component identities, concrete shapes and resource ownership remain checked.

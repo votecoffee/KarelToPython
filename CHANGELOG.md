@@ -1,5 +1,16 @@
 # Changelog
 
+## 26.1113.161626 - 2026-11-13
+
+- Preserve Pythonic COMMENT metadata up to 254 decoded ASCII characters,
+  reporting source locations and lengths beyond the reference's 16-character
+  native attribute limit. Retain full text, quote scanning and existing checks.
+- Add a read-only compatibility audit for explicitly selected source trees:
+  byte hashes, distinct/duplicate counts, Python 3.11 syntax checks, grouped
+  diagnostics and pinned-manifest baseline comparisons. Never execute inputs
+  or translations; preserve old reports and skip child links/junctions.
+- Add authored metadata and audit API/CLI regressions and update public guides.
+
 ## 26.1113.145430 - 2026-11-13
 
 - Add Pythonic model-backed JOINTPOS inputs to SET_POS_REG/SET_EPOS_REG and

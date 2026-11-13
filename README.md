@@ -458,7 +458,7 @@ SET_JPOS_REG. They capture inputs before later selectors and stage converted
 values under destination/status guards in the selected register group.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1113.145430**. It is a
+tool are named **karel2py**. The current implementation is **26.1113.161626**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 [Formatted empty collection output](docs/empty-collection-output.md) lets the same
@@ -772,7 +772,9 @@ initial state, portable statuses and the generated script's JSON context.
 
 ENVIRONMENT, COMMENT and ALPHABETIZE directives are retained as checked metadata
 alongside NOLOCKGROUP. Environment requirements are recorded without loading
-definitions or enabling extra facilities. See [source directives](docs/source-directives.md).
+definitions or enabling extra facilities. Pythonic COMMENT preserves up to 254
+decoded ASCII characters; reports identify comments exceeding the reference's
+16-character native attribute limit. See [source directives](docs/source-directives.md).
 Seven task directives also initialize portable priority, time-slice and request
 policies; see [task attributes and traces](docs/task-attributes.md).
 Nine additional source policies cover an applied DEFGROUP default, CRTDEVICE
@@ -1470,6 +1472,10 @@ See the [changelog](CHANGELOG.md) for implementation milestones.
 Public tests create any corpus fixtures they need in temporary directories.
 Optional [corpus audit tools](tools/README.md) accept an explicitly supplied corpus;
 their inputs and generated reports are not part of this repository.
+The [compatibility audit](tools/README.md#compatibility-audit) also accepts arbitrary
+selected source trees, fingerprints every input, reports distinct sources and
+duplicate occurrences separately, and checks generated Python syntax without
+executing the source or its translation.
 
 ## Repository Layout
 

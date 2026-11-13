@@ -381,8 +381,8 @@ class Parser:
             match = re.fullmatch(r"%COMMENT\s*=\s*'((?:[^']|'')*)'", content, re.I)
             if not match: self.error('E_DIRECTIVE_SYNTAX', 'COMMENT requires one single-quoted literal after =', token)
             argument = match[1].replace("''", "'")
-            if not argument.isascii() or len(argument) > 16:
-                self.error('E_DIRECTIVE_VALUE', 'COMMENT requires at most 16 decoded ASCII characters', token)
+            if not argument.isascii() or len(argument) > 254:
+                self.error('E_DIRECTIVE_VALUE', 'COMMENT requires at most 254 decoded ASCII characters', token)
             disposition = 'Recorded program comment only; no controller attribute write'
         elif content.upper() != '%ALPHABETIZE':
             self.error('E_DIRECTIVE_SYNTAX', 'ALPHABETIZE accepts no arguments', token)
@@ -6454,12 +6454,15 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         allowed=['%ALPHABETIZE','%COMMENT','%ENVIRONMENT','%NOLOCKGROUP',*rt.TASK_DIRECTIVES,*sorted(rt.SOURCE_DIRECTIVES)],
         scope='Syntax-checked top-level directives; seven task directives and nine source policy directives precede declarations; preserve source order, raw text and decoded immutable Program.source_directives pairs; Program.source_settings exposes detached effective metadata',
         environment='One bare ASCII letter-starting name, 1..36 characters, normalized uppercase; record requirements without loading definitions, files, modules or controller facilities; source symbols/calls still checked individually',
-        comment='One decoded ASCII literal of at most 16 characters before CONST/TYPE/VAR/routines; preserve literal comment/ampersand characters and doubled apostrophes; duplicate attributes rejected',
+        comment='One decoded ASCII literal of at most 254 characters before CONST/TYPE/VAR/routines; preserve complete metadata, literal comment/ampersand characters and doubled apostrophes; duplicate attributes rejected; no native attribute truncation',
+        comment_limits=dict(portable_decoded_characters=254, reference_attribute_characters=16),
+        comments_over_reference_limit=[dict(line=row['line'], column=row['column'], decoded_characters=len(row['argument']))
+                                       for row in report['directive_metadata'] if row['name']=='%COMMENT' and len(row['argument'])>16],
         alphabetize='Record display-order request; offline storage/snapshot order remains declaration order',
         required_environments=list(dict.fromkeys(row['argument'] for row in report['directive_metadata'] if row['name'] == '%ENVIRONMENT')),
         defaults='DEFGROUP overrides single-group declaration inference and context default for caller-root services, including ordinary position registers; explicit call groups win. CRTDEVICE labels omitted-file READ/WRITE observations CRT/KB without changing callback signatures',
         metadata='CMOSVARS/CMOS2SHADOW/SHADOWVARS retain logical storage intent; UNINITVARS retains existing uninitialized defaults without clearing values; STACKSIZE and periodic DELAY retain metadata only; LOCKGROUP/NOLOCKGROUP can opt into logical root and additional callee GroupLocks scopes',
-        checks='Distinct predeclaration policies; LOCKGROUP conflicts with NOLOCKGROUP, CMOSVARS conflicts with SHADOWVARS; explicit portable numeric/group bounds; includes and unknown directives remain blocked',
+        checks='Distinct predeclaration policies; LOCKGROUP conflicts with NOLOCKGROUP, CMOSVARS conflicts with SHADOWVARS; explicit portable numeric/group bounds; includes require explicit sources and unknown directives remain blocked',
         boundary='No binary environment/include loading, native storage/power-cycle behavior, native group waits/servo ownership, stack allocation, periodic task delay, device I/O or preemption; strict remains future work',
         controller_validated=False)
     report['path_geometry_policy']=dict(
