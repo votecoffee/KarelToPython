@@ -38,6 +38,12 @@ target orientation. The solver tries the opposite sign if the first direction
 makes no progress within the limits. Failure is inconclusive for geometric
 reachability.
 
+[Per-joint IK update caps](ik-travel-limits.md) default to 10 degrees for
+revolute rows and 100 mm for prismatic rows. A positive finite `ik_step_limit`
+on a DH row overrides its cap in that joint's units; all free-axis proposals
+share a direction-preserving scale. Explicit prismatic 10 retains the earlier
+cap. Search caps do not specify motion speed or change joint limits.
+
 DH `position_tolerance` and `orientation_tolerance` take positive finite
 numbers in millimetres and degrees, respectively.
 

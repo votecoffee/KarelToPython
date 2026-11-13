@@ -1,0 +1,7 @@
+{
+  "robot": {
+    "dh": [{"type": "prismatic", "min": -10000, "max": 10000, "ik_step_limit": 1000}],
+    "iterations": 8,
+    "current": {"joints": {"type": ["JOINTPOS", 1], "value": [0.0]}}
+  }
+}

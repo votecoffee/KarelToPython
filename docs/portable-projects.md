@@ -283,6 +283,9 @@ assert context.robot.model.chain([0, 90])[0][3] == 100.0
 
 Supply standard DH rows with `a`, `alpha`, `d`, `theta`, `offset`, `type`, `min`
 and `max`. Lengths use mm; angles use degrees. Types are revolute or prismatic.
+An optional positive finite `ik_step_limit` caps numerical updates in that
+joint's units; defaults are 10 degrees or 100 mm. See
+[inverse-kinematics travel limits](ik-travel-limits.md).
 Omitted geometry/offset fields are zero; default limits are -180..180 degrees
 or -1000..1000 mm. There are 1..9 joints and up to three external joints.
 Supply `external_axes` for a count of trailing DH rows, or use

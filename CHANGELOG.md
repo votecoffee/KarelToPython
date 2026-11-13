@@ -1,5 +1,16 @@
 # Changelog
 
+## 26.1113.133642 - 2026-11-13
+
+- Give prismatic DH solver rows a 100 mm update cap, retaining 10 degrees for
+  revolute rows. Add positive finite per-row `ik_step_limit` overrides in each
+  joint's units, with a common direction-preserving scale for free-axis updates.
+- Support long linear travel through existing inverse conversions, ARRAY and
+  variable transfers, IN_RANGE and CHECK_EPOS. Preserve explicit joint limits,
+  fixed external axes, per-seed iterations, execution budgets and failed outputs.
+- Add authored mixed-axis, long-travel, invalid-setting, persistence and atomic
+  failure checks, a CLI example and current report/documentation contracts.
+
 ## 26.1113.131556 - 2026-11-13
 
 - Add KCL edits of owned paused-local PATH header/node data, including PATH-bank

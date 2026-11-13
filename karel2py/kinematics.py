@@ -102,18 +102,26 @@ class SerialRobotModel:
                 raise ValueError('External-axis indices require up to three distinct one-based DH rows and at least one main joint')
             self._external_joints=tuple(index-1 for index in external_axis_indices)
         if type(iterations) is not int or not 1<=iterations<=2000: raise ValueError('IK iterations must be in 1..2000')
-        self.rows=[]; self.limits=[]
+        self.rows=[]; self.limits=[]; steps=[]
         for row in dh:
-            if type(row) is not dict or set(row)-{'a','alpha','d','theta','type','offset','min','max'}: raise ValueError('Unknown DH joint fields')
+            if type(row) is not dict or set(row)-{'a','alpha','d','theta','type','offset','min','max','ik_step_limit'}: raise ValueError('Unknown DH joint fields')
             row=dict(row)
             kind=row.get('type','revolute')
             if kind not in ('revolute','prismatic'): raise ValueError('DH joint type must be revolute or prismatic')
+            step=row.pop('ik_step_limit',10. if kind=='revolute' else 100.)
+            try:
+                if type(step) not in (int,float): raise ValueError('IK step limit requires a positive finite number')
+                step=float(step)
+            except OverflowError as error:
+                raise ValueError('IK step limit requires a positive finite number') from error
+            if not math.isfinite(step) or step<=0: raise ValueError('IK step limit requires a positive finite number')
             if any(type(value) not in (int,float) for key,value in row.items() if key!='type'): raise ValueError('DH numeric fields require numbers')
             values={name:float(row.get(name,0.)) for name in ('a','alpha','d','theta','offset')}
             original=dh[len(self.rows)]
             bounds=(float(original.get('min',-180 if kind=='revolute' else -1000)),float(original.get('max',180 if kind=='revolute' else 1000)))
             if not all(math.isfinite(v) for v in (*values.values(),*bounds)) or bounds[0]>bounds[1]: raise ValueError('DH parameters and limits must be finite and ordered')
-            self.rows.append(dict(type=kind,**values)); self.limits.append(bounds)
+            self.rows.append(dict(type=kind,**values)); self.limits.append(bounds); steps.append(step)
+        self.ik_step_limits=tuple(steps)
         if not isinstance(ik_fallback_seeds,(list,tuple)) or len(ik_fallback_seeds)>8:
             raise ValueError('IK fallback seeds require a list of up to eight joint vectors')
         seeds=[]
@@ -198,7 +206,10 @@ class SerialRobotModel:
             for goal in goals:
                 delta=linear_solve(normal,[sum(x*y for x,y in zip(column,goal)) for column in columns])
                 if delta is None: return None
-                scale=min(1.,10./max(10.,max(abs(value) for value in delta)))
+                # One shared scale retains the proposed direction while bounding
+                # each axis in its own units (degrees or millimetres).
+                scale=min((1.,*(self.ik_step_limits[axis]/abs(increment)
+                               for axis,increment in zip(variables,delta) if increment)))
                 for _ in range(12):
                     trial=q.copy()
                     for axis,increment in zip(variables,delta): trial[axis]=min(self.limits[axis][1],max(self.limits[axis][0],q[axis]+scale*increment))

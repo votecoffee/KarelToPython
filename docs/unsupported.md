@@ -487,7 +487,8 @@ queue-entry policies; FILE banks remain excluded.
   from hardware; supply it explicitly.
 - Calibrated robot-specific geometry, native CONFIG branch selection, collision
   checks and certified/native reachability. Standard-DH models use bounded
-  numerical IK; failure to find a solution is not proof of impossibility.
+  numerical IK with [per-joint travel caps](ik-travel-limits.md); failure to
+  find a solution is not proof of impossibility.
 - Unconfigured groups/axes, coupled mechanisms and external axes beyond the
   supplied model's supported width and explicitly mapped DH rows. Three XYZWPREXT
   metadata slots do not model arbitrary physical external-axis behavior.

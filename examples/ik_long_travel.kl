@@ -1,0 +1,26 @@
+PROGRAM IK_LONG_TRAVEL
+VAR c:CONFIG f,p:XYZWPR j,out:JOINTPOS1 e:ARRAY[3]OF REAL
+    entry,status,checked,distance,via_get,via_set,restored:INTEGER
+    reachable,done:BOOLEAN
+BEGIN
+  IF UNINIT(done) THEN
+    CNV_STR_CONF('N',c,status)
+    f=POS(0,0,0,0,0,0,c)
+    p=POS(0,0,5000,0,0,0,c)
+    j=CURJPOS(0,0)
+    e[1]=0 e[2]=0 e[3]=0
+    out=p
+    distance=ROUND(out[1])
+    GET_VAR(entry,'','P',out,status)
+    via_get=ROUND(out[1])
+    SET_VAR(entry,'','OUT',p,status)
+    via_set=ROUND(out[1])
+    POS2JOINT(j,p,f,f,0,c,e,out,status)
+    restored=ROUND(out[1])
+    reachable=IN_RANGE(p)
+    CHECK_EPOS(p,f,f,checked)
+    out[1]=0
+    entry=0
+    done=TRUE
+  ENDIF
+END IK_LONG_TRAVEL

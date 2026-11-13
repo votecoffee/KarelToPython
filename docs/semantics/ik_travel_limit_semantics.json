@@ -1,0 +1,28 @@
+{
+  "version": "26.1113.133642",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "evidence": "Authored standard-DH numerical solver cases and CLI execution; no native solver or controller claims",
+  "contract": {
+    "guide": "../ik-travel-limits.md",
+    "configuration": "Optional positive finite numeric ik_step_limit on each explicit DH row, in degrees for revolute joints and millimetres for prismatic joints",
+    "defaults": "10 degrees for revolute joints, 100 millimetres for prismatic joints; explicit prismatic 10 retains the earlier cap",
+    "update": "One common scale limits every free-axis proposed increment; line search can reduce it further, preserving proposal direction before joint-limit clamps",
+    "fixed_axes": "Fixed external joints and zero-travel rows are excluded from step scaling",
+    "consumers": "Shared POS2JOINT, source/interface/ARRAY/record and variable-transfer inverse solving, IN_RANGE and CHECK_EPOS",
+    "persistence": "Explicit row settings survive ordinary context JSON, including grouped models; executable continuations are not restored"
+  },
+  "boundaries": [
+    "Numerical search settings do not specify motion, speed, acceleration or native/controller behavior",
+    "Changing a cap can change convergence and the first solution found; failed solving does not prove unreachability",
+    "Existing limits, per-seed iterations, source evaluation budgets, fixed external axes and destination-preserving failures remain",
+    "No inferred robot model, calibration, native CONFIG branch, collision or physical acceptance; strict mode deferred"
+  ],
+  "validation": [
+    "tests/test_ik_step_limits.py",
+    "tests/test_check_position.py",
+    "tests/test_kinematic_assignments.py",
+    "tests/test_kinematic_variable_transfers.py",
+    "examples/ik_long_travel.kl"
+  ]
+}

@@ -432,8 +432,13 @@ existing collision, busy-file, quota and publication checks remain active.
 [Fixed-width filename captures](docs/question-file-wildcards.md) let COPY_FILE
 and RENAME_FILE reuse matched characters in their destination filenames.
 
+[Inverse-kinematics travel limits](docs/ik-travel-limits.md) now distinguish
+revolute degrees from prismatic millimetres. Explicit per-joint caps support
+long linear travel across source conversions, variable transfers and
+reachability checks while retaining supplied limits and execution budgets.
+
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1113.131556**. It is a
+tool are named **karel2py**. The current implementation is **26.1113.133642**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 [Formatted empty collection output](docs/empty-collection-output.md) lets the same
@@ -1431,7 +1436,7 @@ workflows. To run hosted checks, open the repository's **Actions** tab, select
 **Tests (manual)** or **GUI checks (manual)**, then choose **Run workflow**.
 Routine development validation uses the local CLI commands above.
 
-The example runner translates 588 authored runnable examples, checks complete
+The example runner translates 589 authored runnable examples, checks complete
 expected snapshots and validates their output, delay, context and termination
 fixtures, plus 239 complete linked source projects. It also checks that nested
 MOVE actions inside local handlers are rejected.
