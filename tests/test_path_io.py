@@ -81,10 +81,9 @@ class PathWriteTests(unittest.TestCase):
         p,_=build('WRITE(p)',decl='p:PATH',seed=False);p.run();self.assertEqual(text(p),[''])
     def test_empty_path_combines_with_scalar_and_cr(self):
         p,_=build("WRITE('a',p,CR)",decl='p:PATH',seed=False);p.run();self.assertEqual(text(p),['a\n'])
-    def test_formatted_empty_path_is_explicitly_rejected(self):
+    def test_formatted_empty_path_produces_one_empty_item(self):
         p,_=build('WRITE(p::4)',decl='p:PATH',seed=False)
-        with self.assertRaisesRegex(rt.KarelRuntimeError,'Empty PATH'):p.run()
-        self.assertEqual(text(p),[])
+        p.run();self.assertEqual(text(p),[''])
     def test_uniform_fixed_width_formats_apply_per_leaf(self):
         p,_=build('WRITE(p::4::0)');p.run();self.assertEqual(text(p),['   2   7abcd   9wxyz'])
     def test_named_array_node_fields_are_flattened(self):

@@ -6,8 +6,9 @@ normal capture, format and operation bounds. [Queue I/O](queue-io.md) now adds
 initialized entry-value streams; FILE banks remain excluded.
 
 [Root PATH I/O](path-io-and-file-initialization.md) also uses these uniform scalar
-controls after header/node capture. Formatted empty PATH output and empty
-headerless input remain excluded.
+controls after header/node capture. [Formatted empty output](empty-collection-output.md)
+now validates declared scalar domains without emitting field bytes. Empty
+headerless input remains excluded.
 
 Pythonic whole-data READ and WRITE now accept the scalar `::width` and second
 format expressions on aggregate items. Evaluate each format expression once,

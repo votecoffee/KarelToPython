@@ -65,7 +65,9 @@ header or node and never allocates nodes from input. An empty headerless PATH ha
 no input fields and is rejected before consuming input. Unformatted WRITE of an
 empty PATH produces one empty item, like an empty STRING. It still participates
 in ordinary WRITE recording, FILE-open checks and item limits. Formatted empty
-PATH output is rejected.
+PATH output now follows the [empty collection policy](empty-collection-output.md):
+validate formats against declared node scalar categories, then emit no field bytes
+or padding. This does not initialize or allocate a node.
 
 Omitted-file READ uses the existing typed callback, JSON values or TextInput
 adapter. Explicit FILE operations use the existing text, binary and cooperative

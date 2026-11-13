@@ -1,5 +1,6 @@
 {
   "version": "26.1104.035458",
+  "current_empty_output": "Formatted empty output now follows empty_collection_write_policy; earlier release exclusions below retain their historical scope",
   "mode": "pythonic",
   "controller_validated": false,
   "gui_checked": false,

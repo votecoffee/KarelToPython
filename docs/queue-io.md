@@ -43,9 +43,10 @@ initialization flags or automatic separators. Binary FILEs encode ordinary scala
 INTEGERs in the selected byte order; they are not native queue descriptors.
 
 All selected queues must have passed INIT_QUEUE, including empty bank cells.
-Empty initialized cells contribute no fields. All-empty unformatted WRITE emits
-one empty item and still requires an open FILE. All-empty READ and formatted
-all-empty output reject before invoking an input adapter. Nonempty items support
+Empty initialized cells contribute no fields. All-empty WRITE emits
+one empty item and still requires an open FILE. Formats now validate the
+[declared INTEGER domain](empty-collection-output.md) without producing padding
+or entry bytes. All-empty READ still rejects before invoking an input adapter. Nonempty items support
 the normal uniform scalar width/base formats, evaluated once per source item.
 
 ## Capture and publication

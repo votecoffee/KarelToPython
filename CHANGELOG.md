@@ -1,5 +1,14 @@
 # Changelog
 
+## 26.1113.024622 - 2026-11-13
+
+- Accept uniform WRITE formats on empty headerless PATHs, initialized queues and
+  all-empty banks/selected rows or planes. Validate declared scalar text or binary
+  domains, then retain one empty item without field padding or dummy payloads.
+- Preserve capture-before-format effects, FILE-open checks, initialization,
+  schema, input, operation and budget guards. Add authored empty/populated output
+  examples and text/binary, transport and linked routine regressions.
+
 ## 26.1113.022600 - 2026-11-13
 
 - Build public report limitations from current Pythonic policies instead of

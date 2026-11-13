@@ -46,10 +46,9 @@ class PathBankWriteTests(unittest.TestCase):
         p,_=build('show((paths))',routines='ROUTINE show(v:ARRAY OF route_t) BEGIN v[1][1].amount=99 WRITE(v) END show');p.run();self.assertEqual(text(p),[' 1 99abcd 2 9wxyz']);self.assertEqual(p.snapshot()['PATHS'][0]['nodes'][0]['AMOUNT'],7)
     def test_all_empty_bank_produces_one_empty_item(self):
         p,_=build('WRITE(paths)',seed=False,prefix='',decl='paths:ARRAY[2]OF PATH');p.run();self.assertEqual(text(p),[''])
-    def test_empty_bank_formatted_output_rejects(self):
+    def test_empty_bank_formatted_output_produces_one_empty_item(self):
         p,_=build('WRITE(paths::4)',seed=False,prefix='',decl='paths:ARRAY[2]OF PATH')
-        with self.assertRaisesRegex(rt.KarelRuntimeError,'Empty PATH'):p.run()
-        self.assertEqual(text(p),[])
+        p.run();self.assertEqual(text(p),[''])
     def test_empty_cells_are_skipped_in_formatted_mixed_bank(self):
         p,_=build('APPEND_NODE(paths[2],status) paths[2][1].amount=17 WRITE(paths::4)',seed=False,prefix='TYPE node_t=STRUCTURE amount:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=node_t',decl='paths:ARRAY[2]OF route_t status:INTEGER');p.run();self.assertEqual(text(p),['  17'])
     def test_report_records_path_bank_order(self):

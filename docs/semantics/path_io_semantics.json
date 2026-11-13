@@ -1,5 +1,6 @@
 {
   "version": "26.1102.171841",
+  "current_empty_output": "Formatted empty output now follows empty_collection_write_policy; earlier release exclusions below retain their historical scope",
   "current_position_input": "Whole POSITION input now follows position_input_semantics.json; earlier release exclusions below retain their historical scope",
   "mode": "pythonic",
   "controller_validated": false,

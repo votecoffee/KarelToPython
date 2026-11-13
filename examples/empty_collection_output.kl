@@ -1,0 +1,14 @@
+PROGRAM EMPTY_COLLECTION_OUTPUT
+TYPE node_t=STRUCTURE amount:INTEGER ENDSTRUCTURE
+VAR route:PATH NODEDATA=node_t
+    values:QUEUE_TYPE buffer:ARRAY[2]OF INTEGER seq,status:INTEGER done:BOOLEAN
+BEGIN
+ IF UNINIT(done) THEN
+ INIT_QUEUE(values)
+ WRITE('empty',route::4,values::4,CR)
+ APPEND_NODE(route,status) route[1].amount=17
+ APPEND_QUEUE(9,values,buffer,seq,status)
+ WRITE('next',route::4,values::4,CR)
+ done=TRUE
+ ENDIF
+END EMPTY_COLLECTION_OUTPUT

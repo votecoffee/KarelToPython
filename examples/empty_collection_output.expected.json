@@ -1,0 +1,8 @@
+{
+  "ROUTE": {"nodes": [{"AMOUNT": 17}], "data": null},
+  "VALUES": {"initialized": true, "entries": [[1, 9]]},
+  "BUFFER": [9, 0],
+  "SEQ": 1,
+  "STATUS": 0,
+  "DONE": true
+}

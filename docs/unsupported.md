@@ -156,7 +156,9 @@ native/controller writes remain excluded.
 
 [Root PATH READ/WRITE](path-io-and-file-initialization.md) now expands supplied
 header/node data through scalar transports. Automatic node allocation, native
-PATH framing, empty headerless input and formatted empty output remain excluded.
+PATH framing and empty headerless input remain excluded.
+[Formatted empty output](empty-collection-output.md) now validates declared scalar
+domains for PATHs and initialized queues while emitting no field bytes.
 [Whole POSITION input](position-input.md) now spans data containers and PATH
 components with complete-batch pose validation and bounded rounding normalization. FILE UNINIT uses the explicit descriptor open-state convention.
 

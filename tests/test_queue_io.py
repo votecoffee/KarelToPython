@@ -35,9 +35,9 @@ class QueueWriteTests(unittest.TestCase):
         p,_=build('INIT_QUEUE(q) WRITE(q)',seed=False);p.run();self.assertEqual(texts(p),[''])
     def test_empty_queue_with_scalar_and_cr(self):
         p,_=build("INIT_QUEUE(q) WRITE('a',q,CR)",seed=False);p.run();self.assertEqual(texts(p),['a\n'])
-    def test_empty_formatted_queue_rejects(self):
+    def test_empty_formatted_queue_produces_one_empty_item(self):
         p,_=build('INIT_QUEUE(q) WRITE(q::4)',seed=False)
-        with self.assertRaisesRegex(rt.KarelRuntimeError,'Empty PATH/queue'):p.run()
+        p.run();self.assertEqual(texts(p),[''])
     def test_uninitialized_output_rejects_before_format(self):
         p,_=build('visits=0 WRITE(q::width())',seed=False,routines='ROUTINE width:INTEGER BEGIN visits=1 RETURN 4 END width')
         with self.assertRaisesRegex(rt.KarelRuntimeError,'INIT_QUEUE'):p.run()

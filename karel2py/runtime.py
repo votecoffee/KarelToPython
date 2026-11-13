@@ -3796,7 +3796,14 @@ def format_aggregate_write(captured,formats=(),line=None,*,file=None):
     if not captured.fields:
         if not aggregate_write_type(captured.spec) or not (captured.spec[0]=='PATH' or path_array_io_type(captured.spec) or queue_io_type(captured.spec)):
             raise KarelRuntimeError('Only an empty PATH may omit captured output fields',line)
-        if formats:raise KarelRuntimeError('Empty PATH/queue output requires unformatted WRITE',line)
+        if formats:
+            from .extended import binary_format
+            # Validate declared domains without creating fields or publishing
+            # padding. Scalar formatters are pure and bound their temporary text.
+            samples={'INTEGER':0,'SHORT':0,'BYTE':0,'REAL':0.,'BOOLEAN':False,'STRING':''}
+            for kind in sorted(aggregate_format_kinds(captured.spec)):
+                if file is not None and file.binary:binary_format(kind,formats,line)
+                else:format_write_item(kind,samples[kind],formats,line)
         return [b''] if file is not None and file.binary else ['']
     result=[]
     for expected,item in captured.fields:

@@ -6241,7 +6241,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         source='Whole PATH WRITE and in-place READ, including exact linked/borrowed PATH formals; header fields followed by existing nodes in declaration/row-major/joint-axis order',
         capture='Charge scalar PATH fields before payload validation, formats or transport; WRITE detaches values and READ captures original scalar cells without resizing',
         formats='Reuse uniform scalar aggregate controls and ordinary text/binary/default-input transports; 1024 scalar fields including CR and existing output/file limits',
-        empty='Unformatted empty PATH WRITE produces one empty item; READ requires an existing header or node, and formatted empty output is rejected',
+        empty='Empty PATH WRITE produces one empty item, including declared-domain-checked formats under empty_collection_write_policy; READ requires an existing header or node',
         file_initialization='UNINIT on an ordinary FILE descriptor returns owner-is-absent; opening initializes, closing/cancel semantics follow existing descriptor ownership; no I/O or cursor changes',
         boundary='No PATH length/type framing, native PATH storage encoding, automatic node allocation, direct POSITION orientation writes, nested resources or generic FILE codecs; strict remains future work',
         guide='docs/path-io-and-file-initialization.md',controller_validated=False)
@@ -7685,7 +7685,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         order='ARRAY row-major queues and existing FIFO entry order; INTEGER values only, without sequence IDs, counters, lengths or initialization flags in the payload',
         capture='Charge each queue descriptor and its entry IDs and values before validation, including the containing bank for flat prefixes; WRITE detaches values and READ captures original entry cohorts and backing mappings',
         publication='Stage every replacement entry pair before writing any destination; retain initialized flag, sequence IDs/order/counter and entry-list identity; detach prior buffer links without changing ARRAY cells; later queue operations rebind explicitly',
-        empty='Require initialized queues; skip empty cells in banks; all-empty unformatted WRITE emits one empty item, all-empty READ and formatted all-empty output reject; no allocation of entries or buffers',
+        empty='Require initialized queues; skip empty cells in banks; all-empty WRITE emits one empty item with optional declared-domain-checked formats; all-empty READ rejects; no allocation of entries or buffers',
         bounds='1024 scalar entry values including CR per operation and existing 32767 logical entry/collection snapshot units; ordinary backing ARRAY schemas remain checked',
         protection='Reject stale descriptor/entry/buffer mappings, incomplete/reordered cohorts, duplicate queues and overlapping entry destinations; no implicit buffer writes; normal FOR/source-root protections retained',
         transports='Existing callback/JSON/TextInput, text/binary FILE byte order and cooperative cancellation/wait/pause/stop contracts; complete POSITION cohorts still validate before queue publication',
@@ -7728,7 +7728,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         order='ARRAY row-major cells, each PATH header then existing nodes, data declaration/row-major/joint-axis order; no tags, separators or inferred node counts',
         capture='Charge each PATH cell and its fields before payload validation, including containing-bank validation for flat prefixes; WRITE snapshots immutable leaves and READ retains original scalar cells',
         formats='Existing uniform aggregate controls and default/text/binary/cooperative FILE transports; source items and CR share the 1024-field operation bound',
-        empty='Skip empty headerless cells; all-empty unformatted WRITE emits one empty item; all-empty READ and formatted all-empty output reject',
+        empty='Skip empty headerless cells; all-empty WRITE emits one empty item with optional declared-domain-checked formats; all-empty READ rejects',
         bounds='One through three logical dimensions, existing 32767 collection-unit and 64-level data-schema limits; at most 1024 scalar fields including CR per operation',
         exact='QUEUE_TYPE/FILE banks, resource STRUCTURE fields, generic codecs/UNINIT, active FOR and direct POSITION orientation references retain guards; input does not allocate nodes or resize containers',
         persistence='Existing typed JSON/VR logical data only; no transport captures, live FILE handles, pending I/O or suspended frames',
@@ -7869,6 +7869,17 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         guide='docs/external-collection-results.md',controller_validated=False)
     report['queue_transfer_policy']['boundary']='Logical source values follow scalar_collection_source_policy; embedded resources and metadata initialization queries retain guards; no native queue/VR bytes, ownership, status equivalence or controller execution; strict deferred'
     report['joint_policy']['representation']='Explicit joint storage with checked Pythonic axis subscripts under joint_axis_policy; no direct joint field syntax'
+    report['empty_collection_write_policy']=dict(
+        source='Empty headerless PATH, initialized scalar QUEUE_TYPE and all-empty PATH/queue banks or selected rows/planes',
+        formats='Capture the complete collection before evaluating width and second controls once; validate the format list against all declared scalar categories, even when no fields exist',
+        text='Existing scalar text width/base/precision/alignment domains; emit one empty item without field padding, quotes, numeric samples or separators',
+        binary='Existing scalar byte-width-only domains for every declared category; emit one empty byte item without NUL padding or scalar records',
+        guards='Uninitialized queues, malformed collections, invalid formats, closed/readonly FILEs, budget failures and operation/backend bounds retain their checks; READ never infers entries or nodes',
+        effects='Format functions may mutate original collections after capture; the current empty output stays empty and later operations see completed effects',
+        persistence='Logical data only; no output captures, format callbacks, pending operations or live handles',
+        boundary='Authored Pythonic empty-output extension; no native PATH/queue framing, physical device connection, input allocation, controller or strict equivalence',
+        guide='docs/empty-collection-output.md',controller_validated=False)
+    report['aggregate_format_policy']['empty_output']='Empty PATH/queue output validates declared scalar text/binary format domains under empty_collection_write_policy and publishes one empty item'
     from .reporting import finalize_pythonic_report
     finalize_pythonic_report(report)
     expansion.annotate(report)

@@ -1,0 +1,14 @@
+{
+  "feature": "formatted_empty_collection_output",
+  "mode": "pythonic",
+  "source": "Empty headerless PATH, initialized QUEUE_TYPE, all-empty banks and selected rows/planes",
+  "formats": "Capture before width/second controls once; validate all declared scalar text or binary domains without creating fields",
+  "output": "One empty text/byte item; no padding, quotes, numeric samples, NUL bytes or native framing",
+  "effects": "Later format functions may change original collections, but the current captured empty output stays empty",
+  "guards": "Existing initialization, shape, FILE-open/writable, input, operation and budget rules remain; empty READ never allocates data",
+  "persistence": "Logical values only; no captures, callbacks, pending I/O or live handles",
+  "boundary": "Authored offline extension; no native PATH/queue layout, device discovery, controller timing or strict-mode equivalence",
+  "guide": "docs/empty-collection-output.md",
+  "controller_validated": false,
+  "tests": ["tests/test_empty_collection_formats.py"]
+}

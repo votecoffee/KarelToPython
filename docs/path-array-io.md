@@ -46,8 +46,9 @@ before selecting cells. WRITE uses the checked row or plane view for its
 immediate scalar snapshot. Ordinary PATH array prefix values remain independent.
 
 Header-only PATHs contribute their header fields. Empty headerless cells contribute
-none. All-empty unformatted WRITE produces one empty item and still checks FILE
-open state; formatted all-empty WRITE and all-empty READ reject. Mixed banks can
+none. All-empty WRITE produces one empty item and still checks FILE
+open state. Formats now use [declared scalar domains](empty-collection-output.md)
+without emitting field bytes; all-empty READ still rejects. Mixed banks can
 use uniform formats on their nonempty cells. See [aggregate formats](aggregate-formats.md)
 for the scalar domains; each format expression is evaluated once per source item.
 

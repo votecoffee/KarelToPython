@@ -1,5 +1,6 @@
 {
   "version": "26.1102.133628",
+  "current_empty_output": "Formatted empty output now follows empty_collection_write_policy; earlier release exclusions below retain their historical scope",
   "mode": "pythonic",
   "controller_validated": false,
   "evidence": "Authored uniform-format extension of existing scalar and aggregate I/O; no native aggregate formatting/layout proof",

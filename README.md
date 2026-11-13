@@ -429,8 +429,12 @@ existing collision, busy-file, quota and publication checks remain active.
 and RENAME_FILE reuse matched characters in their destination filenames.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1113.022600**. It is a
+tool are named **karel2py**. The current implementation is **26.1113.024622**. It is a
 development prototype, with no claim of controller runtime equivalence.
+
+[Formatted empty collection output](docs/empty-collection-output.md) lets the same
+WRITE handle empty and populated PATHs or initialized queues. Empty collections
+validate their declared formats and emit no field bytes or padding.
 
 [Translation reports](docs/translation-reports.md) summarize the active Pythonic
 mode and link stable limitation categories to detailed policies. Supported forward
@@ -1384,7 +1388,7 @@ workflows. To run hosted checks, open the repository's **Actions** tab, select
 **Tests (manual)** or **GUI checks (manual)**, then choose **Run workflow**.
 Routine development validation uses the local CLI commands above.
 
-The example runner translates 576 authored runnable examples, checks complete
+The example runner translates 577 authored runnable examples, checks complete
 expected snapshots and validates their output, delay, context and termination
 fixtures, plus 234 complete linked source projects. It also checks that nested
 MOVE actions inside local handlers are rejected.
