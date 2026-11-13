@@ -1,5 +1,9 @@
 # Motion-local clauses and scripted progress
 
+An [inline MOVE](motion-statement-boundaries.md) preserves its enclosing REPEAT's
+UNTIL and a following independent WITH MOVE. Local clauses still require their
+comma and ENDMOVE; loop and handler terminators have separate scopes.
+
 Pythonic MOVE requests accept local `WHEN ... DO ...` and
 `UNTIL ... [THEN ...]` clauses, terminated by `ENDMOVE`. An explicit scripted
 response may also supply a finite `delay_ms`. These features use the existing

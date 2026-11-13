@@ -1,5 +1,16 @@
 # Changelog
 
+## 26.1113.163833 - 2026-11-13
+
+- Preserve an enclosing REPEAT's UNTIL after an inline MOVE, using the nearest
+  parsed block. Accept a following WITH MOVE as a separate statement, with its
+  settings applied only to that following request.
+- Keep comma-led motion clauses independent of loop termination. Diagnose
+  orphan WHEN/UNTIL clauses and missing ENDMOVE/ENDCONDITION explicitly, with source
+  locations, while retaining malformed-source and handler-action restrictions.
+- Add all-form, nested-loop, pause/resume, linked and diagnostic regressions,
+  a runnable example with independent fixtures and current documentation.
+
 ## 26.1113.161626 - 2026-11-13
 
 - Preserve Pythonic COMMENT metadata up to 254 decoded ASCII characters,

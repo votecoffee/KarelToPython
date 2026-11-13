@@ -1,5 +1,9 @@
 # Language support
 
+[Motion statement boundaries](motion-statement-boundaries.md) now preserve an
+inline REPEAT's UNTIL and a following independent WITH MOVE. Comma-led local
+clauses retain their own scope and required ENDMOVE.
+
 [Program comments](source-directives.md) preserve up to 254 decoded ASCII
 characters as Pythonic metadata. Reports identify comments beyond the reference's
 16-character native attribute limit; native truncation is not simulated.

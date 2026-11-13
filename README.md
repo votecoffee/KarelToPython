@@ -458,7 +458,7 @@ SET_JPOS_REG. They capture inputs before later selectors and stage converted
 values under destination/status guards in the selected register group.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1113.161626**. It is a
+tool are named **karel2py**. The current implementation is **26.1113.163833**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 [Formatted empty collection output](docs/empty-collection-output.md) lets the same
@@ -1387,6 +1387,9 @@ explicit; controls do not create trajectories or change robot feedback.
 
 [Motion-local clauses and scripted progress](docs/motion-handlers.md) now support
 one-shot WHEN actions, UNTIL/THEN cancellation and finite supplied response delays.
+An [inline MOVE](docs/motion-statement-boundaries.md) preserves its enclosing
+REPEAT's UNTIL and a following independent WITH MOVE, keeping settings scoped
+to their own request.
 They retain caller-owned local frames across pause/resume, validate completion
 history and clean up on cancellation or failure. [Pending NOWAIT jobs](docs/nowait-motion.md)
 progress from task clocks while owners sleep or wait for another task. Opt-in
@@ -1458,7 +1461,7 @@ workflows. To run hosted checks, open the repository's **Actions** tab, select
 **Tests (manual)** or **GUI checks (manual)**, then choose **Run workflow**.
 Routine development validation uses the local CLI commands above.
 
-The example runner translates 589 authored runnable examples, checks complete
+The example runner translates 590 authored runnable examples, checks complete
 expected snapshots and validates their output, delay, context and termination
 fixtures, plus 243 complete linked source projects. It also checks that nested
 MOVE actions inside local handlers are rejected.

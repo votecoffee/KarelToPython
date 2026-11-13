@@ -276,6 +276,7 @@ class Parser:
         self.mode = mode
         self.in_condition=False
         self.in_handler_actions=False
+        self._block_end_stack=[]
 
     @property
     def current(self): return self.tokens[self.position]
@@ -723,17 +724,25 @@ class Parser:
 
     def block(self, ends):
         result = []
-        self.skip_lines()
-        while self.current.value not in ends:
-            if self.current.kind == 'EOF':
-                self.error('E_SYNTAX', f'Unexpected end of source; expected {sorted(ends)}')
-            result.append(self.statement())
+        self._block_end_stack.append(frozenset(ends))
+        try:
             self.skip_lines()
+            while self.current.value not in ends:
+                if self.current.kind == 'EOF':
+                    self.error('E_SYNTAX', f'Unexpected end of source; expected {sorted(ends)}')
+                result.append(self.statement())
+                self.skip_lines()
+        finally:
+            self._block_end_stack.pop()
         return result
 
     def statement(self):
         token = self.take()
         name = token.value
+        if self.mode=='pythonic' and name=='WHEN':
+            self.error('E_MOTION_CLAUSE','WHEN requires a CONDITION definition or a comma-led MOVE local clause',token)
+        if self.mode=='pythonic' and name=='UNTIL':
+            self.error('E_MOTION_CLAUSE','UNTIL requires a REPEAT body or a comma-led MOVE local clause',token)
         if self.mode=='pythonic' and name in ('ATTACH','RELEASE') and self.current.value not in ('=','[','.','(','::'):
             if self.in_handler_actions:self.error('E_CONDITION_ACTION','Motion ownership statements are not handler actions',token)
             return Statement('motion_action',token,[name])
@@ -824,6 +833,8 @@ class Parser:
                 previous_actions=self.in_handler_actions; self.in_handler_actions=True
                 try:
                     while self.current.value not in ('WHEN','ENDCONDITION'):
+                        if self.current.kind=='EOF' or self.current.value in BLOCK_ENDS|{'ENDMOVE'}:
+                            self.error('E_SYNTAX','Unterminated CONDITION action block; expected ENDCONDITION',self.current)
                         actions.append(self.statement()); self.accept(','); self.skip_lines()
                 finally: self.in_handler_actions=previous_actions
                 clauses.append(Statement('condition_clause',when,[condition],actions))
@@ -1051,15 +1062,19 @@ class Parser:
                 try:
                     if has_actions:
                         while self.current.value not in ('WHEN','UNTIL','ENDMOVE'):
-                            if self.current.kind=='EOF':self.error('E_MOTION_CLAUSE','Unterminated MOVE local handler',clause)
+                            if self.current.kind=='EOF' or self.current.value in BLOCK_ENDS|{'ENDCONDITION'}:
+                                self.error('E_MOTION_CLAUSE','Unterminated MOVE local handler; expected ENDMOVE',self.current)
                             actions.append(self.statement());self.accept(',');self.skip_lines()
                         if not actions:self.error('E_CONDITION_ACTION','Local DO/THEN requires an action',clause)
                 finally:self.in_handler_actions=previous
                 clauses.append(Statement('motion_clause',clause,[condition],actions))
             if not clauses:self.error('E_MOTION_CLAUSE','MOVE comma requires local WHEN or UNTIL clauses',token)
             self.expect('ENDMOVE')
-        elif self.current.value in ('WHEN','UNTIL','ENDMOVE','VIA','WITH'):
-            self.error('E_MOTION_CLAUSE','Unsupported motion clause or motion-local handler',self.current)
+        elif self.current.value in ('WHEN','UNTIL'):
+            if not (self.current.value=='UNTIL' and self._block_end_stack and 'UNTIL' in self._block_end_stack[-1]):
+                self.error('E_MOTION_CLAUSE','MOVE local WHEN/UNTIL clauses require a comma before the first clause',self.current)
+        elif self.current.value in ('ENDMOVE','VIA'):
+            self.error('E_MOTION_CLAUSE','Unsupported motion clause or unexpected ENDMOVE',self.current)
         return Statement('motion',token,[operation,arguments,nowait,settings or []],clauses)
 
     def pythonic_write(self, token):
@@ -5438,6 +5453,8 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict', 
             boundary='No trajectories, physical hands, robot feedback updates, live adapters, inferred arrival timing or native queued motion',
             nowait='Immediate requests keep their behavior; generated delayed/scheduled jobs follow motion_nowait_policy with one pending request per group by default; opt-in queues and handlers follow motion_queue_policy and motion_queue_clause_policy',
             local_handlers='One-shot WHEN and UNTIL/THEN; synchronous supplied-delay breakpoints or NOWAIT owning-task checkpoints after promotion; global scans first, local controls target current group and holds suspend local scans',
+            statement_boundaries='Pythonic inline MOVE preserves a bare UNTIL only for the nearest parsed REPEAT body; a following WITH MOVE is an independent statement whose settings belong to that request; comma-led local clauses retain ENDMOVE',
+            statement_guide='docs/motion-statement-boundaries.md',
             delayed_completion='Explicit finite delay_ms response, cooperative pause/resume and root-owned cleanup; no trajectory or feedback inference',
             temporal_conditions='Captured AT NODE and TIME BEFORE/AFTER selectors require complete explicit node_times ordered by selected travel, with original node IDs, start node zero and wildcard destinations',
             controller_validated=False),

@@ -1,0 +1,23 @@
+{
+  "translator_version": "26.1113.163833",
+  "date": "2026-11-13",
+  "mode": "pythonic",
+  "scope": "Motion statement boundaries within existing parsed control flow",
+  "contracts": {
+    "repeat": "A bare UNTIL after MOVE belongs to the nearest active parsed block only when that block is a REPEAT body",
+    "with": "A following WITH MOVE is a separate source statement; its checked settings belong only to that following request",
+    "local_clauses": "Comma-led WHEN/UNTIL clauses and ENDMOVE retain existing parsing and runtime behavior",
+    "lifetime": "Parser block boundaries unwind on success or error; compiled loops retain ordinary routines, linked ownership and pause continuations",
+    "diagnostics": "Orphan WHEN/UNTIL identifies required scope; premature terminators or EOF inside handler actions name ENDMOVE or ENDCONDITION with physical locations",
+    "evidence": "Authored translation, offline execution, linked and CLI fixtures; no native compiler or controller acceptance claim"
+  },
+  "retained_boundaries": [
+    "Malformed inner blocks cannot borrow an enclosing REPEAT terminator",
+    "A local motion clause still requires a comma and ENDMOVE; a WITH prefix requires its own MOVE",
+    "MOVE/WITH remain unavailable inside handler actions",
+    "Explicit motion services and ownership remain required; no inferred trajectories, feedback or native scheduling"
+  ],
+  "tests": ["tests/test_motion_statement_boundaries.py", "examples/motion_statement_boundaries.kl"],
+  "guide": "../motion-statement-boundaries.md",
+  "controller_validated": false
+}
