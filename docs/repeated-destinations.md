@@ -1,6 +1,6 @@
 # Repeated destination substitutions
 
-Pythonic COPY_FILE and RENAME_FILE accept repeated nonadjacent stars in
+Pythonic COPY_FILE and RENAME_FILE accept repeated adjacent or separated stars in
 destination directories, filename stems and extensions. Every star in one part
 reuses that same complete source part. This is an authored offline extension;
 native/compiler/controller wildcard behavior and strict equivalence are unclaimed.
@@ -8,13 +8,16 @@ native/compiler/controller wildcard behavior and strict equivalence are unclaime
 ~~~karel
 COPY_FILE('src/*/*.KL','dst/cell_*_backup_*/*_*.saved*_*',FALSE,FALSE,status)
 RENAME_FILE('src/*.KL','dst/*_*.*_*',FALSE,status)
+COPY_FILE('src/*/*.KL','dst/cell_**/**.**',FALSE,FALSE,status)
 ~~~
 
 The first call maps `src/Alpha/part.KL` to
 `dst/cell_Alpha_backup_Alpha/part_part.savedKL_KL`. The second maps
 `src/part.rev1.KL` to `dst/part.rev1_part.rev1.KL_KL`. Source case and binary
 payloads are retained. Replacements are performed once, without recursive
-interpretation of inserted characters.
+interpretation of inserted characters. The third call maps `src/Alpha/part.KL`
+to `dst/cell_AlphaAlpha/partpart.KLKL`. Adjacent stars have the same repetition
+rule as stars separated by literal text.
 
 ## Directory depth and filename parts
 
@@ -35,13 +38,15 @@ Split at the last dot when a nonempty stem precedes it; a lone leading dot belon
 to the stem. Stem stars repeat that complete source part, including earlier dots;
 extension stars repeat its optional extension. [Stem-only and extensionless
 substitutions](filename-substitutions.md) now use the same rule. A standalone
-final * still preserves the whole basename. Empty expanded extensions omit the
+final * still preserves the whole basename. A final ** repeats only the stem:
+`part.KL` becomes `partpart`. Empty expanded extensions omit the
 separator. A source with only filename matchers has no relative directory levels.
 
-Adjacent stars within an ordinary directory, filename stem or extension remain
-rejected. Whole-directory ** retains its distinct role. Directory question and bracket
-destination templates, partial/repeated ** directories,
-traversal, empty/dot components and absolute host paths remain excluded.
+A directory component exactly ** retains its distinct depth-preserving role;
+`pre_**`, `**_post` and `***` each repeat one source directory name rather than
+inserting several levels. At most one exact ** directory component is allowed.
+Directory question and bracket destination templates, traversal, empty/dot
+components and absolute host paths remain excluded.
 [Fixed-width filename captures](question-file-wildcards.md) can supply destination
 question marks.
 
@@ -87,5 +92,7 @@ See [copy](../examples/repeat_dest_copy.kl),
 [virtual devices](../examples/repeat_dest_devices.kl),
 [linked copy](../examples/repeat_dest_linked/main.kl),
 [linked pipe export](../examples/repeat_dest_pipes/main.kl),
-[regressions](../tests/test_repeated_destinations.py) and the
+[adjacent stars and globstars](../examples/adjacent_destinations.kl),
+[repetition regressions](../tests/test_repeated_destinations.py),
+[adjacent-star regressions](../tests/test_adjacent_destination_stars.py) and the
 [semantic ledger](semantics/repeated_destination_semantics.json).

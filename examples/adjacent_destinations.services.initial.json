@@ -1,0 +1,13 @@
+{
+  "files": {
+    "src/A/B/C/d.KL": {
+      "hex": "00ff64"
+    },
+    "src/A/C/e.KL": {
+      "hex": "65"
+    },
+    "keep.dat": {
+      "hex": "4b"
+    }
+  }
+}

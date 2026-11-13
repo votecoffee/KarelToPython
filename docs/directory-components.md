@@ -2,8 +2,8 @@
 
 Pythonic COPY_FILE and RENAME_FILE support stars inside ordinary destination
 directory components. Each component containing stars consumes one complete
-source-relative directory name. [Repeated nonadjacent stars](repeated-destinations.md)
-reuse that same name, with literal tags between them. Filename stem and extension
+source-relative directory name. [Repeated adjacent or separated stars](repeated-destinations.md)
+reuse that same name, with optional literal tags between them. Filename stem and extension
 substitutions remain independent.
 
 ```karel
@@ -75,8 +75,8 @@ backend and per-file quotas remain. Both NOWAIT values stay synchronous.
 
 ## Exclusions and saved state
 
-Directory question marks, bracket templates, adjacent stars inside an ordinary
-component, partial/repeated **, empty/dot/traversal components, unsafe device
+Directory question marks, bracket templates, multiple whole ** components,
+empty/dot/traversal components, unsafe device
 syntax, reserved expanded names and absolute host paths remain rejected. Plain
 PIP sources have no relative directories, so they cannot supply ordinary directory
 stars. PIP directory targets/sources and implicit pipe allocation remain excluded.

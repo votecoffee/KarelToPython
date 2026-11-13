@@ -1,5 +1,15 @@
 # Changelog
 
+## 26.1113.010346 - 2026-11-13
+
+- Accept adjacent destination stars in Pythonic COPY_FILE and RENAME_FILE.
+  Repeat complete directory names, filename stems and optional extensions at
+  every star, including `pre_**`, `***` and `**.**`. A whole-directory `**` retains its
+  distinct depth-preserving role and remains limited to one component.
+- Preserve complete-batch depth, collision, alias, busy, path, quota and budget
+  checks across memory, virtual-volume, rooted and configured plain-PIP routes.
+  Include authored regressions and a runnable adjacent-star/globstar example.
+
 ## 26.1113.004611 - 2026-11-13
 
 - Retain edited and PASSALL keyboard FILE read bindings across waits and pauses.

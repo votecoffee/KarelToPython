@@ -185,9 +185,16 @@ class WildcardPreflightTests(unittest.TestCase):
         self.assertEqual(copy(files),3);self.assertEqual(files.snapshot(),before);files.close(handle)
 
     def test_bad_destination_templates_return_two(self):
-        for template in ('dst/a**.py','dst/prefix_**'):
+        for template in ('dst/a**?.py','dst/prefix_**?'):
             with self.subTest(template=template):
                 files=memory();before=files.snapshot();self.assertEqual(copy(files,target=template),2);self.assertEqual(files.snapshot(),before)
+
+    def test_adjacent_stars_repeat_stems_with_optional_literal_prefix(self):
+        for template,expected in (('dst/a**.py',{'dst/aaa.py':b'a','dst/abb.py':b'b'}),
+                                  ('dst/prefix_**',{'dst/prefix_aa':b'a','dst/prefix_bb':b'b'})):
+            with self.subTest(template=template):
+                files=memory();before=files.snapshot();self.assertEqual(copy(files,target=template),0)
+                self.assertEqual(files.snapshot(),{**before,**expected})
 
     def test_source_copy_star_accepts_names_with_or_without_type(self):
         files=memory();self.assertEqual(copy(files,'src/*','dst/*'),0)

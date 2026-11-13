@@ -29,15 +29,15 @@ one or several components. Literal components before and after it retain their
 meaning: dst/**/saved/*.PY inserts the source directories before saved. No wildcard
 is interpreted as a search for a destination directory.
 
-Final-name standalone * keeps the full source basename. [Repeated nonadjacent
-stars](repeated-destinations.md) independently reuse the complete source stem
+Final-name standalone * keeps the full source basename. [Repeated adjacent or
+separated stars](repeated-destinations.md) independently reuse the complete source stem
 or optional extension. [Extensionless and leading-dot files](filename-substitutions.md)
 now use the same rules across COPY/RENAME routes, including stem-only templates. A final filename ** does not
 become a recursive destination placeholder.
 
-[Single-star directory components](directory-components.md) now substitute full
+[Ordinary directory component stars](directory-components.md) substitute full
 source-relative names with optional literal tags, alongside one **. Directory
-question marks, adjacent stars within ordinary components, repeated destination **,
+question marks, multiple whole destination ** components,
 bracket classes, empty/dot components, traversal, absolute host paths, reserved
 names and unsafe device syntax remain rejected. Template and expanded names stay
 within the existing 254-character ASCII bound.

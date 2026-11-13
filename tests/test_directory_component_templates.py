@@ -182,7 +182,9 @@ class ComponentSyntaxTests(unittest.TestCase):
         with self.assertRaises(rt.KarelRuntimeError):perform(bank,target=target)
         self.assertEqual(bank.snapshot(),before)
     def test_question_directory_is_not_a_substitution(self):self.reject('dst/pre_?/*/*.py')
-    def test_partial_globstar_is_rejected(self):self.reject('dst/pre_**/*/*.py')
+    def test_adjacent_stars_repeat_one_source_component(self):
+        bank=rt.MemoryFiles(DATA);self.assertEqual(perform(bank,target='dst/pre_**/*/*.py'),0)
+        self.assertEqual(bank.snapshot(),{**DATA,'dst/pre_AlphaAlpha/One/a.py':b'\0a','dst/pre_BetaBeta/Two/b.py':b'b'})
     def test_repeated_stars_in_one_component_consume_one_level(self):
         bank=rt.MemoryFiles(DATA);self.assertEqual(perform(bank,target='dst/pre_*_mid_*/*/*.py'),0)
         self.assertEqual(bank.snapshot(),{**DATA,'dst/pre_Alpha_mid_Alpha/One/a.py':b'\0a','dst/pre_Beta_mid_Beta/Two/b.py':b'b'})

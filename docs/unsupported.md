@@ -362,10 +362,13 @@ queue-entry policies; FILE banks remain excluded.
   [Directory component stars](directory-components.md) now add full relative-name
   substitution with literal prefix/suffix tags and one optional globstar.
   [Repeated destination stars](repeated-destinations.md) now reuse whole source
-  directories, stems and extensions while retaining the existing checked batches.
+  directories, stems and extensions at adjacent or separated stars while retaining
+  the existing checked batches. Only a whole directory component exactly **
+  inserts multiple levels; other repeated-star components consume one level.
   [Extensionless/hidden filenames](filename-substitutions.md) now share checked
   COPY/RENAME batch expansion, including stem-only templates and optional types.
-  Question/bracket/adjacent-star directory templates, PIP directory sources, separate
+  Question/bracket directory templates, multiple whole-directory ** placeholders,
+  PIP directory sources, separate
   ordinary-bank discovery, socket/DAQ batches and cross-file atomic host
   transactions remain unsupported.
   [Plain PIP batches](pipe-wildcard-files.md) now copy/delete finite snapshots with

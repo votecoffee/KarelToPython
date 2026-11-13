@@ -83,8 +83,8 @@ def _wildcard_destination(value):
     prefix,base=_wildcard_parts(value,directories=True)
     parts=prefix.split(':',1)[-1].rstrip('/').split('/')
     if parts.count('**')>1:raise ValueError('Destination directories accept at most one whole ** placeholder')
-    if any('?' in part or part!='**' and '**' in part for part in parts):
-        raise ValueError('Destination directory stars must be separated by literal text, except one whole **')
+    if any('?' in part for part in parts):
+        raise ValueError('Destination directories do not accept question-mark substitutions')
     return prefix,base
 
 
@@ -563,7 +563,6 @@ def wildcard_file_operation(state,operation,args,line=None):
         if operation in ('COPY_FILE','RENAME_FILE'):
             target=View(operands[1]);target_prefix,template=target.spec(operands[1],destination=True);target_folder=target.parent(_wildcard_target_root(target_prefix))
             filename_pattern=pattern.rsplit('/',1)[-1]
-            if '**' in template:return 2
             if '?' in template and ('*' in filename_pattern or template.count('?')!=filename_pattern.count('?')):
                 return 2
             if operation=='COPY_FILE':overwrite=runtime.boolean(args[2],line);runtime.boolean(args[3],line)

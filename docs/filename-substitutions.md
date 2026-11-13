@@ -27,11 +27,13 @@ stem. No extension or filename is inferred from the source selector.
 | `.env` | `copy_*.*` | `copy_.env` |
 | `.env.local` | `copy_*.*` | `copy_.env.local` |
 | `part.rev1.KL` | `*_*.*_*` | `part.rev1_part.rev1.KL_KL` |
+| `part.KL` | `**.**` | `partpart.KLKL` |
+| `part.KL` | `**` | `partpart` |
 
 A standalone final * preserves the complete source filename, including its
 extension. Every other stem star substitutes the complete source stem. Extension
-stars independently substitute the optional extension. [Separated repeated
-stars](repeated-destinations.md) reuse that same part. A stem-only destination
+stars independently substitute the optional extension. [Adjacent and separated
+repeated stars](repeated-destinations.md) reuse that same part. A stem-only destination
 such as `backup_*` deliberately drops the source extension.
 
 When the expanded extension is empty, omit its dot separator. Literal extension
@@ -71,7 +73,7 @@ configured where required by those routes.
 
 Input and expanded names stay at most 254 ASCII characters. Scans retain 32767
 entries, COPY retains its 64 MiB snapshot bound, and per-file, device, pipe and
-execution limits remain. Adjacent destination stars, directory question and bracket templates,
+execution limits remain. Directory question and bracket templates,
 trailing dots/spaces, empty/dot/traversal components, reserved names and absolute
 host paths remain rejected. [Fixed-width filename captures](question-file-wildcards.md)
 can supply destination question marks. Ordinary runtime-error/status boundaries

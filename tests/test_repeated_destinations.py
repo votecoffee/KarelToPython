@@ -113,16 +113,19 @@ class RepeatedDirectoryTests(RepeatedCases,unittest.TestCase):kind='directory'
 
 
 class RepeatedGuardTests(unittest.TestCase):
-    def test_adjacent_directory_stars_are_still_rejected(self):
-        for target in ('dst/pre_**/*_*.py','dst/**_post/*_*.py','dst/***/foo.py'):
-            bank=rt.MemoryFiles(SEED);before=bank.snapshot()
-            with self.subTest(target=target),self.assertRaises(rt.KarelRuntimeError):call(bank,source='src/*/*.KL',target=target)
-            self.assertEqual(bank.snapshot(),before)
+    def test_adjacent_directory_stars_repeat_one_complete_component(self):
+        for template,directory in (('pre_**','pre_AlphaAlpha'),('**_post','AlphaAlpha_post'),('***','AlphaAlphaAlpha')):
+            bank=rt.MemoryFiles({'src/Alpha/a.KL':b'a'})
+            with self.subTest(template=template):
+                self.assertEqual(call(bank,source='src/*/*.KL',target='dst/'+template+'/*_*.py'),0)
+                self.assertEqual(bank.snapshot(),{'src/Alpha/a.KL':b'a','dst/'+directory+'/a_a.py':b'a'})
 
-    def test_adjacent_filename_stars_keep_status_two(self):
-        for target in ('dst/**.py','dst/*_**.py','dst/*_*.**'):
-            bank=rt.MemoryFiles(SEED);before=bank.snapshot()
-            with self.subTest(target=target):self.assertEqual(call(bank,source='src/*/*.KL',target=target),2);self.assertEqual(bank.snapshot(),before)
+    def test_adjacent_filename_stars_repeat_independent_parts(self):
+        for template,basename in (('**.py','aa.py'),('*_**.py','a_aa.py'),('*_*.**','a_a.KLKL')):
+            bank=rt.MemoryFiles({'src/a.KL':b'a'})
+            with self.subTest(template=template):
+                self.assertEqual(call(bank,source='src/*.KL',target='dst/'+template),0)
+                self.assertEqual(bank.snapshot(),{'src/a.KL':b'a','dst/'+basename:b'a'})
 
     def test_late_expanded_path_overflow_keeps_complete_batch(self):
         seed={'src/A/a.KL':b'a','src/'+('z'*120)+'/z.KL':b'z'};bank=rt.MemoryFiles(seed)

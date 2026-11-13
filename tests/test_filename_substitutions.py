@@ -118,10 +118,12 @@ class FilenameGuardTests(unittest.TestCase):
         bank=rt.MemoryFiles(seed);self.assertEqual(call(bank,source='src/*',target='dst/*.*'),0)
         bank=rt.MemoryFiles(seed);self.assertEqual(call(bank,source='src/*',target='dst/copy_*'),2);self.assertEqual(bank.snapshot(),seed)
 
-    def test_adjacent_stars_still_return_invalid_template(self):
-        for target in ('dst/**','dst/prefix_**','dst/**.txt'):
-            bank=rt.MemoryFiles({'src/LOG':b'p'});before=bank.snapshot()
-            with self.subTest(target=target):self.assertEqual(call(bank,source='src/*',target=target),2);self.assertEqual(bank.snapshot(),before)
+    def test_adjacent_stars_repeat_extensionless_stem(self):
+        for target,expanded in (('dst/**','dst/LOGLOG'),('dst/prefix_**','dst/prefix_LOGLOG'),('dst/**.txt','dst/LOGLOG.txt')):
+            bank=rt.MemoryFiles({'src/LOG':b'p'})
+            with self.subTest(target=target):
+                self.assertEqual(call(bank,source='src/*',target=target),0)
+                self.assertEqual(bank.snapshot(),{'src/LOG':b'p',expanded:b'p'})
 
     def test_unsafe_literal_and_pattern_names_stay_rejected(self):
         for target in ('dst/*.', 'dst/../copy_*','dst/[a]*','/dst/copy_*'):

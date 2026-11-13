@@ -1,0 +1,9 @@
+PROGRAM ADJACENT_DESTINATIONS
+VAR copy_status,rename_status:INTEGER done:BOOLEAN
+BEGIN
+ IF UNINIT(done) THEN
+ COPY_FILE('src/*/**/*.KL','copy/pre_**/**/last_**/**.**',FALSE,FALSE,copy_status)
+ RENAME_FILE('src/*/**/*.KL','moved/**/pre_***/**.py',FALSE,rename_status)
+ done=TRUE
+ ENDIF
+END ADJACENT_DESTINATIONS

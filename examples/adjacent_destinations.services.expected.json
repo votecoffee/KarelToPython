@@ -1,0 +1,19 @@
+{
+  "files": {
+    "keep.dat": {
+      "hex": "4b"
+    },
+    "copy/pre_AA/B/last_CC/dd.KLKL": {
+      "hex": "00ff64"
+    },
+    "copy/pre_AA/last_CC/ee.KLKL": {
+      "hex": "65"
+    },
+    "moved/A/B/pre_CCC/dd.py": {
+      "hex": "00ff64"
+    },
+    "moved/A/pre_CCC/ee.py": {
+      "hex": "65"
+    }
+  }
+}
