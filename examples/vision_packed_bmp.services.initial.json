@@ -1,0 +1,21 @@
+{
+  "files": {},
+  "vision": {
+    "processes": {"SCAN": {"views": [1], "runs": [], "parameters": {}}},
+    "io": {
+      "image_count": 2,
+      "images": {
+        "1": {
+          "process": "SCAN",
+          "views": [1],
+          "image": {"width": 3, "height": 1, "channels": 1, "pixels": "0080ff", "bmp_format": "RGB555"}
+        },
+        "2": {
+          "process": "SCAN",
+          "views": [1],
+          "image": {"width": 1, "height": 1, "channels": 3, "sample_bits": 16, "pixels": "042202090422", "bmp_format": "RGB565"}
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,11 @@
+PROGRAM VISION_PACKED_BMP
+VAR gray_status,rgb_status,png_status:INTEGER
+    done:BOOLEAN
+BEGIN
+  IF UNINIT(done) THEN
+    V_SAVE_IMREG(1,'gray555.bmp',gray_status)
+    V_SAVE_IMREG(2,'rgb565.bmp',rgb_status)
+    V_SAVE_IMREG(2,'exact.png',png_status)
+    done=TRUE
+  ENDIF
+END VISION_PACKED_BMP

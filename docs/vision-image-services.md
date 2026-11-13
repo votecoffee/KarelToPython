@@ -114,6 +114,9 @@ samples and PNG output retain full precision.
 Existing grayscale/RGB BMP export retains bottom-up 24-bit BGR rows with padding.
 Alpha BMP uses 32-bit BGRA, a V4 header and explicit bit masks; grayscale-alpha
 replicates gray into RGB while retaining alpha. See [alpha images](vision-alpha-images.md).
+[Optional packed RGB555/RGB565 output](vision-packed-bmp.md) uses an explicit
+bmp_format preference on grayscale/RGB rasters, with direct quantization from
+the original depth. PNG and original samples retain their existing bytes.
 No native image metadata or calibration is
 inferred. These are portable encodings, following the
 [PNG specification](https://www.w3.org/TR/png-3/) and Microsoft's

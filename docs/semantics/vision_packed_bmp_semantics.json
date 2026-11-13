@@ -1,0 +1,19 @@
+{
+  "feature": "vision_packed_bmp",
+  "version": "26.1113.032956",
+  "mode": "pythonic",
+  "policy": "vision_packed_bmp_policy",
+  "guide": "docs/vision-packed-bmp.md",
+  "input": "Optional bmp_format RGB555/RGB565 on supplied grayscale or RGB 8/16-bit samples",
+  "formats": {
+    "RGB555": {"depth": 16, "compression": 0, "offset": 54, "unused_high_bit": 0},
+    "RGB565": {"depth": 16, "compression": 3, "offset": 66, "masks": [63488, 2016, 31]}
+  },
+  "quantization": "Direct nearest-component rounding from the original sample depth; no intermediate eight-bit reduction",
+  "storage": "Bottom-up little-endian words with zero DWORD row padding",
+  "lifetime": "Original samples/depth/preference retained in captures, image registers and JSON; PNG unchanged",
+  "publication": "Existing raw quotas, exact size preflight, row budget checkpoints and guarded whole-file publication",
+  "verification": ["tests/test_vision_packed_bmp.py", "examples/vision_packed_bmp.kl"],
+  "exclusions": ["alpha/palette input combinations", "packed image input", "color management", "native acquisition/renderer/controller or strict equivalence"],
+  "controller_validated": false
+}

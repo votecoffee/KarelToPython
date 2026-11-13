@@ -1,5 +1,16 @@
 # Changelog
 
+## 26.1113.032956 - 2026-11-13
+
+- Add optional RGB555/RGB565 BMP export preferences to supplied grayscale/RGB
+  8/16-bit vision rasters used by V_SAVE_IMREG. Emit checked little-endian words,
+  header/mask variants and padded bottom-up rows with direct sample quantization.
+- Preserve original samples, capture/register metadata and JSON replay; PNG
+  output and default BMP bytes retain their existing behavior. Reject alpha or
+  palette combinations and retain size, budget and whole-file publication guards.
+- Add independent wire-format/quantization checks, transport and linked-source
+  regressions, plus an authored grayscale/RGB/PNG export example.
+
 ## 26.1113.031802 - 2026-11-13
 
 - Accept fixed literal ARRAY type strings in Pythonic CREATE_VAR, including

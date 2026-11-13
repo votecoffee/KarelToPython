@@ -433,7 +433,7 @@ existing collision, busy-file, quota and publication checks remain active.
 and RENAME_FILE reuse matched characters in their destination filenames.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1113.031802**. It is a
+tool are named **karel2py**. The current implementation is **26.1113.032956**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 [Formatted empty collection output](docs/empty-collection-output.md) lets the same
@@ -1304,6 +1304,9 @@ CALL_PROG without resetting caller-owned state. Supplied [16-bit PNG rasters](do
 retain explicit sample depth, byte order and alpha through saved context.
 [BMP export](docs/vision-bmp-samples.md) rounds these samples into ordinary 8-bit
 components while retaining exact source data and lossless PNG output.
+[Packed RGB555/RGB565 BMP export](docs/vision-packed-bmp.md) now accepts an
+explicit preference on supplied grayscale/RGB rasters while preserving original
+samples and lossless PNG output.
 
 [Offline motion requests](docs/motion-requests.md) now cover all seven basic MOVE
 forms, VIA, PATH ranges, hand statements and logical ATTACH/RELEASE ownership.
@@ -1394,7 +1397,7 @@ workflows. To run hosted checks, open the repository's **Actions** tab, select
 **Tests (manual)** or **GUI checks (manual)**, then choose **Run workflow**.
 Routine development validation uses the local CLI commands above.
 
-The example runner translates 579 authored runnable examples, checks complete
+The example runner translates 580 authored runnable examples, checks complete
 expected snapshots and validates their output, delay, context and termination
 fixtures, plus 234 complete linked source projects. It also checks that nested
 MOVE actions inside local handlers are rejected.

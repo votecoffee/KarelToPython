@@ -417,7 +417,7 @@ _IMAGE_TOTAL_LIMIT=64*1024*1024
 
 def raster(row,limit,*,remaining=None):
     fields={'width','height','channels','pixels'}
-    if type(row) is not dict or not fields<=set(row) or set(row)-fields-{'palette','sample_bits'}:raise ValueError('Image requires width, height, channels and pixels')
+    if type(row) is not dict or not fields<=set(row) or set(row)-fields-{'palette','sample_bits','bmp_format'}:raise ValueError('Image requires width, height, channels and pixels')
     width=integer(row['width'],1,4096);height=integer(row['height'],1,4096);channels=row['channels']
     if type(channels) is not int or channels not in (1,2,3,4):raise ValueError('Images require grayscale, grayscale-alpha, RGB or RGBA channels')
     bits=row.get('sample_bits',8)
@@ -429,6 +429,11 @@ def raster(row,limit,*,remaining=None):
         palette_size=len(palette)//2 if type(palette) is str else len(palette)
         if (type(palette) is str and len(palette)%8 or not 4<=palette_size<=1024 or palette_size%4):
             raise ValueError('Image palette requires 1..256 packed RGBA entries')
+    if 'bmp_format' in row:
+        if type(row['bmp_format']) is not str or row['bmp_format'] not in ('RGB555','RGB565'):
+            raise ValueError('Image bmp_format requires RGB555 or RGB565')
+        if channels not in (1,3) or palette is not None:
+            raise ValueError('Packed BMP output requires grayscale or RGB without alpha or palette')
     if size+palette_size>limit:raise ValueError('Raw image exceeds its configured byte limit')
     if remaining is not None and size+palette_size>remaining:raise ValueError('Combined vision raw-image capacity exceeds 64 MiB')
     if type(palette) is str:
@@ -439,7 +444,7 @@ def raster(row,limit,*,remaining=None):
         pixels=bytes.fromhex(pixels)
     if type(pixels) is not bytes or len(pixels)!=size:raise ValueError('Raw pixel size does not match image dimensions')
     if palette is not None and max(pixels)>=palette_size//4:raise ValueError('Image pixel index is outside its explicit palette')
-    return dict(width=width,height=height,channels=channels,pixels=pixels,**({'palette':palette} if palette is not None else {}),**({'sample_bits':bits} if 'sample_bits' in row else {}))
+    return dict(width=width,height=height,channels=channels,pixels=pixels,**({'palette':palette} if palette is not None else {}),**({'sample_bits':bits} if 'sample_bits' in row else {}),**({'bmp_format':row['bmp_format']} if 'bmp_format' in row else {}))
 
 
 class VisionIO:
@@ -509,7 +514,7 @@ class VisionIO:
 
 
 def encode_raster(image,format,limit,check):
-    """Encode checked samples; BMP rounds 16-bit components to eight bits."""
+    """Encode checked samples with optional explicit packed RGB BMP output."""
     import struct
     import zlib
     image=raster(image,_IMAGE_RAW_LIMIT)
@@ -522,6 +527,25 @@ def encode_raster(image,format,limit,check):
         if bits==16:
             row=bytes((row[i]*256+row[i+1]+128)//257 for i in range(0,len(row),2))
         return row
+    packing=image.get('bmp_format')
+    if format=='BMP' and packing is not None:
+        green_bits=5 if packing=='RGB555' else 6
+        masks=b'' if packing=='RGB555' else struct.pack('<III',0xf800,0x07e0,0x001f)
+        stride=(width*2+3)//4*4;offset=54+len(masks);size=offset+stride*height
+        if size>limit:return None
+        rows=[];maximum=(1<<bits)-1;green_max=(1<<green_bits)-1
+        for y in range(height-1,-1,-1):
+            check();row=bytearray(stride)
+            for x in range(width):
+                start=(y*width+x)*channels*(bits//8)
+                if bits==8:samples=pixels[start:start+channels]
+                else:samples=tuple(pixels[i]*256+pixels[i+1] for i in range(start,start+channels*2,2))
+                r,g,b=(samples[0],)*3 if channels==1 else samples
+                r=(r*31+maximum//2)//maximum;g=(g*green_max+maximum//2)//maximum;b=(b*31+maximum//2)//maximum
+                struct.pack_into('<H',row,x*2,(r<<(green_bits+5))|(g<<5)|b)
+            rows.append(bytes(row))
+        header=struct.pack('<IiiHHIIiiII',40,width,height,1,16,0 if packing=='RGB555' else 3,stride*height,0,0,0,0)
+        return struct.pack('<2sIHHI',b'BM',size,0,0,offset)+header+masks+b''.join(rows)
     if format=='BMP' and (channels in (2,4) or palette is not None):
         stride=width*4;offset=14+108;size=offset+stride*height
         if size>limit:return None

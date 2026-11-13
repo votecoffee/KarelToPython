@@ -38,9 +38,11 @@ Dimensions remain 1 through 4096.
 V_SAVE_IMREG exports these rasters to PNG through existing file backends and
 publication guards. PNG capacity, busy-file, budget and publication failures
 preserve previous output bytes and raster data. [BMP export](vision-bmp-samples.md)
-now rounds each 16-bit component to eight bits, including alpha, while preserving
-all original register/capture/JSON samples. PNG remains lossless. Malformed supplied
-data remains an error.
+defaults to rounding each 16-bit component to eight bits, including alpha.
+[Optional packed BMP output](vision-packed-bmp.md) quantizes nonalpha gray/RGB
+samples directly to RGB555/RGB565 fields. Both preserve all original
+register/capture/JSON samples. PNG remains lossless; malformed supplied data
+remains an error.
 
 Existing 8-bit grayscale, alpha, RGB, RGBA and palette artifact bytes remain
 unchanged. No depth-map units, proprietary image layouts, image processing,

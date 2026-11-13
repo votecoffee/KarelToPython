@@ -7938,6 +7938,16 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
     report['dynamic_array_creation_policy']['syntax']='Existing ARRAY OF data/aliases and named outer dimensions, plus fixed literal ARRAY type strings under dynamic_fixed_array_policy'
     report['dynamic_array_creation_policy']['boundaries']='No runtime wildcard/ragged dimensions, expression dimensions or repeated bare ARRAY layers; resource banks retain separate FILE/collection rules; no native allocation/layout/group effects, controller or strict equivalence'
     report['dynamic_file_array_policy']['source']+='; fixed literal type strings follow dynamic_fixed_array_policy'
+    report['vision_packed_bmp_policy']=dict(
+        input='Optional bmp_format=RGB555 or RGB565 on explicit grayscale/RGB 8/16-bit rasters; reject alpha/palette combinations; absent keeps existing output bytes',
+        formats='RGB555: 16-bit BI_RGB words with unused high bit zero; RGB565: 16-bit BI_BITFIELDS with red/green/blue masks F800/07E0/001F; bottom-up little-endian words and zero DWORD row padding',
+        quantization='Round each original component directly to nearest 5/5/5 or 5/6/5 bits with (sample*channel_max+sample_max//2)//sample_max; replicate grayscale into RGB without an intermediate 8-bit conversion',
+        publication='Validate source and raw quotas, then exact encoded size before row work; retain one budget checkpoint per bounded row and existing whole-file, busy, read-only, capacity and failure guards',
+        lifetime='Preserve exact source pixels, sample_bits and bmp_format through captures/registers and JSON; PNG bytes ignore a valid BMP preference and preserve full samples',
+        boundary='Explicit lossy BMP-only export; no alpha dropping, palette quantization, packed input decoder, source color processing, physical acquisition, native renderer/controller or strict equivalence',
+        guide='docs/vision-packed-bmp.md',controller_validated=False)
+    report['vision_bmp_sample_policy']['format']='Default bottom-up 24-bit RGB or 32-bit V4 alpha BMP; optional nonalpha RGB555/RGB565 output follows vision_packed_bmp_policy without changing source samples'
+    report['vision_sample_depth_policy']['export']='PNG preserves supplied samples; default BMP rounds components to eight bits; explicit bmp_format uses direct packed quantization under vision_packed_bmp_policy'
     from .reporting import finalize_pythonic_report
     finalize_pythonic_report(report)
     expansion.annotate(report)

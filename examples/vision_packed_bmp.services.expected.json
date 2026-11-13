@@ -1,0 +1,97 @@
+{
+  "vision": {
+    "count": 10,
+    "registers": {},
+    "processes": {
+      "SCAN": {
+        "views": [
+          1
+        ],
+        "parameters": {},
+        "overwritten": {},
+        "temporary": {},
+        "runs": [],
+        "active": null,
+        "cursor": 0,
+        "reference": null
+      }
+    },
+    "overrides": {},
+    "limit": 500,
+    "sequence": 3,
+    "history": [
+      {
+        "sequence": 1,
+        "program": "VISION_PACKED_BMP",
+        "operation": "V_SAVE_IMREG",
+        "target": "1",
+        "status": 0
+      },
+      {
+        "sequence": 2,
+        "program": "VISION_PACKED_BMP",
+        "operation": "V_SAVE_IMREG",
+        "target": "2",
+        "status": 0
+      },
+      {
+        "sequence": 3,
+        "program": "VISION_PACKED_BMP",
+        "operation": "V_SAVE_IMREG",
+        "target": "2",
+        "status": 0
+      }
+    ],
+    "io": {
+      "image_count": 2,
+      "image_limit": 16777216,
+      "images": {
+        "1": {
+          "process": "SCAN",
+          "views": [
+            1
+          ],
+          "image": {
+            "width": 3,
+            "height": 1,
+            "channels": 1,
+            "pixels": "0080ff",
+            "bmp_format": "RGB555"
+          }
+        },
+        "2": {
+          "process": "SCAN",
+          "views": [
+            1
+          ],
+          "image": {
+            "width": 1,
+            "height": 1,
+            "channels": 3,
+            "sample_bits": 16,
+            "pixels": "042202090422",
+            "bmp_format": "RGB565"
+          }
+        }
+      },
+      "captures": [],
+      "cameras": {},
+      "calibrations": {},
+      "display_tools": {},
+      "displayed": null,
+      "led_channels": [],
+      "led": null
+    }
+  },
+  "files": {
+    "gray555.bmp": {
+      "hex": "424d3e00000000000000360000002800000003000000010000000100100000000000080000000000000000000000000000000000000000001042ff7f0000"
+    },
+    "rgb565.bmp": {
+      "hex": "424d4600000000000000420000002800000001000000010000000100100003000000040000000000000000000000000000000000000000f80000e00700001f00000021080000"
+    },
+    "exact.png": {
+      "hex": "89504e470d0a1a0a0000000d4948445200000001000000011002000000c0e78f9d0000000f49444154789c63605162e2645102000116005882ea48540000000049454e44ae426082"
+    }
+  }
+}

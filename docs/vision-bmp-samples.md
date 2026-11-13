@@ -22,8 +22,9 @@ are retained independently; no premultiplication or color management occurs.
 
 The existing bottom-up BGR/BGRA layouts, row padding, explicit alpha masks and
 [BMP header conventions](vision-image-services.md#image-export-and-files) are retained.
-This does not emit packed 16-bit RGB555/RGB565 BMP pixels. Existing 8-bit and
-palette output bytes remain unchanged.
+These defaults retain existing output bytes. [Opt-in packed RGB555/RGB565](vision-packed-bmp.md)
+now uses a supplied bmp_format preference on nonalpha grayscale/RGB rasters,
+quantizing original samples directly to packed channel widths.
 
 ## Original samples and limits
 

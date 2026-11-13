@@ -632,8 +632,8 @@ queue-entry policies; FILE banks remain excluded.
   now retain 8-bit indices and supplied RGBA colors with indexed PNG/BMP export.
   Explicit [16-bit samples](vision-16bit-images.md) now retain grayscale/GA/RGB/RGBA
   PNG data; [BMP export](vision-bmp-samples.md) now rounds those components to
-  eight bits while preserving exact source samples. Packed 16-bit BMP pixels,
-  physical depth maps, proprietary image
+  eight bits while preserving exact source samples. [Packed RGB555/RGB565 BMP](vision-packed-bmp.md)
+  now uses an explicit nonalpha grayscale/RGB export preference. Physical depth maps, proprietary image
   layouts and color/calibration transforms remain unavailable. Twelve
   [legacy tracking calls](vision-tracking.md) now add timed queues, receipts,
   VT result/lookup forms, supplied point maps and a portable local outbox.
