@@ -1,5 +1,21 @@
 # Changelog
 
+## 26.1114.151852 - 2026-11-14
+
+- Preserve independent per-leaf availability and exact-schema constant facts
+  across partial data assignments, private arguments and function results.
+  Known cells no longer disappear when unrelated fields remain missing.
+- Permit legal partial copies of fresh local data without inventing local
+  inputs. Merge return-path facts conservatively and retain captures before
+  later selector/argument effects, with no private copyback.
+- Keep reads of unproven leaves, full-value consumers, geometric conversion and
+  CONFIG packing preconditions explicit. Drop uncast constants across schema
+  conversions; unknown SHORT casts retain possible missing-state gaps while
+  proven safe leaves remain available.
+- Add two authored standalone discovery/execution examples and a linked result
+  project, focused flow/conversion/budget checks, and current README/guides.
+  Existing runtime copies and persistence formats remain unchanged.
+
 ## 26.1114.144849 - 2026-11-14
 
 - Correct input discovery for Boolean AND/OR: skipped right operands contribute

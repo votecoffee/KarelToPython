@@ -189,7 +189,8 @@ shape gaps rather than publishing callee write facts.
 Partial aggregate copies remain conservative: a later read of an unproven
 private leaf is a derived-value gap, not a seedable local input. Conversions to
 SHORT from another terminal type may create its missing sentinel and therefore
-do not establish complete copied leaves. Scalar storage/result conversions also
+keep unproven leaves incomplete. Known-safe conversions and available BYTE/SHORT
+sources retain their leaf availability. Scalar storage/result conversions also
 invalidate uncast constants when truncation can change branch truth. Direct
 private STRING arguments use their existing 254-character temporary capacity.
 
@@ -251,6 +252,42 @@ example calls the right-hand routine twice and needs no initial SOURCE value.
 execution order. Independent snapshots, discovery expectations,
 [regressions](../tests/test_input_short_circuit.py) and the
 [semantic ledger](semantics/input_short_circuit_semantics.json) record offline evidence.
+
+### Partial data copies
+
+The analyzer retains independent availability facts for each scalar field/cell
+in legal ARRAY, STRUCTURE, built-in record and joint data copies. Assignments,
+private arguments and internal function results preserve known leaves even when
+unrelated leaves remain missing. Matching return schemas merge only facts proved
+on every live return path. Exact-schema constants survive; schema conversions
+discard uncast constant facts and apply conservative leaf availability rules.
+
+Fresh local partial data may be copied or returned without becoming a seedable
+input. Reading an unproven copied scalar still produces a derived-value gap.
+Scalar reads and complete-value consumers keep their initialization checks;
+computed partial results, geometric conversions and CONFIG-word packing also
+retain explicit complete-data preconditions. Unknown numeric SHORT conversions
+may produce its missing sentinel; known-safe leaves and available BYTE/SHORT
+sources are treated separately.
+
+Snapshots precede later target selectors and arguments. Private writes do not
+initialize caller storage, and return facts survive normal frame cleanup without
+retaining live references. Facts obey the existing storage/step/schema budgets
+and stay internal to analysis; JSON plans, reports and saved-run formats do not
+gain value snapshots, callbacks or frame objects. No target execution is used.
+
+Whole global aggregate reads remain input candidates when they access leaves
+before source writes. A candidate describes the source access; it does not mean
+every missing field must be filled. Legal partial copies can execute with unused
+markers unchanged. In the [ARRAY example](../examples/discovery_partial_arrays.kl),
+SOURCE is such a candidate, SOURCE[1] is set by code, and the second cells remain
+missing while RESULT becomes 7. The [local result/private-call example](../examples/discovery_partial_values.kl)
+needs no initial inputs and preserves DATA.UNUSED as a missing marker.
+[Linked results](../examples/partial_discovery_values_linked/main.kl),
+[regressions](../tests/test_input_partial_facts.py) and the
+[semantic ledger](semantics/input_partial_fact_semantics.json) provide independent
+offline execution and analysis evidence. Complete discovery retains its usual
+source-access boundary; it does not certify runtime success or controller behavior.
 
 ## Contract identity and Python API
 

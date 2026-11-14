@@ -33,6 +33,11 @@ now follows short-circuit `AND`/`OR` execution. A skipped routine cannot falsely
 initialize later inputs, and optional right-hand writes remain conditional.
 INTEGER bitwise operators retain eager evaluation.
 
+[Partial-copy input discovery](docs/input-discovery.md#partial-data-copies) now
+retains known fields/cells across assignments, private calls and function results.
+Unused missing leaves can remain missing; reads of unproven leaves and conversions
+that require complete data still report explicit gaps.
+
 [PASSALL keyboard reads](docs/keyboard-raw-read.md#explicit-cr-record-discards)
 now combine fixed STRING/numeric/BOOLEAN fields with explicit CR record discards.
 Quoted STRINGs retain doubled-apostrophe escapes. Fixed fields finish without
@@ -484,7 +489,7 @@ SET_JPOS_REG. They capture inputs before later selectors and stage converted
 values under destination/status guards in the selected register group.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1114.144849**. It is a
+tool are named **karel2py**. The current implementation is **26.1114.151852**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 [Formatted empty collection output](docs/empty-collection-output.md) lets the same
@@ -1521,9 +1526,9 @@ workflows. To run hosted checks, open the repository's **Actions** tab, select
 **Tests (manual)** or **GUI checks (manual)**, then choose **Run workflow**.
 Routine development validation uses the local CLI commands above.
 
-The example runner translates 603 authored runnable examples, checks complete
+The example runner translates 605 authored runnable examples, checks complete
 expected snapshots and validates their output, delay, context and termination
-fixtures, plus 247 complete linked source projects. It also checks that nested
+fixtures, plus 248 complete linked source projects. It also checks that nested
 MOVE actions inside local handlers are rejected.
 It uses an injected sleeper, so the delay fixture does not wait in real time.
 

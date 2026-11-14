@@ -1,0 +1,5 @@
+{
+  "SOURCE": [7, {"uninitialized": true}],
+  "TARGET": [7, {"uninitialized": true}],
+  "RESULT": 7
+}

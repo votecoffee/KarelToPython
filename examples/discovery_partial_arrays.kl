@@ -1,0 +1,7 @@
+PROGRAM DISC_COPY
+VAR source,target:ARRAY[2]OF INTEGER result:INTEGER
+BEGIN
+  source[1]=7
+  target=source
+  result=target[1]
+END DISC_COPY

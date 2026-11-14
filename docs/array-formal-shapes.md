@@ -99,7 +99,7 @@ sentinel remains an explicit derived-value gap rather than a seedable input.
 Discovery now retains concrete private shapes through wildcard calls and
 internal returns, and uses known ARRAY_LEN dimensions for bounded loop analysis.
 The grouped forwarding example below has complete source-access discovery.
-Partial copies, unknown/conflicting shapes and other documented analysis gaps
+Reads of unproven copied leaves, unknown/conflicting shapes and other analysis gaps
 remain explicit; see [input discovery](input-discovery.md#supported-analysis).
 
 The [mask](../examples/array_formal_masks.kl),

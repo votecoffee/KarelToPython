@@ -1,0 +1,20 @@
+{
+  "translator_version": "26.1114.151852",
+  "mode": "pythonic",
+  "scope": "Per-leaf availability for legal partial data copies in bounded source-access discovery",
+  "contracts": {
+    "snapshots": "Independent typed leaf facts captured before later selector/argument effects; no live runtime references or target execution",
+    "copies": "Assignments, private arguments and internal results preserve known cells alongside missing leaves; no private copyback or invented local inputs",
+    "returns": "Matching resolved schemas merge only common availability/constants across live paths; frame cleanup does not erase captured data facts",
+    "conversions": "Drop uncast constants across changed schemas; apply scalar capacity/domain facts and possible SHORT missing-state rules per copied leaf",
+    "guards": "Unproven scalar reads, computed full-value consumers, geometric conversion and CONFIG-word packing retain explicit gaps; FILE/resource helper guards remain unchanged",
+    "inputs": "Global aggregate source accesses remain candidates; unused missing fields may stay missing under existing runtime copy rules",
+    "bounds": "Existing storage, analysis-step and schema limits; no unbounded fact graph or native memory model",
+    "persistence": "Facts remain internal; existing plan/report/template/run formats and runtime copy behavior unchanged",
+    "boundary": "Supported static source-access coverage only; no runtime readiness, target authenticity, native/compiler/controller equivalence claim"
+  },
+  "guide": "../input-discovery.md#partial-data-copies",
+  "tests": ["tests/test_input_partial_facts.py", "tests/test_input_discovery.py", "tests/test_input_discovery_arrays.py", "tests/test_input_template.py", "tests/test_input_refresh.py"],
+  "examples": ["examples/discovery_partial_values.kl", "examples/discovery_partial_arrays.kl", "examples/partial_discovery_values_linked/main.kl"],
+  "controller_validated": false
+}

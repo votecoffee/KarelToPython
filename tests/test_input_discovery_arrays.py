@@ -148,7 +148,7 @@ class ArrayMetadataAndReturnDiscoveryTests(unittest.TestCase):
             ROUTINE make:ARRAY[*]OF INTEGER VAR a:ARRAY[2]OF INTEGER
             BEGIN calls=calls+1 RETURN a END make''')
         self.assertEqual(names(report),{('variable','X'):'required'})
-        self.assertTrue(any(row['code']=='local-value' for row in report['unresolved']))
+        self.assertTrue(report['complete'],report['unresolved'])
 
     def test_equal_return_shapes_merge_but_conflicting_shapes_remain_partial(self):
         for size in (2,3):
@@ -161,7 +161,8 @@ class ArrayMetadataAndReturnDiscoveryTests(unittest.TestCase):
                 expected={('variable','FLAG'):'required',('variable','X'):'required' if size==2 else 'conditional'}
                 if size==3:expected[('variable','Y')]='conditional'
                 self.assertEqual(names(report),expected)
-                self.assertTrue(any(row['code']=='local-value' for row in report['unresolved']))
+                if size==2:self.assertTrue(report['complete'],report['unresolved'])
+                else:self.assertTrue(any(row['code']=='schema' for row in report['unresolved']))
 
     def test_uninit_remains_a_nonreading_nonconstant_probe(self):
         report,_=scan('IF UNINIT(a[1]) THEN n=x ELSE n=y ENDIF',decl='a:ARRAY[2]OF INTEGER n,x,y:INTEGER')

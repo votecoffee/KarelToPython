@@ -1,0 +1,13 @@
+PROGRAM DISC_PARTIAL
+TYPE row_t=STRUCTURE known:INTEGER unused:REAL ENDSTRUCTURE
+VAR data:row_t result,after:INTEGER
+ROUTINE make:row_t
+VAR local:row_t
+BEGIN local.known=7 RETURN local END make
+ROUTINE inspect(p:row_t)
+BEGIN result=p.known p.known=99 END inspect
+BEGIN
+  data=make()
+  inspect((data))
+  after=data.known
+END DISC_PARTIAL

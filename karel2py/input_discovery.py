@@ -54,6 +54,7 @@ class _Value:
     constant: object = UNKNOWN
     complete: bool = True
     spec: object = None
+    facts: object = None
 
 
 @dataclass
@@ -124,10 +125,21 @@ def _stored_value(spec,value):
         if spec==['SHORT'] and math.isfinite(constant) and math.trunc(constant)==32767:complete=False
         constant=UNKNOWN
     if spec==['SHORT'] and constant==32767:complete=False
+    if spec==['SHORT'] and value.constant is UNKNOWN and value.spec not in (['SHORT'],['BYTE']):complete=False
     if spec and spec[0]=='ARRAY' and value.spec and value.spec[0]=='ARRAY':
         _,target=_array_dimensions(spec);_,source=_array_dimensions(value.spec)
         if target==['SHORT'] and source!=target:complete=False
     return _Value(constant,complete,spec)
+
+
+def _merged_value(values,spec=None):
+    first=values[0]
+    constant=first.constant if all(item.constant is not UNKNOWN and type(item.constant) is type(first.constant) and item.constant==first.constant for item in values) else UNKNOWN
+    schema=first.spec if all(item.spec==first.spec for item in values) else spec
+    facts=None
+    if first.facts is not None and all(item.facts is not None and item.spec==first.spec for item in values):
+        facts={key:_merged_value([item.facts.get(key,_Value(complete=False)) for item in values]) for key in first.facts}
+    return _Value(constant,all(item.complete for item in values),schema,facts)
 
 
 class _Analyzer:
@@ -235,19 +247,20 @@ class _Analyzer:
             return all(visit(self.child(current,'field',name,{})) for name in fields)
         return leaves if visit(loc) else None
 
-    def read(self, loc, node, flow, conditional):
+    def read(self, loc, node, flow, conditional, *, partial=False):
         leaves=self.leaves(loc)
         if leaves is None:
             self.unresolved_at('schema','Resource or unsupported value read: '+loc.path,node)
             return _Value(complete=False,spec=loc.spec)
         keys={leaf.key for leaf in leaves}
         missing=keys-flow.defined
+        partial_copy=partial and loc.spec and loc.spec[0] not in SCALARS
         if missing:
             initial=missing-flow.assigned
             if not initial:
-                self.unresolved_at('derived-value','Read follows a write whose complete value is not proven: '+loc.path,node)
+                if not partial_copy:self.unresolved_at('derived-value','Read follows a write whose complete value is not proven: '+loc.path,node)
             elif loc.kind=='local':
-                self.unresolved_at('local-value','Fresh routine-local value is read before initialization: '+loc.path,node)
+                if not partial_copy:self.unresolved_at('local-value','Fresh routine-local value is read before initialization: '+loc.path,node)
             else:
                 uncertain=conditional or flow.opaque or bool(missing & flow.maybe)
                 key=loc.key;certainty='conditional' if uncertain else 'required'
@@ -271,7 +284,37 @@ class _Analyzer:
         # A scalar read has a value if execution continues. Aggregate copies can
         # preserve missing leaves, so they do not establish complete receivers.
         complete=not missing or bool(loc.spec and loc.spec[0] in SCALARS)
-        return _Value(flow.constants.get(loc.key,UNKNOWN),complete,loc.spec)
+        facts=None
+        if loc.spec and loc.spec[0] not in SCALARS:
+            facts={leaf.parts[len(loc.parts):]:_Value(flow.constants.get(leaf.key,UNKNOWN) if leaf.key in flow.defined else UNKNOWN,
+                leaf.key in flow.defined,leaf.spec) for leaf in leaves}
+        return _Value(flow.constants.get(loc.key,UNKNOWN),complete,loc.spec,facts)
+
+    def copy_requires_complete(self,target,source):
+        self.tick()
+        if not source or target==source:return False
+        if target[0]=='ARRAY' and source[0]=='ARRAY':
+            return self.copy_requires_complete(_array_dimensions(target)[1],_array_dimensions(source)[1])
+        if target[0] in SCALARS or source[0] in SCALARS:return not (target[0] in SCALARS and source[0] in SCALARS)
+        if target[0] in ('POSITION','XYZWPR','XYZWPREXT','JOINTPOS') or source[0] in ('POSITION','XYZWPR','XYZWPREXT','JOINTPOS'):return True
+        fields=lambda spec:dict(spec[2]) if spec[0]=='STRUCTURE' else self.plan.get('record_fields',{}).get(spec[0])
+        first,second=fields(target),fields(source)
+        if first is None or second is None or first.keys()!=second.keys():return True
+        return any(self.copy_requires_complete(spec,second[name]) for name,spec in first.items())
+
+    def stored(self,loc,value,leaves,node):
+        stored=_stored_value(loc.spec,value)
+        if not value.complete and self.copy_requires_complete(loc.spec,value.spec):
+            self.unresolved_at('conversion-value','Converted value requires complete source data: '+loc.path,node)
+            return _Value(complete=False,spec=loc.spec)
+        if value.facts is None or loc.spec[0] in SCALARS or leaves is None:return stored
+        facts={}
+        for leaf in leaves:
+            key=leaf.parts[len(loc.parts):]
+            fact=_stored_value(leaf.spec,value.facts.get(key,_Value(complete=value.complete)))
+            if value.spec!=loc.spec:fact.constant=UNKNOWN
+            facts[key]=fact
+        return _Value(stored.constant,all(fact.complete for fact in facts.values()),loc.spec,facts)
 
     def write(self, loc, value, flow, node, *, definite=True):
         if loc is None:
@@ -279,17 +322,16 @@ class _Analyzer:
         leaves=self.leaves(loc)
         if leaves is None:
             self.unresolved_at('schema','Resource or unsupported write: '+loc.path,node);return
-        stored=_stored_value(loc.spec,value);constant=stored.constant;complete=stored.complete
-        keys={leaf.key for leaf in leaves};flow.maybe.update(keys)
-        for key in keys:flow.constants.pop(key,None)
-        if not complete:flow.defined.difference_update(keys)
-        if definite:
-            if not flow.opaque:flow.assigned.update(keys)
-            flow.defined.difference_update(keys)
-            if complete and not flow.opaque:
-                if not (loc.spec==['SHORT'] and constant==32767):flow.defined.update(keys)
-            if len(keys)==1 and constant is not UNKNOWN and not flow.opaque:
-                flow.constants[loc.key]=constant
+        stored=self.stored(loc,value,leaves,node)
+        for leaf in leaves:
+            key=leaf.key;flow.maybe.add(key);flow.constants.pop(key,None)
+            fact=stored.facts.get(leaf.parts[len(loc.parts):],_Value(complete=False)) if stored.facts is not None else stored
+            if not fact.complete:flow.defined.discard(key)
+            if definite:
+                if not flow.opaque:flow.assigned.add(key)
+                flow.defined.discard(key)
+                if fact.complete and not flow.opaque:flow.defined.add(key)
+                if fact.constant is not UNKNOWN and not flow.opaque:flow.constants[key]=fact.constant
         if len(flow.maybe)>MAX_FACTS:raise _Limit('Analysis storage limit reached')
 
     def logical(self,node,left,flow,conditional,*,typed=True):
@@ -306,7 +348,12 @@ class _Analyzer:
         complete=left.complete and (taken.stopped or right.complete) if typed else False
         return _Value(constant,complete,spec)
 
-    def expr(self, node, flow, conditional=False):
+    def result_value(self,value,node,partial):
+        if not partial and value.spec and value.spec[0] not in SCALARS and not value.complete:
+            self.unresolved_at('derived-value','Aggregate result consumed without proven complete data',node)
+        return value
+
+    def expr(self, node, flow, conditional=False, *, partial=False):
         self.tick()
         if not isinstance(node,dict):return _Value()
         kind=node.get('kind');args=node.get('args',[]);value=node.get('value')
@@ -317,15 +364,15 @@ class _Analyzer:
         if kind=='predefined':return _Value({'ON':True,'OFF':False,'MININT':-2147483648,'MAXINT':2147483647}.get(value,UNKNOWN))
         if kind=='name':
             loc=self.slot(value)
-            if loc:return self.read(loc,node,flow,conditional)
+            if loc:return self.read(loc,node,flow,conditional,partial=partial)
             constant=self.constant(value)
             if constant is not UNKNOWN:return _Value(constant)
-            if value in self.plan['routines']:return self.call(dict(node,kind='call',args=[]),flow,conditional)
+            if value in self.plan['routines']:return self.result_value(self.call(dict(node,kind='call',args=[]),flow,conditional),node,partial)
         if kind in ('field','index'):
             loc=self.locate(node,flow,conditional)
-            if loc:return self.read(loc,node,flow,conditional)
+            if loc:return self.read(loc,node,flow,conditional,partial=partial)
             self.unresolved_at('selection','Computed or dynamic data read is unresolved',node);return _Value(complete=False)
-        if kind=='group':return self.expr(args[0],flow,conditional)
+        if kind=='group':return self.expr(args[0],flow,conditional,partial=partial)
         if kind in ('unary','binary'):
             if kind=='binary' and value in ('AND','OR'):
                 left=self.expr(args[0],flow,conditional);evaluation=node.get('evaluation')
@@ -364,7 +411,7 @@ class _Analyzer:
                             and (type(result) is not float or math.isfinite(result))):return _Value(result)
                 except (ArithmeticError,TypeError,ValueError):pass
             return _Value(spec=['BOOLEAN'] if kind=='binary' and value in ('=','<>','<','<=','>','>=') else None)
-        if kind=='call':return self.call(node,flow,conditional)
+        if kind=='call':return self.result_value(self.call(node,flow,conditional),node,partial)
         if kind in ('write_item','read_item','eval'):
             values=[self.expr(item,flow,conditional) for item in args]
             return values[0] if values else _Value()
@@ -382,7 +429,7 @@ class _Analyzer:
             while target.get('kind')=='group':target=target['args'][0]
             if target.get('kind') in ('name','field','index'):
                 loc=self.locate(target,flow,conditional);spec=loc.spec if loc else None
-            elif args:spec=self.expr(target,flow,conditional).spec
+            elif args:spec=self.expr(target,flow,conditional,partial=True).spec
             values=[self.expr(item,flow,conditional) for item in args[1:]]
             if name=='ARRAY_LEN' and spec and spec[0]=='ARRAY':
                 dimensions,_=_array_dimensions(spec)
@@ -471,7 +518,7 @@ class _Analyzer:
         for index,item in enumerate(args):
             mode=modes[index] if index<len(modes) else 'unknown'
             if mode=='reference':actual.append(self.locate(item,flow,conditional))
-            elif mode=='value':actual.append(self.expr(item,flow,conditional))
+            elif mode=='value':actual.append(self.expr(item,flow,conditional,partial=True))
             else:
                 self.unresolved_at('argument','Routine passing mode is unresolved: '+name,node)
                 actual.append(self.expr(item,flow,conditional))
@@ -523,11 +570,11 @@ class _Analyzer:
                 if schema is None:
                     self.unresolved_at('result-shape','Concrete ARRAY shape conflicts with result constraint: '+name,node)
                     converted.append(_Value(complete=False,spec=result))
-                else:converted.append(_stored_value(schema,value))
+                else:
+                    loc=_Location('local','@result',name,spec=schema)
+                    converted.append(self.stored(loc,value,self.leaves(loc) if value.facts is not None else None,node))
             values=converted
-        constant=values[0].constant if all(item.constant is not UNKNOWN and type(item.constant) is type(values[0].constant) and item.constant==values[0].constant for item in values) else UNKNOWN
-        schema=values[0].spec if all(item.spec==values[0].spec for item in values) else result
-        return _Value(constant,all(item.complete for item in values),schema)
+        return _merged_value(values,result)
 
     def block(self, body, flow, conditional=False):
         for node in body:
@@ -537,7 +584,7 @@ class _Analyzer:
     def statement(self, node, flow, conditional):
         self.tick();kind=node['kind'];args=node['args']
         if kind=='assign':
-            value=self.expr(args[1],flow,conditional)
+            value=self.expr(args[1],flow,conditional,partial=True)
             self.write(self.locate(args[0],flow,conditional),value,flow,node);return
         if kind=='call':self.expr(args[0],flow,conditional);return
         if kind=='if':
@@ -595,7 +642,7 @@ class _Analyzer:
                 for exited,_ in self.exits[exit_start:]:self.write(loc,_Value(complete=False),exited,node)
             return
         if kind=='return':
-            value=self.expr(args[0],flow,conditional) if args and args[0] is not None else _Value()
+            value=self.expr(args[0],flow,conditional,partial=True) if args and args[0] is not None else _Value()
             self.exits.append((flow.copy(),value));flow.stopped=True;return
         if kind=='write_items':
             for argument in args:self.expr(argument,flow,conditional)
