@@ -1,0 +1,20 @@
+PROGRAM DISC_RESULTS
+VAR calls,total,length:INTEGER
+ROUTINE make:ARRAY[*]OF INTEGER
+VAR row:ARRAY[3]OF INTEGER i:INTEGER
+BEGIN
+  calls=calls+1
+  FOR i=1 TO 3 DO row[i]=i ENDFOR
+  RETURN row
+END make
+ROUTINE consume(p:ARRAY OF INTEGER)
+VAR i:INTEGER
+BEGIN
+  total=0
+  FOR i=1 TO ARRAY_LEN(p) DO total=total+p[i] ENDFOR
+END consume
+BEGIN
+  calls=0
+  consume(make())
+  length=ARRAY_LEN(make())
+END DISC_RESULTS

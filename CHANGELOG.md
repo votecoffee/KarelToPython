@@ -1,5 +1,18 @@
 # Changelog
 
+## 26.1114.140436 - 2026-11-14
+
+- Retain concrete ARRAY shape and element-capacity facts through private
+  parameters and internal function results during input discovery. Known
+  ARRAY_LEN metadata can bound existing small-loop analysis without reading cells.
+- Preserve borrowed aliases and private-copy isolation. Conflicting concrete
+  constraints, unknown return shapes, partial values and possible converted
+  SHORT missing sentinels retain explicit analysis gaps.
+- Apply conservative scalar storage facts at function returns as well as writes,
+  preventing uncast result constants from hiding reachable initial reads.
+- Add two authored execution/discovery examples and targeted shape, lifetime,
+  metadata-order and no-execution checks. Keep the README and guides current.
+
 ## 26.1114.132158 - 2026-11-14
 
 - Add fixed and mixed fixed/wildcard ARRAY formal dimensions in Pythonic source,

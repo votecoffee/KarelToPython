@@ -1,0 +1,19 @@
+{
+  "translator_version": "26.1114.140436",
+  "mode": "pythonic",
+  "scope": "Concrete private ARRAY shape facts in bounded static source-access discovery",
+  "contracts": {
+    "inspection": "Checked inert source-flow contracts only; no target import, execution, eval or runtime coercion calls",
+    "shape": "Inherit known actual dimensions and STRING element capacities into declared private layouts; retain converted terminal types and named component identities",
+    "aliases": "Borrowed references retain original locations; private parameter writes and function returns do not write back into caller storage",
+    "metadata": "Known ARRAY_LEN logical dimensions bound existing small loops; probe receivers and dimension expressions retain source-order effects exactly once without reading stored cells",
+    "returns": "Merge equal resolved result schemas; disagreeing results retain declared constraints; scalar result conversions invalidate uncast branch constants",
+    "gaps": "Known shape conflicts, unknown/private partial schemas, missing derived leaves and potentially converted SHORT sentinels stay explicit",
+    "format": "Existing generated input-plan, discovery report, template and run-document formats unchanged",
+    "boundary": "Complete supported source-access coverage does not prove successful execution, termination, host/controller behavior or native equivalence"
+  },
+  "guide": "../input-discovery.md#supported-analysis",
+  "tests": ["tests/test_input_discovery_arrays.py", "tests/test_input_discovery.py", "tests/test_input_template.py", "tests/test_input_refresh.py"],
+  "examples": ["examples/discovery_private_arrays.kl", "examples/discovery_array_shape_results.kl", "examples/array_formal_forwarding.kl"],
+  "controller_validated": false
+}

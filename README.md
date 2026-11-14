@@ -17,6 +17,12 @@ dimensions, such as `ARRAY[2,*] OF INTEGER`. Matching borrowed storage keeps its
 aliases; unknown forwarded sizes are checked against concrete caller storage
 before the callee body. Existing private-copy and exact linked-interface rules remain.
 
+[Input discovery](docs/input-discovery.md#supported-analysis) now retains concrete
+private ARRAY shapes through wildcard calls and function returns. Known
+`ARRAY_LEN` dimensions support bounded loop analysis without reading missing
+cells or executing the generated Python. Conflicting shapes and incomplete
+derived values retain explicit analysis gaps.
+
 [PASSALL keyboard reads](docs/keyboard-raw-read.md#explicit-cr-record-discards)
 now combine fixed STRING/numeric/BOOLEAN fields with explicit CR record discards.
 Quoted STRINGs retain doubled-apostrophe escapes. Fixed fields finish without
@@ -468,7 +474,7 @@ SET_JPOS_REG. They capture inputs before later selectors and stage converted
 values under destination/status guards in the selected register group.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1114.132158**. It is a
+tool are named **karel2py**. The current implementation is **26.1114.140436**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 [Formatted empty collection output](docs/empty-collection-output.md) lets the same
@@ -1505,7 +1511,7 @@ workflows. To run hosted checks, open the repository's **Actions** tab, select
 **Tests (manual)** or **GUI checks (manual)**, then choose **Run workflow**.
 Routine development validation uses the local CLI commands above.
 
-The example runner translates 597 authored runnable examples, checks complete
+The example runner translates 599 authored runnable examples, checks complete
 expected snapshots and validates their output, delay, context and termination
 fixtures, plus 245 complete linked source projects. It also checks that nested
 MOVE actions inside local handlers are rejected.

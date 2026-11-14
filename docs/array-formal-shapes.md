@@ -95,7 +95,11 @@ whose unknown sizes defer to concrete routine-entry checks.
 Static input discovery keeps uncast scalar values conservative when STRING
 truncation or integral coercion can change a branch. A converted SHORT missing
 sentinel remains an explicit derived-value gap rather than a seedable input.
-Discovery still retains its documented partial-analysis boundaries.
+Discovery now retains concrete private shapes through wildcard calls and
+internal returns, and uses known ARRAY_LEN dimensions for bounded loop analysis.
+The grouped forwarding example below has complete source-access discovery.
+Partial copies, unknown/conflicting shapes and other documented analysis gaps
+remain explicit; see [input discovery](input-discovery.md#supported-analysis).
 
 The [mask](../examples/array_formal_masks.kl),
 [forwarding](../examples/array_formal_forwarding.kl),

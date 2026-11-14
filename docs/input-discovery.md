@@ -173,7 +173,33 @@ allows zero loop iterations where needed and tracks partial aggregate writes.
 Small constant FOR ranges are expanded; uncertain loops widen address facts.
 Internal calls preserve reference aliases and private value arguments, while
 uncalled routines do not contribute inputs. UNINIT and ARRAY_LEN are metadata
-probes. Literal/propagated addresses support direct ports, numeric/string/position
+probes. ARRAY_LEN returns a static fact when the selected logical dimension is
+known, including private wildcard ARRAY parameters and internal ARRAY results.
+This can bound the existing small FOR expansion without reading missing cells.
+Computed metadata receivers retain their modeled call effects exactly once.
+
+Private ARRAY calls retain known source dimensions and inherited STRING element
+capacities while using the declared receiver's component layout and converted
+terminal types. Reference calls keep their original locations. Private writes
+never initialize caller storage. Matching concrete result shapes survive return
+merges; disagreeing shapes retain only their declared constraints. No wildcard
+size is invented. Conflicting known argument/result constraints remain explicit
+shape gaps rather than publishing callee write facts.
+
+Partial aggregate copies remain conservative: a later read of an unproven
+private leaf is a derived-value gap, not a seedable local input. Conversions to
+SHORT from another terminal type may create its missing sentinel and therefore
+do not establish complete copied leaves. Scalar storage/result conversions also
+invalidate uncast constants when truncation can change branch truth. Direct
+private STRING arguments use their existing 254-character temporary capacity.
+
+The [private ARRAY](../examples/discovery_private_arrays.kl) and
+[ARRAY result](../examples/discovery_array_shape_results.kl) examples have
+independent execution and discovery expectations; their
+[regressions](../tests/test_input_discovery_arrays.py) require discovery without
+target execution. These facts use the existing contract and report schemas.
+
+Literal/propagated addresses support direct ports, numeric/string/position
 registers and own-program GET_VAR/SET_VAR data paths.
 
 Dynamic addresses, unsupported schemas/resources/services, host or linked

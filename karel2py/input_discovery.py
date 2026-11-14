@@ -53,6 +53,7 @@ class _Location:
 class _Value:
     constant: object = UNKNOWN
     complete: bool = True
+    spec: object = None
 
 
 @dataclass
@@ -83,6 +84,50 @@ def _merge(flows):
     return _Flow(set.intersection(*(flow.defined for flow in live)),
                  set.intersection(*(flow.assigned for flow in live)),
                  set.union(*(flow.maybe for flow in live)),constants,False,any(flow.opaque for flow in live))
+
+
+def _array_dimensions(spec):
+    dimensions=[]
+    while spec and spec[0]=='ARRAY':
+        dimensions.extend(spec[1] if type(spec[1]) is list else [spec[1]])
+        spec=spec[2]
+    return dimensions,spec
+
+
+def _array_value_schema(declared,source):
+    """Retain checked constraints and inherit only known source dimensions."""
+    if not source or source[0]!='ARRAY':return declared
+    dimensions,terminal=_array_dimensions(source)
+    expected,_=_array_dimensions(declared)
+    if len(dimensions)!=len(expected) or any(a is not None and b is not None and a!=b for a,b in zip(expected,dimensions)):
+        return None
+    axes=iter(dimensions)
+    def resolve(spec):
+        shape=spec[1] if type(spec[1]) is list else [spec[1]]
+        sizes=[]
+        for wanted in shape:
+            actual=next(axes);sizes.append(actual if wanted is None else wanted)
+        element=spec[2]
+        if element[0]=='ARRAY':element=resolve(element)
+        elif element==['STRING',None] and terminal and terminal[0]=='STRING':element=terminal
+        return ['ARRAY',sizes if type(spec[1]) is list else sizes[0],element,*spec[3:]]
+    return resolve(declared)
+
+
+def _stored_value(spec,value):
+    """Availability/schema facts after storage; do not evaluate runtime casts."""
+    constant=value.constant;complete=value.complete
+    if spec and spec[0]=='STRING' and type(constant) is str:
+        capacity=spec[1] if len(spec)>1 else None
+        if type(capacity) is not int or len(constant)>capacity:constant=UNKNOWN
+    elif spec and spec[0] in ('INTEGER','BYTE','SHORT') and type(constant) is float:
+        if spec==['SHORT'] and math.isfinite(constant) and math.trunc(constant)==32767:complete=False
+        constant=UNKNOWN
+    if spec==['SHORT'] and constant==32767:complete=False
+    if spec and spec[0]=='ARRAY' and value.spec and value.spec[0]=='ARRAY':
+        _,target=_array_dimensions(spec);_,source=_array_dimensions(value.spec)
+        if target==['SHORT'] and source!=target:complete=False
+    return _Value(constant,complete,spec)
 
 
 class _Analyzer:
@@ -194,7 +239,7 @@ class _Analyzer:
         leaves=self.leaves(loc)
         if leaves is None:
             self.unresolved_at('schema','Resource or unsupported value read: '+loc.path,node)
-            return _Value(complete=False)
+            return _Value(complete=False,spec=loc.spec)
         keys={leaf.key for leaf in leaves}
         missing=keys-flow.defined
         if missing:
@@ -226,7 +271,7 @@ class _Analyzer:
         # A scalar read has a value if execution continues. Aggregate copies can
         # preserve missing leaves, so they do not establish complete receivers.
         complete=not missing or bool(loc.spec and loc.spec[0] in SCALARS)
-        return _Value(flow.constants.get(loc.key,UNKNOWN),complete)
+        return _Value(flow.constants.get(loc.key,UNKNOWN),complete,loc.spec)
 
     def write(self, loc, value, flow, node, *, definite=True):
         if loc is None:
@@ -234,15 +279,7 @@ class _Analyzer:
         leaves=self.leaves(loc)
         if leaves is None:
             self.unresolved_at('schema','Resource or unsupported write: '+loc.path,node);return
-        constant=value.constant;complete=value.complete
-        if loc.spec and loc.spec[0]=='STRING' and type(constant) is str:
-            capacity=loc.spec[1] if len(loc.spec)>1 else None
-            if type(capacity) is not int or len(constant)>capacity:constant=UNKNOWN
-        elif loc.spec and loc.spec[0] in ('INTEGER','BYTE','SHORT') and type(constant) is float:
-            # Source coercion can change both branch truth and SHORT's missing
-            # state. Retain availability, but do not prune on the uncast value.
-            if loc.spec==['SHORT'] and math.isfinite(constant) and math.trunc(constant)==32767:complete=False
-            constant=UNKNOWN
+        stored=_stored_value(loc.spec,value);constant=stored.constant;complete=stored.complete
         keys={leaf.key for leaf in leaves};flow.maybe.update(keys)
         for key in keys:flow.constants.pop(key,None)
         if not complete:flow.defined.difference_update(keys)
@@ -319,8 +356,18 @@ class _Analyzer:
         name=node['value'];args=node['args']
         if name in self.plan['routines']:return self.routine(name,args,node,flow,conditional)
         if name in ('UNINIT','ARRAY_LEN'):
-            if args:self.locate(args[0],flow,conditional)
-            for item in args[1:]:self.expr(item,flow,conditional)
+            target=args[0] if args else {};spec=None
+            while target.get('kind')=='group':target=target['args'][0]
+            if target.get('kind') in ('name','field','index'):
+                loc=self.locate(target,flow,conditional);spec=loc.spec if loc else None
+            elif args:spec=self.expr(target,flow,conditional).spec
+            values=[self.expr(item,flow,conditional) for item in args[1:]]
+            if name=='ARRAY_LEN' and spec and spec[0]=='ARRAY':
+                dimensions,_=_array_dimensions(spec)
+                dimension=values[0].constant if values else 1
+                if type(dimension) is int and 1<=dimension<=len(dimensions):
+                    size=dimensions[dimension-1]
+                    if type(size) is int:return _Value(size,spec=['INTEGER'])
             return _Value()
         if name in PURE:
             for item in args:self.expr(item,flow,conditional)
@@ -412,12 +459,21 @@ class _Analyzer:
                 if isinstance(item,_Location):self.read(item,node,flow,True)
             self.opaque(flow);return _Value(complete=False)
         self.serial+=1;owner='@'+name+':'+str(self.serial)
+        bindings=[]
+        for (formal,spec),item in zip(routine['parameters'],actual):
+            source=item.spec if isinstance(item,(_Value,_Location)) else None
+            resolved=_array_value_schema(spec,source) if spec[0]=='ARRAY' else spec
+            if resolved is None:
+                self.unresolved_at('parameter-shape','Concrete ARRAY shape conflicts with routine constraint: '+name+'.'+formal,node)
+                self.opaque(flow);return _Value(complete=False)
+            bindings.append((formal,spec,item,resolved))
         frame=dict(name=name,slots={key:_Location('local',owner,key,spec=spec) for key,spec in routine['types'].items()},
                    constants=routine['constants'])
-        for (formal,spec),item in zip(routine['parameters'],actual):
+        for formal,spec,item,resolved in bindings:
             if isinstance(item,_Location):frame['slots'][formal]=item
             else:
-                loc=frame['slots'][formal]
+                if spec==['STRING',None]:resolved=['STRING',254]
+                loc=_Location('local',owner,formal,spec=resolved);frame['slots'][formal]=loc
                 self.write(loc,item or _Value(complete=False),flow,node)
         old_exits=self.exits;self.exits=[];self.frames.append(frame)
         try:
@@ -433,9 +489,19 @@ class _Analyzer:
             setattr(merged,field_name,{key for key in getattr(merged,field_name) if key[1]!=owner})
         merged.constants={key:value for key,value in merged.constants.items() if key[1]!=owner}
         flow.take(merged)
-        values=[item[1] for item in exits]
-        constant=values[0].constant if all(item.constant is not UNKNOWN and item.constant==values[0].constant for item in values) else UNKNOWN
-        return _Value(constant,all(item.complete for item in values))
+        values=[item[1] for item in exits];result=routine['result']
+        if result:
+            converted=[]
+            for value in values:
+                schema=_array_value_schema(result,value.spec) if result[0]=='ARRAY' else result
+                if schema is None:
+                    self.unresolved_at('result-shape','Concrete ARRAY shape conflicts with result constraint: '+name,node)
+                    converted.append(_Value(complete=False,spec=result))
+                else:converted.append(_stored_value(schema,value))
+            values=converted
+        constant=values[0].constant if all(item.constant is not UNKNOWN and type(item.constant) is type(values[0].constant) and item.constant==values[0].constant for item in values) else UNKNOWN
+        schema=values[0].spec if all(item.spec==values[0].spec for item in values) else result
+        return _Value(constant,all(item.complete for item in values),schema)
 
     def block(self, body, flow, conditional=False):
         for node in body:
