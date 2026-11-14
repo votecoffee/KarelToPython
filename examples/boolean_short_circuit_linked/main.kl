@@ -1,0 +1,9 @@
+PROGRAM MAIN
+VAR answer:BOOLEAN
+ROUTINE skipped:BOOLEAN FROM LIB
+ROUTINE required:BOOLEAN FROM LIB
+BEGIN
+  answer=FALSE AND skipped()
+  answer=TRUE OR skipped()
+  answer=TRUE AND required()
+END MAIN

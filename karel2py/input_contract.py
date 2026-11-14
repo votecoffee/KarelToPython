@@ -125,6 +125,8 @@ def build(program, emitter):
             row['args'] = encode(value.args, depth + 1)
             if kind == 'Expr':
                 row['value'] = encode(value.value, depth + 1)
+                if value.kind=='binary' and value.value in ('AND','OR'):
+                    row['evaluation']=encode('short-circuit' if id(value) in emitter.short_circuit_expressions else 'eager',depth+1)
                 if value.kind == 'call' and value.value in emitter.routines:
                     routine = emitter.routines[value.value]
                     modes = []

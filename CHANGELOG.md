@@ -1,5 +1,20 @@
 # Changelog
 
+## 26.1114.144849 - 2026-11-14
+
+- Correct input discovery for Boolean AND/OR: skipped right operands contribute
+  no reads or writes; optional right-hand effects merge with the skipped path.
+  A skipped routine can no longer hide a later read-before-write input.
+- Record the checked emitted evaluation category in generated source contracts.
+  Keep INTEGER bitwise operations eager, left operands evaluated once, source
+  locations intact and existing runtime execution unchanged.
+- Preserve required effects, decisive Boolean results and nonreturning branches.
+  Older contracts use proven operand facts or report an explicit operator-mode
+  gap without assuming right-hand writes. No target execution is introduced.
+- Add authored Boolean/INTEGER discovery examples and a linked project, plus
+  focused side-effect, alias, loop, service, template and integrity checks.
+  Update the README and guide; existing persistence formats remain unchanged.
+
 ## 26.1114.142854 - 2026-11-14
 
 - Add direct bounded STRING scalar and ARRAY-element parameter syntax to

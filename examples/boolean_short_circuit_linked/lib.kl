@@ -1,0 +1,7 @@
+PROGRAM LIB
+VAR skipped_count,required_count:INTEGER
+ROUTINE skipped:BOOLEAN
+BEGIN skipped_count=1 RETURN TRUE END skipped
+ROUTINE required:BOOLEAN
+BEGIN required_count=1 RETURN TRUE END required
+BEGIN END LIB

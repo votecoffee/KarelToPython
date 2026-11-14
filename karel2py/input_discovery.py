@@ -292,6 +292,20 @@ class _Analyzer:
                 flow.constants[loc.key]=constant
         if len(flow.maybe)>MAX_FACTS:raise _Limit('Analysis storage limit reached')
 
+    def logical(self,node,left,flow,conditional,*,typed=True):
+        """Follow the emitted Boolean branch; optional RHS effects never dominate."""
+        skip=node['value']=='OR';spec=['BOOLEAN'] if typed else None
+        if typed and type(left.constant) is bool:
+            if left.constant==skip:return _Value(skip,left.complete,spec)
+            right=self.expr(node['args'][1],flow,conditional)
+            return _Value(right.constant if type(right.constant) is bool else UNKNOWN,left.complete and right.complete,spec)
+        before=flow.copy();taken=flow.copy()
+        right=self.expr(node['args'][1],taken,True)
+        flow.take(_merge([before,taken]))
+        constant=(skip if taken.stopped or type(right.constant) is bool and right.constant==skip else UNKNOWN) if typed else UNKNOWN
+        complete=left.complete and (taken.stopped or right.complete) if typed else False
+        return _Value(constant,complete,spec)
+
     def expr(self, node, flow, conditional=False):
         self.tick()
         if not isinstance(node,dict):return _Value()
@@ -313,7 +327,15 @@ class _Analyzer:
             self.unresolved_at('selection','Computed or dynamic data read is unresolved',node);return _Value(complete=False)
         if kind=='group':return self.expr(args[0],flow,conditional)
         if kind in ('unary','binary'):
-            values=[self.expr(item,flow,conditional) for item in args]
+            if kind=='binary' and value in ('AND','OR'):
+                left=self.expr(args[0],flow,conditional);evaluation=node.get('evaluation')
+                if evaluation=='short-circuit' or evaluation is None and (type(left.constant) is bool or left.spec==['BOOLEAN']):
+                    return self.logical(node,left,flow,conditional)
+                if evaluation!='eager' and not (evaluation is None and (type(left.constant) is int or left.spec in (['INTEGER'],['BYTE'],['SHORT']))):
+                    self.unresolved_at('operator-mode','AND/OR evaluation category is unresolved; retranslate the target',node)
+                    return self.logical(node,left,flow,conditional,typed=False)
+                values=[left,self.expr(args[1],flow,conditional)]
+            else:values=[self.expr(item,flow,conditional) for item in args]
             known=[item.constant for item in values]
             if all(item is not UNKNOWN for item in known):
                 try:
@@ -341,7 +363,7 @@ class _Analyzer:
                             and (type(result) is not int or result.bit_length()<=64)
                             and (type(result) is not float or math.isfinite(result))):return _Value(result)
                 except (ArithmeticError,TypeError,ValueError):pass
-            return _Value()
+            return _Value(spec=['BOOLEAN'] if kind=='binary' and value in ('=','<>','<','<=','>','>=') else None)
         if kind=='call':return self.call(node,flow,conditional)
         if kind in ('write_item','read_item','eval'):
             values=[self.expr(item,flow,conditional) for item in args]
@@ -368,7 +390,7 @@ class _Analyzer:
                 if type(dimension) is int and 1<=dimension<=len(dimensions):
                     size=dimensions[dimension-1]
                     if type(size) is int:return _Value(size,spec=['INTEGER'])
-            return _Value()
+            return _Value(spec=['BOOLEAN'] if name=='UNINIT' else ['INTEGER'])
         if name in PURE:
             for item in args:self.expr(item,flow,conditional)
             return _Value()

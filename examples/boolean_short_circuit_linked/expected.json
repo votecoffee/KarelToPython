@@ -1,0 +1,4 @@
+{
+  "LIB": {"state": "ready", "values": {"SKIPPED_COUNT": {"uninitialized": true}, "REQUIRED_COUNT": 1}},
+  "MAIN": {"state": "completed", "values": {"ANSWER": true}}
+}

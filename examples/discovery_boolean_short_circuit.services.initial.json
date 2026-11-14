@@ -1,0 +1,5 @@
+{
+  "variables": [
+    {"program": "DISC_BOOL", "path": "SOURCE", "type": ["INTEGER"], "value": 11}
+  ]
+}

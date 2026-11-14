@@ -1,0 +1,10 @@
+PROGRAM DISC_BITS
+VAR answer,source,observed,calls:INTEGER
+ROUTINE fill:INTEGER
+BEGIN calls=calls+1 source=99 RETURN 1 END fill
+BEGIN
+  calls=0
+  answer=0 AND fill()
+  answer=0 OR fill()
+  observed=source
+END DISC_BITS

@@ -1288,6 +1288,7 @@ class Emitter:
         self.constant_dependency_uses=[];self.constant_resolution_order=[]
         self.array_formal_uses=[];self.array_forward_uses=[]
         self.string_formal_uses=[];self.string_forward_uses=[]
+        self.short_circuit_expressions=set()
         self.constant_builtin_uses=[];self._constant_builtin_cache={};self._constant_builtin_depth=0
         self._constant_declaration=None
         self.type_dependency_uses=[];self.type_resolution_order=[];self._type_schema_costs={}
@@ -2990,6 +2991,7 @@ class Emitter:
             self.features.add('operator ' + op)
             if self.mode == 'pythonic':
                 if lt[0] == 'BOOLEAN' and op in ('AND', 'OR'):
+                    self.short_circuit_expressions.add(id(expr))
                     return f'(_rt.boolean({left}, {line}) {op.lower()} _rt.boolean({right}, {line}))', result_type
                 # Capture mutable values before a later operand can change them.
                 if lt == ('VECTOR',): left = f'_rt.vector_value({left}, {line})'
@@ -8269,5 +8271,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         report['python_sha256'] = hashlib.sha256(result.python_source.encode('utf-8')).hexdigest()
         report['input_discovery_policy'] = dict(source='Literal source-analysis contract bound to generated Python syntax and payload checksums',
             execution='Discovery parses without target imports or execution; unsupported flow remains explicit',
+            operators='Checked Boolean AND/OR short circuit and eager INTEGER bitwise categories; conditional right-hand effects cannot establish definite writes',
+            guide='docs/input-discovery.md#boolean-and-integer-operators',
             boundary='Generated Python only; metadata is not code authenticity or controller proof',controller_validated=False)
     return result

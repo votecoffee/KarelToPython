@@ -1,0 +1,20 @@
+{
+  "translator_version": "26.1114.144849",
+  "mode": "pythonic",
+  "scope": "Checked source-access flow for Boolean short circuit and eager INTEGER bitwise AND/OR",
+  "contracts": {
+    "metadata": "Record the category of the checked emitted operator; existing contract payload/module fingerprints detect stale changes",
+    "order": "Analyze the left operand once and only reachable right operands; runtime execution and static translation validity checks remain unchanged",
+    "boolean": "Decisive left values skip or require right-hand effects; unknown left values make right inputs conditional and intersect write facts with the skipped path",
+    "effects": "Optional aliases, routine writes and services never become definite initialization; nonreturning branches retain live continuation facts",
+    "results": "Decisive right Boolean constants can determine the result without strengthening optional effects",
+    "integer": "Eager bitwise AND/OR, including zero left operands; no implicit Boolean truthiness",
+    "older_contracts": "Proven operand facts establish category or an explicit operator-mode gap requests retranslation; no eager-write assumption",
+    "inspection": "No target import, execution, eval or callbacks; preserve source/Python/include locations and existing analysis budgets",
+    "format": "Existing plan/report/template/run-document schemas retained; no native/controller equivalence or runtime-readiness claim"
+  },
+  "guide": "../input-discovery.md#boolean-and-integer-operators",
+  "tests": ["tests/test_input_short_circuit.py", "tests/test_input_discovery.py", "tests/test_input_template.py", "tests/test_input_refresh.py"],
+  "examples": ["examples/discovery_boolean_short_circuit.kl", "examples/discovery_integer_eager.kl", "examples/boolean_short_circuit_linked/main.kl"],
+  "controller_validated": false
+}

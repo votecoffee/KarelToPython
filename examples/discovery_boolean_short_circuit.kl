@@ -1,0 +1,10 @@
+PROGRAM DISC_BOOL
+VAR answer:BOOLEAN source,observed,calls:INTEGER
+ROUTINE fill:BOOLEAN
+BEGIN calls=calls+1 source=99 RETURN TRUE END fill
+BEGIN
+  calls=0
+  answer=FALSE AND fill()
+  answer=TRUE OR fill()
+  observed=source
+END DISC_BOOL

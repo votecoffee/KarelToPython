@@ -220,6 +220,38 @@ Contract construction has a separate 50000-node/100-depth budget; an oversized
 contract is marked unavailable without rejecting an otherwise valid translation.
 Limit exhaustion returns an explicit partial report.
 
+### Boolean and INTEGER operators
+
+Discovery follows the translator's existing Pythonic Boolean short-circuit
+execution. `FALSE AND right` and `TRUE OR right` skip right-hand reads, routines
+and service requirements. `TRUE AND right` and `FALSE OR right` require them.
+With an unknown Boolean left operand, right-hand inputs are conditional and
+write facts merge with the skipped path. Optional writes cannot initialize a
+later input definitively. The left operand and each reachable right operand are
+analyzed once in source order, including nested operations and routine aliases.
+
+Decisive right-side constants may prove the Boolean result, but their optional
+side effects remain conditional. Nonreturning right-hand paths retain only live
+continuation facts. INTEGER AND/OR are eager bitwise operations, including when
+the left operand is zero; they do not use Boolean truthiness. Static translation
+still checks skipped source for valid names/types. Execution rules are unchanged.
+
+Generated contracts record each checked AND/OR evaluation category. Existing
+payload and module fingerprints protect those annotations from stale edits.
+Older contracts without the category use proven Boolean/INTEGER operand facts;
+otherwise discovery reports `operator-mode` and treats right-hand effects
+conservatively. Retranslation supplies the checked category. No target import,
+execution, callback or runtime coercion is used during analysis.
+
+The [Boolean](../examples/discovery_boolean_short_circuit.kl) example identifies
+SOURCE as an initial input, supplied as 11 by its context fixture. Its skipped
+routine leaves CALLS at zero. The [INTEGER](../examples/discovery_integer_eager.kl)
+example calls the right-hand routine twice and needs no initial SOURCE value.
+[Linked calls](../examples/boolean_short_circuit_linked/main.kl) keep the same
+execution order. Independent snapshots, discovery expectations,
+[regressions](../tests/test_input_short_circuit.py) and the
+[semantic ledger](semantics/input_short_circuit_semantics.json) record offline evidence.
+
 ## Contract identity and Python API
 
 The compiler attaches inert literal source-flow metadata to Pythonic output.
