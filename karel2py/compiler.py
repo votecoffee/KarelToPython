@@ -688,21 +688,25 @@ class Parser:
                 self.error('E_PARAMETERS', 'STRING formal parameters have no declared capacity', token)
             return ('STRING', None)
         if token.value == 'ARRAY':
-            rank = 1
+            dimensions = [None]
             if self.current.value == '[':
                 self.take()
-                if not self.accept('*'):
-                    self.error('E_PARAMETERS', 'ARRAY formal dimensions must use * rather than fixed lengths', token)
-                while self.accept(','):
-                    if not self.accept('*'):
+                dimensions = []
+                while True:
+                    if self.mode=='pythonic':self.skip_newlines()
+                    if self.accept('*'):dimensions.append(None)
+                    elif self.mode=='pythonic':dimensions.append(self.expression())
+                    else:
                         self.error('E_PARAMETERS', 'ARRAY formal dimensions must use * rather than fixed lengths', token)
-                    rank += 1
+                    if self.mode=='pythonic':self.skip_newlines()
+                    if not self.accept(','):break
                 self.expect(']')
-                if rank > 3:
+                if len(dimensions) > 3:
                     self.error('E_ARRAY_RANK', 'ARRAY formals support at most three dimensions', token)
+            rank = len(dimensions)
             if array_rank+rank>3:
                 self.error('E_ARRAY_RANK','ARRAY formals support at most three logical dimensions',token)
-            shape = None if rank == 1 else (None,) * rank
+            shape = dimensions[0] if rank == 1 else tuple(dimensions)
             self.expect('OF')
             if self.mode=='pythonic':self.skip_newlines()
             element = self.take()
@@ -1279,6 +1283,7 @@ class Emitter:
         self.type_aliases = []
         self.file_prefix_argument_uses=[]
         self.constant_dependency_uses=[];self.constant_resolution_order=[]
+        self.array_formal_uses=[];self.array_forward_uses=[]
         self.constant_builtin_uses=[];self._constant_builtin_cache={};self._constant_builtin_depth=0
         self._constant_declaration=None
         self.type_dependency_uses=[];self.type_resolution_order=[];self._type_schema_costs={}
@@ -1634,6 +1639,37 @@ class Emitter:
             self.error('E_ARRAY_CAPACITY', 'ARRAY results are limited to 32767 scalar leaves', token)
         return result
 
+    def resolve_array_parameter_spec(self,spec,token,routine):
+        """Resolve fixed constraints without allocating or guessing wildcards."""
+        if spec[0]!='ARRAY':return self.resolve_spec(spec)
+        element=self.resolve_spec(spec[2]);dimensions=[]
+        for size in rt.array_shape(spec):
+            if size is None:dimensions.append(None)
+            else:
+                value=self.constant(size)
+                if type(value) is not int or not 1<=value<=32767:
+                    self.error('E_SIZE','ARRAY formal dimensions require INTEGER in 1..32767 or *',size.token)
+                dimensions.append(value)
+        if element[0]=='ARRAY' and rt.array_identity(element) is None:
+            self.error('E_NESTED_NAMED_ARRAY','ARRAY formal components require a named ARRAY type',token)
+        shape=dimensions[0] if len(dimensions)==1 else tuple(dimensions)
+        result=('ARRAY',shape,element)
+        logical=rt.array_dimensions(result)
+        if len(logical)>3:self.error('E_ARRAY_RANK','ARRAY formals support at most three logical dimensions',token)
+        minimum=tuple(1 if size is None else size for size in dimensions)
+        bounded=('ARRAY',minimum[0] if len(minimum)==1 else minimum,element)
+        if rt.scalar_leaf_count(bounded)>32767:
+            self.error('E_ARRAY_CAPACITY','ARRAY formal minimum exceeds 32767 scalar leaves/descriptors',token)
+        self.check_collection_array(bounded,token)
+        if any(size is not None for size in dimensions):
+            self.features.add('fixed and mixed ARRAY formal constraints')
+            self.array_formal_uses.append(dict(routine=routine,parameter=token.value,line=token.line,column=token.column,
+                type_spec=result,logical_dimensions=list(logical),
+                fixed_dimensions=[index+1 for index,size in enumerate(logical) if size is not None],
+                wildcard_dimensions=[index+1 for index,size in enumerate(logical) if size is None],
+                interface_scope='module',runtime_shape='checked caller storage; no allocation or resize'))
+        return result
+
     def resolve_global_spec(self, token, spec):
         """Specialize only direct static declarations; never guess loaded storage."""
         if spec[0] != 'ARRAY': return self.resolve_spec(spec)
@@ -1847,7 +1883,7 @@ class Emitter:
             for token, spec in routine.parameters:
                 if token.value in routine.local_types or token.value in self.constants or token.value in self.user_types or token.value in blocked_controller_names(self.mode) | ex.PORT_TYPES.keys():
                     self.error('E_DUPLICATE', 'Duplicate, constant-shadowing or controller local identifier', token)
-                resolved = self.resolve_spec(spec)
+                resolved = self.resolve_array_parameter_spec(spec,token,routine.name) if self.mode=='pythonic' else self.resolve_spec(spec)
                 if self.mode!='pythonic' and resolved[0] in NARROW_TYPES:
                     self.error('E_PARAMETERS', 'BYTE and SHORT are permitted only as ARRAY elements or STRUCTURE fields', token)
                 routine.local_types[token.value] = resolved
@@ -2391,13 +2427,28 @@ class Emitter:
         if self.mode=='pythonic' and expected[0]==actual[0]=='JOINTPOS' and expected!=actual:return False
         if self.mode=='pythonic' and ((expected[0]=='JOINTPOS' and actual[0] in ('POSITION','XYZWPR','XYZWPREXT')) or (actual[0]=='JOINTPOS' and expected[0] in ('POSITION','XYZWPR','XYZWPREXT'))):return False
         if self.mode=='pythonic' and expected!=actual and expected[0] in ('POSITION','XYZWPR','XYZWPREXT') and actual[0] in ('POSITION','XYZWPR','XYZWPREXT'):return False
-        if self.mode=='pythonic' and rt.array_schema_compatible(expected,actual) and not rt.parameter_accepts(expected,actual):return False
+        if (self.mode=='pythonic' and rt.array_schema_compatible(expected,actual) and not rt.parameter_accepts(expected,actual)
+                and not self.array_formal_forward_match(expected,actual)):return False
         if self.mode=='pythonic' and (rt.record_schema_kind(expected,actual) or rt.kinematic_record_kind(expected,actual)):return False
         if self.is_value_only_subfield(argument):return False
         if expected[0] in ('INTEGER','REAL') and actual[0] in NARROW_TYPES:return False
         if expected==('REAL',) and actual==('INTEGER',):return False
         if self.mode=='pythonic' and expected[0] in NARROW_TYPES and actual[0] in INTEGRAL_TYPES and actual!=expected:return False
         return True
+
+    @staticmethod
+    def array_formal_forward_match(expected,actual):
+        """Defer unknown ARRAY sizes only; routine entry keeps exact checks."""
+        if expected[0]!='ARRAY' or actual[0]!='ARRAY' or rt.array_identity(expected) is not None:return False
+        if expected[2][0]=='ARRAY':
+            first,second=rt.array_shape(expected),rt.array_shape(actual)
+            elements=rt.parameter_accepts(expected[2],actual[2])
+        else:
+            first,second=rt.array_dimensions(expected),rt.array_dimensions(actual)
+            elements=rt.parameter_accepts(expected[2],rt.array_leaf_spec(actual))
+        return (elements and len(first)==len(second)
+            and any(wanted is not None and supplied is None for wanted,supplied in zip(first,second))
+            and all(wanted is None or supplied is None or wanted==supplied for wanted,supplied in zip(first,second)))
 
     def check_for_call(self, token, routine=None):
         if self.active_counters:
@@ -3486,6 +3537,7 @@ class Emitter:
                     self.features.add('private logical collection ARRAY argument')
                 else:code = f'_rt.value_argument({expected!r}, {value}, {line})'
             source_actual=actual;cartesian_conversion=False;conversion_kind='none'
+            guarded_shape=self.mode=='pythonic' and is_reference and self.array_formal_forward_match(expected,actual)
             if self.mode=='pythonic' and rt.real_integral_kind(expected,actual):
                 value,_=self.expression(argument)
                 code=f'_rt.value_argument({expected!r},_rt.real_integral_value({expected!r},{value},{line}),{line})'
@@ -3543,7 +3595,8 @@ class Emitter:
                     routine=routine.name,parameter=formal.value,line=line,column=argument.token.column,
                     source_type_spec=source_actual,target_type_spec=expected,conversion_kind=rt.record_schema_kind(expected,source_actual),
                     evaluated_once=True,independent_value=True))
-            elif self.mode=='pythonic' and rt.array_schema_compatible(expected,actual) and not rt.parameter_accepts(expected,actual):
+            elif (self.mode=='pythonic' and rt.array_schema_compatible(expected,actual) and not rt.parameter_accepts(expected,actual)
+                    and not guarded_shape):
                 value,_=self.expression(argument)
                 code=f'_rt.value_argument({expected!r},_rt.convert_array_schema({expected!r},{value},{line}),{line})'
                 is_reference,actual=False,expected;conversion_kind='array_schema'
@@ -3594,7 +3647,7 @@ class Emitter:
                 is_reference, actual = False, expected
                 self.features.add('INTEGER to REAL value argument')
             bounded_string_value = (not is_reference and expected[0] == actual[0] == 'STRING' and expected[1] is not None)
-            if not rt.parameter_accepts(expected, actual) and not bounded_string_value:
+            if not rt.parameter_accepts(expected, actual) and not bounded_string_value and not guarded_shape:
                 self.error('E_TYPE', f'{expr.value} parameter expects {expected[0]}, found {actual[0]}', argument.token)
             if is_reference and self.protection_root(argument) in self.active_counters:
                 if self.mode == 'strict' or formal.value in routine.parameter_writes:
@@ -3644,6 +3697,12 @@ class Emitter:
             if expected[0] in ('STRING', 'ARRAY', *RECORD_TYPES, 'JOINTPOS'):
                 self.features.add(expected[0] + (' reference parameter' if is_reference else ' value parameter'))
             self.features.add('parameter by reference' if is_reference else 'parameter by value')
+            if guarded_shape:
+                self.features.add('runtime-checked fixed ARRAY forwarding')
+                self.array_forward_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
+                    routine=routine.name,parameter=formal.value,line=line,column=argument.token.column,
+                    source_type_spec=actual,target_type_spec=expected,alias_retained=True,
+                    validation='Existing routine entry requires a matching concrete reference before callee body/frame allocation'))
             arguments.append(code)
         result=f'self._routine_{expr.value}({", ".join(arguments)})'
         return f'(yield from {result})' if self.cooperative else result
@@ -5383,6 +5442,8 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict', 
         skippable_checkpoints=sorted(emitter.skippable_checkpoints),
         constant_dependencies=emitter.constant_dependency_uses,constant_resolution_order=emitter.constant_resolution_order,
         constant_builtin_uses=emitter.constant_builtin_uses,
+        array_formal_uses=emitter.array_formal_uses,
+        array_forward_uses=emitter.array_forward_uses,
         global_constants=[dict(name=t.value,value=emitter.constants[t.value],line=t.line,column=t.column) for t,_ in program.constants],
         local_constant_policy=dict(scope='Declaring routine only; lexical resolution, not caller inheritance',
                                    declarations='Source order; existing literal/previous-constant expression subset',
@@ -6757,6 +6818,15 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         excluded='User/external routines, services, state/time/array/geometry/resource reads, arbitrary Python eval and callback execution; internal strict calls remain rejected',
         boundary='Authored Pythonic source extension; no native CONST-call/compiler/controller equivalence',
         guide='docs/constant-builtins.md',controller_validated=False)
+    report['array_formal_policy']=dict(
+        source='Pythonic direct ARRAY parameters may omit dimensions or use fixed/module-constant/pure-call sizes, wildcards and mixed masks; inline layers normalize before resolution',
+        constraints='Known dimensions must match; unknown borrowed ARRAY dimensions defer to unchanged concrete reference checks at routine entry; no resize, shape invention or weakened parameter_accepts helper',
+        values='Bare matching storage retains aliases; grouped/computed arguments and existing typed schema conversions retain independent value semantics',
+        scope='Module constants only for interfaces; no local/caller names; normal three-logical-dimension and 32767 minimum-leaf/descriptor bounds',
+        resources='Existing FILE/PATH/queue ownership, prefix/BYNAME, no-FILE-copy and exact linked/callback interface policies remain',
+        boundary='Authored Pythonic syntax extension; STRING capacities remain inherited for direct formals; strict wildcard-only syntax and native acceptance/equivalence remain unchanged',
+        guide='docs/array-formal-shapes.md',controller_validated=False)
+    report['array_policy']['formals']='Fixed, wildcard or mixed module-scope constraints under array_formal_policy; borrowed aliases and independent values retain checked concrete shapes'
     report['local_constant_policy']['declarations']='Pythonic acyclic dependencies across all declaring-routine CONST sections, resolved before local VAR schemas; forward_constant_policy retains module-only interfaces'
     report['forward_type_policy']=dict(
         source='Acyclic named dependencies across module TYPE sections, aliases, ARRAY elements, STRUCTURE fields, PATH NODEDATA/PATHHEADER and routine interfaces declared before their types',
@@ -6917,7 +6987,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         persistence='Existing STRUCTURE/PATH tuple schemas and codecs; no new JSON format or native binary layout',
         boundary='No obsolete COMMON_ASSOC/GROUP_ASSOC layouts, native screen execution, automatic UFRAME/UTOOL recording or controller storage/ABI claim',
         guide='docs/path-declarations.md',controller_validated=False)
-    for row in [*report['path_clause_uses'],*report['predefined_structure_uses'],*report['type_dependencies'],*report['constant_dependencies'],*report['constant_builtin_uses'],*report['global_constants'],*[row for rows in report['local_constants'].values() for row in rows]]:
+    for row in [*report['path_clause_uses'],*report['predefined_structure_uses'],*report['type_dependencies'],*report['constant_dependencies'],*report['constant_builtin_uses'],*report['array_formal_uses'],*report['array_forward_uses'],*report['global_constants'],*[row for rows in report['local_constants'].values() for row in rows]]:
         label,line,stack=expansion.origin(row['line']) or (str(filename),row['line'],())
         row.update(source_file=label,source_line=line,source_column=row['column'],include_stack=list(stack))
     report['diagnostic_policy']=dict(

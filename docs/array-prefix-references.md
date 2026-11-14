@@ -24,8 +24,10 @@ continues to require complete references; GET_VAR/SET_VAR keep their existing
 separate snapshot/publication policies.
 
 A suffix has anonymous outer identity. Named inner components and record schemas
-remain exact. Wildcard formals inherit actual sizes and STRING capacities; fixed
-ARRAY formal dimensions remain unsupported. BYNAME does not perform numeric,
+remain exact. Wildcard formals inherit actual sizes and STRING capacities;
+[fixed/mixed formal dimensions](array-formal-shapes.md) require matching concrete
+rows or planes. A mismatch preserves the entry output and original cells.
+BYNAME does not perform numeric,
 nominal or positional casts, flattening, reshaping or copyback.
 
 [Row](../examples/live_array_row.kl), [plane](../examples/live_array_plane.kl),

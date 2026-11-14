@@ -234,16 +234,25 @@ class _Analyzer:
         leaves=self.leaves(loc)
         if leaves is None:
             self.unresolved_at('schema','Resource or unsupported write: '+loc.path,node);return
+        constant=value.constant;complete=value.complete
+        if loc.spec and loc.spec[0]=='STRING' and type(constant) is str:
+            capacity=loc.spec[1] if len(loc.spec)>1 else None
+            if type(capacity) is not int or len(constant)>capacity:constant=UNKNOWN
+        elif loc.spec and loc.spec[0] in ('INTEGER','BYTE','SHORT') and type(constant) is float:
+            # Source coercion can change both branch truth and SHORT's missing
+            # state. Retain availability, but do not prune on the uncast value.
+            if loc.spec==['SHORT'] and math.isfinite(constant) and math.trunc(constant)==32767:complete=False
+            constant=UNKNOWN
         keys={leaf.key for leaf in leaves};flow.maybe.update(keys)
         for key in keys:flow.constants.pop(key,None)
-        if not value.complete:flow.defined.difference_update(keys)
+        if not complete:flow.defined.difference_update(keys)
         if definite:
             if not flow.opaque:flow.assigned.update(keys)
             flow.defined.difference_update(keys)
-            if value.complete and not flow.opaque:
-                if not (loc.spec==['SHORT'] and value.constant==32767):flow.defined.update(keys)
-            if len(keys)==1 and value.constant is not UNKNOWN and not flow.opaque:
-                flow.constants[loc.key]=value.constant
+            if complete and not flow.opaque:
+                if not (loc.spec==['SHORT'] and constant==32767):flow.defined.update(keys)
+            if len(keys)==1 and constant is not UNKNOWN and not flow.opaque:
+                flow.constants[loc.key]=constant
         if len(flow.maybe)>MAX_FACTS:raise _Limit('Analysis storage limit reached')
 
     def expr(self, node, flow, conditional=False):

@@ -1,0 +1,11 @@
+PROGRAM ARRAY_FORMAL_VALUES
+VAR counts:ARRAY[2]OF INTEGER labels:ARRAY[2]OF STRING[3]
+  observed:REAL captured:STRING[3]
+ROUTINE inspect(p:ARRAY[2]OF REAL)
+BEGIN p[1]=p[1]+0.5 observed=p[1] END inspect
+ROUTINE tag(p:ARRAY[2]OF STRING)
+BEGIN p[1]='abcd' captured=p[1] END tag
+BEGIN
+  counts[1]=3 counts[2]=4 inspect(counts)
+  labels[1]='old' tag(labels)
+END ARRAY_FORMAL_VALUES

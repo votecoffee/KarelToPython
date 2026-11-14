@@ -1,0 +1,6 @@
+{
+  "COUNTS": [3, 4],
+  "LABELS": ["abc", {"uninitialized": true}],
+  "OBSERVED": 3.5,
+  "CAPTURED": "abc"
+}

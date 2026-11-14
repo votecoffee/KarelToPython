@@ -1,0 +1,20 @@
+{
+  "translator_version": "26.1114.132158",
+  "mode": "pythonic",
+  "scope": "Fixed/wildcard/mixed ARRAY formal constraints over existing checked references and values",
+  "contracts": {
+    "source": "Direct fixed/mixed dimensions, normalized inline layers, module constants and bounded pure calls; strict wildcard-only parsing retained",
+    "scope": "Module-only interfaces; no parameter/local/caller reads; three logical dimensions and bounded fixed/minimum sizes",
+    "reference": "Matching bare storage retains concrete schema and identity; no resizing or equal-count reshape",
+    "forwarding": "Compatible unknown borrowed dimensions defer only anonymous ARRAY size constraints to unchanged concrete routine-entry checks; preserve aliases and formal write effects",
+    "values": "Grouping, ordinary data prefixes, results and existing typed source conversions keep independent writable copies",
+    "resources": "Existing FILE borrowing/no-copy, logical PATH/queue and BYNAME ownership and shape checks; no implicit data or service allocation",
+    "linkage": "Exact declaration/definition signatures after normalization; fixed and wildcard interfaces are not interchangeable",
+    "lifetime": "Existing pause/resume/stop and partial effects; wrong concrete shapes reject before callee frame/body, without rolling back earlier argument/caller effects",
+    "metadata": "Scoped declaration and forwarding constraints, source origins and explicit runtime validation; generic parameter_accepts remains unchanged"
+  },
+  "guide": "../array-formal-shapes.md",
+  "tests": ["tests/test_array_formal_shapes.py", "tests/test_inline_arrays.py", "tests/test_array_prefix_references.py", "tests/test_multidimensional_arrays.py"],
+  "examples": ["examples/array_formal_masks.kl", "examples/array_formal_forwarding.kl", "examples/array_formal_values.kl", "examples/array_formal_shapes_linked/main.kl"],
+  "controller_validated": false
+}

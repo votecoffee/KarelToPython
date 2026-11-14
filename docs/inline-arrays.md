@@ -24,13 +24,15 @@ indexes select ordinary cells. See the [runnable example](../examples/inline_arr
 | `ARRAY[2,1] OF ARRAY[3] OF STRING[4]` | `ARRAY[2,1,3] OF STRING[4]` |
 | `ARRAY[*] OF ARRAY[3] OF INTEGER` global | `ARRAY[*,3] OF INTEGER`; explicit complete shape required. |
 | `ARRAY OF ARRAY OF INTEGER` parameter | `ARRAY[*,*] OF INTEGER`; caller supplies both dimensions. |
+| `ARRAY[2] OF ARRAY[*] OF INTEGER` parameter | `ARRAY[2,*] OF INTEGER`; first dimension must match and the second comes from the caller. |
 | `ARRAY OF ARRAY[3] OF INTEGER` result | `ARRAY[*,3] OF INTEGER`; RETURN supplies the first dimension. |
 | `ARRAY[2] OF ARRAY[*] OF STRING` result | `ARRAY[2,*] OF STRING`; returned storage supplies wildcard size and element capacity. |
 
 Global and local variables, TYPE definitions, record fields and routine
 interfaces share this normalization. Dimension expressions retain their existing
-constant scopes and checked values. Formal dimensions remain wildcard-only;
-STRING formals still inherit capacity. Result dimensions may be omitted, fixed,
+constant scopes and checked values. [Formal dimensions](array-formal-shapes.md)
+may now be fixed, wildcard or mixed; direct STRING formals still inherit capacity.
+Result dimensions may be omitted, fixed,
 wildcard or mixed under the [existing result rules](array-result-shapes.md).
 
 Normalization stops at a named component. If `row_t=ARRAY[3] OF INTEGER`,

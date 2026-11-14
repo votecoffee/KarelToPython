@@ -17,8 +17,8 @@ def execute(body=CALL,**options):return program(body,**options)[0].run()
 
 class LivePrefixSourceTests(unittest.TestCase):
     def test_row_writes_original(self):self.assertEqual(execute()['M'],[[7,9],[U,U]])
-    def test_fixed_formal_spelling_remains_rejected(self):
-        with self.assertRaises(TranslationError):program(routines=PUT.replace('ARRAY OF','ARRAY[2]OF'))
+    def test_fixed_formal_spelling_borrows_matching_row(self):
+        self.assertEqual(execute(routines=PUT.replace('ARRAY OF','ARRAY[2]OF'))['M'][0],[7,9])
     def test_generic_spelling(self):self.assertEqual(execute(routines=PUT.replace('ARRAY OF','ARRAY[*]OF'))['M'][0],[7,9])
     def test_selected_row_only(self):self.assertEqual(execute("m[1,1]=42 put(BYNAME('','M[2]',e))")['M'],[[42,U],[7,9]])
     def test_lowercase_path(self):self.assertEqual(execute("put(BYNAME('','m[1]',e))")['M'][0],[7,9])

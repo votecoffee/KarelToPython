@@ -187,6 +187,13 @@ literal ARRAY shapes for data and resource banks. Named components retain their
 identities; anonymous nested runtime schemas, expression dimensions and repeated
 bare ARRAY type-string layers remain excluded.
 
+[ARRAY formal constraints](array-formal-shapes.md) now accept fixed, wildcard or
+mixed dimensions in source, including normalized inline layers. Module constants
+and pure calls can define fixed sizes. Borrowed wildcard arguments retain aliases
+while concrete routine-entry checks enforce newly required sizes. This does not
+weaken generic reference compatibility, permit resize/reshape, declare direct
+STRING capacities or alter exact source-linked signatures.
+
 - Dynamically resized/ragged arrays, unknown runtime wildcard dimensions, ranks
   above three and aggregates exceeding the 32767-leaf prototype bound. Global
   wildcard declarations require translation-time shapes; no native VR auto-discovery.

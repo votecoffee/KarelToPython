@@ -1,5 +1,21 @@
 # Changelog
 
+## 26.1114.132158 - 2026-11-14
+
+- Add fixed and mixed fixed/wildcard ARRAY formal dimensions in Pythonic source,
+  including inline layers, module constants and pure compile-time expressions.
+  Validate rank, size and minimum storage without allocating parameter containers.
+- Preserve borrowed aliases when forwarding unknown ARRAY sizes to a constrained
+  anonymous interface; keep concrete routine-entry checks before the callee body.
+  Generic runtime compatibility, value conversions and exact linked interfaces remain unchanged.
+- Retain FILE/PATH/queue ownership, BYNAME row constraints, missing data, STRING
+  capacity inheritance, pause/stop behavior and active-counter write proofs.
+- Keep input discovery conservative across clipped STRING/integral values and
+  REAL-to-SHORT missing sentinels so uncast constants cannot hide initial reads.
+- Add scoped formal/forwarding metadata, three authored standalone examples and
+  one linked project, with focused shape, alias, resource and failure checks.
+  Update the README; native acceptance and strict extensions remain unclaimed.
+
 ## 26.1113.190359 - 2026-11-13
 
 - Add checked compile-time evaluation for 17 pure scalar math/string built-ins

@@ -27,6 +27,19 @@ def names(report):
 
 
 class InputDiscoveryTests(unittest.TestCase):
+    def test_clipped_strings_do_not_prune_a_reachable_initial_read(self):
+        report,_=scan("text='abcd' IF text='abc' THEN n=x ELSE n=0 ENDIF",decl='text:STRING[3] n,x:INTEGER')
+        self.assertEqual(names(report),{('variable','X'):'conditional'})
+
+    def test_integral_source_coercion_invalidates_uncast_constant_facts(self):
+        report,_=scan('n=1.9 IF n=1 THEN n=x ENDIF')
+        self.assertEqual(names(report),{('variable','X'):'conditional'})
+
+    def test_real_to_short_missing_sentinel_is_a_derived_gap_not_an_input(self):
+        report,_=scan('narrow_value=32767.9 n=narrow_value',decl='narrow_value:SHORT n:INTEGER')
+        self.assertEqual(report['inputs'],[])
+        self.assertTrue(any(row['code']=='derived-value' for row in report['unresolved']))
+
     def test_bitwise_constants_keep_integer_addresses_and_branch_truth(self):
         report,_=scan('IF (NOT 1)=0 THEN n=x ELSE n=y ENDIF')
         self.assertEqual(names(report),{('variable','Y'):'required'})

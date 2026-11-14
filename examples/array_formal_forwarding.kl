@@ -1,0 +1,10 @@
+PROGRAM ARRAY_FORMAL_FORWARDING
+VAR values:ARRAY[2]OF INTEGER calls,last:INTEGER
+ROUTINE inner(p:ARRAY[2]OF INTEGER)
+BEGIN p[1]=p[1]+1 p[2]=p[2]+2 calls=calls+1 last=p[1]+p[2] END inner
+ROUTINE outer(p:ARRAY OF INTEGER)
+BEGIN inner(p) END outer
+BEGIN
+  values[1]=1 values[2]=2 calls=0
+  outer(values) outer((values))
+END ARRAY_FORMAL_FORWARDING

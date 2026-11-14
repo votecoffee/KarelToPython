@@ -291,9 +291,9 @@ class BoundaryTests(unittest.TestCase):
     def test_formal_element_type_must_match(self):
         self.rejected('put(flags)', 'ROUTINE put(p: ARRAY[*,*] OF INTEGER) BEGIN END put', code='E_TYPE')
 
-    def test_fixed_formal_dimensions_remain_blocked(self):
+    def test_legacy_fixed_formal_dimensions_remain_blocked(self):
         for spec in ('ARRAY[2,3] OF INTEGER', 'ARRAY[*,3] OF INTEGER', 'ARRAY[2,*] OF INTEGER'):
-            with self.subTest(spec=spec): self.rejected(routines=f'ROUTINE put(p: {spec}) BEGIN END put', code='E_PARAMETERS')
+            with self.subTest(spec=spec): self.rejected(routines=f'ROUTINE put(p: {spec}) BEGIN END put', code='E_PARAMETERS',_translator=legacy_translate)
 
     def test_parenthesized_whole_array_value_remains_blocked(self):
         self.rejected('put((a))', 'ROUTINE put(p: ARRAY[*,*] OF INTEGER) BEGIN END put', code='E_ARRAY_VALUE', _translator=legacy_translate)

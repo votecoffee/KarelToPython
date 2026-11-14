@@ -180,8 +180,8 @@ class InlineArrayGuards(unittest.TestCase):
         self.reject('E_ARRAY_CAPACITY',decl='a:ARRAY[200]OF ARRAY[200]OF INTEGER')
         self.reject('E_ARRAY_SIZE',decl='a:ARRAY[2]OF ARRAY[*]OF INTEGER')
 
-    def test_formal_fixed_dimensions_and_string_capacity_still_reject(self):
-        self.reject('E_PARAMETERS',routines='ROUTINE use(p:ARRAY OF ARRAY[3]OF INTEGER) BEGIN END use')
+    def test_formal_bad_dimensions_and_string_capacity_still_reject(self):
+        self.reject('E_SIZE',routines='ROUTINE use(p:ARRAY OF ARRAY[0]OF INTEGER) BEGIN END use')
         self.reject('E_PARAMETERS',routines='ROUTINE use(p:ARRAY OF ARRAY OF STRING[3]) BEGIN END use')
 
     def test_named_components_count_toward_rank(self):
