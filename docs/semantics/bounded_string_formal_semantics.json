@@ -1,0 +1,20 @@
+{
+  "translator_version": "26.1114.142854",
+  "mode": "pythonic",
+  "scope": "Direct bounded STRING scalar/ARRAY source parameters over existing checked storage",
+  "contracts": {
+    "source": "Direct capacities from module INTEGER constants/pure calls in 1..254; inline ARRAY layers normalize; no caller/local/dynamic interface values",
+    "scalars": "Exact bare capacities borrow; known mismatches reject; initialized ASCII values up to254 characters copy/truncate into private declared capacity",
+    "forwarding": "Borrowed generic scalar capacity remains shared and is checked by unchanged concrete routine entry before callee frame/body; no rollback of prior effects",
+    "arrays": "Matching references and existing independent schema/capacity conversions, including unknown generic element capacities; missing values preserved and no copyback",
+    "lifetime": "Existing pause/resume/stop, BYNAME ownership, evaluation order and aggregate counter write protection",
+    "linkage": "Exact resolved direct/alias source signatures and callback types; no reference casts, resize or generic parameter_accepts changes",
+    "discovery": "Existing private shape/value and alias analysis; known borrowed capacity conflicts remain explicit without callee write proofs",
+    "metadata": "Scoped declaration and guarded forwarding rows with physical origins; ordinary persistence formats unchanged",
+    "boundary": "Authored Pythonic syntax extension; internal strict exclusions retained; no native source/compiler/controller equivalence claim"
+  },
+  "guide": "../bounded-string-formals.md",
+  "tests": ["tests/test_bounded_string_formals.py", "tests/test_pythonic_type_aliases.py", "tests/test_array_formal_shapes.py", "tests/test_input_discovery_arrays.py"],
+  "examples": ["examples/bounded_string_parameters.kl", "examples/bounded_string_array_parameters.kl", "examples/bounded_string_formals_linked/main.kl"],
+  "controller_validated": false
+}

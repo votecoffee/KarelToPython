@@ -672,6 +672,13 @@ class Parser:
         return Routine(name, token, return_type, body, declarations, parameters=parameters,
                        local_declarations=local_declarations, string_result_defaulted=string_result_defaulted)
 
+    def parameter_string_spec(self,token,*,element=False):
+        if self.current.value!='[':return ('STRING',None)
+        if self.mode!='pythonic':
+            self.error('E_PARAMETERS','ARRAY OF STRING formal parameters inherit element capacity' if element else 'STRING formal parameters have no declared capacity',token)
+        self.take();self.skip_newlines();capacity=self.expression();self.skip_newlines();self.expect(']')
+        return ('STRING',capacity)
+
     def parameter_type(self,array_rank=0):
         if self.mode == 'pythonic': self.skip_newlines()
         if self.mode=='pythonic' and self.current.value in ('FILE','PATH','QUEUE_TYPE'): return self.type_spec()
@@ -684,9 +691,7 @@ class Parser:
         if token.value in DATA_RECORD_TYPES:
             return self.group_spec((token.value,),token)
         if token.value == 'STRING':
-            if self.current.value == '[':
-                self.error('E_PARAMETERS', 'STRING formal parameters have no declared capacity', token)
-            return ('STRING', None)
+            return self.parameter_string_spec(token)
         if token.value == 'ARRAY':
             dimensions = [None]
             if self.current.value == '[':
@@ -723,9 +728,7 @@ class Parser:
                     return ('ARRAY', shape, ('NAMED', element))
                 self.error('E_PARAMETERS', 'ARRAY parameters require supported scalar elements or a named STRUCTURE type', element)
             if element.value == 'STRING':
-                if self.current.value == '[':
-                    self.error('E_PARAMETERS', 'ARRAY OF STRING formal parameters inherit element capacity', element)
-                return ('ARRAY', shape, ('STRING', None))
+                return ('ARRAY',shape,self.parameter_string_spec(element,element=True))
             return ('ARRAY', shape, self.group_spec((element.value,),element) if element.value in DATA_RECORD_TYPES else (element.value,))
         if token.kind == 'NAME' and token.value not in RESERVED:
             return ('NAMED', token)
@@ -1284,6 +1287,7 @@ class Emitter:
         self.file_prefix_argument_uses=[]
         self.constant_dependency_uses=[];self.constant_resolution_order=[]
         self.array_formal_uses=[];self.array_forward_uses=[]
+        self.string_formal_uses=[];self.string_forward_uses=[]
         self.constant_builtin_uses=[];self._constant_builtin_cache={};self._constant_builtin_depth=0
         self._constant_declaration=None
         self.type_dependency_uses=[];self.type_resolution_order=[];self._type_schema_costs={}
@@ -1670,6 +1674,15 @@ class Emitter:
                 interface_scope='module',runtime_shape='checked caller storage; no allocation or resize'))
         return result
 
+    def note_string_formal(self,spec,resolved,token,routine):
+        terminal=spec[2] if spec[0]=='ARRAY' else spec
+        if terminal[0]!='STRING' or terminal[1] is None:return
+        capacity=resolved[2][1] if resolved[0]=='ARRAY' else resolved[1]
+        self.features.add('direct bounded STRING formal constraints')
+        self.string_formal_uses.append(dict(routine=routine,parameter=token.value,line=token.line,column=token.column,
+            type_spec=resolved,capacity=capacity,container='ARRAY' if spec[0]=='ARRAY' else 'scalar',interface_scope='module',
+            semantics='Existing exact reference/private bounded value contracts; no storage allocation or resize'))
+
     def resolve_global_spec(self, token, spec):
         """Specialize only direct static declarations; never guess loaded storage."""
         if spec[0] != 'ARRAY': return self.resolve_spec(spec)
@@ -1884,6 +1897,7 @@ class Emitter:
                 if token.value in routine.local_types or token.value in self.constants or token.value in self.user_types or token.value in blocked_controller_names(self.mode) | ex.PORT_TYPES.keys():
                     self.error('E_DUPLICATE', 'Duplicate, constant-shadowing or controller local identifier', token)
                 resolved = self.resolve_array_parameter_spec(spec,token,routine.name) if self.mode=='pythonic' else self.resolve_spec(spec)
+                if self.mode=='pythonic':self.note_string_formal(spec,resolved,token,routine.name)
                 if self.mode!='pythonic' and resolved[0] in NARROW_TYPES:
                     self.error('E_PARAMETERS', 'BYTE and SHORT are permitted only as ARRAY elements or STRUCTURE fields', token)
                 routine.local_types[token.value] = resolved
@@ -3538,6 +3552,8 @@ class Emitter:
                 else:code = f'_rt.value_argument({expected!r}, {value}, {line})'
             source_actual=actual;cartesian_conversion=False;conversion_kind='none'
             guarded_shape=self.mode=='pythonic' and is_reference and self.array_formal_forward_match(expected,actual)
+            guarded_string=(self.mode=='pythonic' and is_reference and expected[0]==actual[0]=='STRING'
+                and expected[1] is not None and actual[1] is None)
             if self.mode=='pythonic' and rt.real_integral_kind(expected,actual):
                 value,_=self.expression(argument)
                 code=f'_rt.value_argument({expected!r},_rt.real_integral_value({expected!r},{value},{line}),{line})'
@@ -3647,7 +3663,7 @@ class Emitter:
                 is_reference, actual = False, expected
                 self.features.add('INTEGER to REAL value argument')
             bounded_string_value = (not is_reference and expected[0] == actual[0] == 'STRING' and expected[1] is not None)
-            if not rt.parameter_accepts(expected, actual) and not bounded_string_value and not guarded_shape:
+            if not rt.parameter_accepts(expected, actual) and not bounded_string_value and not guarded_shape and not guarded_string:
                 self.error('E_TYPE', f'{expr.value} parameter expects {expected[0]}, found {actual[0]}', argument.token)
             if is_reference and self.protection_root(argument) in self.active_counters:
                 if self.mode == 'strict' or formal.value in routine.parameter_writes:
@@ -3697,6 +3713,12 @@ class Emitter:
             if expected[0] in ('STRING', 'ARRAY', *RECORD_TYPES, 'JOINTPOS'):
                 self.features.add(expected[0] + (' reference parameter' if is_reference else ' value parameter'))
             self.features.add('parameter by reference' if is_reference else 'parameter by value')
+            if guarded_string:
+                self.features.add('runtime-checked bounded STRING forwarding')
+                self.string_forward_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
+                    routine=routine.name,parameter=formal.value,line=line,column=argument.token.column,
+                    source_type_spec=actual,target_type_spec=expected,alias_retained=True,
+                    validation='Existing routine entry requires matching concrete STRING capacity before callee body/frame allocation'))
             if guarded_shape:
                 self.features.add('runtime-checked fixed ARRAY forwarding')
                 self.array_forward_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
@@ -5444,6 +5466,8 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict', 
         constant_builtin_uses=emitter.constant_builtin_uses,
         array_formal_uses=emitter.array_formal_uses,
         array_forward_uses=emitter.array_forward_uses,
+        string_formal_uses=emitter.string_formal_uses,
+        string_forward_uses=emitter.string_forward_uses,
         global_constants=[dict(name=t.value,value=emitter.constants[t.value],line=t.line,column=t.column) for t,_ in program.constants],
         local_constant_policy=dict(scope='Declaring routine only; lexical resolution, not caller inheritance',
                                    declarations='Source order; existing literal/previous-constant expression subset',
@@ -6753,7 +6777,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         controller_validated=False)
     report['string_value_policy'] = dict(
         arguments='Initialized ASCII literals, constants, expressions, function results and grouped scalar storage; input length at most 254',
-        storage='Independent writable temporary with capacity 254 for plain STRING formals or the declared bounded alias capacity; assignment right-truncates and clear sets UNINITIALIZED',
+        storage='Independent writable temporary with capacity 254 for plain STRING formals or the declared bounded direct/alias capacity; assignment right-truncates and clear sets UNINITIALIZED',
         references='Bare ordinary STRING variables/fields/elements preserve caller storage and actual capacity',
         effects='Potential formal writes remain reported; grouping/value passing creates no writeback alias',
         boundary='Chosen Pythonic temporary capacity and evaluation order; existing type and ownership checks remain',
@@ -6824,9 +6848,16 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         values='Bare matching storage retains aliases; grouped/computed arguments and existing typed schema conversions retain independent value semantics',
         scope='Module constants only for interfaces; no local/caller names; normal three-logical-dimension and 32767 minimum-leaf/descriptor bounds',
         resources='Existing FILE/PATH/queue ownership, prefix/BYNAME, no-FILE-copy and exact linked/callback interface policies remain',
-        boundary='Authored Pythonic syntax extension; STRING capacities remain inherited for direct formals; strict wildcard-only syntax and native acceptance/equivalence remain unchanged',
+        boundary='Authored Pythonic syntax extension; omitted STRING capacities inherit while explicit bounds use string_formal_policy; strict wildcard-only syntax and native acceptance/equivalence remain unchanged',
         guide='docs/array-formal-shapes.md',controller_validated=False)
     report['array_policy']['formals']='Fixed, wildcard or mixed module-scope constraints under array_formal_policy; borrowed aliases and independent values retain checked concrete shapes'
+    report['string_formal_policy']=dict(
+        source='Pythonic direct STRING[capacity] scalar parameters and ARRAY elements; capacities use module constants/pure calls in 1..254; omitted capacities retain existing inheritance',
+        scalars='Matching bare capacities borrow; known mismatched bare scalar capacities reject; grouping/expressions use private truncating values; unknown borrowed capacities defer to unchanged concrete routine entry',
+        arrays='Existing checked data ARRAY conversion rules apply, including independent capacity conversions and exact matching references; no reference cast or copyback',
+        linkage='Exact resolved source-linked and callback signatures; direct/alias spellings may match after resolution; generic parameter_accepts remains unchanged',
+        boundary='Authored Pythonic syntax extension over existing bounded-alias storage; internal strict grammar unchanged; no native source/compiler/controller equivalence',
+        guide='docs/bounded-string-formals.md',controller_validated=False)
     report['local_constant_policy']['declarations']='Pythonic acyclic dependencies across all declaring-routine CONST sections, resolved before local VAR schemas; forward_constant_policy retains module-only interfaces'
     report['forward_type_policy']=dict(
         source='Acyclic named dependencies across module TYPE sections, aliases, ARRAY elements, STRUCTURE fields, PATH NODEDATA/PATHHEADER and routine interfaces declared before their types',
@@ -6987,7 +7018,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         persistence='Existing STRUCTURE/PATH tuple schemas and codecs; no new JSON format or native binary layout',
         boundary='No obsolete COMMON_ASSOC/GROUP_ASSOC layouts, native screen execution, automatic UFRAME/UTOOL recording or controller storage/ABI claim',
         guide='docs/path-declarations.md',controller_validated=False)
-    for row in [*report['path_clause_uses'],*report['predefined_structure_uses'],*report['type_dependencies'],*report['constant_dependencies'],*report['constant_builtin_uses'],*report['array_formal_uses'],*report['array_forward_uses'],*report['global_constants'],*[row for rows in report['local_constants'].values() for row in rows]]:
+    for row in [*report['path_clause_uses'],*report['predefined_structure_uses'],*report['type_dependencies'],*report['constant_dependencies'],*report['constant_builtin_uses'],*report['array_formal_uses'],*report['array_forward_uses'],*report['string_formal_uses'],*report['string_forward_uses'],*report['global_constants'],*[row for rows in report['local_constants'].values() for row in rows]]:
         label,line,stack=expansion.origin(row['line']) or (str(filename),row['line'],())
         row.update(source_file=label,source_line=line,source_column=row['column'],include_stack=list(stack))
     report['diagnostic_policy']=dict(
@@ -8148,7 +8179,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         guide='docs/empty-collection-output.md',controller_validated=False)
     report['aggregate_format_policy']['empty_output']='Empty PATH/queue output validates declared scalar text/binary format domains under empty_collection_write_policy and publishes one empty item'
     report['inline_array_syntax_policy']=dict(
-        source='Directly written ARRAY OF ARRAY layers in global/local/TYPE/field declarations, wildcard routine parameters and fixed/wildcard routine results',
+        source='Directly written ARRAY OF ARRAY layers in global/local/TYPE/field declarations, fixed/wildcard/mixed routine parameters and results',
         normalization='Combine adjacent anonymous ARRAY dimensions before type resolution; ARRAY[2] OF ARRAY[3] OF INTEGER has the same schema as ARRAY[2,3] OF INTEGER',
         identity='Named component references remain opaque; preserve their existing identities and storage boundaries',
         shapes='Existing one-through-three logical dimension, positive fixed size, 32767-leaf/resource and concrete wildcard specialization rules apply to the normalized declaration',

@@ -31,7 +31,8 @@ indexes select ordinary cells. See the [runnable example](../examples/inline_arr
 Global and local variables, TYPE definitions, record fields and routine
 interfaces share this normalization. Dimension expressions retain their existing
 constant scopes and checked values. [Formal dimensions](array-formal-shapes.md)
-may now be fixed, wildcard or mixed; direct STRING formals still inherit capacity.
+may now be fixed, wildcard or mixed; omitted STRING formal capacities still
+inherit, while [explicit bounds](bounded-string-formals.md) use existing checked storage.
 Result dimensions may be omitted, fixed,
 wildcard or mixed under the [existing result rules](array-result-shapes.md).
 

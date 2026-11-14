@@ -202,7 +202,7 @@ class ArrayFormalGuardsAndReports(unittest.TestCase):
 
     def test_logical_rank_and_string_formal_capacity_guards_remain(self):
         self.reject('ARRAY[2,1,1,1]OF INTEGER','E_ARRAY_RANK')
-        self.reject('ARRAY[2]OF STRING[3]','E_PARAMETERS')
+        self.reject('ARRAY[2]OF STRING[0]','E_SIZE')
         self.reject('ARRAY[1,1,1]OF row_t','E_ARRAY_RANK',prefix='TYPE row_t=ARRAY[1]OF INTEGER')
 
     def test_legacy_fixed_formal_syntax_stays_rejected(self):

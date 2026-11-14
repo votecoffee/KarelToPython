@@ -1,5 +1,20 @@
 # Changelog
 
+## 26.1114.142854 - 2026-11-14
+
+- Add direct bounded STRING scalar and ARRAY-element parameter syntax to
+  Pythonic source, including module constants, pure calls and inline ARRAY layers.
+  Reuse the existing alias-based capacity, borrowing and private-value rules.
+- Forward borrowed generic scalar STRINGs into bounded direct/alias interfaces
+  with the unchanged concrete routine-entry check before callee frame/body.
+  Preserve aliases, earlier argument effects, pause/stop behavior and write proofs.
+- Keep known mismatched bare scalar references rejected, ARRAY capacity changes
+  private, linked signatures exact and internal strict parsing unchanged.
+- Record bounded-formal and guarded-forwarding metadata with physical origins;
+  discovery reports conflicting concrete borrowed capacities explicitly.
+- Add two authored standalone examples and a linked project; update the README,
+  guides and targeted regressions without changing JSON persistence formats.
+
 ## 26.1114.140436 - 2026-11-14
 
 - Retain concrete ARRAY shape and element-capacity facts through private

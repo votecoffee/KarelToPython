@@ -1,0 +1,10 @@
+PROGRAM BOUNDED_ARRAY
+VAR data:ARRAY[2,2]OF STRING[4] exact:ARRAY[2,2]OF STRING[3]
+captured,copied:STRING[6]
+ROUTINE constrain(p:ARRAY[2,*]OF STRING[3])
+BEGIN captured=p[1,1] p[2,2]='changed' END constrain
+BEGIN
+  data[1,1]='abcd' data[1,2]='efgh' data[2,1]='ijkl' data[2,2]='mnop'
+  constrain(data) copied=captured
+  exact[1,1]='old' constrain(exact)
+END BOUNDED_ARRAY

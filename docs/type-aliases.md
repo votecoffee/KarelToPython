@@ -71,6 +71,10 @@ requires a reference with exactly the alias capacity. Grouping a different-sized
 STRING makes a value argument: check initialized ASCII input of at most 254
 characters, then copy and right-truncate to the alias capacity before the body.
 Later writes to that private temporary use the same capacity, with no copy-back.
+Direct [STRING[capacity] scalar/ARRAY formals](bounded-string-formals.md) now
+provide the same resolved contracts without requiring a TYPE alias. A borrowed
+generic scalar STRING can forward to a bounded interface under the unchanged
+concrete routine-entry check; a wrong actual capacity fails before the callee body.
 For example, a `text_t=STRING[4]` value formal receives `'abcdef'` as `'abcd'`.
 
 Alias expansion introduces no evaluation effects. Existing left-to-right argument

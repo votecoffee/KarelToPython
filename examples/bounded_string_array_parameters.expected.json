@@ -1,0 +1,6 @@
+{
+  "DATA": [["abcd", "efgh"], ["ijkl", "mnop"]],
+  "EXACT": [["old", {"uninitialized": true}], [{"uninitialized": true}, "cha"]],
+  "CAPTURED": "old",
+  "COPIED": "abc"
+}

@@ -462,6 +462,10 @@ class _Analyzer:
         bindings=[]
         for (formal,spec),item in zip(routine['parameters'],actual):
             source=item.spec if isinstance(item,(_Value,_Location)) else None
+            if (isinstance(item,_Location) and spec[0]=='STRING' and source and source[0]=='STRING'
+                    and spec[1] is not None and source[1] is not None and spec[1]!=source[1]):
+                self.unresolved_at('parameter-capacity','Concrete STRING capacity conflicts with routine constraint: '+name+'.'+formal,node)
+                self.opaque(flow);return _Value(complete=False)
             resolved=_array_value_schema(spec,source) if spec[0]=='ARRAY' else spec
             if resolved is None:
                 self.unresolved_at('parameter-shape','Concrete ARRAY shape conflicts with routine constraint: '+name+'.'+formal,node)

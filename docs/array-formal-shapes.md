@@ -35,9 +35,10 @@ Keep the existing limit of three logical dimensions, including named components.
 Fixed sizes must be INTEGER in 1..32767. Fully fixed or minimum possible mixed
 storage must fit the 32767-leaf/descriptor guard, including known element layouts.
 The minimum uses one only for a capacity check; it never allocates or supplies
-wildcard dimensions. Named component identities and direct STRING-capacity
-inheritance remain unchanged. `ARRAY[2] OF STRING[3]` is still rejected; use
-existing named aliases when a declared element capacity is needed.
+wildcard dimensions. Named component identities and omitted STRING-capacity
+inheritance remain unchanged. [Direct bounded STRING elements](bounded-string-formals.md)
+such as `ARRAY[2] OF STRING[3]` now use the existing alias-based reference and
+private capacity-conversion rules.
 
 ## Borrowing and private values
 

@@ -1,0 +1,4 @@
+{
+  "LIB": {"state": "ready", "values": {}},
+  "MAIN": {"state": "completed", "values": {"TEXT": "abc", "WORDS": [{"uninitialized": true}, "ghi"], "DONE": true}}
+}

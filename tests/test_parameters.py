@@ -199,10 +199,10 @@ class ParameterRejectionTests(unittest.TestCase):
     def test_local_parameter_name_collision(self):
         self.rejected('', 'ROUTINE r(p: INTEGER) VAR p: INTEGER BEGIN END r', 'E_DUPLICATE')
 
-    def test_unsupported_formal_parameter_forms_remain_blocked(self):
+    def test_legacy_unsupported_formal_parameter_forms_remain_blocked(self):
         for spec in ('STRING[10]', 'ARRAY OF STRING[4]', 'VISION'):
             with self.subTest(spec=spec):
-                self.rejected('', f'ROUTINE r(p: {spec}) BEGIN END r', 'E_PARAMETERS')
+                self.rejected('', f'ROUTINE r(p: {spec}) BEGIN END r', 'E_PARAMETERS', _translator=legacy_translate)
 
     def test_whole_array_actual_is_not_scalar(self):
         self.rejected('triple(a)', TRIPLE, 'E_TYPE')

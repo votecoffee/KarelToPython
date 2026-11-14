@@ -1,0 +1,12 @@
+PROGRAM BOUNDED_TEXT
+CONST width=3
+VAR label:STRING[3] captured:STRING[6] wide,result:STRING[5]
+ROUTINE fixed(p:STRING[width])
+BEGIN captured=p p='abcdef' END fixed
+ROUTINE relay(p:STRING)
+BEGIN fixed(p) END relay
+BEGIN
+  label='old' relay(label)
+  wide='hello' fixed((wide))
+  result=wide
+END BOUNDED_TEXT

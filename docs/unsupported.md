@@ -191,8 +191,11 @@ bare ARRAY type-string layers remain excluded.
 mixed dimensions in source, including normalized inline layers. Module constants
 and pure calls can define fixed sizes. Borrowed wildcard arguments retain aliases
 while concrete routine-entry checks enforce newly required sizes. This does not
-weaken generic reference compatibility, permit resize/reshape, declare direct
-STRING capacities or alter exact source-linked signatures.
+weaken generic reference compatibility, permit resize/reshape or alter exact
+source-linked signatures. [Bounded STRING formals](bounded-string-formals.md)
+now accept direct scalar and ARRAY-element capacities under existing alias-based
+rules. Known mismatched bare scalar capacities still require explicit value
+grouping; ARRAY capacity conversions remain private values.
 
 - Dynamically resized/ragged arrays, unknown runtime wildcard dimensions, ranks
   above three and aggregates exceeding the 32767-leaf prototype bound. Global

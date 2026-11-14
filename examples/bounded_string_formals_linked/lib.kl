@@ -1,0 +1,5 @@
+PROGRAM LIB
+TYPE label_t=STRING[3]
+ROUTINE edit(p:label_t;q:ARRAY[2]OF label_t)
+BEGIN p='abcdef' q[2]='ghijkl' END edit
+BEGIN END LIB
