@@ -1,0 +1,11 @@
+PROGRAM DISC_ADDR
+VAR
+  samples:ARRAY[3]OF INTEGER
+  value,status,entry:INTEGER
+  query:STRING[8]
+BEGIN
+  value=samples[ROUND(SQRT(4))]
+  query=SUB_STR('VALUEignored',1,5)
+  entry=0
+  GET_VAR(entry,'DISC_ADDR',query,value,status)
+END DISC_ADDR

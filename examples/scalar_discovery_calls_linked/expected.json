@@ -1,0 +1,4 @@
+{
+  "LIB": {"state": "ready", "values": {"CALLS": 1}},
+  "MAIN": {"state": "completed", "values": {"TEXT": "bc", "SOURCE": 11, "TOTAL": 13}}
+}

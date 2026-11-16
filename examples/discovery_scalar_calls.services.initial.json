@@ -1,0 +1,5 @@
+{
+  "variables": [
+    {"program": "DISC_SCALAR", "path": "SOURCE", "type": ["INTEGER"], "value": 11}
+  ]
+}

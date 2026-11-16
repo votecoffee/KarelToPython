@@ -1,0 +1,7 @@
+{
+  "SAMPLES": [{"uninitialized": true}, 11, {"uninitialized": true}],
+  "VALUE": 11,
+  "STATUS": 0,
+  "ENTRY": 1,
+  "QUERY": "VALUE"
+}

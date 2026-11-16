@@ -6,6 +6,7 @@ from pathlib import Path
 import re
 
 from .input_contract import extract, InputContractError
+from . import runtime as rt
 
 
 UNKNOWN = object()
@@ -14,8 +15,10 @@ MAX_INPUTS = 2048
 MAX_FACTS = 32767
 MAX_BYTES = 16 * 1024 * 1024
 SCALARS = {'INTEGER', 'BYTE', 'SHORT', 'REAL', 'BOOLEAN', 'STRING', 'NUMERIC'}
-PURE = {'ABS','ROUND','TRUNC','SQRT','SIN','COS','TAN','ASIN','ACOS','ATAN','ATAN2',
-        'EXP','LN','LOG','LEN','SUB_STR','INDEX','CHR','ORD','VEC','POS','FRAME','INV',
+SCALAR_PURE = {'ABS':1,'ROUND':1,'TRUNC':1,'SQRT':1,'SIN':1,'COS':1,'TAN':1,
+               'ASIN':1,'ACOS':1,'ATAN2':2,'EXP':1,'LN':1,'STR_LEN':1,
+               'SUB_STR':3,'INDEX':2,'CHR':1,'ORD':2}
+PURE = set(SCALAR_PURE) | {'ATAN','LOG','LEN','VEC','POS','FRAME','INV',
         'MIRROR','DOT','CROSS','MAG','UNIT','NORMAL','APPROACH','ORIENT'}
 
 
@@ -116,8 +119,10 @@ def _array_value_schema(declared,source):
 
 
 def _stored_value(spec,value):
-    """Availability/schema facts after storage; do not evaluate runtime casts."""
+    """Availability/schema facts after storage; narrow casts remain conservative."""
     constant=value.constant;complete=value.complete
+    if spec==['REAL'] and type(constant) is int:
+        constant=float(constant) if constant.bit_length()<=64 else UNKNOWN
     if spec and spec[0]=='STRING' and type(constant) is str:
         capacity=spec[1] if len(spec)>1 else None
         if type(capacity) is not int or len(constant)>capacity:constant=UNKNOWN
@@ -288,7 +293,7 @@ class _Analyzer:
         if loc.spec and loc.spec[0] not in SCALARS:
             facts={leaf.parts[len(loc.parts):]:_Value(flow.constants.get(leaf.key,UNKNOWN) if leaf.key in flow.defined else UNKNOWN,
                 leaf.key in flow.defined,leaf.spec) for leaf in leaves}
-        return _Value(flow.constants.get(loc.key,UNKNOWN),complete,loc.spec,facts)
+        return _Value(flow.constants.get(loc.key,UNKNOWN) if loc.key in flow.defined else UNKNOWN,complete,loc.spec,facts)
 
     def copy_requires_complete(self,target,source):
         self.tick()
@@ -421,6 +426,30 @@ class _Analyzer:
             if isinstance(item,dict):self.expr(item,flow,True)
         return _Value(complete=False)
 
+    def scalar_call(self, node, flow, conditional):
+        """Fold only bounded known scalars through the translator's pure helpers."""
+        name=node['value'];values=[]
+        for item in node['args']:
+            if flow.stopped and not flow.opaque:return _Value(complete=False)
+            values.append(self.expr(item,flow,conditional))
+        if len(values)!=SCALAR_PURE[name]:
+            self.unresolved_at('scalar-call','Invalid checked scalar builtin arity: '+name,node)
+            return _Value(complete=False)
+        complete=all(value.complete for value in values) and not flow.stopped
+        known=[value.constant for value in values]
+        if not complete or any(value is UNKNOWN for value in known):return _Value(complete=complete)
+        if any(type(value) not in (bool,int,float,str) or type(value) is int and value.bit_length()>64
+               or type(value) is str and len(value)>254 for value in known):return _Value()
+        try:
+            with rt._numeric_scope('pythonic'):result=rt.builtin(name,known,node.get('line'))
+            if type(result) not in (int,float,str) or type(result) is float and not math.isfinite(result):
+                raise ValueError('Expected a finite scalar result')
+        except (rt.KarelRuntimeError,ArithmeticError,ValueError,TypeError) as error:
+            self.unresolved_at('scalar-call','Checked scalar builtin cannot be evaluated: '+name+': '+str(error),node)
+            return _Value(complete=False)
+        spec=['STRING',254] if type(result) is str else ['REAL'] if type(result) is float else ['INTEGER']
+        return _Value(result,spec=spec)
+
     def call(self, node, flow, conditional):
         name=node['value'];args=node['args']
         if name in self.plan['routines']:return self.routine(name,args,node,flow,conditional)
@@ -438,6 +467,7 @@ class _Analyzer:
                     size=dimensions[dimension-1]
                     if type(size) is int:return _Value(size,spec=['INTEGER'])
             return _Value(spec=['BOOLEAN'] if name=='UNINIT' else ['INTEGER'])
+        if name in SCALAR_PURE:return self.scalar_call(node,flow,conditional)
         if name in PURE:
             for item in args:self.expr(item,flow,conditional)
             return _Value()

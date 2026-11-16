@@ -1,0 +1,6 @@
+{
+  "variables": [
+    {"program": "DISC_ADDR", "path": "SAMPLES", "type": ["ARRAY", 3, ["INTEGER"]],
+     "value": [{"uninitialized": true}, 11, {"uninitialized": true}]}
+  ]
+}

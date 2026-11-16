@@ -1,0 +1,10 @@
+PROGRAM LIB
+VAR
+  calls:INTEGER
+ROUTINE width(value:STRING):INTEGER
+BEGIN
+  calls=1
+  RETURN STR_LEN(value)
+END width
+BEGIN
+END LIB

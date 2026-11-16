@@ -1,0 +1,7 @@
+{
+  "SOURCE": 11,
+  "TOTAL": 14,
+  "I": {"uninitialized": true},
+  "VALUES": [1, 2, {"uninitialized": true}],
+  "TEXT": "bc"
+}

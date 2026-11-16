@@ -1,0 +1,14 @@
+PROGRAM DISC_SCALAR
+VAR
+  source,total,i:INTEGER
+  values:ARRAY[3]OF INTEGER
+  text:STRING[8]
+BEGIN
+  text=SUB_STR('abcd',2,2)
+  total=0
+  FOR i=1 TO STR_LEN(text) DO
+    values[i]=i
+    total=total+values[i]
+  ENDFOR
+  IF ROUND(SQRT(9))=STR_LEN('abc') THEN total=total+source ENDIF
+END DISC_SCALAR

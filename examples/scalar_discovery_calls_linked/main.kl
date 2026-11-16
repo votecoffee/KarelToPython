@@ -1,0 +1,10 @@
+PROGRAM MAIN
+VAR
+  text:STRING[8]
+  source,total:INTEGER
+ROUTINE width(value:STRING):INTEGER FROM LIB
+BEGIN
+  source=11
+  text=SUB_STR('abcd',2,2)
+  total=width((text))+source
+END MAIN

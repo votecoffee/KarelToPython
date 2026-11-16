@@ -1,0 +1,21 @@
+{
+  "translator_version": "26.1116.161602",
+  "mode": "pythonic",
+  "scope": "Known checked scalar math/text facts in bounded source-access discovery",
+  "functions": ["ABS", "ROUND", "TRUNC", "SQRT", "EXP", "LN", "SIN", "COS", "TAN", "ASIN", "ACOS", "ATAN2", "STR_LEN", "SUB_STR", "INDEX", "CHR", "ORD"],
+  "contracts": {
+    "recognition": "STR_LEN is pure and does not invalidate prior source writes as an unknown service",
+    "evaluation": "Only bounded known primitive arguments enter a fixed whitelist of existing checked pure helpers; temporary Pythonic mode is restored on success and failure",
+    "order": "Analyze arguments once left to right, retaining captured earlier values and internal routine effects; nonreturning arguments skip remaining arguments",
+    "facts": "Known results can resolve branches, bounded loops and static addresses; unknown arguments retain ordinary source inputs without invented initial values",
+    "storage": "Bounded known INTEGER-to-REAL storage promotion retains the floating category; clipping/narrow conversions may discard constants; unavailable storage cannot supply stale known facts, including SHORT missing state",
+    "failures": "Known invalid domains report scalar-call gaps and unavailable results without seeding written destinations",
+    "bounds": "Existing source-contract, analysis-step, frame, storage and catalog budgets; at most254 string characters and bounded scalar integer facts",
+    "persistence": "Existing generated source contracts, discovery reports, input templates and saved-run formats remain unchanged",
+    "boundary": "No target import/execution, execution-context construction, service calls, external callbacks, native/compiler/controller equivalence or runtime-readiness certification"
+  },
+  "guide": "../input-discovery.md#checked-scalar-calls",
+  "tests": ["tests/test_input_scalar_calls.py", "tests/test_constant_builtins.py", "tests/test_input_discovery.py", "tests/test_input_template.py", "tests/test_input_refresh.py"],
+  "examples": ["examples/discovery_scalar_calls.kl", "examples/discovery_scalar_addresses.kl", "examples/scalar_discovery_calls_linked/main.kl"],
+  "controller_validated": false
+}

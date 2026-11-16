@@ -1,5 +1,25 @@
 # Changelog
 
+## 26.1116.161602 - 2026-11-16
+
+- Recognize STR_LEN as a pure discovery operation rather than an unknown service.
+  Retain known results from all 17 existing checked scalar math/text builtins,
+  including nested calls used in branches, FOR bounds, ARRAY/register addresses
+  and own-program GET_VAR paths.
+- Evaluate arguments once in source order, retaining internal routine effects
+  and snapshots before later arguments. Nonreturning arguments skip remaining
+  arguments; unknown values remain inputs without guessed initial data.
+- Use only bounded known scalars and the existing pure helpers in a temporary
+  Pythonic numeric scope. Known domain failures are explicit scalar-call gaps;
+  unavailable scalar storage cannot contribute stale constant facts. Target code,
+  services and callbacks are never executed by folding.
+- Retain the floating category of known INTEGER-to-REAL storage promotions,
+  including internal function results, so ABS and later arithmetic use the
+  existing REAL domain rather than falsely applying INTEGER overflow rules.
+- Add authored standalone discovery/execution examples, a linked runtime project,
+  focused regressions and current guides. Existing emitted execution, persistence
+  formats and historical strict behavior remain unchanged.
+
 ## 26.1116.155331 - 2026-11-16
 
 - Correct FOR-loop input discovery to read the captured counter after final-bound

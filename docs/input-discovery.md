@@ -315,6 +315,45 @@ checks runtime order; linked static effect discovery remains incomplete.
 [semantic ledger](semantics/input_for_capture_semantics.json) record offline evidence.
 Discovery never executes the selected target or certifies runtime readiness.
 
+### Checked scalar calls
+
+Discovery retains known results from the same 17 [pure scalar builtins](constant-builtins.md#accepted-functions)
+accepted by compile-time evaluation: ABS, ROUND, TRUNC, SQRT, EXP, LN, SIN, COS,
+TAN, ASIN, ACOS, ATAN2, STR_LEN, SUB_STR, INDEX, CHR and ORD. STR_LEN no longer
+invalidates prior writes as an unknown service. Nested known calls can resolve
+branches, bounded FOR ranges, ARRAY/register addresses and own-program variable
+paths. For example, `samples[ROUND(SQRT(4))]` identifies `SAMPLES[2]`.
+
+Arguments are analyzed once, left to right. Earlier values are captured before
+later argument effects; internal routine writes still affect following source.
+A nonreturning argument skips the remaining arguments and continuation. Unknown
+arguments contribute their ordinary input reads without invented values; their
+results remain unknown. Known INTEGER-to-REAL storage promotion retains the
+floating category, including through internal results and arithmetic. Existing
+STRING clipping and narrow storage conversions can discard constant facts.
+Unavailable scalar storage never supplies a stale
+known value, including the SHORT missing sentinel.
+
+Only known bounded primitive scalars enter the fixed whitelist of trusted pure
+runtime helpers, under a temporary Pythonic numeric scope that restores the
+caller's mode on success or failure. Existing finite math domains, ties-to-even
+rounding, degree-based trig and bounded ASCII rules apply. Known domain failures
+produce explicit `scalar-call` gaps; discovery does not publish a successful
+result or invent an initial value for the destination. Existing step, contract
+and storage budgets remain. Geometry constructors, services, external callbacks
+and target Python code are never executed by scalar folding.
+
+The [scalar-call example](../examples/discovery_scalar_calls.kl) identifies SOURCE
+and produces TOTAL=14 with SOURCE=11, preserving an unused missing ARRAY cell.
+The [address example](../examples/discovery_scalar_addresses.kl) identifies only
+SAMPLES[2] and computes its own GET_VAR path; the supplied whole-root context
+leaves the other cells missing. [Linked calls](../examples/scalar_discovery_calls_linked/main.kl)
+provide runtime execution evidence; linked static effect discovery remains
+incomplete. [Regressions](../tests/test_input_scalar_calls.py) and the
+[semantic ledger](semantics/input_scalar_call_semantics.json) record the offline
+contract. This is source-access analysis, without runtime-readiness or native
+compiler/controller equivalence claims.
+
 ## Contract identity and Python API
 
 The compiler attaches inert literal source-flow metadata to Pythonic output.
