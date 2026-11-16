@@ -1,0 +1,19 @@
+{
+  "translator_version": "26.1116.155331",
+  "mode": "pythonic",
+  "scope": "Bounded source-access discovery for post-final-bound captured FOR starts",
+  "contracts": {
+    "capture": "Select the counter reference before the initializer and preserve that storage when selectors change",
+    "order": "Assign the initial value, evaluate the final bound once, then read the current captured counter as iterator start",
+    "effects": "Internal globals and matching typed references may change the start; grouped or converted private arguments do not copy back",
+    "ranges": "Proven inclusive TO/DOWNTO ranges retain existing bounded analysis; proven empty bodies contribute no inputs",
+    "unknown": "Unknown but initialized starts widen conditionally; unproven initialized starts report for-start without inventing seedable counter inputs",
+    "unwinding": "Existing cleanup and return-value capture remain unchanged; paused/external effects stay explicit analysis gaps",
+    "persistence": "Existing source contracts, report/template/run formats and emitted runtime behavior remain unchanged",
+    "boundary": "Static source-access coverage only; no runtime readiness or native/compiler/controller equivalence claim"
+  },
+  "guide": "../input-discovery.md#captured-for-starts",
+  "tests": ["tests/test_input_for_capture.py", "tests/test_reference_for_counters.py", "tests/test_narrow_for.py", "tests/test_input_discovery.py"],
+  "examples": ["examples/discovery_for_start.kl", "examples/discovery_for_empty.kl", "examples/for_start_capture_linked/main.kl"],
+  "controller_validated": false
+}

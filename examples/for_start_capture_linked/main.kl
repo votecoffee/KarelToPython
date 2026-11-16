@@ -1,0 +1,13 @@
+PROGRAM MAIN
+VAR
+  counter,source,total,visits:INTEGER
+ROUTINE bound(p:INTEGER):INTEGER FROM LIB
+BEGIN
+  source=11
+  total=0
+  visits=0
+  FOR counter=1 TO bound(counter) DO
+    visits=visits+1
+    IF counter=0 THEN total=total+source ENDIF
+  ENDFOR
+END MAIN

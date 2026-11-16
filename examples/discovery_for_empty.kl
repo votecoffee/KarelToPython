@@ -1,0 +1,13 @@
+PROGRAM DISC_EMPTY
+VAR
+  counter,source,total,calls:INTEGER
+ROUTINE bound:INTEGER
+BEGIN
+  calls=1
+  counter=4
+  RETURN 3
+END bound
+BEGIN
+  total=7
+  FOR counter=1 TO bound() DO total=source ENDFOR
+END DISC_EMPTY

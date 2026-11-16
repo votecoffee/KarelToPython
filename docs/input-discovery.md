@@ -289,6 +289,32 @@ needs no initial inputs and preserves DATA.UNUSED as a missing marker.
 offline execution and analysis evidence. Complete discovery retains its usual
 source-access boundary; it does not certify runtime success or controller behavior.
 
+### Captured FOR starts
+
+Discovery follows the existing [captured-counter execution order](reference-for-counters.md#selectors-order-and-storage).
+The counter reference is selected once before the initializer; the final bound
+is evaluated once after initialization. The start is then read from that same
+counter, including effects from an internal routine or a matching reference
+argument. Grouped/private values do not write back into the counter.
+
+Known starts and stops use the existing bounded inclusive TO/DOWNTO analysis.
+A changed start may reveal an input on an additional iteration or prove the
+body unreachable. Unknown but initialized starts retain conditional body reads.
+An unproven initialized start reports `for-start`; it does not invent a seedable
+counter input or reuse the original initializer. SHORT missing-state writes,
+unproven external effects and paused routines retain explicit analysis gaps.
+Existing loop budgets, unwinding and captured scalar cleanup still apply.
+
+The [changed-start example](../examples/discovery_for_start.kl) requires SOURCE
+on counter zero even though its initializer is one; supplied SOURCE=11 produces
+TOTAL=11 over two iterations. The [empty-range example](../examples/discovery_for_empty.kl)
+changes the start to four with stop three, leaves SOURCE missing and returns
+TOTAL=7 without reading it. [Linked reference-bound execution](../examples/for_start_capture_linked/main.kl)
+checks runtime order; linked static effect discovery remains incomplete.
+[Regressions](../tests/test_input_for_capture.py) and the
+[semantic ledger](semantics/input_for_capture_semantics.json) record offline evidence.
+Discovery never executes the selected target or certifies runtime readiness.
+
 ## Contract identity and Python API
 
 The compiler attaches inert literal source-flow metadata to Pythonic output.

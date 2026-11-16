@@ -1,5 +1,18 @@
 # Changelog
 
+## 26.1116.155331 - 2026-11-16
+
+- Correct FOR-loop input discovery to read the captured counter after final-bound
+  effects, matching existing Pythonic execution. Changed starts no longer hide
+  reachable inputs or retain reads from proven empty ranges.
+- Preserve selector capture, one-time bound evaluation, TO/DOWNTO order, typed
+  reference versus private argument effects, early returns and counter cleanup.
+  Unknown starts widen conservatively; unproven initialized starts are explicit
+  gaps, including SHORT missing-state and external routine effects.
+- Add authored discovery/execution fixtures and linked reference-bound execution,
+  focused regressions, current guides and a semantic ledger. Runtime generation,
+  saved JSON formats and historical strict behavior remain unchanged.
+
 ## 26.1114.151852 - 2026-11-14
 
 - Preserve independent per-leaf availability and exact-schema constant facts

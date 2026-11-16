@@ -1,0 +1,11 @@
+PROGRAM LIB
+VAR
+  calls:INTEGER
+ROUTINE bound(p:INTEGER):INTEGER
+BEGIN
+  calls=1
+  p=0
+  RETURN 1
+END bound
+BEGIN
+END LIB

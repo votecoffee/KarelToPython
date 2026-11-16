@@ -1,0 +1,17 @@
+PROGRAM DISC_FOR
+VAR
+  counter,source,total,visits,calls:INTEGER
+ROUTINE bound:INTEGER
+BEGIN
+  calls=1
+  counter=0
+  RETURN 1
+END bound
+BEGIN
+  total=0
+  visits=0
+  FOR counter=1 TO bound() DO
+    visits=visits+1
+    IF counter=0 THEN total=total+source ENDIF
+  ENDFOR
+END DISC_FOR

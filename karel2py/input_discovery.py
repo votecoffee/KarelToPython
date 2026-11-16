@@ -625,14 +625,19 @@ class _Analyzer:
             exit_start=len(self.exits)
             loc=self.locate(args[0],flow,conditional);initial=self.expr(args[1],flow,conditional)
             self.write(loc,initial,flow,node);final=self.expr(args[2],flow,conditional)
+            # The emitted iterator reads the captured counter after final-bound effects.
+            start=UNKNOWN
+            if loc and not flow.stopped:
+                if loc.key in flow.defined:start=flow.constants.get(loc.key,UNKNOWN)
+                else:self.unresolved_at('for-start','Captured counter is not proven initialized after final-bound evaluation: '+loc.path,node)
             step=-1 if args[3]=='DOWNTO' else 1
-            if type(initial.constant) is int and type(final.constant) is int:
-                count=max(0,(final.constant-initial.constant)*step+1)
+            if type(start) is int and type(final.constant) is int:
+                count=max(0,(final.constant-start)*step+1)
             else:count=None
             if count is not None and count<=32:
                 for index in range(count):
                     if flow.stopped:break
-                    self.write(loc,_Value(initial.constant+step*index),flow,node)
+                    self.write(loc,_Value(start+step*index),flow,node)
                     self.block(node['body'],flow,conditional)
             else:
                 before=flow.copy();body=flow.copy();body.constants.clear()
