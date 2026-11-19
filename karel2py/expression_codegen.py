@@ -19,6 +19,7 @@ from .compiler_language import (
     TIME_TEXT_PROCEDURES,
 )
 from .control_flow import counter_text
+from .operator_types import POSE_OPERANDS, binary_result, operand_type, unary_result
 from . import extended as ex
 from . import runtime as rt
 
@@ -345,60 +346,38 @@ class ExpressionLowering:
             if self.is_minimum_literal(expr):
                 self.error('E_MININT_LITERAL', 'The manual requires MININT instead of the INTEGER literal -2147483648', expr.token)
             value, spec = self.expression(expr.args[0])
-            if spec[0] in NARROW_TYPES: spec = ('INTEGER',)
-            allowed = ('BOOLEAN', 'INTEGER') if expr.value == 'NOT' else ('INTEGER', 'REAL')
-            if self.mode == 'pythonic' and expr.value in ('+', '-'):
-                allowed += ('VECTOR',)
-                if expr.value=='+':allowed += ('BOOLEAN',)
-            if spec[0] not in allowed: self.error('E_TYPE', 'Invalid unary operand type', expr.token)
+            result_type = unary_result(expr.value, spec, mode=self.mode)
+            if result_type is None: self.error('E_TYPE', 'Invalid unary operand type', expr.token)
             self.features.add('unary ' + expr.value)
-            return f'_rt.unary({expr.value!r}, {value}, {line})', spec
+            return f'_rt.unary({expr.value!r}, {value}, {line})', result_type
         if expr.kind == 'binary':
             if self.mode == 'strict' and self.has_external_effect_call(expr):
                 self.error('E_EVALUATION_ORDER', 'Function calls that may write globals/reference parameters, delay, request output or abort are blocked inside operator expressions', expr.token)
             left, lt = self.expression(expr.args[0])
             right, right_type = self.expression(expr.args[1])
-            if lt[0] in NARROW_TYPES: lt = ('INTEGER',)
-            if right_type[0] in NARROW_TYPES: right_type = ('INTEGER',)
+            lt, right_type = operand_type(lt), operand_type(right_type)
             op = expr.value
-            if op == '>=<':
-                valid = self.mode == 'pythonic' and all(spec[0] in ('XYZWPR','POSITION','XYZWPREXT','JOINTPOS') for spec in (lt,right_type))
-                result_type = ('BOOLEAN',)
-                if valid:
-                    self.position_comparison_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
-                                                              line=line, column=expr.token.column, operand_types=[lt[0],right_type[0]],
-                                                              result_type='BOOLEAN', evaluated_once=True, operands_copied=True))
-            elif op == ':':
-                valid = self.mode == 'pythonic' and lt[0] in ('XYZWPR','POSITION','XYZWPREXT','JOINTPOS','VECTOR') and right_type[0] in ('XYZWPR','POSITION','XYZWPREXT','JOINTPOS','VECTOR')
-                result_type = self.relative_result_type([lt,right_type], expr.token) if valid else ('XYZWPR',)
-                if valid:
-                    self.frame_operation_uses.append(dict(operation=':', body=self.current_routine.name if self.current_routine else self.program.name,
-                                                          line=line, column=expr.token.column, operand_types=[lt[0],right_type[0]],
-                                                          result_type=result_type[0], evaluated_once=True, operands_copied=True))
-            elif 'VECTOR' in (lt[0], right_type[0]):
-                both_vectors = lt == right_type == ('VECTOR',)
-                scaled = (lt == ('VECTOR',) and right_type[0] in ('INTEGER', 'REAL')
-                          or right_type == ('VECTOR',) and lt[0] in ('INTEGER', 'REAL'))
-                valid = (both_vectors and op in ('+', '-', '#', '@', '=', '<>')
-                         or scaled and op in ('*', '/'))
-                result_type = ('BOOLEAN',) if op in ('=', '<>') else ('REAL',) if op == '@' else ('VECTOR',)
-                if valid: self.features.add('VECTOR operator ' + op)
-            elif op in ('=', '<>', '<', '<=', '>', '>='):
-                valid = (lt[0] == right_type[0] and lt[0] in ('INTEGER', 'REAL', 'BOOLEAN', 'STRING')
-                         or lt[0] in ('INTEGER', 'REAL') and right_type[0] in ('INTEGER', 'REAL'))
-                result_type = ('BOOLEAN',)
-            elif op in ('AND', 'OR'):
-                valid = lt[0] == right_type[0] and lt[0] in ('INTEGER', 'BOOLEAN')
-                result_type = lt
-                if self.mode == 'strict' and lt[0] == 'BOOLEAN' and any(self.has_routine_call(x) for x in expr.args):
-                    self.error('E_EVALUATION_ORDER', 'Boolean expressions containing routine calls are not implemented', expr.token)
+            if op == ':':
+                relative_kinds = (*POSE_OPERANDS, 'VECTOR')
+                result_type = None
+                if self.mode == 'pythonic' and lt[0] in relative_kinds and right_type[0] in relative_kinds:
+                    result_type = self.relative_result_type([lt, right_type], expr.token)
             else:
-                numeric = lt[0] in ('INTEGER', 'REAL') and right_type[0] in ('INTEGER', 'REAL')
-                valid = (numeric and op in ('+', '-', '*', '/')
-                         or lt[0] == right_type[0] == 'INTEGER' and op in ('DIV', 'MOD')
-                         or op == '+' and lt[0] == right_type[0] == 'STRING')
-                result_type = ('REAL',) if numeric and (op == '/' or 'REAL' in (lt[0], right_type[0])) else lt
-            if not valid: self.error('E_TYPE', f'Unsupported {lt[0]} {op} {right_type[0]}', expr.token)
+                result_type = binary_result(op, lt, right_type, mode=self.mode)
+            if (op in ('AND', 'OR') and self.mode == 'strict' and lt[0] == 'BOOLEAN'
+                    and right_type[0] != 'VECTOR' and any(self.has_routine_call(x) for x in expr.args)):
+                self.error('E_EVALUATION_ORDER', 'Boolean expressions containing routine calls are not implemented', expr.token)
+            if result_type is None: self.error('E_TYPE', f'Unsupported {lt[0]} {op} {right_type[0]}', expr.token)
+            if op == '>=<':
+                self.position_comparison_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
+                                                          line=line, column=expr.token.column, operand_types=[lt[0],right_type[0]],
+                                                          result_type='BOOLEAN', evaluated_once=True, operands_copied=True))
+            elif op == ':':
+                self.frame_operation_uses.append(dict(operation=':', body=self.current_routine.name if self.current_routine else self.program.name,
+                                                      line=line, column=expr.token.column, operand_types=[lt[0],right_type[0]],
+                                                      result_type=result_type[0], evaluated_once=True, operands_copied=True))
+            elif 'VECTOR' in (lt[0], right_type[0]):
+                self.features.add('VECTOR operator ' + op)
             self.features.add('operator ' + op)
             if self.mode == 'pythonic':
                 if lt[0] == 'BOOLEAN' and op in ('AND', 'OR'):
