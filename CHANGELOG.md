@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1119.224734 - 2026-11-19
+
+- Open pinned linked runs from the desktop, edit and save their offline context,
+  and replay or cancel using the shared scheduler. Show module pins and saved
+  snapshots by program. Retain the last result on input saves and reject edits
+  after a module or the document has changed.
+
 ## 26.1119.223627 - 2026-11-19
 
 - Export cooperative Python modules from an explicitly selected linked source

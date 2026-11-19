@@ -75,8 +75,10 @@ def create_project_document(paths, destination, *, entry, context=None, max_step
     return document
 
 
-def _preflight(path, document):
-    if set(document) != {'schema', 'target', 'limits', 'inputs', 'results'} or document['schema'] != PROJECT_SCHEMA:
+def project_document_fields(document, *, inspect_only=False):
+    """Validate the saved envelope without reading or executing its modules."""
+    if (type(document) is not dict or set(document) != {'schema', 'target', 'limits', 'inputs', 'results'} or
+            document['schema'] != PROJECT_SCHEMA):
         raise RunDocumentError('Expected a karel2py.project-run.v1 document.')
     target, inputs, results = document['target'], document['inputs'], document['results']
     if (type(target) is not dict or set(target) != {'program', 'mode', 'modules'} or
@@ -100,12 +102,23 @@ def _preflight(path, document):
     if results is not None:
         if type(results) is not dict:
             raise RunDocumentError('results must be null or an object')
-        if results.get('status') == 'running':
+        if not inspect_only and results.get('status') == 'running':
             raise RunDocumentError('Previous run is running or interrupted; resolve it and reset results to null before retrying')
+    return target, inputs
+
+
+def verify_project_pins(path, target):
+    """Read checked module bytes and verify their declared order and identity."""
+    rows = target['modules']
     modules = _read_modules([path.parent / row['path'] for row in rows])
     if [(name, sha256) for name, (_, sha256, _) in modules.items()] != [(row['program'], row['sha256']) for row in rows]:
         raise RunDocumentError('A linked Python module changed. Create a new run document.')
-    return modules, _context(inputs['context'])
+    return modules
+
+
+def _preflight(path, document):
+    target, inputs = project_document_fields(document)
+    return verify_project_pins(path, target), _context(inputs['context'])
 
 
 def _load_classes(modules):

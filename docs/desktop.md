@@ -73,8 +73,23 @@ Each replay uses the saved inputs and pinned Python bytes. Results stay in
 the same JSON document. **Rediscover** takes a selected generated Python file
 and saves a new run document with compatible inputs and a change summary.
 See [saved runs](run-documents.md) and [input discovery](input-discovery.md) for
-the JSON layouts and current coverage. Use the [project CLI](portable-projects.md)
-for linked project execution.
+the JSON layouts and current coverage.
+
+### Run a linked project
+
+1. Export the cooperative Python modules and create the pinned JSON using
+   [the project and runner CLIs](run-documents.md#linked-project-runs).
+2. Choose **Run Python**, then **Open run**, and select that JSON. **Pinned
+   modules** lists the declared programs, their paths, and their SHA-256 hashes.
+3. Set the initial values in **Edit context** and choose **Save inputs**. For
+   a variable owned by another program, set its `program` field to the owner.
+4. Choose **Run**. In **Last result**, choose **All results** for the complete
+   report or select a program for its state and variable snapshot. **WRITE
+   output** shows the combined text.
+
+You can reopen existing results if a module has moved or changed. Saving new
+inputs and replaying require all pinned module bytes to match. Create a new
+linked run when the module set changes.
 
 ## Edit and navigate
 

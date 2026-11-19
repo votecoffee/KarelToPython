@@ -84,9 +84,12 @@ and available variables. The variable snapshots include cleanup of suspended
 frames and counters. The document also records output, final context, and any
 failure or cancellation. Replay always starts from saved inputs.
 
-Linked run documents currently use the CLI and explicit JSON inputs.
-Automatic discovery across linked calls, desktop editing, and migration
-of linked documents remain on the [roadmap](roadmap.md#python-runner-and-parameter-editor).
+Create the pinned document with the CLI, then open it from the
+[desktop runner](desktop.md#run-a-linked-project) to edit the explicit context,
+run or cancel, and inspect each program's saved snapshot. A desktop input save
+checks the document revision and all module pins and preserves the last report.
+Automatic discovery across linked calls and migration of linked documents
+remain on the [roadmap](roadmap.md#python-runner-and-parameter-editor).
 
 ## Inputs and results
 
@@ -174,8 +177,6 @@ and generated modules belong outside tracked public source or in ignored `.local
 The recommended `.run.json` suffix is ignored; the public repository check also
 rejects run-document instances saved under another JSON name.
 
-This version runs one standalone Pythonic generated Program. Linked-project
-execution, complete input discovery, automatic input editing, worker control
-and GUI integration remain planned. It preserves existing offline service
-restrictions and does not authenticate native compiler/controller behavior.
-The [semantic ledger](semantics/run_document_semantics.json) records this contract.
+Both run formats use the offline runtime and its supported services.
+The [semantic ledger](semantics/run_document_semantics.json) records the
+original standalone execution contract.

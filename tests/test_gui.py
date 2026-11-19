@@ -130,6 +130,81 @@ class WorkbenchWindowTests(unittest.TestCase):
                 self.assertIn('42', window.output.get('1.0', 'end-1c'))
                 self.assertEqual(json.loads(path.read_bytes())['inputs']['context'], context)
 
+    def test_linked_run_opens_edits_replays_and_filters_saved_program_results(self):
+        from karel2py import runner, translate
+        from karel2py.gui_runner import RunWindow
+        from karel2py.project_run import create_project_document
+
+        window = RunWindow(self.root)
+        window.window.withdraw()
+        self.addCleanup(window.window.destroy)
+
+        def wait_for_run_window():
+            deadline = time.monotonic() + 10
+            while window.busy and time.monotonic() < deadline:
+                self.root.update()
+                time.sleep(.01)
+            self.assertFalse(window.busy)
+
+        def open_run(path):
+            with patch.object(window.dialog, 'askopenfilename', return_value=str(path)):
+                window.open()
+                wait_for_run_window()
+
+        with tempfile.TemporaryDirectory() as directory, patch.object(
+            window.message, 'showerror', side_effect=AssertionError('runner error')
+        ):
+            folder = Path(directory)
+            main, lib, solo = (folder / (name + '.py') for name in ('main', 'lib', 'solo'))
+            main.write_bytes(translate(
+                'PROGRAM MAIN VAR n FROM LIB:INTEGER BEGIN n=n+4 WRITE(n,CR) END MAIN',
+                cooperative=True,
+            ).python_source.encode())
+            lib.write_bytes(translate('PROGRAM LIB VAR n:INTEGER BEGIN END LIB', cooperative=True).python_source.encode())
+            solo.write_bytes(translate('PROGRAM SOLO VAR n:INTEGER BEGIN WRITE(n) END SOLO').python_source.encode())
+            path = folder / 'linked.run.json'
+            standalone = folder / 'solo.run.json'
+            context = {'variables': [{'program': 'LIB', 'path': 'N', 'type': 'INTEGER', 'value': 3}]}
+            created = create_project_document([lib, main], path, entry='MAIN', context=context)
+            runner.create_document(solo, standalone, discover=True)
+
+            open_run(path)
+            self.assertIn('Entry MAIN', window.location.get())
+            self.assertEqual(window.tabs.select(), str(window.edits_page))
+            self.assertEqual(window.tabs.tab(window.inputs_page, 'state'), 'hidden')
+            self.assertEqual(window.tabs.tab(window.requirements_page, 'text'), 'Pinned modules')
+            self.assertEqual(json.loads(window.requirements.get('1.0', 'end-1c')), created['target']['modules'])
+            self.assertEqual(str(window.buttons['Rediscover…']['state']), 'disabled')
+
+            context['variables'][0]['value'] = 5
+            window.context.replace('1.0', 'end-1c', json.dumps(context))
+            window.save()
+            wait_for_run_window()
+            with patch.object(window.message, 'askyesno', return_value=True):
+                window.run()
+                wait_for_run_window()
+            self.assertEqual(window.tabs.select(), str(window.results_page))
+            report = json.loads(window.result.get('1.0', 'end-1c'))
+            self.assertEqual(report['status'], 'completed')
+            self.assertEqual(tuple(window.result_program['values']), ('All results', 'LIB', 'MAIN'))
+            window.result_program.current(1)
+            window.result_program.event_generate('<<ComboboxSelected>>')
+            self.root.update()
+            lib_result = json.loads(window.result.get('1.0', 'end-1c'))
+            self.assertEqual(lib_result, report['programs']['LIB'])
+            self.assertEqual(lib_result['values']['N'], 9)
+            self.assertEqual(window.output.get('1.0', 'end-1c').strip(), '9')
+            self.assertEqual(json.loads(path.read_bytes())['inputs']['context'], context)
+
+            open_run(standalone)
+            self.assertEqual(window.tabs.tab(window.inputs_page, 'state'), 'normal')
+            self.assertEqual(window.tabs.index(window.inputs_page), 0)
+            self.assertEqual(str(window.buttons['Rediscover…']['state']), 'normal')
+            self.assertEqual(window.result_filter.winfo_manager(), '')
+            self.assertEqual(window.inputs.item('0', 'values'), ('variable', 'N', 'required', 'missing'))
+            open_run(path)
+            self.assertEqual(json.loads(window.result.get('1.0', 'end-1c')), report)
+
     def test_saved_run_paged_field_editor_saves_selected_array_value(self):
         from tkinter import ttk
 

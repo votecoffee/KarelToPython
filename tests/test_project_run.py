@@ -70,6 +70,51 @@ class SavedProjectTests(unittest.TestCase):
         self.assertEqual(self.document.read_bytes(), before)
         self.assertEqual(first['results']['status'], 'completed')
 
+    def test_editor_preserves_pins_results_and_revision_on_context_changes(self):
+        main = self.module('MAIN', 'WRITE(n,CR)', declarations='VAR n FROM LIB:INTEGER')
+        lib = self.module('LIB')
+        context = {'variables': [{'program': 'LIB', 'path': 'N', 'type': 'INTEGER', 'value': 3}]}
+        self.create(lib, main, context=context)
+        previous = runner.run_document(self.document)
+        opened, revision = runner.read_document(self.document)
+        self.assertEqual(opened, previous)
+        context['variables'][0]['value'] = 5
+        with patch('builtins.exec', side_effect=AssertionError('target executed while editing inputs')):
+            saved, updated = runner.save_context(self.document, json.dumps(context), expected=revision)
+        self.assertEqual(updated, self.document.read_bytes())
+        self.assertEqual(saved['target'], previous['target'])
+        self.assertEqual(saved['limits'], previous['limits'])
+        self.assertEqual(saved['results'], previous['results'])
+        self.assertEqual(saved['inputs']['context'], context)
+        with self.assertRaisesRegex(ValueError, 'changed on disk'):
+            runner.save_context(self.document, '{}', expected=revision)
+        with self.assertRaisesRegex(ValueError, 'Invalid input context'):
+            runner.save_context(self.document, '{"numeric":{"count":1,"values":{"1":true}}}', expected=updated)
+        self.assertEqual(self.document.read_bytes(), updated)
+        replayed = runner.run_document(self.document, expected=updated)
+        self.assertEqual(replayed['results']['programs']['LIB']['values']['N'], 5)
+        self.assertEqual(replayed['results']['text_output'].strip(), '5')
+
+    def test_editor_opens_saved_results_with_missing_modules_and_blocks_unsafe_writes(self):
+        main, lib = self.module('MAIN'), self.module('LIB')
+        self.create(main, lib)
+        finished = runner.run_document(self.document)
+        with lib.open('ab') as stream:
+            stream.write(b'# changed\n')
+        _, revision = runner.read_document(self.document)
+        with self.assertRaisesRegex(ValueError, 'linked Python module changed'):
+            runner.save_context(self.document, '{}', expected=revision)
+        self.assertEqual(self.document.read_bytes(), revision)
+        lib.unlink()
+        self.assertEqual(runner.read_document(self.document), (finished, revision))
+        finished['results']['status'] = 'running'
+        self.document.write_bytes(json.dumps(finished).encode())
+        opened, revision = runner.read_document(self.document)
+        self.assertEqual(opened['results']['status'], 'running')
+        with self.assertRaisesRegex(ValueError, 'running or interrupted'):
+            runner.save_context(self.document, '{}', expected=revision)
+        self.assertEqual(self.document.read_bytes(), revision)
+
     def test_prepare_rejects_synchronous_duplicate_and_missing_entry(self):
         main, lib = self.module('MAIN', cooperative=False), self.module('LIB')
         with self.assertRaisesRegex(ValueError, 'cooperative generated modules'):

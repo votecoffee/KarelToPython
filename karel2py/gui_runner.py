@@ -1,4 +1,4 @@
-"""Desktop editor for the standalone Pythonic run-document workflow."""
+"""Desktop editor for standalone and linked Pythonic run documents."""
 from copy import deepcopy
 import json
 from pathlib import Path
@@ -87,6 +87,7 @@ class RunWindow:
         inputs = ttk.Frame(self.tabs, padding=8)
         edits = ttk.Frame(self.tabs, padding=8)
         discovery = ttk.Frame(self.tabs, padding=8)
+        self.inputs_page, self.edits_page, self.requirements_page = inputs, edits, discovery
         self.results_page = ttk.Frame(self.tabs, padding=8)
         output_page = ttk.Frame(self.tabs, padding=8)
         for label, page in (('Discovered inputs', inputs), ('Edit context', edits),
@@ -107,9 +108,15 @@ class RunWindow:
         self.edit_value = ttk.Button(inputs, text='Edit value…', command=self.edit_selected, style='Compact.TButton')
         self.edit_value.pack(anchor='w', pady=(8, 0))
         ttk.Label(inputs, textvariable=self.detail, wraplength=700, padding=(0, 8)).pack(fill='x')
-        ttk.Label(edits, text='Edit initial values and offline service configuration as JSON, then save inputs.').pack(anchor='w')
+        self.context_help = ttk.Label(edits, wraplength=700)
+        self.context_help.pack(anchor='w', pady=(0, 6))
         self.context = self._text(edits, tk, ttk)
         self.requirements = self._text(discovery, tk, ttk)
+        self.result_filter = ttk.Frame(self.results_page)
+        ttk.Label(self.result_filter, text='Program').pack(side='left', padx=(0, 6))
+        self.result_program = ttk.Combobox(self.result_filter, state='readonly', width=24)
+        self.result_program.pack(side='left')
+        self.result_program.bind('<<ComboboxSelected>>', self._show_result)
         self.result = self._text(self.results_page, tk, ttk)
         self.output = self._text(output_page, tk, ttk)
         ttk.Label(self.window, textvariable=self.status, padding=8, wraplength=735).pack(anchor='w')
@@ -140,13 +147,17 @@ class RunWindow:
     def _json(value):
         return json.dumps(value, indent=2, ensure_ascii=True, allow_nan=False) + '\n'
 
+    def _linked(self):
+        return self.document is not None and self.document['schema'] == runner.PROJECT_SCHEMA
+
     def _configure(self):
         loaded = self.document is not None
         interrupted = loaded and (self.document['results'] or {}).get('status') == 'running'
         editable = loaded and not interrupted and not self.busy
         for label in ('New from Python…', 'Open run…'):
             self.buttons[label].configure(state='disabled' if self.busy else 'normal')
-        for label in ('Rediscover…', 'Save inputs', 'Run'):
+        self.buttons['Rediscover…'].configure(state='normal' if editable and not self._linked() else 'disabled')
+        for label in ('Save inputs', 'Run'):
             self.buttons[label].configure(state='normal' if editable else 'disabled')
         can_cancel = self.cancel_event is not None and not self.cancel_event.is_set()
         self.buttons['Cancel run'].configure(state='normal' if can_cancel else 'disabled')
@@ -155,7 +166,7 @@ class RunWindow:
 
     def _selected_rows(self):
         selection = self.inputs.selection()
-        if not selection or self.document is None:
+        if not selection or self.document is None or self._linked():
             return {}, {}
         template = self.document['inputs']['template']
         binding = template['bindings'][int(selection[0])]
@@ -227,23 +238,66 @@ class RunWindow:
         self._start('Validating and saving the selected input…', lambda: (path, *save(
             path, selected, *changes, expected=revision, protected=protected)))
 
-    def _show(self, path, document, revision):
-        self.path, self.document, self.revision = path, document, revision
-        self.location.set(f"{document['target']['program']}  ·  {path}\nPython  {document['target']['path']}")
-        inputs = document['inputs']
-        template = inputs.get('template', {})
+    def _show_inputs(self, target, path, template):
         self.inputs.delete(*self.inputs.get_children())
         self.detail.set('')
+        if self._linked():
+            modules = target['modules']
+            self.location.set(f"Entry {target['program']}  ·  {len(modules)} pinned modules\n{path}")
+            self.tabs.hide(self.inputs_page)
+            self.tabs.tab(self.requirements_page, text='Pinned modules')
+            self._display(self.requirements, self._json(modules))
+            return
+
+        self.location.set(f"{target['program']}  ·  {path}\nPython  {target['path']}")
+        self.tabs.add(self.inputs_page)
+        self.tabs.tab(self.requirements_page, text='Requirements')
         for index, row in enumerate(template.get('bindings', ())):
             self.inputs.insert('', 'end', iid=str(index), values=tuple(str(row.get(key, '')) for key in ('kind', 'path', 'certainty', 'status')))
-        self._display(self.context, self._json(inputs['context']), editable=True)
         self._display(self.requirements, self._json({
             'requirements': template.get('requirements', []),
             'unresolved': template.get('discovery', {}).get('unresolved', []),
             **({'refresh': template['refresh']} if 'refresh' in template else {}),
         }) if template else 'Use Rediscover to prepare input annotations for this document.')
+
+    def _show_result(self, _event=None):
+        result = self.document['results']
+        if result is None:
+            text = 'Run the program to see its results.'
+        elif self._linked() and self.result_program.current() > 0:
+            text = self._json(result['programs'][self.result_program.get()])
+        else:
+            text = self._json(result)
+        self._display(self.result, text)
+
+    def _show(self, path, document, revision):
+        same_document = (self.document is not None and self.path == path and
+                         self.document['schema'] == document['schema'])
+        previous_program = self.result_program.get() if same_document else ''
+        self.path, self.document, self.revision = path, document, revision
+        inputs = document['inputs']
+        self._show_inputs(document['target'], path, inputs.get('template', {}))
+        help_text = 'Edit initial values and offline service configuration as JSON, then save inputs.'
+        if self._linked():
+            help_text += ' Set program on variable entries to identify the owning module.'
+        self.context_help.configure(text=help_text)
+        self._display(self.context, self._json(inputs['context']), editable=True)
+        if not same_document:
+            self.tabs.select(self.edits_page if self._linked() else self.inputs_page)
         result = document['results']
-        self._display(self.result, 'Run the program to see its results.' if result is None else self._json(result))
+        snapshots = (result or {}).get('programs')
+        programs = ()
+        if self._linked() and isinstance(snapshots, dict):
+            programs = tuple(row['program'] for row in document['target']['modules'] if row['program'] in snapshots)
+        if programs:
+            choices = ('All results', *programs)
+            self.result_program.configure(values=choices)
+            self.result_program.current(choices.index(previous_program) if previous_program in choices else 0)
+            self.result_filter.pack(fill='x', pady=(0, 6), before=self.result.master)
+        else:
+            self.result_program.set('')
+            self.result_filter.pack_forget()
+        self._show_result()
         self._display(self.output, str((result or {}).get('text_output') or 'No WRITE output.'))
         self._configure()
         if result and result.get('status') == 'running':
@@ -325,7 +379,7 @@ class RunWindow:
             self._start('Opening run…', lambda: (path, *runner.read_document(path)))
 
     def refresh(self):
-        if self.busy or self.path is None or not self._discard_edits():
+        if self.busy or self.path is None or self._linked() or not self._discard_edits():
             return
         target = self._pick_python()
         if target is None:

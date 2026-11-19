@@ -208,7 +208,12 @@ def read_document(path):
     """Read a saved document and the exact file revision used by its editor."""
     raw = _read(path)
     document = _decode(raw)
-    _document_fields(document, inspect_only=True)
+    if isinstance(document, dict) and document.get('schema') == PROJECT_SCHEMA:
+        from .project_run import project_document_fields
+
+        project_document_fields(document, inspect_only=True)
+    else:
+        _document_fields(document, inspect_only=True)
     return document, raw
 
 
@@ -217,16 +222,19 @@ def _expected_revision(actual, expected):
         raise RunDocumentError('Run document changed on disk. Reopen it before continuing.')
 
 
-def _editable_document(path, expected):
+def _read_revision(path, expected):
     path = Path(path).absolute()
     original = _read(path)
     _expected_revision(original, expected)
-    document = _decode(original)
+    return path, original, _decode(original)
+
+
+def _standalone_edit_target(path, document):
     target, _, _ = _document_fields(document)
     target_path, identity, _ = _target(path.parent / target['path'])
     if identity != {key: target[key] for key in ('sha256', 'program', 'mode')}:
         raise RunDocumentError('Python target changed. Rediscover into a new run document.')
-    return path, original, document, target_path
+    return target_path
 
 
 def _prepare_edited_context(document, target_path, context):
@@ -248,13 +256,23 @@ def _replace_prepared_inputs(document, prepared):
 def save_context(path, text, *, expected, protected=()):
     """Validate and save edited inputs against the revision shown by the editor."""
     context = _decode(text.encode('utf-8'))
-    path, original, document, target_path = _editable_document(path, expected)
-    if 'template' in document['inputs']:
-        _replace_prepared_inputs(document, _prepare_edited_context(document, target_path, context))
+    path, original, document = _read_revision(path, expected)
+    if isinstance(document, dict) and document.get('schema') == PROJECT_SCHEMA:
+        from .project_run import project_document_fields, verify_project_pins
+
+        target, _ = project_document_fields(document)
+        modules = verify_project_pins(path, target)
+        target_paths = tuple(module_path for module_path, _, _ in modules.values())
+    else:
+        target_path = _standalone_edit_target(path, document)
+        target_paths = (target_path,)
+    inputs = document['inputs']
+    if 'template' in inputs:
+        _replace_prepared_inputs(document, _prepare_edited_context(document, target_paths[0], context))
     else:
         _context(context)
-        document['inputs']['context'] = context
-    revision = _store(path, document, expected=original, protected=(target_path, *protected))
+        inputs['context'] = context
+    revision = _store(path, document, expected=original, protected=(*target_paths, *protected))
     return document, revision
 
 
@@ -262,7 +280,8 @@ def _save_discovered_value(path, selected, update, *, expected, protected):
     from .input_template import _prepare
     from .runner_values import input_key
 
-    path, original, document, target_path = _editable_document(path, expected)
+    path, original, document = _read_revision(path, expected)
+    target_path = _standalone_edit_target(path, document)
     if 'template' not in document['inputs']:
         raise RunDocumentError('Discover inputs before editing a selected value.')
     prepared = _prepare_edited_context(document, target_path, document['inputs']['context'])

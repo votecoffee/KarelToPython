@@ -25,10 +25,11 @@ with cancellation and saved results. The field editor covers shaped data and
 explicitly grouped position registers. Both entry points can carry compatible
 inputs to a new document on refresh.
 
-The CLI can now [pin and replay a linked project](run-documents.md#linked-project-runs)
-with an explicit entry and JSON context. Remaining work includes discovery and
-desktop editing for linked runs, along with broader static discovery for
-standalone runs.
+Create a [pinned linked run](run-documents.md#linked-project-runs) in the CLI.
+The desktop can edit its explicit JSON context, run it, and inspect each program
+snapshot. Remaining work includes desktop creation, discovery across linked calls,
+and carrying edited inputs to a revised linked module set, along with broader
+static discovery for standalone runs.
 
 ### Discover inputs from Python
 
