@@ -1,6 +1,7 @@
 """Source type and reference queries for checking declarations and generating Python."""
 from . import extended as ex
 from . import runtime as rt
+from .call_analysis import plan_routine_argument
 from .compiler_language import (
     BUILTIN_SIGNATURES,
     CONTROLLER_NAMES,
@@ -62,6 +63,71 @@ class TypeQueries:
 
     def is_value_only_subfield(self,expr):
         return self.is_config_subfield(expr) or self.is_association_subfield(expr)
+
+    def array_prefix_spec(self, expr):
+        """Inspect an incomplete flat ARRAY selection without evaluating its indexes."""
+        if self.mode != 'pythonic' or expr.kind != 'index':
+            return None
+        base = expr.args[0]
+        if base.kind == 'name' and base.value in ex.PORT_TYPES and base.value not in self.types:
+            return None
+        return rt.array_prefix_type(self.access_type(base), len(expr.args) - 1)
+
+    def is_array_prefix_value(self, expr):
+        return self.array_prefix_spec(expr) is not None
+
+    def is_bare_storage(self, expr):
+        return expr.kind in ('name', 'field', 'index') and self.root_name(expr) not in self.visible_constants()
+
+    def file_prefix_spec(self, expr):
+        prefix = self.array_prefix_spec(expr)
+        return prefix if prefix is not None and rt.file_storage_type(prefix) else None
+
+    def routine_argument_storage(self, expr):
+        """Select ordinary or borrowable FILE references, leaving other operands by value."""
+        prefix = self.array_prefix_spec(expr)
+        file_prefix = prefix if prefix is not None and rt.file_storage_type(prefix) else None
+        reference = (self.is_bare_storage(expr) and (prefix is None or file_prefix is not None)
+                     and not self.is_system_pose_path(expr))
+        return reference, file_prefix
+
+    def argument_is_reference(self, argument, expected):
+        """Classify source storage for routine-effect and input-contract analysis."""
+        if not self.is_bare_storage(argument):
+            return False
+        prefix = self.array_prefix_spec(argument)
+        if prefix is not None and not rt.file_storage_type(prefix):
+            return False
+        actual = prefix if prefix is not None else self.access_type(argument)
+        plan = plan_routine_argument(expected, actual, mode=self.mode, reference=True)
+        return plan.by_reference and not self.is_value_only_subfield(argument)
+
+    def check_byname_counter(self, operand):
+        if self.named_active_counters() or self.protection_root(operand.entry) in self.active_counters:
+            self.error('E_FOR_COUNTER', 'BYNAME cannot alias or write an active FOR counter', operand.token)
+
+    def check_byname_entry(self, entry):
+        if not self.is_bare_storage(entry):
+            self.error('E_OUTPUT_ARGUMENT', 'BYNAME entry requires writable INTEGER storage', entry.token)
+        if self.is_position_read_only_access(entry) or self.is_value_only_subfield(entry):
+            self.error('E_OUTPUT_ARGUMENT', 'BYNAME entry requires ordinary writable INTEGER storage', entry.token)
+
+    def check_static_service_storage(self, expr, token):
+        root = self.root_name(expr)
+        if (expr.kind not in ('name', 'field', 'index', 'using_ref') or root not in self.types
+                or root in self.visible_constants()
+                or self.current_routine and root in self.current_routine.local_types):
+            self.error('E_STATIC_ARGUMENT', 'Dynamic display requires static global storage', token)
+
+    def check_service_output_storage(self, expr):
+        if not self.is_bare_storage(expr):
+            self.error('E_OUTPUT_ARGUMENT', 'Service output requires writable storage', expr.token)
+        if self.protection_root(expr) in self.active_counters:
+            self.error('E_FOR_COUNTER', 'Service output cannot write an active FOR counter', expr.token)
+        if self.is_position_read_only_access(expr):
+            self.error('E_POSITION_READ_ONLY', 'Service output is protected POSITION storage', expr.token)
+        if self.is_value_only_subfield(expr):
+            self.error('E_CONFIG_OUTPUT', 'CONFIG/association fields cannot be output aliases', expr.token)
 
     def access_type(self, expr):
         """Inspect receiver types without emitting calls or duplicate call-site reports."""

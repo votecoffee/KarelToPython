@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from . import extended as ex
 from . import runtime as rt
 from .compiler_language import INTEGRAL_TYPES, NARROW_TYPES
+from .lexer import Token
+from .syntax import Expr
 
 
 CARTESIAN_TYPES = ('POSITION', 'XYZWPR', 'XYZWPREXT')
@@ -117,6 +119,49 @@ def validate_routine_argument(plan, routine_name, token, *, mode, active_counter
     elif expected[0] == 'STRING' and mode != 'pythonic' and writable_formal:
         error('E_STRING_VALUE', 'STRING value arguments require a read-only formal; '
               'this parameter may be written through assignments or nested calls', token)
+
+
+@dataclass(frozen=True)
+class BynameOperands:
+    token: Token
+    program: Expr
+    path: Expr
+    entry: Expr
+
+    def check_entry_schema(self, schema, *, error):
+        if schema != ('INTEGER',):
+            error('E_TYPE', 'BYNAME entry requires exact INTEGER storage', self.entry.token)
+
+
+def check_byname_argument(argument, *, mode, routines, error):
+    """Recognize a direct builtin BYNAME argument and unpack its operands."""
+    if mode != 'pythonic' or argument.kind != 'call' or argument.value != 'BYNAME' or 'BYNAME' in routines:
+        return None
+    if len(argument.args) != 3:
+        error('E_ARGUMENTS', 'BYNAME requires three arguments', argument.token)
+    return BynameOperands(argument.token, *argument.args)
+
+
+@dataclass(frozen=True)
+class CollectionArgumentPlan:
+    is_array: bool
+    value_schema: tuple
+    needs_conversion: bool
+
+
+def check_routine_value_storage(expected, actual, token, *, mode, error):
+    """Check value-capable storage and plan detached logical collection capture."""
+    if actual[0] == 'ARRAY' and rt.file_storage_type(actual):
+        error('E_FILE_ARRAY_VALUE', 'FILE ARRAY arguments require borrowed storage without grouping', token)
+    if mode != 'pythonic':
+        return None
+    if rt.collection_type(actual):
+        needs_conversion = expected != actual
+        return CollectionArgumentPlan(False, expected if needs_conversion else actual, needs_conversion)
+    if rt.collection_array_type(actual):
+        needs_conversion = not rt.collection_array_source_accepts(expected, actual)
+        return CollectionArgumentPlan(True, expected if needs_conversion else actual, needs_conversion)
+    return None
 
 
 @dataclass(frozen=True)

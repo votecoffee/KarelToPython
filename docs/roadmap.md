@@ -12,9 +12,10 @@ The first extraction separates parsing, AST data, declaration analysis, type
 queries, control-flow validation and lowering, Python generation, and reports.
 Unary and binary operator rules return schemas independently of emission.
 SELECT checking returns typed CASE rows before dispatch generation. Call
-analysis checks routine binding plans, protected counters, and service
-operand schemas. Next, separate special argument capture for BYNAME, FILE
-and collection storage, and isolate service storage checks. The runtime and
+analysis checks routine binding plans, BYNAME operands, collection capture,
+and service operand schemas. Scoped type queries identify borrowable FILE
+prefixes and check service storage. Next, separate routine call reporting
+from emission and split service operand lowering by role. The runtime and
 extended services can be split by ownership after their boundaries are covered
 with regressions. See [compiler architecture](compiler-architecture.md).
 

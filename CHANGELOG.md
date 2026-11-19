@@ -1,5 +1,11 @@
 # Changelog
 
+## 26.1119.232343 - 2026-11-19
+
+- Check direct BYNAME operands and plan logical collection argument capture
+  before emitting calls. Move FILE prefix selection, routine reference
+  queries, and service storage checks into scoped type analysis.
+
 ## 26.1119.231711 - 2026-11-19
 
 - Plan routine argument binding and forwarding checks in call analysis. Check

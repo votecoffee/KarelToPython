@@ -19,7 +19,9 @@ from .compiler_language import (
     TIME_TEXT_PROCEDURES,
 )
 from .call_analysis import (
+    check_byname_argument,
     check_routine_call,
+    check_routine_value_storage,
     check_service_signature,
     plan_routine_argument,
     validate_routine_argument,
@@ -33,34 +35,20 @@ from . import runtime as rt
 class ExpressionLowering:
     """Lower expressions against the current checked program and emitter scope."""
 
-    def file_prefix_spec(self,argument):
-        if not self.is_array_prefix_value(argument):return None
-        container=self.access_type(argument.args[0])
-        return rt.array_prefix_type(container,len(argument.args)-1) if rt.file_storage_type(container) else None
-
     def file_prefix_reference_code(self,argument):
         base,container=self.expression(argument.args[0],raw=True)
         codes=[self.require_type(index,'INTEGER') for index in argument.args[1:]]
         return f'_rt.resource_array_prefix_reference({base},({", ".join(codes)},),{container!r},{argument.token.line})',container
 
-    def file_prefix_argument(self,argument,routine,formal):
-        code,container=self.file_prefix_reference_code(argument)
-        selected=self.file_prefix_spec(argument);line=argument.token.line
+    def file_prefix_argument(self, argument, routine, formal, selected):
+        code, container = self.file_prefix_reference_code(argument)
+        line = argument.token.line
         self.file_prefix_argument_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
             routine=routine.name,parameter=formal.value,line=line,column=argument.token.column,
             source_selector=counter_text(argument),source_type_spec=container,selected_type_spec=selected,
             supplied_subscripts=len(argument.args)-1,evaluated_once=True,original_cells=True))
         self.features.add('direct FILE prefix reference argument')
         return code,selected
-
-    def argument_is_reference(self,argument,expected):
-        if argument.kind not in ('name','field','index') or self.root_name(argument) in self.visible_constants():return False
-        if self.is_array_prefix_value(argument):
-            actual=self.file_prefix_spec(argument)
-            if actual is None:return False
-        else:actual=self.access_type(argument)
-        plan = plan_routine_argument(expected, actual, mode=self.mode, reference=True)
-        return plan.by_reference and not self.is_value_only_subfield(argument)
 
     def check_for_call(self, token, routine=None):
         if self.active_counters:
@@ -179,12 +167,6 @@ class ExpressionLowering:
             self.features.add('extended services')
             if self.current_routine:self.current_routine.may_services=True
         self.features.add('statement ARRAY prefix assignment')
-
-    def is_array_prefix_value(self,expr):
-        if self.mode!='pythonic' or expr.kind!='index':return False
-        base=expr.args[0]
-        if base.kind=='name' and base.value in ex.PORT_TYPES and base.value not in self.types:return False
-        return rt.array_prefix_type(self.access_type(base),len(expr.args)-1) is not None
 
     def index_code(self, expr, spec, *, allow_prefix=False, prefix_target=False, collection_prefix=False):
         indexes = expr.args[1:]
@@ -632,7 +614,7 @@ class ExpressionLowering:
         for index,(value,(mode,kind)) in enumerate(zip(expr.args,checked.parameters)):
             discarded=value
             while discarded.kind=='group': discarded=discarded.args[0]
-            if kind=='TABLE_ACTION' and (discarded.kind not in ('name','field','index') or self.root_name(discarded) in self.visible_constants()):
+            if kind=='TABLE_ACTION' and not self.is_bare_storage(discarded):
                 code,spec=self.expression(value)
                 if spec!=('INTEGER',):self.error('E_TYPE','ACT_TBL action requires INTEGER',value.token)
                 codes.append(code);continue
@@ -646,17 +628,12 @@ class ExpressionLowering:
             if mode=='m' and discarded.kind=='literal' and type(discarded.value) is int and discarded.value==0:
                 codes.append('0'); continue
             if mode=='s':
-                root=self.root_name(discarded)
-                if discarded.kind not in ('name','field','index','using_ref') or root not in self.types or root in self.visible_constants() or self.current_routine and root in self.current_routine.local_types:
-                    self.error('E_STATIC_ARGUMENT','Dynamic display requires static global storage',value.token)
+                self.check_static_service_storage(discarded, value.token)
                 prefix=self.mode=='pythonic' and kind in ex.ARRAY_REFERENCE_KINDS and self.is_array_prefix_value(discarded)
                 code,spec=self.reference(discarded,allow_prefix=prefix)
                 if prefix:code=f'_rt.array_prefix_reference({code},{value.token.line})'
             elif mode in ('o','r','m'):
-                if value.kind not in ('name','field','index') or self.root_name(value) in self.visible_constants(): self.error('E_OUTPUT_ARGUMENT','Service output requires writable storage',value.token)
-                if self.protection_root(value) in self.active_counters: self.error('E_FOR_COUNTER','Service output cannot write an active FOR counter',value.token)
-                if self.is_position_read_only_access(value): self.error('E_POSITION_READ_ONLY','Service output is protected POSITION storage',value.token)
-                if self.is_value_only_subfield(value): self.error('E_CONFIG_OUTPUT','CONFIG/association fields cannot be output aliases',value.token)
+                self.check_service_output_storage(value)
                 prefix=self.mode=='pythonic' and kind in ex.ARRAY_REFERENCE_KINDS and self.is_array_prefix_value(value)
                 code,spec=self.reference(value,allow_prefix=prefix or self.mode=='pythonic' and expr.value=='GET_VAR' and index==3,collection_prefix=expr.value=='GET_VAR' and index==3)
                 if prefix:code=f'_rt.array_prefix_reference({code},{value.token.line})'
@@ -665,7 +642,7 @@ class ExpressionLowering:
                 code,spec = self.bounded_service_argument(discarded, 244 if packet else 32, nullable=packet)
             else:
                 variable_input=mode=='v' or (expr.value=='SET_VAR' and index==3)
-                reference_input=(variable_input and discarded.kind in ('name','field','index') and self.root_name(discarded) not in self.visible_constants()
+                reference_input=(variable_input and self.is_bare_storage(discarded)
                                  and not self.is_system_pose_path(discarded)
                                  and (not self.is_array_prefix_value(discarded) or expr.value=='SET_VAR' and index==3 and rt.collection_array_type(self.access_type(discarded.args[0]))))
                 if reference_input: code,spec=self.reference(discarded,allow_prefix=expr.value=='SET_VAR' and index==3,collection_prefix=expr.value=='SET_VAR' and index==3)
@@ -857,37 +834,39 @@ class ExpressionLowering:
             overlap='Outputs checked disjoint at runtime; captured source may also be output storage'))
         return f'_rt.unpos_value({source}, [{", ".join(outputs)}], line={expr.token.line})'
 
+    def lower_byname_argument(self, operand, expected):
+        self.check_for_call(operand.token)
+        self.check_byname_counter(operand)
+        program = self.require_type(operand.program, 'STRING')
+        path = self.require_type(operand.path, 'STRING')
+        self.check_byname_entry(operand.entry)
+        reference, spec = self.reference(operand.entry)
+        operand.check_entry_schema(spec, error=self.error)
+
+        self.features.update(('BYNAME', 'extended services', 'parameter by reference'))
+        self.service_uses.append(dict(
+            operation='BYNAME', body=self.current_routine.name if self.current_routine else self.program.name,
+            line=operand.token.line, column=operand.token.column))
+        return f'self._state.byname_argument({expected!r},{program},{path},{reference},{operand.token.line})'
+
     def routine_call(self, expr):
         routine = self.routines[expr.value]
         pairs = check_routine_call(expr, routine, mode=self.mode, has_routine_call=self.has_routine_call, error=self.error)
         arguments = []
         for argument, (formal, expected) in pairs:
             line = argument.token.line
-            if self.mode=='pythonic' and argument.kind=='call' and argument.value=='BYNAME' and 'BYNAME' not in self.routines:
-                if len(argument.args)!=3: self.error('E_ARGUMENTS','BYNAME requires three arguments',argument.token)
-                self.check_for_call(argument.token)
-                if self.named_active_counters() or self.protection_root(argument.args[2]) in self.active_counters: self.error('E_FOR_COUNTER','BYNAME cannot alias or write an active FOR counter',argument.token)
-                program=self.require_type(argument.args[0],'STRING');path=self.require_type(argument.args[1],'STRING')
-                entry=argument.args[2]
-                if entry.kind not in ('name','field','index') or self.root_name(entry) in self.visible_constants():
-                    self.error('E_OUTPUT_ARGUMENT','BYNAME entry requires writable INTEGER storage',entry.token)
-                if self.is_position_read_only_access(entry) or self.is_value_only_subfield(entry):
-                    self.error('E_OUTPUT_ARGUMENT','BYNAME entry requires ordinary writable INTEGER storage',entry.token)
-                code,spec=self.reference(entry)
-                if spec!=('INTEGER',): self.error('E_TYPE','BYNAME entry requires exact INTEGER storage',entry.token)
-                arguments.append(f'self._state.byname_argument({expected!r},{program},{path},{code},{line})')
-                self.features.update(('BYNAME','extended services','parameter by reference'))
-                self.service_uses.append(dict(operation='BYNAME',body=self.current_routine.name if self.current_routine else self.program.name,line=line,column=argument.token.column))
+            byname = check_byname_argument(argument, mode=self.mode, routines=self.routines, error=self.error)
+            if byname is not None:
+                arguments.append(self.lower_byname_argument(byname, expected))
                 continue
             if self.is_position_read_only_access(argument) and not self.is_system_pose_path(argument):
                 self.error('E_POSITION_READ_ONLY_ARG', 'Bare POSITION orientation arguments need read-only passing evidence; use an explicit scalar expression for a value', argument.token)
-            # Bare variable and indexed-variable arguments retain their storage.
-            # Any grouping node, constant or expression is a temporary value.
-            file_prefix=self.file_prefix_spec(argument)
-            is_reference = (argument.kind in ('name', 'index', 'field') and self.root_name(argument) not in self.visible_constants()
-                            and (not self.is_array_prefix_value(argument) or file_prefix is not None) and not self.is_system_pose_path(argument))
+            is_reference, file_prefix = self.routine_argument_storage(argument)
             if is_reference:
-                code,actual=(self.file_prefix_argument(argument,routine,formal) if file_prefix is not None else self.reference(argument))
+                if file_prefix is None:
+                    code, actual = self.reference(argument)
+                else:
+                    code, actual = self.file_prefix_argument(argument, routine, formal, file_prefix)
                 if self.is_value_only_subfield(argument):
                     value, actual = self.expression(argument)
                     code = f'_rt.value_argument({expected!r}, {value}, {line})'
@@ -902,21 +881,19 @@ class ExpressionLowering:
                         self.features.add('CONFIG subfield value argument');self.config_value_uses.append(row)
             else:
                 value, actual = self.expression(argument)
-                if actual[0]=='ARRAY' and rt.file_storage_type(actual):
-                    self.error('E_FILE_ARRAY_VALUE','FILE ARRAY arguments require borrowed storage without grouping',argument.token)
-                if self.mode=='pythonic' and rt.collection_type(actual):
-                    if expected!=actual:
-                        value=self.path_conversion_value(expected,actual,value,argument.token,'ARGUMENT')
-                        actual=expected
-                    code=f'_rt.collection_argument({expected!r},{value},{line},source_spec={actual!r})'
-                    self.features.add('private logical scalar collection argument')
-                elif self.mode=='pythonic' and rt.collection_array_type(actual):
-                    if not rt.collection_array_source_accepts(expected,actual):
-                        value=self.path_conversion_value(expected,actual,value,argument.token,'ARGUMENT')
-                        actual=expected
-                    code=f'_rt.collection_array_argument({expected!r},{value},{line},source_spec={actual!r})'
-                    self.features.add('private logical collection ARRAY argument')
-                else:code = f'_rt.value_argument({expected!r}, {value}, {line})'
+                capture = check_routine_value_storage(expected, actual, argument.token, mode=self.mode, error=self.error)
+                if capture is None:
+                    code = f'_rt.value_argument({expected!r}, {value}, {line})'
+                else:
+                    if capture.needs_conversion:
+                        value = self.path_conversion_value(expected, actual, value, argument.token, 'ARGUMENT')
+                    actual = capture.value_schema
+                    if capture.is_array:
+                        code = f'_rt.collection_array_argument({expected!r},{value},{line},source_spec={actual!r})'
+                        self.features.add('private logical collection ARRAY argument')
+                    else:
+                        code = f'_rt.collection_argument({expected!r},{value},{line},source_spec={actual!r})'
+                        self.features.add('private logical scalar collection argument')
             source_actual=actual;cartesian_conversion=False;conversion_kind='none'
             plan = plan_routine_argument(expected, actual, mode=self.mode, reference=is_reference)
             conversion = plan.conversion
