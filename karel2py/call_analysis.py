@@ -5,19 +5,8 @@ from . import extended as ex
 from . import runtime as rt
 from .compiler_language import INTEGRAL_TYPES, NARROW_TYPES
 from .lexer import Token
+from .schema_conversion import pythonic_schema_conversion
 from .syntax import Expr
-
-
-CARTESIAN_TYPES = ('POSITION', 'XYZWPR', 'XYZWPREXT')
-PYTHONIC_CONVERSIONS = (
-    ('real_integral', rt.real_integral_kind),
-    ('config_word', rt.config_word_kind),
-    ('numeric_array', rt.numeric_array_kind),
-    ('positional_array', rt.positional_array_kind),
-    ('kinematic_array', rt.kinematic_array_kind),
-    ('kinematic_record', rt.kinematic_record_kind),
-    ('record_schema', rt.record_schema_kind),
-)
 
 
 def array_formal_forward_match(expected, actual):
@@ -37,29 +26,15 @@ def array_formal_forward_match(expected, actual):
     )
 
 
-def _pythonic_interface_conversion(expected, actual, *, guarded_array=False, array_result=False):
-    for conversion, matches in PYTHONIC_CONVERSIONS:
-        if matches(expected, actual):
-            return conversion
-    if ((array_result or not guarded_array) and rt.array_schema_compatible(expected, actual)
-            and (array_result or not rt.parameter_accepts(expected, actual))):
-        return 'array_schema'
-    target_kind, source_kind = expected[0], actual[0]
-    if target_kind == source_kind == 'JOINTPOS' and expected != actual:
-        return 'joint_width'
-    if (target_kind == 'JOINTPOS' and source_kind in CARTESIAN_TYPES
-            or source_kind == 'JOINTPOS' and target_kind in CARTESIAN_TYPES):
-        return 'kinematic'
-    if expected != actual and target_kind in CARTESIAN_TYPES and source_kind in CARTESIAN_TYPES:
-        return 'cartesian'
-    return None
-
-
 def routine_argument_conversion(expected, actual, *, mode, guarded_array=False):
     """Return the selected value conversion, or None if no conversion applies."""
     target_kind, source_kind = expected[0], actual[0]
     if mode == 'pythonic':
-        conversion = _pythonic_interface_conversion(expected, actual, guarded_array=guarded_array)
+        def array_value_conversion(target, source):
+            return (not guarded_array and rt.array_schema_compatible(target, source)
+                    and not rt.parameter_accepts(target, source))
+
+        conversion = pythonic_schema_conversion(expected, actual, array_conversion=array_value_conversion)
         if conversion is not None:
             return conversion
         if target_kind in NARROW_TYPES and source_kind in INTEGRAL_TYPES and actual != expected:
@@ -178,7 +153,7 @@ def check_routine_result(expected, actual, operand, token, *, mode, compatible, 
                           operand.token)
                 conversion = 'collection_schema'
             return RoutineResultPlan(expected, actual, conversion, collection='array')
-        conversion = _pythonic_interface_conversion(expected, actual, array_result=True)
+        conversion = pythonic_schema_conversion(expected, actual, array_conversion=rt.array_schema_compatible)
     plan = RoutineResultPlan(expected, actual, conversion)
     if not compatible(expected, plan.value_schema):
         error('E_RETURN', 'Wrong function return type', token)

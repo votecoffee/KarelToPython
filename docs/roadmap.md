@@ -16,9 +16,10 @@ analysis checks routine binding plans, BYNAME operands, collection capture,
 and service operand schemas. Scoped type queries identify borrowable FILE
 prefixes and check service storage. Routine and service generation have dedicated
 modules. Routine argument and result plans share conversion selection while
-keeping their distinct ARRAY and collection checks. Next, separate assignment
-validation and conversion from statement emission, starting with aggregate
-assignments and routine result receivers. The runtime and
+keeping their distinct ARRAY and collection checks. Assignment analysis and
+generation now cover ordinary writes, ARRAY prefixes, collection copies, and
+routine result receivers. Next, isolate system pose and frame/tool selection
+writes, then separate the remaining staged statement I/O. The runtime and
 extended services can be split by ownership after their boundaries are covered
 with regressions. See [compiler architecture](compiler-architecture.md).
 

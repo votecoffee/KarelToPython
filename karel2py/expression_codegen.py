@@ -83,50 +83,6 @@ class ExpressionLowering:
         receiver=repr(expected) if receiver is None else receiver
         return f'self._state.{method}({receiver},{value},{token.line},source_spec={actual!r})'
 
-    def collection_assignment(self,target,expression,token):
-        reference,expected=self.reference(target)
-        value,actual=self.expression(expression)
-        source=self.fresh();line=token.line
-        if expected==actual:
-            value=f'_rt.collection_source_value({actual!r},{value},{line},source_spec={actual!r})'
-        else:value=self.path_conversion_value(expected,actual,value,token,'ASSIGNMENT')
-        self.line(f'{source}={value}',token)
-        self.line(f'_rt.collection_assign({reference},{source},{line})',token)
-        self.features.add('logical scalar collection source copy')
-
-    def collection_array_assignment(self,target,expression,token):
-        reference,expected=self.reference(target,allow_prefix=True,collection_prefix=True)
-        value,actual=self.expression(expression,allow_array_result=True)
-        source=self.fresh();line=token.line
-        if rt.collection_array_source_accepts(expected,actual):
-            value=f'_rt.collection_array_source_value({actual!r},{value},{line},source_spec={actual!r})'
-        elif (target.kind=='name' and self.current_routine is not None and None in rt.array_shape(expected)
-              and any(name.value==target.value for name,_ in self.current_routine.parameters)):
-            self.line(f'{source}={value}',token)
-            value=self.path_conversion_value(expected,actual,source,token,'ASSIGNMENT',receiver=f'({reference}).spec')
-        else:value=self.path_conversion_value(expected,actual,value,token,'ASSIGNMENT')
-        self.line(f'{source}={value}',token)
-        self.line(f'_rt.collection_array_assign({reference},{source},{line})',token)
-        self.features.add('logical collection ARRAY source copy')
-
-    def prefix_assignment(self,target,expression,token):
-        reference,expected=self.reference(target,allow_prefix=True)
-        value,actual=self.expression(expression,allow_array_result=True)
-        context=rt.kinematic_array_kind(expected,actual) or rt.kinematic_record_kind(expected,actual)
-        if (actual[0]!='ARRAY' or not (self.compatible(expected,actual) or rt.array_schema_compatible(expected,actual)
-                or rt.numeric_array_kind(expected,actual) or rt.positional_array_kind(expected,actual)
-                or context or rt.record_schema_kind(expected,actual))):
-            self.error('E_TYPE',f'Cannot assign {actual} to ARRAY prefix {expected}',token)
-        source=self.fresh();captured=self.fresh();line=token.line
-        self.line(f'{source} = _rt.assignment_value({value},{line})',token)
-        self.line(f'{captured} = {reference}',token)
-        schema=f',source_spec={actual!r}' if rt.record_schema_kind(expected,actual) or rt.kinematic_record_kind(expected,actual) else ''
-        self.line(f'{captured}.set(self._state.array_assignment_value({source},{captured}.spec,{line}{schema}),{line})',token)
-        if context:
-            self.features.add('extended services')
-            if self.current_routine:self.current_routine.may_services=True
-        self.features.add('statement ARRAY prefix assignment')
-
     def index_code(self, expr, spec, *, allow_prefix=False, prefix_target=False, collection_prefix=False):
         indexes = expr.args[1:]
         if self.mode!='pythonic' and expr.args[0].kind == 'index':

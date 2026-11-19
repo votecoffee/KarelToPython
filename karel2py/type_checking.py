@@ -2,6 +2,7 @@
 from . import extended as ex
 from . import runtime as rt
 from .call_analysis import plan_routine_argument
+from .syntax import Expr
 from .compiler_language import (
     BUILTIN_SIGNATURES,
     CONTROLLER_NAMES,
@@ -101,6 +102,25 @@ class TypeQueries:
         actual = prefix if prefix is not None else self.access_type(argument)
         plan = plan_routine_argument(expected, actual, mode=self.mode, reference=True)
         return plan.by_reference and not self.is_value_only_subfield(argument)
+
+    def is_routine_formal(self, expr):
+        return (expr.kind == 'name' and self.current_routine is not None
+                and any(formal.value == expr.value for formal, _ in self.current_routine.parameters))
+
+    def check_assignment_target(self, target, value):
+        if self.root_name(target) in self.visible_constants():
+            self.error('E_CONST_ASSIGN', 'Cannot assign to CONST', target.token)
+        if self.protection_root(target) in self.active_counters:
+            self.error('E_FOR_COUNTER', 'FOR counter writes inside its loop are blocked', target.token)
+        if self.mode == 'strict' and self.has_routine_call(target):
+            self.error('E_EVALUATION_ORDER', 'Routine calls in assignment target indexes need evaluation-order validation', target.token)
+        if (self.mode == 'strict' and any(isinstance(node, Expr) and node.kind == 'index' for node in self.walk_nodes(target))
+                and self.has_external_effect_call(value)):
+            self.error('E_EVALUATION_ORDER',
+                       'Effectful function results assigned to indexed targets need target/value evaluation-order validation', target.token)
+        if self.is_position_read_only_access(target):
+            self.error('E_POSITION_READ_ONLY',
+                       'POSITION NORMAL, ORIENT and APPROACH fields and their components are read-only', target.token)
 
     def check_byname_counter(self, operand):
         if self.named_active_counters() or self.protection_root(operand.entry) in self.active_counters:

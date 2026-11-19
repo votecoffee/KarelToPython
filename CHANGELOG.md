@@ -1,5 +1,11 @@
 # Changelog
 
+## 26.1119.234539 - 2026-11-19
+
+- Check assignment schemas before emitting scalar, aggregate, and collection
+  writes. Share conversion selection with routine arguments and returns while
+  preserving concrete ARRAY receiver checks and source-before-destination order.
+
 ## 26.1119.233726 - 2026-11-19
 
 - Generate routine calls and RETURN values in a dedicated module. Use checked

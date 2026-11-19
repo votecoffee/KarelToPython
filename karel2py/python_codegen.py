@@ -4,7 +4,6 @@ import re
 from .compiler_language import (
     BUILTIN_PROCEDURES,
     CONFIG_TEXT_PROCEDURES,
-    DATA_RECORD_TYPES,
     INTEGRAL_TYPES,
     JOINT_PROCEDURES,
     MULTI_OUTPUT_PROCEDURES,
@@ -13,6 +12,7 @@ from .compiler_language import (
     SKIPPABLE_STATEMENTS,
     TIME_TEXT_PROCEDURES,
 )
+from .assignment_codegen import AssignmentLowering
 from .declarations import DeclarationPasses
 from .syntax import Expr, Statement
 from .select_analysis import check_select
@@ -27,7 +27,7 @@ from . import extended as ex
 from . import runtime as rt
 
 
-class Emitter(DeclarationPasses, TypeQueries, ExpressionLowering, RoutineLowering, ServiceCallLowering):
+class Emitter(DeclarationPasses, TypeQueries, ExpressionLowering, AssignmentLowering, RoutineLowering, ServiceCallLowering):
     """Emit a Python module from a parsed program and its checked declarations."""
 
     def __init__(self, program, filename, array_shapes=None, mode='strict', cooperative=False):
@@ -760,142 +760,8 @@ class Emitter(DeclarationPasses, TypeQueries, ExpressionLowering, RoutineLowerin
             if joint_conversion:self.system_pose_writes[-1].update(kinematic_conversion=True,stored_type=('XYZWPREXT',))
             self.features.update(('robot system pose assignment','extended services'));return
         if kind == 'assign':
-            target, expr = stmt.args
-            if self.mode=='pythonic' and target.kind=='index' and target.args[0].kind=='name' and target.args[0].value in ex.PORT_TYPES and target.args[0].value not in self.types:
-                kind=target.args[0].value
-                if kind not in ex.OUTPUT_PORTS: self.error('E_PORT_DIRECTION','Cannot assign an input port',target.token)
-                value=self.require_type(expr,ex.PORT_TYPES[kind]); temp=self.fresh(); self.line(f'{temp}={value}',token)
-                if len(target.args)!=2: self.error('E_ARGUMENTS','Ports require one index',target.token)
-                index=self.require_type(target.args[1],'INTEGER'); self.features.add('ports')
-                self.line(f'self._state.port_write({kind!r},{index},{temp},{line})',token); return
-            root = self.root_name(target)
-            if root in self.visible_constants(): self.error('E_CONST_ASSIGN', 'Cannot assign to CONST', target.token)
-            if self.protection_root(target) in self.active_counters: self.error('E_FOR_COUNTER', 'FOR counter writes inside its loop are blocked', target.token)
-            if self.mode == 'strict' and self.has_routine_call(target):
-                self.error('E_EVALUATION_ORDER', 'Routine calls in assignment target indexes need evaluation-order validation', target.token)
-            if self.mode == 'strict' and any(isinstance(node, Expr) and node.kind == 'index' for node in self.walk_nodes(target)) and self.has_external_effect_call(expr):
-                self.error('E_EVALUATION_ORDER', 'Effectful function results assigned to indexed targets need target/value evaluation-order validation', target.token)
-            if self.is_position_read_only_access(target):
-                self.error('E_POSITION_READ_ONLY', 'POSITION NORMAL, ORIENT and APPROACH fields and their components are read-only', target.token)
-            selected_target=target
-            while selected_target.kind=='group':selected_target=selected_target.args[0]
-            if self.is_array_prefix_value(selected_target):
-                if rt.collection_array_type(self.access_type(selected_target.args[0])):
-                    self.collection_array_assignment(target,expr,token);return
-                self.prefix_assignment(target,expr,token)
-                return
-            reference, target_type = self.reference(target)
-            if target_type[0]=='ARRAY' and rt.file_storage_type(target_type):
-                self.error('E_FILE_ARRAY_VALUE','FILE ARRAY storage cannot be assigned; pass its reference',target.token)
-            if self.mode=='pythonic' and rt.collection_type(target_type):
-                self.collection_assignment(target,expr,token);return
-            if self.mode=='pythonic' and rt.collection_array_type(target_type):
-                self.collection_array_assignment(target,expr,token);return
-            value, value_type = self.expression(expr, allow_array_result=True)
-            generic_receiver=(self.mode=='pythonic' and target_type[0]=='ARRAY' and target.kind=='name'
-                and self.current_routine is not None and target.value in {name.value for name,_ in self.current_routine.parameters}
-                and rt.array_identity(target_type) is None)
-            if generic_receiver and (self.compatible(target_type,value_type) or rt.array_schema_compatible(target_type,value_type)
-                    or rt.numeric_array_kind(target_type,value_type) or rt.positional_array_kind(target_type,value_type) or rt.kinematic_array_kind(target_type,value_type) or rt.record_schema_kind(target_type,value_type) or rt.kinematic_record_kind(target_type,value_type)):
-                source_schema=f',source_spec={value_type!r}' if rt.record_schema_kind(target_type,value_type) or rt.kinematic_record_kind(target_type,value_type) else ''
-                value=f'self._state.array_assignment_value({value},({reference}).spec,{line}{source_schema})'
-                self.features.add('runtime ARRAY receiver schema')
-                self.array_schema_uses.append(dict(operation='ASSIGNMENT',body=self.current_routine.name,line=line,column=token.column,
-                    source_type_spec=value_type,target_type_spec=target_type,schema_change_kind='dynamic_receiver',
-                    evaluated_once=True,independent_value=True,actual_receiver_schema=True))
-                if rt.kinematic_array_kind(target_type,value_type):
-                    self.current_routine.may_services=True;self.features.update(('extended services','kinematic ARRAY conversion'))
-                    self.kinematic_array_uses.append(dict(operation='ASSIGNMENT',body=self.current_routine.name,line=line,column=token.column,
-                        source_type_spec=value_type,target_type_spec=target_type,evaluated_once=True,independent_value=True,actual_receiver_schema=True))
-                if rt.kinematic_record_kind(target_type,value_type):
-                    self.current_routine.may_services=True;self.features.update(('extended services','kinematic STRUCTURE conversion'))
-                    self.kinematic_record_uses.append(dict(operation='ASSIGNMENT',body=self.current_routine.name,line=line,column=token.column,
-                        source_type_spec=value_type,target_type_spec=target_type,conversion_kind='record_array',
-                        evaluated_once=True,independent_value=True,actual_receiver_schema=True,geometry_preflight=True))
-                if rt.record_schema_kind(target_type,value_type):
-                    self.record_schema_uses.append(dict(operation='ASSIGNMENT',body=self.current_routine.name,line=line,column=token.column,
-                        source_type_spec=value_type,target_type_spec=target_type,conversion_kind='record_array',
-                        evaluated_once=True,independent_value=True,actual_receiver_schema=True))
-            elif self.mode=='pythonic' and rt.real_integral_kind(target_type,value_type):
-                value=f'_rt.real_integral_value({target_type!r},{value},{line})'
-                self.features.add('checked REAL to integral assignment')
-            elif self.mode=='pythonic' and rt.config_word_kind(target_type,value_type):
-                value=self.config_word_conversion(target_type,value_type,value,token,'ASSIGNMENT')
-            elif self.mode=='pythonic' and rt.numeric_array_kind(target_type,value_type):
-                value=f'_rt.convert_numeric_array({target_type!r},{value},{line})'
-                self.features.add('numeric ARRAY conversion')
-                self.numeric_array_uses.append(dict(operation='ASSIGNMENT',body=self.current_routine.name if self.current_routine else self.program.name,
-                    line=line,column=token.column,source_type_spec=value_type,target_type_spec=target_type,
-                    evaluated_once=True,independent_value=True))
-            elif self.mode=='pythonic' and rt.positional_array_kind(target_type,value_type):
-                value=f'_rt.convert_positional_array({target_type!r},{value},{line})'
-                self.features.add('positional ARRAY conversion')
-                self.positional_array_uses.append(dict(operation='ASSIGNMENT',body=self.current_routine.name if self.current_routine else self.program.name,
-                    line=line,column=token.column,source_type_spec=value_type,target_type_spec=target_type,
-                    evaluated_once=True,independent_value=True))
-            elif self.mode=='pythonic' and rt.kinematic_array_kind(target_type,value_type):
-                value=f'self._state.kinematic_array({target_type!r},{value},{line})'
-                self.features.update(('extended services','kinematic ARRAY conversion'))
-                if self.current_routine:self.current_routine.may_services=True
-                self.kinematic_array_uses.append(dict(operation='ASSIGNMENT',body=self.current_routine.name if self.current_routine else self.program.name,
-                    line=line,column=token.column,source_type_spec=value_type,target_type_spec=target_type,
-                    evaluated_once=True,independent_value=True))
-            elif self.mode=='pythonic' and rt.kinematic_record_kind(target_type,value_type):
-                value=f'self._state.kinematic_record({target_type!r},{value},{line},source_spec={value_type!r})'
-                self.features.update(('extended services','kinematic STRUCTURE conversion'))
-                if self.current_routine:self.current_routine.may_services=True
-                self.kinematic_record_uses.append(dict(operation='ASSIGNMENT',body=self.current_routine.name if self.current_routine else self.program.name,
-                    line=line,column=token.column,source_type_spec=value_type,target_type_spec=target_type,
-                    conversion_kind=rt.kinematic_record_kind(target_type,value_type),evaluated_once=True,independent_value=True,geometry_preflight=True))
-            elif self.mode=='pythonic' and rt.record_schema_kind(target_type,value_type):
-                value=f'_rt.convert_record_schema({target_type!r},{value},{line},source_spec={value_type!r})'
-                self.features.add('source STRUCTURE schema conversion')
-                self.record_schema_uses.append(dict(operation='ASSIGNMENT',body=self.current_routine.name if self.current_routine else self.program.name,
-                    line=line,column=token.column,source_type_spec=value_type,target_type_spec=target_type,
-                    conversion_kind=rt.record_schema_kind(target_type,value_type),evaluated_once=True,independent_value=True))
-            elif self.mode=='pythonic' and rt.array_schema_kind(target_type,value_type):
-                value=f'_rt.convert_array_schema({target_type!r},{value},{line})'
-                self.features.add('source ARRAY schema conversion')
-                self.array_schema_uses.append(dict(operation='ASSIGNMENT',body=self.current_routine.name if self.current_routine else self.program.name,
-                    line=line,column=token.column,source_type_spec=value_type,target_type_spec=target_type,
-                    schema_change_kind=rt.array_schema_kind(target_type,value_type),evaluated_once=True,independent_value=True))
-            elif self.mode=='pythonic' and target_type[0]==value_type[0]=='JOINTPOS' and target_type!=value_type:
-                value=f'_rt.convert_joint_width({target_type!r},{value},{line})'
-                self.features.add('checked joint width conversion')
-                self.joint_width_uses.append(dict(operation='ASSIGNMENT',body=self.current_routine.name if self.current_routine else self.program.name,
-                    line=line,column=token.column,source_type_spec=value_type,target_type_spec=target_type,
-                    evaluated_once=True,independent_value=True))
-            elif (self.mode=='pythonic' and ((target_type[0]=='JOINTPOS' and value_type[0] in ('POSITION','XYZWPR','XYZWPREXT')) or (value_type[0]=='JOINTPOS' and target_type[0] in ('POSITION','XYZWPR','XYZWPREXT')))):
-                value=f'self._state.kinematic_assignment({target_type!r},{value},{line})'
-                self.features.update(('extended services','kinematic assignment'))
-                if self.current_routine: self.current_routine.may_services=True
-                self.kinematic_assignment_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
-                    line=line,column=token.column,source_type=value_type,target_type=target_type,target_kind=target.kind,
-                    evaluated_once=True,independent_value=True))
-            elif (self.mode == 'pythonic' and target_type!=value_type and target_type[0] in ('POSITION','XYZWPR','XYZWPREXT') and value_type[0] in ('POSITION','XYZWPR','XYZWPREXT')):
-                value = f'_rt.convert_position({target_type!r}, {value}, {line})'
-                self.features.add('POSITION/XYZWPR assignment conversion')
-                self.position_conversion_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
-                                                          line=line, column=token.column, source_type=value_type[0], target_type=target_type[0],
-                                                          target_kind=target.kind, evaluated_once=True, independent_value=True))
-            elif not self.compatible(target_type, value_type):
-                self.error('E_TYPE', f'Cannot assign {value_type} to {target_type}', token)
-            result_expr = expr
-            if self.mode == 'pythonic':
-                while result_expr.kind == 'group': result_expr = result_expr.args[0]
-            if result_expr.kind == 'call' and value_type[0] == 'ARRAY':
-                self.features.add('direct ARRAY result assignment')
-                self.array_result_assignments.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
-                                                          routine=result_expr.value, line=line, column=token.column,
-                                                          target_kind=target.kind, target_type=target_type,
-                                                          evaluated_once=True, runtime_exact_type_and_size=True))
-            if target_type[0] == 'STRUCTURE': self.features.add('whole STRUCTURE assignment')
-            if target_type[0] in DATA_RECORD_TYPES: self.features.add('whole ' + target_type[0] + ' data copy')
-            if self.mode == 'pythonic':
-                temporary = self.fresh()
-                self.line(f'{temporary} = _rt.assignment_value({value}, {line})', token)
-                value = temporary
-            self.line(f'{reference}.set({value}, {line})', token)
+            target, value = stmt.args
+            self.lower_assignment(target, value, token)
         elif kind == 'using':
             self.emit_using_entry(stmt)
             self.block(stmt.body)
