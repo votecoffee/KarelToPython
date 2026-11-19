@@ -43,7 +43,7 @@ def route_array_shapes(sources,array_shapes,library):
 
     # Use the same parser and expansion as translation. A filename or a regex on
     # source text cannot identify a program/global hidden in an include.
-    from .compiler import Parser
+    from .parser import Parser
     declarations={};programs={}
     for filename,source in sources.items():
         expansion=expand(source,str(filename),library)
@@ -110,7 +110,7 @@ class Project:
         catalog=None
         if array_context is not None:
             from .array_context import prepare
-            from .compiler import Parser
+            from .parser import Parser
             catalog=prepare(array_context);programs=[];names=set()
             for filename,source in sources.items():
                 expansion=expand(source,str(filename),library)

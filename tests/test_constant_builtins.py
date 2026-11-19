@@ -151,7 +151,7 @@ class ConstantBuiltinGuards(unittest.TestCase):
         self.assertEqual(caught.exception.code,'E_CONSTANT')
 
     def test_bounded_evaluation_count(self):
-        with mock.patch('karel2py.compiler.MAX_CONSTANT_BUILTIN_CALLS',1):self.reject('CONST a=ABS(-1) b=ABS(-2)',body='')
+        with mock.patch('karel2py.declarations.MAX_CONSTANT_BUILTIN_CALLS',1):self.reject('CONST a=ABS(-1) b=ABS(-2)',body='')
 
     def test_nested_call_limit(self):
         valid='ABS('*64+'1'+')'*64

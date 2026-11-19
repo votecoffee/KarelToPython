@@ -1,0 +1,1690 @@
+"""Generate Python statements, routine bodies, dispatch and module scaffolding."""
+import ast
+import re
+from .compiler_language import (
+    BUILTIN_PROCEDURES,
+    CONFIG_TEXT_PROCEDURES,
+    DATA_RECORD_TYPES,
+    INTEGRAL_TYPES,
+    JOINT_PROCEDURES,
+    MULTI_OUTPUT_PROCEDURES,
+    NARROW_TYPES,
+    POSITIONAL_VALUE_TYPES,
+    REGISTER_PROCEDURES,
+    SKIPPABLE_STATEMENTS,
+    TIME_TEXT_PROCEDURES,
+)
+from .declarations import DeclarationPasses
+from .syntax import Expr, Statement
+from .expression_codegen import ExpressionLowering
+from .control_flow import FlowGraph, counter_text, validate_labels
+from .lexer import Token, TranslationError
+from . import __version__
+from . import extended as ex
+from . import runtime as rt
+
+
+class Emitter(DeclarationPasses, ExpressionLowering):
+    """Emit a Python module from a parsed program and its checked declarations."""
+
+    def __init__(self, program, filename, array_shapes=None, mode='strict', cooperative=False):
+        self.program, self.filename = program, filename
+        self.mode = mode
+        self.constants, self.types, self.routines, self.user_types = {}, {}, {}, {}
+        self.type_aliases = []
+        self.file_prefix_argument_uses=[]
+        self.constant_dependency_uses=[];self.constant_resolution_order=[]
+        self.array_formal_uses=[];self.array_forward_uses=[]
+        self.string_formal_uses=[];self.string_forward_uses=[]
+        self.short_circuit_expressions=set()
+        self.constant_builtin_uses=[];self._constant_builtin_cache={};self._constant_builtin_depth=0
+        self._constant_declaration=None
+        self.type_dependency_uses=[];self.type_resolution_order=[];self._type_schema_costs={}
+        self.predefined_structure_uses = []
+        self.lines, self.source_map, self.features = [], [], set()
+        self.source_checkpoints=set()
+        self.skippable_checkpoints=set()
+        self.indent, self.temporary = 0, 0
+        self.current_routine = None
+        self.cooperative=mode=='pythonic' and (cooperative or any(isinstance(node,Statement) and node.kind in ('file_read','file_write','write_items','file_cancel','pulse','task_control','condition','condition_control','timer_connect','timer_disconnect','signal_event','signal_semaphore','motion','motion_action','motion_control') or isinstance(node,Expr) and (node.kind in ('event','edge','semaphore') or node.kind=='call' and node.value in {'PAUSE_TASK','CONT_TASK','ABORT_TASK','RUN_TASK'}|ex.COOPERATIVE_PROCEDURES) for body in (program.body,*[r.body for r in program.routines]) for node in self.walk_nodes(body)) or any(r.external for r in program.routines))
+        if mode=='pythonic' and any(row['name'] in rt.TASK_DIRECTIVES for row in program.directive_metadata): self.cooperative=True
+        self.group_uses=[]
+        self.using_scopes = []
+        self.active_counters = set()
+        self.private_using_roots = {}
+        self.escaped_private_using_roots = set()
+        self.retained_timer_alias_roots=set()
+        self.retained_path_counter_roots=set()
+        self.unknown_path_counter_alias=False
+        self.reference_for_uses=[]
+        self.connected_timer_uses=[]
+        self.handler_uses=[]
+        self.system_pose_uses=[]
+        self.system_pose_writes=[]
+        self.system_selection_uses=[]
+        self.external_write_routines=set()
+        self.control_flow = dict(program=None, routines={}, jump_policy='body_labels_no_new_for_or_using' if mode=='pythonic' else 'same_block_or_ancestor_no_for', controller_validated=False)
+        self.select_scopes = []
+        self.subarray_uses = []
+        self.array_index_chains = []
+        self.array_prefix_uses = []
+        self.array_prefix_target_uses = []
+        self.delay_uses = []
+        self.wait_uses = []
+        self.string_value_uses = []
+        self.string_return_uses = []
+        self.write_uses = []
+        self.read_uses = []
+        self.config_field_read_uses=[]
+        self.config_value_uses = []
+        self.joint_conversion_uses = []
+        self.abort_uses = []
+        self.unpos_uses = []
+        self.variable_array_uses = []
+        self.vector_return_uses = []
+        self.vector_value_uses = []
+        self.vector_constructor_uses = []
+        self.pos_constructor_uses = []
+        self.config_text_uses = []
+        self.time_text_uses = []
+        self.microsecond_timer_uses = []
+        self.register_uses = []
+        self.service_uses = []
+        self.frame_operation_uses = []
+        self.position_axis_uses = []
+        self.position_comparison_uses = []
+        self.position_conversion_uses = []
+        self.kinematic_assignment_uses = []
+        self.kinematic_interface_uses=[]
+        self.kinematic_array_uses=[]
+        self.kinematic_record_uses=[]
+        self.path_schema_uses=[]
+        self.joint_width_uses=[]
+        self.positional_array_uses=[]
+        self.numeric_array_uses=[]
+        self.config_word_uses=[]
+        self.association_value_uses=[]
+        self.joint_axis_uses=[]
+        self.array_schema_uses=[]
+        self.record_schema_uses=[]
+        self.joint_geometry_uses = []
+        self.pulse_uses = []
+        self.motion_uses = []
+        self.initialization_query_uses = []
+        self.structure_return_uses = []
+        self.structure_value_uses = []
+        self.positional_return_uses = []
+        self.positional_value_uses = []
+        self.trig_uses = []
+        self.atan2_uses = []
+        self.array_return_uses = []
+        self.array_result_assignments = []
+        self.array_function_uses = []
+        self.array_value_uses = []
+        self.bare_function_uses = []
+        self.array_shapes = {}
+        context_token = Token('NAME', '<array_shapes>', 1, 1)
+        if array_shapes is not None:
+            if type(array_shapes) is not dict:
+                self.error('E_ARRAY_CONTEXT', 'array_shapes must be a dict of global variable names to dimension lists/tuples', context_token)
+            for name, shape in array_shapes.items():
+                if type(name) is not str or re.fullmatch(r'[A-Za-z_][A-Za-z_0-9]*', name) is None:
+                    self.error('E_ARRAY_CONTEXT', 'External ARRAY names must be ASCII KAREL identifiers', context_token)
+                key = name.upper()
+                if key in self.array_shapes:
+                    self.error('E_ARRAY_CONTEXT', f'Duplicate case-insensitive external ARRAY name {key}', context_token)
+                if type(shape) not in (tuple, list) or not 1 <= len(shape) <= 3:
+                    self.error('E_ARRAY_CONTEXT', f'{key} requires one to three explicit outer dimensions', context_token)
+                if any(type(size) is not int or not 1 <= size <= 32767 for size in shape):
+                    self.error('E_ARRAY_CONTEXT', f'{key} external dimensions must be INTEGER in 1..32767', context_token)
+                self.array_shapes[key] = tuple(shape)
+        self.array_shapes = dict(sorted(self.array_shapes.items()))
+
+    def error(self, code, message, token):
+        raise TranslationError(code, message, token, self.filename)
+
+    def line(self, text='', token=None):
+        if self.cooperative:
+            def checkpoint(match):
+                argument=match[1]
+                if self.mode=='pythonic' and token is not None and argument.isdecimal():
+                    self.source_checkpoints.add(int(argument))
+                    return f'(yield from _rt.checkpoint(self._state,{argument},_source=True))'
+                return f'(yield from _rt.checkpoint(self._state,{argument}))'
+            text=re.sub(r'^self\._state\.tick\(([^()]*)\)$',checkpoint,text)
+        self.lines.append('    ' * self.indent + text)
+        if token:
+            self.source_map.append(dict(python_line=len(self.lines), karel_line=token.line,
+                                        karel_column=token.column))
+
+    def fresh(self):
+        self.temporary += 1
+        return f'_temporary_{self.temporary}'
+
+    def block(self, statements):
+        if not statements: self.line('pass')
+        for statement in statements: self.statement(statement)
+
+    def validate_labels(self, statements):
+        conflicts = set(self.types) | set(self.visible_constants()) | set(self.user_types) | set(self.routines) | {self.program.name}
+        if self.current_routine:
+            conflicts.update(self.current_routine.local_types)
+        return validate_labels(statements, conflicts=conflicts, mode=self.mode, error=self.error)
+
+    def case_values(self,stmt,category=None):
+        result = []
+        for _, values, _ in stmt.args[1]:
+            resolved = []
+            for expr in values:
+                value = self.constant(expr)
+                if self.mode=='pythonic':
+                    try:rt.select_scalar(value,category,expr.token.line)
+                    except rt.KarelRuntimeError as exc:self.error('E_CASE','CASE constant does not match SELECT '+category+' category: '+str(exc),expr.token)
+                elif type(value) is not int or not -2147483648 <= value <= 2147483647:
+                    self.error('E_CASE','CASE values must be INTEGER constants',expr.token)
+                resolved.append(value)
+            result.append(tuple(resolved))
+        return result
+
+    def select_code(self, stmt):
+        category=None
+        if self.mode=='pythonic':
+            selector,spec=self.expression(stmt.args[0])
+            if spec[0] in (*INTEGRAL_TYPES,'REAL'):category='NUMERIC'
+            elif spec[0] in ('BOOLEAN','STRING'):category=spec[0]
+            else:self.error('E_TYPE','SELECT requires BOOLEAN, ASCII STRING or finite numeric scalar values',stmt.args[0].token)
+        else:selector=self.require_type(stmt.args[0],'INTEGER')
+        expressions=[];case_types=[];sites=[];dynamic=False
+        if self.mode=='pythonic':
+            def constant_form(expr):
+                if expr.kind in ('literal','real_literal','predefined'):return True
+                if expr.kind=='name':return expr.value in self.visible_constants()
+                return expr.kind in ('group','unary','binary') and all(constant_form(child) for child in expr.args)
+            cases=[]
+            for case_index,(_,values,_) in enumerate(stmt.args[1]):
+                row=[];codes=[];types=[]
+                for value_index,expr in enumerate(values):
+                    known=constant_form(expr)
+                    if known:
+                        value=self.constant(expr)
+                        try:rt.select_scalar(value,category,expr.token.line)
+                        except rt.KarelRuntimeError as exc:self.error('E_CASE','CASE constant does not match SELECT '+category+' category: '+str(exc),expr.token)
+                        kind='BOOLEAN' if type(value) is bool else 'INTEGER' if type(value) is int else 'REAL' if type(value) is float else 'STRING'
+                        row.append(value);code=repr(value)
+                    else:
+                        code,value_spec=self.expression(expr)
+                        kind=value_spec[0]
+                        actual='NUMERIC' if kind in (*INTEGRAL_TYPES,'REAL') else kind
+                        if actual!=category:self.error('E_CASE','CASE expression does not match SELECT '+category+' category',expr.token)
+                        code=f'_rt.select_scalar({code},{category!r},{expr.token.line})'
+                        row.append(None);dynamic=True
+                    codes.append(code);types.append(kind)
+                    sites.append(dict(clause=case_index,value_index=value_index,line=expr.token.line,column=expr.token.column,
+                        expression_kind=expr.kind,type=kind,dynamic=not known,evaluated_once=True))
+                cases.append(tuple(row));expressions.append('('+','.join(codes)+',)');case_types.append(types)
+            # Validate/capture the selector before any case expression effects.
+            selector=f'_rt.select_scalar({selector},{category!r},{stmt.token.line})'
+            table='('+','.join(expressions)+',)'
+        else:
+            cases=self.case_values(stmt,category);table=repr(tuple(cases))
+        self.select_scopes.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
+                                       line=stmt.token.line, column=stmt.token.column, case_values=cases,
+                                       case_count=len(cases), has_else=stmt.has_else,
+                                       empty_else=stmt.has_else and not stmt.alternate,
+                                       no_match='else_clause' if stmt.has_else else 'KarelRuntimeError'))
+        if self.mode=='pythonic':
+            self.select_scopes[-1].update(selector_type=spec,comparison_category=category,case_types=case_types,
+                dynamic_cases=dynamic,case_expressions=sites,case_evaluation='all_once_left_to_right_before_matching')
+            if spec[0] in ('BOOLEAN','STRING','REAL'):self.features.add('Pythonic scalar SELECT')
+            if dynamic:self.features.add('dynamic SELECT case expressions')
+        self.features.add('SELECT first matching CASE')
+        self.features.add('SELECT no-match guard')
+        category_code=f',category={category!r}' if self.mode=='pythonic' else ''
+        return f'_rt.select_case({selector}, {table}, {stmt.has_else!r}, {stmt.token.line}{category_code})'
+
+    def emit_body(self, statements):
+        labelled,transfers=self.validate_labels(statements)
+        if not labelled:
+            report = dict(engine='structured_python', labels={})
+            self.block(statements)
+        else:
+            graph = FlowGraph(statements,lower_for=self.mode=='pythonic')
+            report = graph.report()
+            self.features.add('label control-flow dispatcher')
+            pc = self.fresh()
+            frames=done=None
+            if graph.for_scopes:
+                self.features.add('FOR dispatcher scopes and checked jumps')
+                frames,done=self.fresh(),self.fresh()
+                self.line(f'{frames} = []')
+                self.line(f'{done} = object()')
+                self.line('try:');self.indent+=1
+            self.line(f'{pc} = {graph.entry!r}')
+            self.line(f'while {pc} is not None:')
+            self.indent += 1
+            self.line(f'match {pc}:')
+            self.indent += 1
+            for index, node in enumerate(graph.nodes):
+                stmt, kind = node.statement, node.kind
+                token, line = stmt.token, stmt.token.line
+                self.line(f'case {index}:', token)
+                self.indent += 1
+                previous_counters=self.active_counters
+                if graph.for_scopes:
+                    self.active_counters={self.protection_root(graph.for_scopes[scope].args[0]) for scope in node.for_scopes}
+                    self.line(f'while {frames} and {frames}[-1][0] not in {node.for_scopes!r}:')
+                    self.indent+=1;self.line(f'{frames}.pop()[1].clear()');self.indent-=1
+                    self.line(f'if tuple(_frame[0] for _frame in {frames}) != {node.for_scopes!r}:')
+                    self.indent+=1;self.line(f'raise _rt.KarelRuntimeError("Invalid generated FOR scope state", {line})');self.indent-=1
+                if kind in ('label', 'goto', 'enter'):
+                    self.features.add(stmt.kind)
+                    if kind != 'label': self.line(f'self._state.tick({line})', token)
+                    if kind == 'enter' and stmt.kind == 'using': self.emit_using_entry(stmt)
+                    self.line(f'{pc} = {node.targets[0]!r}')
+                elif kind=='for_enter':
+                    self.features.add('for');self.line(f'self._state.tick({line})',token)
+                    counter,reference,first,last,adjustment,step=self.for_values(stmt)
+                    stop,captured=self.fresh(),self.fresh()
+                    self.line(f'{captured} = {reference}')
+                    self.line(f'{captured}.set({first}, {line})')
+                    self.line(f'{frames}.append([{index}, {captured}, None])')
+                    self.line(f'{stop} = {last}')
+                    self.line(f'{frames}[-1][2] = iter(range(_rt.require({captured}.raw(), {line}), {stop} + ({adjustment}), {step}))')
+                    self.line(f'{pc} = {node.targets[0]!r}')
+                elif kind=='for_next':
+                    item=self.fresh()
+                    self.line(f'{item} = next({frames}[-1][2], {done})')
+                    self.line(f'if {item} is {done}:');self.indent+=1
+                    self.line(f'{pc} = {node.targets[1]!r}');self.indent-=1
+                    self.line('else:');self.indent+=1
+                    self.line(f'self._state.tick({line})',token)
+                    self.line(f'{frames}[-1][1].set({item}, {line})')
+                    self.line(f'{pc} = {node.targets[0]!r}');self.indent-=1
+                elif kind=='for_exit':
+                    self.line(f'{frames}.pop()[1].clear()')
+                    self.line(f'{pc} = {node.targets[0]!r}')
+                elif kind in ('if', 'while_test', 'repeat_test'):
+                    self.features.add(stmt.kind)
+                    if kind == 'if': self.line(f'self._state.tick({line})', token)
+                    condition = self.require_type(stmt.args[0], 'BOOLEAN')
+                    yes, no = node.targets
+                    self.line(f'{pc} = {yes!r} if {self.test_code(condition,line)} else {no!r}', token)
+                elif kind == 'select':
+                    self.features.add('select')
+                    self.line(f'self._state.tick({line})', token)
+                    temporary = self.fresh()
+                    self.line(f'{temporary} = {self.select_code(stmt)}', token)
+                    self.line(f'match {temporary}:')
+                    self.indent += 1
+                    for case_index, _ in enumerate(stmt.args[1]):
+                        case_token = stmt.args[1][case_index][0]
+                        self.line(f'case {case_index}:', case_token)
+                        self.indent += 1
+                        self.line(f'{pc} = {node.targets[case_index]!r}')
+                        self.indent -= 1
+                    self.line('case _:')
+                    self.indent += 1
+                    if stmt.has_else:
+                        self.line(f'{pc} = {node.targets[-1]!r}')
+                    else:
+                        self.line(f'raise _rt.KarelRuntimeError("No match in CASE", {line})', token)
+                    self.indent -= 2
+                elif kind == 'abort':
+                    self.statement(stmt)  # Terminal node: no fall-through successor.
+                else:
+                    self.statement(stmt)
+                    self.line(f'{pc} = {node.targets[0]!r}')
+                self.indent -= 1
+                self.active_counters=previous_counters
+            self.line('case _:')
+            self.indent += 1
+            self.line('raise _rt.KarelRuntimeError("Invalid generated control-flow state")')
+            self.indent -= 3
+            if graph.for_scopes:
+                self.indent-=1;self.line('finally:');self.indent+=1
+                self.line(f'while {frames}:');self.indent+=1
+                self.line(f'{frames}.pop()[1].clear()');self.indent-=2
+        report['jumps']=transfers
+        if self.current_routine: self.control_flow['routines'][self.current_routine.name] = report
+        else: self.control_flow['program'] = report
+
+    def path_node_selector(self,selector):
+        while selector.kind=='group':selector=selector.args[0]
+        if selector.kind!='index':return False
+        spec=self.relative_operand_type(selector.args[0])
+        return spec[0]=='PATH' or rt.collection_array_node_type(spec,len(selector.args)-1) is not None
+
+    def emit_using_entry(self,stmt):
+        if self.mode != 'pythonic': return
+        for name,selector,kind in zip(stmt.using_captures,stmt.args,stmt.using_capture_kinds):
+            selected=self.relative_operand_type(selector)
+            if selected[0]=='PATH':
+                if kind=='computed_value':value,_=self.expression(selector,raw=True)
+                else:value,_=self.reference(selector)
+                reference=f'_rt.using_path_header({selected!r},{value},{selector.token.line},reference={kind=="storage_reference"})'
+            elif kind=='computed_value':
+                value,spec=self.expression(selector,raw=True)
+                reference=f'_rt.value_argument({spec!r},{value},{selector.token.line})'
+            else:
+                reference,spec=self.reference(selector)
+                if self.path_node_selector(selector):
+                    reference=f'_rt.using_path_node_reference({spec!r},{reference},{selector.token.line})'
+                    self.features.add('stable PATH node USING capture')
+            self.line(f'{name} = {reference}',selector.token)
+
+    def for_values(self,stmt):
+        """Share the bound/type/effect proof between structured and labelled FORs."""
+        counter,initial,final,direction=stmt.args
+        token=counter.token if isinstance(counter,Expr) else counter;root=self.protection_root(counter)
+        private=root in self.private_using_roots
+        local_owner=self.current_routine.name if self.current_routine and root in {item.value for item,_ in self.current_routine.declarations} else None
+        if (local_owner,root) in self.retained_timer_alias_roots:
+            self.error('E_FOR_COUNTER','Counter root may be retained by a handler that can borrow it for a timer',token)
+        if private and root in self.escaped_private_using_roots:
+            self.error('E_FOR_COUNTER','Private USING counter root may have escaped through a potentially retained writable routine alias',token)
+        if self.cooperative and self.implicit_counter_write(root):
+            self.error('E_FOR_COUNTER','Condition action or connected timer may modify this FOR counter root',token)
+        counter_types=self.types|(self.current_routine.local_types if self.current_routine else {})|self.private_using_roots
+        if root not in counter_types or root in self.visible_constants():
+            self.error('E_FOR_COUNTER','FOR counter requires declared writable integral scalar storage',token)
+        path_root=self.mode=='pythonic' and rt.path_counter_root(counter_types[root])
+        if path_root:
+            if (local_owner,root) in self.retained_path_counter_roots or local_owner is None and self.unknown_path_counter_alias:
+                self.error('E_FOR_COUNTER','PATH counter root may have a retained writable routine or dynamic alias',token)
+            if local_owner is None and root in {row[0] for row in self.program.imported_variables}:
+                self.error('E_FOR_COUNTER','PATH counters require an owned declared root; imported roots remain excluded',token)
+        if not private and self.current_routine and self.current_routine.parameters and root not in {item.value for item,_ in self.current_routine.declarations}:
+            self.error('E_FOR_COUNTER','Parameterized routines require fresh local FOR counter roots until alias effects are validated',token)
+        if root in self.active_counters:
+            self.error('E_FOR_COUNTER','Nested loops cannot reuse an active FOR counter root',token)
+        reference=None
+        if self.mode=='pythonic':
+            if (counter_types[root][0] in ('FILE','QUEUE_TYPE') or rt.resource_array_type(counter_types[root]) and not path_root
+                    or self.is_value_only_subfield(counter)):
+                self.error('E_FOR_COUNTER','FOR counters require ordinary integral leaves outside FILE/queue roots and CONFIG domains',token)
+            if self.is_position_read_only_access(counter):self.error('E_POSITION_READ_ONLY','FOR counter storage is read-only',token)
+            reference,spec=self.reference(counter)
+            if spec[0] not in INTEGRAL_TYPES:self.error('E_FOR_COUNTER','FOR counter requires an INTEGER, BYTE or SHORT scalar reference',token)
+            if path_root:
+                reference=f'_rt.path_for_reference(self._state.reference({root!r},{token.line}),{counter_types[root]!r},{reference},{token.line})'
+                self.features.add('captured PATH integral FOR counter')
+            self.reference_for_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
+                line=token.line,column=token.column,selector=counter_text(counter),root=root,kind=counter.kind,
+                captured_once=True,cleanup='selected_scalar',write_protection='whole_root'))
+            if path_root:self.reference_for_uses[-1].update(path_counter=True,root_type_spec=counter_types[root],root_ownership='owned_declared_storage')
+            if private:
+                self.reference_for_uses[-1].update(root=None,protection_root=root,provenance='private_temporary')
+                self.features.add('private USING '+spec[0]+' FOR counter')
+            self.features.add('captured '+spec[0]+' FOR counter reference')
+        elif counter_types[root][0]!='INTEGER':
+            self.error('E_FOR_COUNTER','FOR counter must be an INTEGER variable',token)
+        first=self.require_type(initial,'INTEGER');last=self.require_type(final,'INTEGER')
+        if self.mode=='pythonic' and spec[0] in NARROW_TYPES:
+            reference=f'_rt.NarrowForCounter({reference},{token.line})'
+            last=f'_rt.for_bound({spec!r},{last},{final.token.line})'
+            self.reference_for_uses[-1].update(counter_type=spec,bound_domain=[0,255] if spec[0]=='BYTE' else [-32768,32766],
+                cleanup_marker='unknown_byte' if spec[0]=='BYTE' else 'uninitialized')
+        if self.mode=='strict' and (self.has_routine_call(initial) or self.has_routine_call(final)):
+            self.error('E_EVALUATION_ORDER','FOR bounds with routine calls are blocked',stmt.token)
+        adjustment,step=(1,1) if direction=='TO' else (-1,-1)
+        return counter,reference,first,last,adjustment,step
+
+    @staticmethod
+    def using_defaults(clauses):
+        # Handlers outlive a block entry. Freeze only enclosing references, never
+        # captures that an inner USING will allocate when its action later runs.
+        nodes=list(Emitter.walk_nodes(clauses))
+        local={name for node in nodes if isinstance(node,Statement) and node.kind=='using'
+               for name in getattr(node,'using_captures',())}
+        refs=sorted({node.value[0] for node in nodes if isinstance(node,Expr) and node.kind=='using_ref'}-local)
+        return ','.join(name+'='+name for name in refs)
+
+    def test_code(self,code,line):
+        return f'(yield from _rt.cooperative_test(self._state,lambda: {code},{line}))' if self.cooperative else f'self._state.test({code},{line})'
+
+    def implicit_counter_write(self, name):
+        """Handlers and timers can run between ordinary source statements."""
+        owners=(None,*self.program.routines)
+        current_local=self.current_routine is not None and name in {token.value for token,_ in self.current_routine.declarations}
+        for owner in owners:
+            for node in self.walk_nodes(owner.body if owner else self.program.body):
+                if not isinstance(node, Statement): continue
+                if node.kind == 'timer_connect' and self.protection_root(node.args[0]) == name:
+                    if owner is not None and name in {token.value for token,_ in owner.parameters}:continue
+                    timer_local=owner is not None and name in {token.value for token,_ in owner.declarations}
+                    if current_local==timer_local and (not current_local or owner is self.current_routine):return True
+                if node.kind != 'condition' and not (node.kind=='motion' and node.args[2] and node.body): continue
+                for action in self.walk_nodes(node.body):
+                    if isinstance(action, Statement) and action.kind in ('assign','for') and self.protection_root(action.args[0]) == name: return True
+                    if isinstance(action, Statement) and action.kind == 'read':
+                        if any(self.protection_root(item.args[0] if item.kind == 'read_item' else item) == name for item in action.args if item.kind != 'read_cr'): return True
+                    if not isinstance(action, Expr) or action.kind != 'call': continue
+                    if name not in self.private_using_roots and ex.variable_write_call(action.value,action.args): return True
+                    routine = self.routines.get(action.value)
+                    if routine:
+                        if name in routine.global_writes: return True
+                        if name in self.types and self.types[name][0] not in INTEGRAL_TYPES and routine.name in self.external_write_routines:return True
+                        if any(token.value in routine.parameter_writes and self.protection_root(value) == name and self.argument_is_reference(value,expected) for (token,expected),value in zip(routine.parameters,action.args)): return True
+                    if routine is None:
+                        outputs=[]
+                        if action.value in BUILTIN_PROCEDURES:outputs=action.args[-1:]
+                        elif action.value=='CNV_STR_CONF':outputs=action.args[1:3]
+                        elif action.value in MULTI_OUTPUT_PROCEDURES|CONFIG_TEXT_PROCEDURES|TIME_TEXT_PROCEDURES:outputs=action.args[1:]
+                        elif action.value in REGISTER_PROCEDURES:outputs=action.args[1:] if action.value=='GET_REG' else action.args[2:]
+                        if any(self.protection_root(value)==name for value in outputs):return True
+                        signature = ex.signature_for(action.value,len(action.args))
+                        if any(mode in ('o', 'r','m') and self.protection_root(value) == name for value, (mode, _) in zip(action.args, signature)): return True
+        return False
+
+    def condition_callbacks(self,clauses,*,motion_terms=None):
+        pairs=[]
+        for clause in clauses:
+            for item in reversed(list(self.walk_nodes([*clause.args,*clause.body]))):
+                if isinstance(item,Expr) and item.kind=='eval':
+                    code,spec=self.expression(item.args[0]); temporary=self.fresh()
+                    self.line(f'{temporary}=_rt.assignment_value({code},{item.token.line})',item.token)
+                    item.kind='captured'; item.value=(temporary,spec); item.args=[]
+            for item in list(self.walk_nodes(clause.args)):
+                if not isinstance(item,Expr) or item.kind!='motion_condition':continue
+                if motion_terms is None:self.error('E_MOTION_CONDITION','AT NODE/TIME requires a motion-local predicate',item.token)
+                if len(motion_terms)>=64:self.error('E_MOTION_CONDITION','MOVE supports at most 64 temporal selectors',item.token)
+                offset,node=item.args;offset_code='0';node_code=repr('*')
+                if offset is not None:
+                    code=self.require_type(offset,'INTEGER');offset_code=self.fresh()
+                    self.line(f'{offset_code}=_rt.integer({code},{offset.token.line})',offset.token)
+                if node is not None:
+                    code=self.require_type(node,'INTEGER');node_code=self.fresh()
+                    self.line(f'{node_code}=_rt.integer({code},{node.token.line})',node.token)
+                temporary=self.fresh()
+                self.line(f'{temporary}=_rt.motion_selector({item.value!r},{offset_code},{node_code},{item.token.line})',item.token)
+                motion_terms.append((temporary,dict(kind=item.value,line=item.token.line,column=item.token.column,wildcard=node is None,evaluated_once=True)))
+                item.kind='motion_event';item.value=temporary;item.args=[]
+            for action_node in self.walk_nodes(clause.body):
+                if isinstance(action_node,Statement) and action_node.kind in ('label','goto','return','condition'):
+                    self.error('E_CONDITION_ACTION','Handler actions cannot define handlers, jump or RETURN',action_node.token)
+            predicate=self.fresh(); action=self.fresh()
+            condition=self.require_type(clause.args[0],'BOOLEAN')
+            defaults=self.using_defaults([clause.args,clause.body])
+            self.line(f'def {predicate}({defaults}):'); self.indent+=1; self.line(f'return {condition}'); self.indent-=1
+            self.line(f'def {action}({defaults}):'); self.indent+=1; self.line('if False: yield None')
+            self.block(clause.body); self.indent-=1
+            pairs.append((predicate,action))
+        return pairs
+
+    def statement(self, stmt, file_code=None):
+        token, kind = stmt.token, stmt.kind
+        line = token.line
+        self.features.add(kind)
+        skippable=self.cooperative and file_code is None and kind in SKIPPABLE_STATEMENTS
+        if skippable:
+            self.source_checkpoints.add(line)
+            self.skippable_checkpoints.add(line)
+            self.line(f'if not (yield from _rt.checkpoint(self._state,{line},_source=True,_skippable=True)):',token)
+            self.indent+=1
+        elif self.cooperative and file_code is not None:
+            self.line(f'yield from _rt.checkpoint(self._state,{line})',token)
+        else:
+            self.line(f'self._state.tick({line})', token)
+        self.statement_body(stmt,file_code)
+        if skippable:self.indent-=1
+
+    def motion_path_arguments(self, operand):
+        """Separate the typed PATH selector from its optional node bounds."""
+        if operand.kind not in ('index','motion_range'):
+            return operand,None,None
+        base,*indexes=operand.args
+        end=indexes.pop() if operand.kind=='motion_range' else None
+        spec=self.access_type(base)
+        if rt.collection_array_node_type(spec,len(indexes)) is not None:
+            return Expr('index',operand.token,args=[base,*indexes[:-1]]),indexes[-1],end
+        if spec[0]=='PATH' and len(indexes)==1:
+            return base,indexes[0],end
+        if end is not None:
+            self.error('E_MOTION_TYPE','MOVE ALONG range requires a PATH and one starting node',operand.token)
+        return operand,None,None
+
+    def motion_position_expression(self, expr, operation):
+        selected=expr
+        while selected.kind=='group':selected=selected.args[0]
+        if selected.kind=='index':
+            receiver=selected.args[0]
+            base=self.access_type(receiver)
+            node=rt.collection_array_node_type(base,len(selected.args)-1)
+            if base[0]=='PATH' or node is not None:
+                code,_=self.expression(receiver,raw=True)
+                if node is None:
+                    if len(selected.args)!=2:
+                        self.error('E_ARRAY_RANK','PATH requires one node index',selected.token)
+                    index=self.require_type(selected.args[1],'INTEGER')
+                    node=base[1] or rt.PREDEFINED_STRUCTURES['STD_PTH_NODE']
+                else:
+                    index,_=self.index_code(selected,base)
+                position=dict(rt.record_fields(node)).get('NODE_POS')
+                if position is None:
+                    self.error('E_MOTION_TYPE',operation+' PATH node requires NODE_POS',expr.token)
+                return f'_rt.motion_path_node_operand({code},{index},{base!r},{expr.token.line})',position
+        return self.expression(expr)
+
+    def statement_body(self, stmt, file_code=None):
+        optional_file=self.mode=='pythonic' and file_code is None and stmt.kind in ('read','write_items')
+        token, kind = stmt.token, stmt.kind
+        line = token.line
+        if optional_file:
+            file_code=self.fresh()
+            self.line(f'{file_code}=self._state.default_file({("READ" if kind=="read" else "WRITE")!r},{line})',token)
+        if kind=='motion_control':
+            captured=[]
+            for expr in stmt.args[1] or []:
+                code=self.require_type(expr,'INTEGER');temporary=self.fresh()
+                self.line(f'{temporary}=_rt.integer({code},{expr.token.line})',expr.token);captured.append(temporary)
+            groups='None' if stmt.args[1] is None else '['+','.join(captured)+']'
+            self.features.add('offline motion requests')
+            self.motion_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
+                line=line,column=token.column,operation=stmt.args[0],nowait=False,
+                operands_evaluated_once=True,groups='owned at action time' if stmt.args[1] is None else len(captured)))
+            self.line(f'self._state.execution.require("motion",{line}).invoke(self._state,{stmt.args[0]!r},{{"groups":{groups}}},False,{line})',token)
+            return
+        if kind in ('motion','motion_action'):
+            operation=stmt.args[0];captured=[]
+            settings=[]
+            if kind=='motion':
+                for key,group,value in stmt.args[3]:
+                    group_code='None'
+                    if group is not None:
+                        code=self.require_type(group,'INTEGER');group_code=self.fresh()
+                        self.line(f'{group_code}=_rt.integer({code},{group.token.line})',group.token)
+                    expected=rt.MOTION_SETTINGS[key.value]
+                    if expected=='POSE':
+                        code,spec=self.expression(value)
+                        if spec[0] not in ('POSITION','XYZWPR','XYZWPREXT'):
+                            self.error('E_MOTION_SETTING','Motion WITH frame/tool requires a Cartesian pose',value.token)
+                    else:
+                        code=self.require_type(value,expected);spec=(expected,)
+                    temporary=self.fresh()
+                    self.line(f'{temporary}=_rt.motion_setting({key.value!r},{code},{spec!r},{value.token.line})',value.token)
+                    settings.append('{'+f'"name":{key.value!r},"group":{group_code},"value":{temporary}'+'}')
+                arguments=stmt.args[1];nowait=stmt.args[2]
+                if operation=='MOVE ALONG':
+                    arguments=self.motion_path_arguments(arguments[0])
+                names={'MOVE TO':('target','via'),'MOVE NEAR':('target','distance'),
+                    'MOVE AWAY':('distance',),'MOVE ABOUT':('vector','angle'),
+                    'MOVE AXIS':('axis','distance'),'MOVE RELATIVE':('offset',),
+                    'MOVE ALONG':('path','start','end')}[operation]
+            else:
+                arguments=stmt.args[1:];names=('hand',);nowait=False
+            for index,expr in enumerate(arguments):
+                key=names[index]
+                if expr is None:captured.append(repr(key)+':None');continue
+                if key in ('hand','axis','start','end'):
+                    code=self.require_type(expr,'INTEGER');spec=('INTEGER',)
+                elif key in ('distance','angle'):
+                    code=self.require_type(expr,'REAL');spec=('REAL',)
+                else:
+                    if key in ('target','via'):
+                        code,spec=self.motion_position_expression(expr,operation)
+                    else:
+                        code,spec=self.expression(expr)
+                    allowed=('PATH',) if key=='path' else ('VECTOR',) if key=='vector' else ('VECTOR','POSITION','XYZWPR','XYZWPREXT') if key=='offset' else ('POSITION','XYZWPR','XYZWPREXT') if operation=='MOVE NEAR' or key=='via' else ('POSITION','XYZWPR','XYZWPREXT','JOINTPOS')
+                    if spec[0] not in allowed:self.error('E_MOTION_TYPE','Unsupported '+operation+' '+key+' type: '+spec[0],expr.token)
+                temporary=self.fresh()
+                if key=='path':self.line(f'{temporary}=_rt.motion_path_operand(self._state,{code},{spec!r},{line})',expr.token)
+                else:self.line(f'{temporary}=_rt.motion_operand({code},{spec!r},{line})',expr.token)
+                captured.append(repr(key)+':'+temporary)
+            self.features.add('offline motion requests')
+            request_use=dict(body=self.current_routine.name if self.current_routine else self.program.name,
+                line=line,column=token.column,operation=operation,nowait=nowait,operands_evaluated_once=True)
+            self.motion_uses.append(request_use)
+            if settings:request_use['settings']=[dict(name=key.value,line=key.line,column=key.column,group_qualified=group is not None) for key,group,_ in stmt.args[3]]
+            data='{'+','.join(captured)+'}'
+            extra=',settings=['+','.join(settings)+']' if settings else ''
+            if kind=='motion':
+                terms=[];pairs=self.condition_callbacks(stmt.body,motion_terms=terms)
+                callbacks=','.join(f'({clause.token.value!r},{predicate},{action},{clause.token.line})' for clause,(predicate,action) in zip(stmt.body,pairs))
+                if pairs:
+                    extra+=',clauses=['+callbacks+']'
+                    request_use['local_handlers']=[dict(kind=clause.token.value,line=clause.token.line,column=clause.token.column) for clause in stmt.body]
+                    if nowait:
+                        request_use.update(callback_observation='owner_checkpoints',callback_lifetime='defining_frame_or_invocation')
+                        self.features.add('NOWAIT local motion clauses')
+                if terms:
+                    extra+=',conditions=['+','.join(name for name,_ in terms)+']'
+                    request_use['conditions']=[info for _,info in terms]
+                self.line(f'yield from self._state.execution.require("motion",{line}).execute(self._state,{operation!r},{data},{nowait!r},{line}{extra})',token)
+            else:
+                self.line(f'self._state.execution.require("motion",{line}).invoke(self._state,{operation!r},{data},{nowait!r},{line}{extra})',token)
+            return
+        if kind=='pulse':
+            if 'DOUT' in self.types or 'DOUT' in self.visible_constants(): self.error('E_PULSE','PULSE requires the unshadowed DOUT port bank',token)
+            number=self.require_type(stmt.args[0],'INTEGER');duration=self.require_type(stmt.args[1],'INTEGER')
+            self.features.update(('ports','extended services'))
+            self.pulse_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
+                line=line,column=token.column,nowait=stmt.args[2],operands_evaluated_once=True))
+            self.line(f'yield from _rt.pulse_execution(self._state,{number},{duration},{stmt.args[2]!r},{line})',token);return
+        if kind=='task_control':
+            action=stmt.args[0]
+            if len(stmt.args)>1:
+                number=self.require_type(stmt.args[1],'INTEGER')
+                self.line(f'yield from _rt.control_task(self._state,{action!r},{number},{line})',token); return
+            if action=='PAUSE': self.line(f'yield from _rt.pause_execution(self._state,{line})',token)
+            elif action=='STOP': self.line('raise _rt.KarelStop("Task stopped")',token)
+            else:
+                self.line('self._state._pause_requested=False',token)
+                if action=='CONTINUE':
+                    self.line("self._state._lifecycle['CONTINUE']+=1",token)
+                    self.line(f'yield from _rt.checkpoint(self._state,{line})',token)
+            return
+        if kind=='signal_event':
+            number=self.require_type(stmt.args[0],'INTEGER')
+            self.line(f'_rt.signal_event(self._state,{number},{line})',token)
+            self.line(f'yield from _rt.checkpoint(self._state,{line})',token); return
+        if kind=='signal_semaphore':
+            number=self.require_type(stmt.args[0],'INTEGER'); self.features.add('extended services')
+            self.line(f'self._state.extended_call("POST_SEMA",[{number}],{line})',token)
+            self.line(f'yield from _rt.checkpoint(self._state,{line})',token); return
+        if kind=='handler_action':
+            self.line(f'_rt.handler_action(self._state,{stmt.args[0]!r},{line})',token); return
+        if kind in ('timer_connect','timer_disconnect'):
+            target=stmt.args[0]
+            root=self.root_name(target);protection=self.protection_root(target)
+            private=protection in self.private_using_roots
+            local=not private and self.current_routine is not None and root in {name.value for name,_ in self.current_routine.declarations}
+            formal=not private and self.current_routine is not None and root in {name.value for name,_ in self.current_routine.parameters}
+            if not private and not local and not formal and root is None:
+                self.error('E_TIMER_SCOPE','Connected timer storage requires a declared global/local/formal root or captured private USING record',target.token)
+            if self.protection_root(target) in self.active_counters: self.error('E_FOR_COUNTER','Timer cannot modify active FOR counter',target.token)
+            reference,spec=self.reference(target)
+            if spec!=('INTEGER',) or self.is_value_only_subfield(target): self.error('E_TYPE','Timer requires ordinary INTEGER storage',target.token)
+            method='connect_timer' if kind=='timer_connect' else 'disconnect_timer'
+            self.connected_timer_uses.append(dict(operation='CONNECT' if kind=='timer_connect' else 'DISCONNECT',
+                body=self.current_routine.name if self.current_routine else self.program.name,
+                line=line,column=token.column,selector=counter_text(target),root=root,
+                provenance='private_temporary' if private else 'borrowed_formal' if formal else 'routine_local' if local else 'declared_storage',
+                protection_root=protection,evaluated_once=True,lifetime='routine_frame' if local or formal else 'invocation',
+                control_scope='same_task_existing_claim' if kind=='timer_disconnect' else 'defining_connection'))
+            self.features.add('connected INTEGER timer')
+            if private:self.features.add('private USING connected timer')
+            if local:self.features.add('routine-local connected timer')
+            if formal:self.features.add('borrowed formal connected timer')
+            scope=',scoped=True' if local or formal else ''
+            self.line(f'_rt.{method}(self._state,{reference},{line}{scope})',token); return
+        if kind=='condition_control':
+            number=self.require_type(stmt.args[1],'INTEGER')
+            self.line(f'_rt.condition_control(self._state,{stmt.args[0]!r},{number},{line})',token); return
+        if kind=='condition':
+            number=self.require_type(stmt.args[0],'INTEGER');captured=self.fresh()
+            self.line(f'{captured}=_rt.integer({number},{stmt.args[0].token.line})',token)
+            options={'$SCAN_TIME':'0','$PRIORITY':'50'}
+            for key,value in stmt.args[1]:
+                code=self.require_type(value,'INTEGER');temporary=self.fresh()
+                self.line(f'{temporary}=_rt.integer({code},{value.token.line})',value.token);options[key.value]=temporary
+            pairs=[f'({predicate},{action})' for predicate,action in self.condition_callbacks(stmt.body)]
+            self.handler_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
+                line=line,column=token.column,option_order=[key.value for key,_ in stmt.args[1]],clauses=len(stmt.body),evaluated_once=True))
+            self.line(f'_rt.define_condition(self._state,{captured},[{", ".join(pairs)}],{line},scan_ms={options["$SCAN_TIME"]},priority={options["$PRIORITY"]})',token); return
+        if kind in ('file_read','file_write'):
+            file_value=self.require_type(stmt.args[0],'FILE'); captured_file=self.fresh()
+            self.line(f'{captured_file}={file_value}',token); self.features.add('memory files')
+            self.statement(stmt.args[1],file_code=captured_file); return
+        if kind=='file_cancel':
+            file_value=self.require_type(stmt.args[0],'FILE') if stmt.args[0] is not None else f'self._state.default_file("READ",{line},required=True)'
+            self.features.add('cooperative FILE cancellation')
+            self.line(f'_rt.cancel_file(self._state,{file_value},{line})',token);return
+        if kind in ('file_open','file_close'):
+            if kind=='file_open' and self.is_predefined_file(stmt.args[0]):self.error('E_PREDEFINED_FILE_OPEN','Configure predefined FILE endpoints through ExecutionContext bindings',token)
+            file_value=self.require_type(stmt.args[0],'FILE'); self.features.add('memory files')
+            if kind=='file_open':
+                mode=self.require_type(stmt.args[1],'STRING'); name=self.require_type(stmt.args[2],'STRING')
+                self.line(f'self._state.file_open({file_value},{mode},{name},{line})',token)
+            else: self.line(f'self._state.file_close({file_value},{line})',token)
+            return
+        if kind=='system_selection_assign':
+            self.check_for_call(token);target,expr=stmt.args
+            if target.kind!='system_selection':self.error('E_SYSTEM_SELECTION_TARGET','Active frame/tool assignment requires one group selector and no descendant fields',target.token)
+            value=self.require_type(expr,'INTEGER');captured=self.fresh()
+            self.line(f'{captured}=_rt.assignment_value({value},{line})',token)
+            group=self.require_type(target.args[0],'INTEGER');selected=self.fresh()
+            self.line(f'{selected}=_rt.integer({group},{target.args[0].token.line})',target.token)
+            self.line(f'self._state.system_selection_write({target.value!r},{selected},{captured},{line})',token)
+            self.system_selection_uses.append(dict(operation='WRITE_'+target.value,body=self.current_routine.name if self.current_routine else self.program.name,
+                line=line,column=token.column,evaluated_once=True,rhs_before_selector=True,atomic_selection=True))
+            self.features.update(('robot frame/tool selection','extended services'));return
+        if kind=='system_pose_assign':
+            self.check_for_call(token)
+            target,expr=stmt.args;root=target;path=[]
+            while root.kind in ('field','group'):
+                if root.kind=='field':path.insert(0,root.value)
+                root=root.args[0]
+            allowed={(),('LOCATION',),*(('LOCATION',axis) for axis in ('X','Y','Z')),
+                ('CONFIG_DATA',),*(('CONFIG_DATA',name) for name,_ in rt.record_fields(('CONFIG',))),
+                *((axis,) for axis in ex.SYSTEM_POSE_AXES)}
+            if root.kind!='system_pose' or tuple(path) not in allowed:
+                self.error('E_SYSTEM_POSE_TARGET','System pose writes require a whole pose or a LOCATION, CONFIG_DATA or external-axis field',target.token)
+            value,actual=self.expression(expr)
+            expected=self.access_type(target)
+            joint_conversion=not path and self.mode=='pythonic' and actual[0]=='JOINTPOS'
+            if not path:
+                if actual[0] not in ('POSITION','XYZWPR','XYZWPREXT') and not joint_conversion:
+                    self.error('E_TYPE','System pose assignment requires a Cartesian pose or Pythonic JOINTPOS value',expr.token)
+            elif self.mode=='pythonic' and rt.real_integral_kind(expected,actual):
+                value=f'_rt.real_integral_value({expected!r},{value},{line})'
+                self.features.add('checked REAL to integral system pose field')
+            elif not self.compatible(expected,actual):
+                self.error('E_TYPE',f'System pose field requires {expected}',expr.token)
+            if joint_conversion:
+                value=f"self._state.kinematic_assignment(('XYZWPREXT',),{value},{line})"
+                self.features.add('kinematic assignment')
+                if self.current_routine:self.current_routine.may_services=True
+                self.kinematic_assignment_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
+                    line=line,column=token.column,source_type=actual,target_type=('XYZWPREXT',),target_kind='system_pose',
+                    evaluated_once=True,independent_value=True))
+            captured=self.fresh();self.line(f'{captured}=_rt.assignment_value({value},{line})',token)
+            selectors=[]
+            for argument in root.args:
+                code=self.require_type(argument,'INTEGER');temporary=self.fresh()
+                self.line(f'{temporary}=_rt.integer({code},{argument.token.line})',argument.token);selectors.append(temporary)
+            number=selectors[1] if len(selectors)>1 else 'None'
+            self.line(f'self._state.system_pose_write({root.value!r},{selectors[0]},{number},{captured},{tuple(path)!r},{line})',token)
+            self.system_pose_writes.append(dict(operation=root.value,body=self.current_routine.name if self.current_routine else self.program.name,
+                line=line,column=token.column,path=tuple(path),source_type=actual,evaluated_once=True,rhs_before_selectors=True,atomic_table_publication=True))
+            if joint_conversion:self.system_pose_writes[-1].update(kinematic_conversion=True,stored_type=('XYZWPREXT',))
+            self.features.update(('robot system pose assignment','extended services'));return
+        if kind == 'assign':
+            target, expr = stmt.args
+            if self.mode=='pythonic' and target.kind=='index' and target.args[0].kind=='name' and target.args[0].value in ex.PORT_TYPES and target.args[0].value not in self.types:
+                kind=target.args[0].value
+                if kind not in ex.OUTPUT_PORTS: self.error('E_PORT_DIRECTION','Cannot assign an input port',target.token)
+                value=self.require_type(expr,ex.PORT_TYPES[kind]); temp=self.fresh(); self.line(f'{temp}={value}',token)
+                if len(target.args)!=2: self.error('E_ARGUMENTS','Ports require one index',target.token)
+                index=self.require_type(target.args[1],'INTEGER'); self.features.add('ports')
+                self.line(f'self._state.port_write({kind!r},{index},{temp},{line})',token); return
+            root = self.root_name(target)
+            if root in self.visible_constants(): self.error('E_CONST_ASSIGN', 'Cannot assign to CONST', target.token)
+            if self.protection_root(target) in self.active_counters: self.error('E_FOR_COUNTER', 'FOR counter writes inside its loop are blocked', target.token)
+            if self.mode == 'strict' and self.has_routine_call(target):
+                self.error('E_EVALUATION_ORDER', 'Routine calls in assignment target indexes need evaluation-order validation', target.token)
+            if self.mode == 'strict' and any(isinstance(node, Expr) and node.kind == 'index' for node in self.walk_nodes(target)) and self.has_external_effect_call(expr):
+                self.error('E_EVALUATION_ORDER', 'Effectful function results assigned to indexed targets need target/value evaluation-order validation', target.token)
+            if self.is_position_read_only_access(target):
+                self.error('E_POSITION_READ_ONLY', 'POSITION NORMAL, ORIENT and APPROACH fields and their components are read-only', target.token)
+            selected_target=target
+            while selected_target.kind=='group':selected_target=selected_target.args[0]
+            if self.is_array_prefix_value(selected_target):
+                if rt.collection_array_type(self.access_type(selected_target.args[0])):
+                    self.collection_array_assignment(target,expr,token);return
+                self.prefix_assignment(target,expr,token)
+                return
+            reference, target_type = self.reference(target)
+            if target_type[0]=='ARRAY' and rt.file_storage_type(target_type):
+                self.error('E_FILE_ARRAY_VALUE','FILE ARRAY storage cannot be assigned; pass its reference',target.token)
+            if self.mode=='pythonic' and rt.collection_type(target_type):
+                self.collection_assignment(target,expr,token);return
+            if self.mode=='pythonic' and rt.collection_array_type(target_type):
+                self.collection_array_assignment(target,expr,token);return
+            value, value_type = self.expression(expr, allow_array_result=True)
+            generic_receiver=(self.mode=='pythonic' and target_type[0]=='ARRAY' and target.kind=='name'
+                and self.current_routine is not None and target.value in {name.value for name,_ in self.current_routine.parameters}
+                and rt.array_identity(target_type) is None)
+            if generic_receiver and (self.compatible(target_type,value_type) or rt.array_schema_compatible(target_type,value_type)
+                    or rt.numeric_array_kind(target_type,value_type) or rt.positional_array_kind(target_type,value_type) or rt.kinematic_array_kind(target_type,value_type) or rt.record_schema_kind(target_type,value_type) or rt.kinematic_record_kind(target_type,value_type)):
+                source_schema=f',source_spec={value_type!r}' if rt.record_schema_kind(target_type,value_type) or rt.kinematic_record_kind(target_type,value_type) else ''
+                value=f'self._state.array_assignment_value({value},({reference}).spec,{line}{source_schema})'
+                self.features.add('runtime ARRAY receiver schema')
+                self.array_schema_uses.append(dict(operation='ASSIGNMENT',body=self.current_routine.name,line=line,column=token.column,
+                    source_type_spec=value_type,target_type_spec=target_type,schema_change_kind='dynamic_receiver',
+                    evaluated_once=True,independent_value=True,actual_receiver_schema=True))
+                if rt.kinematic_array_kind(target_type,value_type):
+                    self.current_routine.may_services=True;self.features.update(('extended services','kinematic ARRAY conversion'))
+                    self.kinematic_array_uses.append(dict(operation='ASSIGNMENT',body=self.current_routine.name,line=line,column=token.column,
+                        source_type_spec=value_type,target_type_spec=target_type,evaluated_once=True,independent_value=True,actual_receiver_schema=True))
+                if rt.kinematic_record_kind(target_type,value_type):
+                    self.current_routine.may_services=True;self.features.update(('extended services','kinematic STRUCTURE conversion'))
+                    self.kinematic_record_uses.append(dict(operation='ASSIGNMENT',body=self.current_routine.name,line=line,column=token.column,
+                        source_type_spec=value_type,target_type_spec=target_type,conversion_kind='record_array',
+                        evaluated_once=True,independent_value=True,actual_receiver_schema=True,geometry_preflight=True))
+                if rt.record_schema_kind(target_type,value_type):
+                    self.record_schema_uses.append(dict(operation='ASSIGNMENT',body=self.current_routine.name,line=line,column=token.column,
+                        source_type_spec=value_type,target_type_spec=target_type,conversion_kind='record_array',
+                        evaluated_once=True,independent_value=True,actual_receiver_schema=True))
+            elif self.mode=='pythonic' and rt.real_integral_kind(target_type,value_type):
+                value=f'_rt.real_integral_value({target_type!r},{value},{line})'
+                self.features.add('checked REAL to integral assignment')
+            elif self.mode=='pythonic' and rt.config_word_kind(target_type,value_type):
+                value=self.config_word_conversion(target_type,value_type,value,token,'ASSIGNMENT')
+            elif self.mode=='pythonic' and rt.numeric_array_kind(target_type,value_type):
+                value=f'_rt.convert_numeric_array({target_type!r},{value},{line})'
+                self.features.add('numeric ARRAY conversion')
+                self.numeric_array_uses.append(dict(operation='ASSIGNMENT',body=self.current_routine.name if self.current_routine else self.program.name,
+                    line=line,column=token.column,source_type_spec=value_type,target_type_spec=target_type,
+                    evaluated_once=True,independent_value=True))
+            elif self.mode=='pythonic' and rt.positional_array_kind(target_type,value_type):
+                value=f'_rt.convert_positional_array({target_type!r},{value},{line})'
+                self.features.add('positional ARRAY conversion')
+                self.positional_array_uses.append(dict(operation='ASSIGNMENT',body=self.current_routine.name if self.current_routine else self.program.name,
+                    line=line,column=token.column,source_type_spec=value_type,target_type_spec=target_type,
+                    evaluated_once=True,independent_value=True))
+            elif self.mode=='pythonic' and rt.kinematic_array_kind(target_type,value_type):
+                value=f'self._state.kinematic_array({target_type!r},{value},{line})'
+                self.features.update(('extended services','kinematic ARRAY conversion'))
+                if self.current_routine:self.current_routine.may_services=True
+                self.kinematic_array_uses.append(dict(operation='ASSIGNMENT',body=self.current_routine.name if self.current_routine else self.program.name,
+                    line=line,column=token.column,source_type_spec=value_type,target_type_spec=target_type,
+                    evaluated_once=True,independent_value=True))
+            elif self.mode=='pythonic' and rt.kinematic_record_kind(target_type,value_type):
+                value=f'self._state.kinematic_record({target_type!r},{value},{line},source_spec={value_type!r})'
+                self.features.update(('extended services','kinematic STRUCTURE conversion'))
+                if self.current_routine:self.current_routine.may_services=True
+                self.kinematic_record_uses.append(dict(operation='ASSIGNMENT',body=self.current_routine.name if self.current_routine else self.program.name,
+                    line=line,column=token.column,source_type_spec=value_type,target_type_spec=target_type,
+                    conversion_kind=rt.kinematic_record_kind(target_type,value_type),evaluated_once=True,independent_value=True,geometry_preflight=True))
+            elif self.mode=='pythonic' and rt.record_schema_kind(target_type,value_type):
+                value=f'_rt.convert_record_schema({target_type!r},{value},{line},source_spec={value_type!r})'
+                self.features.add('source STRUCTURE schema conversion')
+                self.record_schema_uses.append(dict(operation='ASSIGNMENT',body=self.current_routine.name if self.current_routine else self.program.name,
+                    line=line,column=token.column,source_type_spec=value_type,target_type_spec=target_type,
+                    conversion_kind=rt.record_schema_kind(target_type,value_type),evaluated_once=True,independent_value=True))
+            elif self.mode=='pythonic' and rt.array_schema_kind(target_type,value_type):
+                value=f'_rt.convert_array_schema({target_type!r},{value},{line})'
+                self.features.add('source ARRAY schema conversion')
+                self.array_schema_uses.append(dict(operation='ASSIGNMENT',body=self.current_routine.name if self.current_routine else self.program.name,
+                    line=line,column=token.column,source_type_spec=value_type,target_type_spec=target_type,
+                    schema_change_kind=rt.array_schema_kind(target_type,value_type),evaluated_once=True,independent_value=True))
+            elif self.mode=='pythonic' and target_type[0]==value_type[0]=='JOINTPOS' and target_type!=value_type:
+                value=f'_rt.convert_joint_width({target_type!r},{value},{line})'
+                self.features.add('checked joint width conversion')
+                self.joint_width_uses.append(dict(operation='ASSIGNMENT',body=self.current_routine.name if self.current_routine else self.program.name,
+                    line=line,column=token.column,source_type_spec=value_type,target_type_spec=target_type,
+                    evaluated_once=True,independent_value=True))
+            elif (self.mode=='pythonic' and ((target_type[0]=='JOINTPOS' and value_type[0] in ('POSITION','XYZWPR','XYZWPREXT')) or (value_type[0]=='JOINTPOS' and target_type[0] in ('POSITION','XYZWPR','XYZWPREXT')))):
+                value=f'self._state.kinematic_assignment({target_type!r},{value},{line})'
+                self.features.update(('extended services','kinematic assignment'))
+                if self.current_routine: self.current_routine.may_services=True
+                self.kinematic_assignment_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
+                    line=line,column=token.column,source_type=value_type,target_type=target_type,target_kind=target.kind,
+                    evaluated_once=True,independent_value=True))
+            elif (self.mode == 'pythonic' and target_type!=value_type and target_type[0] in ('POSITION','XYZWPR','XYZWPREXT') and value_type[0] in ('POSITION','XYZWPR','XYZWPREXT')):
+                value = f'_rt.convert_position({target_type!r}, {value}, {line})'
+                self.features.add('POSITION/XYZWPR assignment conversion')
+                self.position_conversion_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
+                                                          line=line, column=token.column, source_type=value_type[0], target_type=target_type[0],
+                                                          target_kind=target.kind, evaluated_once=True, independent_value=True))
+            elif not self.compatible(target_type, value_type):
+                self.error('E_TYPE', f'Cannot assign {value_type} to {target_type}', token)
+            result_expr = expr
+            if self.mode == 'pythonic':
+                while result_expr.kind == 'group': result_expr = result_expr.args[0]
+            if result_expr.kind == 'call' and value_type[0] == 'ARRAY':
+                self.features.add('direct ARRAY result assignment')
+                self.array_result_assignments.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
+                                                          routine=result_expr.value, line=line, column=token.column,
+                                                          target_kind=target.kind, target_type=target_type,
+                                                          evaluated_once=True, runtime_exact_type_and_size=True))
+            if target_type[0] == 'STRUCTURE': self.features.add('whole STRUCTURE assignment')
+            if target_type[0] in DATA_RECORD_TYPES: self.features.add('whole ' + target_type[0] + ' data copy')
+            if self.mode == 'pythonic':
+                temporary = self.fresh()
+                self.line(f'{temporary} = _rt.assignment_value({value}, {line})', token)
+                value = temporary
+            self.line(f'{reference}.set({value}, {line})', token)
+        elif kind == 'using':
+            self.emit_using_entry(stmt)
+            self.block(stmt.body)
+        elif kind == 'abort':
+            if self.mode == 'strict' and self.active_counters and not self.has_fresh_active_counters():
+                self.error('E_FOR_COUNTER', 'ABORT inside FOR requires fresh routine-local counters; observable counter state on abort is unvalidated', token)
+            self.line(f'yield from _rt.abort_execution(self._state,{line})' if self.cooperative else f'self._state.abort({line})', token)
+            self.features.add('ABORT')
+            self.abort_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
+                                       line=line, column=token.column, scope='current offline execution'))
+        elif kind == 'delay':
+            duration = self.require_type(stmt.args[0], 'INTEGER')
+            if self.cooperative:
+                self.line(f'yield from _rt.delay_execution(self._state,{duration},{line},scan_handlers={self.mode=="pythonic"!r})',token)
+            else:
+                self.line(f'self._state.delay({duration}, {line})',token)
+            self.features.add('DELAY')
+            self.delay_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
+                                        line=token.line, column=token.column, duration_type='INTEGER',
+                                        evaluated='once; runtime range check'))
+        elif kind == 'wait':
+            condition = self.require_type(stmt.args[0], 'BOOLEAN')
+            self.line(f'while not {self.test_code(condition,line)}:', token)
+            self.indent += 1
+            self.line(f'self._state.wait_poll({line})', token)
+            self.indent -= 1
+            self.features.add('WAIT FOR')
+            self.wait_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
+                                      line=line, column=token.column, condition_kind=stmt.args[0].kind,
+                                      condition_type='BOOLEAN', evaluation='once per check until true',
+                                      yield_seconds=0.0, step_budgeted=True))
+        elif kind == 'write_items':
+            pieces, items = [], []
+            write_groups=[];aggregate_output=False
+            for item in stmt.args:
+                if item.kind == 'write_cr':
+                    pieces.append(repr('\n'));write_groups.append('['+repr('\n')+']')
+                    items.append(dict(data_type='CR', line=item.token.line, column=item.token.column,
+                                      format_specifiers=[]))
+                    continue
+                value, spec = self.expression(item.args[0],collection_io=True)
+                data_type = spec[0]
+                aggregate=data_type not in ('STRING','BOOLEAN','INTEGER','REAL',*NARROW_TYPES)
+                if aggregate and (self.mode!='pythonic' or not rt.aggregate_write_type(spec)):
+                    self.error('E_TYPE',f'WRITE requires scalar or resource-free aggregate data, found {data_type}',item.token)
+                aggregate_output=aggregate_output or aggregate
+                format_exprs = item.args[1:]
+                format_kinds=rt.aggregate_format_kinds(spec) if aggregate else {data_type}
+                format_codes = [self.require_type(expr, 'INTEGER') for expr in format_exprs]
+                literals = [self.format_literal(expr) for expr in format_exprs]
+                formats = [literal if literal is not None else dict(expression=True, line=expr.token.line,
+                            column=expr.token.column) for literal, expr in zip(literals, format_exprs)]
+                width = literals[0] if literals else None
+                second = literals[1] if len(literals) == 2 else None
+                if width is not None and (width < 0 or format_kinds!={'STRING'} and width > 254):
+                    self.error('E_WRITE_FORMAT', 'WRITE width must be nonnegative; numeric/BOOLEAN widths are limited to 254', format_exprs[0].token)
+                if 'BOOLEAN' in format_kinds and len(format_exprs) == 2:
+                    self.error('E_WRITE_FORMAT', 'BOOLEAN WRITE accepts only a width', format_exprs[1].token)
+                if second is not None:
+                    valid = all(kind=='STRING' and second in (0,1,2,3) or kind=='REAL' and -254<=second<=254
+                                or kind in INTEGRAL_TYPES and second in (0,*range(2,17)) for kind in format_kinds)
+                    if not valid:
+                        self.error('E_WRITE_FORMAT', f'Invalid {data_type} WRITE second format specifier', format_exprs[1].token)
+                if aggregate:
+                    options=f',file={file_code}' if file_code else ''
+                    check=',check=self._state.tick' if rt.collection_type(spec) or rt.collection_array_type(spec) else ''
+                    rendered=(f'_rt.format_aggregate_write(_rt.capture_aggregate_write({spec!r},{value},{item.token.line}{check}),[{", ".join(format_codes)}],{item.token.line}{options})'
+                              if format_exprs else f'_rt.aggregate_write_pieces({spec!r},{value},{item.token.line}{options}{check})')
+                    write_groups.append(rendered);pieces.append(rendered)
+                else:
+                    rendered=f'_rt.{"optional_file_piece" if optional_file else "file_piece"}({file_code},{data_type!r},{value},[{", ".join(format_codes)}],{item.token.line})' if file_code else f'_rt.format_write_item({data_type!r}, {value}, [{", ".join(format_codes)}], {item.token.line})'
+                    pieces.append(rendered);write_groups.append('['+rendered+']')
+                items.append(dict(data_type=data_type, line=item.token.line, column=item.token.column,
+                                  format_specifiers=formats, dynamic_formats=any(x is None for x in literals)))
+                if aggregate:
+                    items[-1].update(aggregate=True,type_spec=spec,scalar_order='ARRAY-row-major/QUEUE-entry-order/INTEGER-values' if rt.queue_io_type(spec) else 'ARRAY-row-major/PATH-header/nodes/declaration/row-major/joint-axis' if rt.path_array_io_type(spec) else 'PATH-header/nodes/declaration/row-major/joint-axis' if data_type=='PATH' else 'declaration/row-major/joint-axis',formats='uniform scalar formats' if format_exprs else 'scalar defaults',capture_before_formats=True)
+                    self.features.add('whole data aggregate WRITE')
+                self.features.add(f'WRITE {data_type} output request')
+                if formats: self.features.add(f'WRITE {data_type} formatting')
+            file_option=f',file={file_code}' if file_code else ''
+            if self.cooperative:
+                method='cooperative_write_groups' if aggregate_output else 'cooperative_write_items'
+                values=write_groups if aggregate_output else pieces
+                self.line(f'yield from _rt.{method}(self._state,[{", ".join(values)}],{line}{file_option})',token)
+            elif aggregate_output:self.line(f'self._state.write_groups([{", ".join(write_groups)}], {line}{file_option})',token)
+            else:self.line(f'self._state.write_items([{", ".join(pieces)}], {line}{file_option})', token)
+            self.features.add('WRITE output request')
+            if any(item['data_type'] == 'CR' for item in items): self.features.add('WRITE CR newline')
+            if len(items) > 1: self.features.add('WRITE multiple data items')
+            self.write_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
+                                        line=token.line, column=token.column,
+                                        data_type=items[0]['data_type'] if len(items) == 1 else 'MIXED',
+                                        data_items=len(items), items=items, evaluated='Left to right, once per expression: value, width, second format; validate/render each item before the next; one request after complete rendering',
+                                        format_specifiers=items[0]['format_specifiers'] if len(items) == 1 else []))
+            if len(items) == 1 and items[0]['data_type'] != 'CR' and not items[0].get('aggregate'):
+                formats = items[0]['format_specifiers']
+                width = formats[0] if formats else None
+                is_string = items[0]['data_type'] == 'STRING'
+                alignment = formats[1] if is_string and len(formats) == 2 else 0
+                dynamic_width = isinstance(width, dict)
+                dynamic_alignment = isinstance(alignment, dict)
+                self.write_uses[-1].update(
+                    format_width=width, alignment='dynamic' if dynamic_alignment else 'right' if not is_string or alignment in (1, 3) else 'left',
+                    quoted='dynamic' if dynamic_alignment else is_string and alignment in (2, 3),
+                    width_policy=('dynamic' if dynamic_width or dynamic_alignment else
+                                  'contents_length' if is_string and width is not None and (width == 0 or width > 254)
+                                  else 'fixed' if is_string and formats else 'minimum' if formats else 'unformatted'))
+        elif kind == 'write':
+            value, spec = self.expression(stmt.args[0])
+            data_type = spec[0]
+            if data_type not in ('STRING', 'BOOLEAN', 'INTEGER'):
+                self.error('E_TYPE', f'WRITE requires STRING or unformatted BOOLEAN/INTEGER, found {data_type}', stmt.args[0].token)
+            formats = stmt.args[1]
+            width = formats[0] if formats else None
+            alignment = formats[1] if len(formats) == 2 else 0
+            if data_type in ('BOOLEAN', 'INTEGER'):
+                if formats:
+                    self.error('E_WRITE_FORMAT', f'{data_type} WRITE formatting is not implemented; use the unformatted default', stmt.args[2][0])
+                self.line(f'self._state.write_{data_type.lower()}({value}, {line})', token)
+                evaluated = ('once; initialization/INTEGER/nonnegative guard before request' if data_type == 'INTEGER'
+                             else 'once; initialization/BOOLEAN guard before request')
+            else:
+                if alignment in (2, 3) and not 1 <= width <= 254:
+                    self.error('E_WRITE_FORMAT', 'Quoted WRITE requires literal width 1..254; quoted width fallback is not implemented', stmt.args[2][0])
+                options = f', width={width}, alignment={alignment}' if formats else ''
+                self.line(f'self._state.write_string({value}, {line}{options})', token)
+                evaluated = 'once; ASCII/length guard before formatting/request'
+                if formats: self.features.add('WRITE STRING formatting')
+            self.features.add(f'WRITE {data_type} output request')
+            self.write_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
+                                        line=token.line, column=token.column, data_type=data_type,
+                                        data_items=1, evaluated=evaluated,
+                                        format_specifiers=formats, format_width=width,
+                                        alignment='right' if alignment in (1, 3) else 'left',
+                                        quoted=alignment in (2, 3),
+                                        width_policy=('contents_length' if width == 0 or (width is not None and width > 254)
+                                                      else 'fixed' if formats else 'unformatted')))
+        elif kind == 'read':
+            references, destinations, line_breaks = [], [], []
+            read_groups=[];aggregate_input=False
+            formatted = any(item.kind == 'read_item' for item in stmt.args)
+            for item in stmt.args:
+                if item.kind == 'read_cr':
+                    line_breaks.append(len(references))
+                    continue
+                target = item.args[0] if item.kind == 'read_item' else item
+                format_exprs = item.args[1:] if item.kind == 'read_item' else []
+                base = target
+                while base.kind in ('field', 'index'): base = base.args[0]
+                if target.kind not in ('name', 'field', 'index') or base.kind not in ('name','using_ref'):
+                    self.error('E_READ_ITEM', 'READ requires scalar storage rooted in a variable', target.token)
+                root = self.root_name(target)
+                if root in self.visible_constants(): self.error('E_CONST_ASSIGN', 'READ cannot write CONST', target.token)
+                if self.protection_root(target) in self.active_counters: self.error('E_FOR_COUNTER', 'READ cannot write an active FOR counter', target.token)
+                if self.is_position_read_only_access(target):
+                    self.error('E_POSITION_READ_ONLY', 'READ cannot write POSITION orientation fields', target.token)
+                if self.is_value_only_subfield(target) and self.mode!='pythonic':
+                    self.error('E_CONFIG_OUTPUT', 'READ into CONFIG subfields needs a separate bounded output policy', target.token)
+                reference, spec = self.reference(target,config_read=self.mode=='pythonic' and self.is_config_subfield(target),allow_prefix=self.mode=='pythonic',collection_prefix=self.mode=='pythonic' and rt.collection_array_type(self.access_type(target)),collection_io=True)
+                aggregate=spec[0] not in (*INTEGRAL_TYPES,'BOOLEAN','REAL','STRING')
+                if aggregate and (self.mode!='pythonic' or not rt.aggregate_read_type(spec)):
+                    self.error('E_READ_TYPE','READ requires scalar or Pythonic resource-free aggregate data',target.token)
+                format_kinds=rt.aggregate_format_kinds(spec) if aggregate else {spec[0]}
+                aggregate_input=aggregate_input or aggregate
+                format_codes = [self.require_type(expr, 'INTEGER') for expr in format_exprs]
+                literals = [self.format_literal(expr) for expr in format_exprs]
+                if literals and literals[0] is not None and not 0 <= literals[0] <= 254:
+                    self.error('E_READ_FORMAT', 'READ width must be in 0..254', format_exprs[0].token)
+                if len(literals) == 2 and literals[1] is not None:
+                    second = literals[1]
+                    valid = all(kind in ('BOOLEAN','REAL') or kind=='STRING' and second in (0,2)
+                                or kind in INTEGRAL_TYPES and second in (0,*range(2,17)) for kind in format_kinds)
+                    if not valid: self.error('E_READ_FORMAT', f'Invalid {spec[0]} READ second format specifier', format_exprs[1].token)
+                if aggregate:
+                    check=',check=self._state.tick' if rt.collection_type(spec) or rt.collection_array_type(spec) else ''
+                    captured_group=f'_rt.capture_aggregate_read_target({reference}, [], {line}{check})'
+                    read_groups.append(f'_rt.format_aggregate_read_group({captured_group},[{", ".join(format_codes)}],{line})' if format_exprs else captured_group)
+                else:read_groups.append(f'[_rt.capture_read_target({reference}, [{", ".join(format_codes)}], {line})]')
+                references.append(f'_rt.capture_read_target({reference}, [{", ".join(format_codes)}], {line})'
+                                  if formatted else reference)
+                destinations.append(dict(root=root, expression_kind=target.kind, type_spec=spec,
+                                         line=target.token.line, column=target.token.column))
+                if aggregate:
+                    destinations[-1].update(aggregate=True,scalar_order='ARRAY-row-major/QUEUE-entry-order/INTEGER-values' if rt.queue_io_type(spec) else 'ARRAY-row-major/PATH-header/nodes/declaration/row-major/joint-axis' if rt.path_array_io_type(spec) else 'PATH-header/nodes/declaration/row-major/joint-axis' if spec[0]=='PATH' else 'declaration/row-major/joint-axis',formats='uniform scalar formats' if format_exprs else 'scalar defaults',capture_before_formats=True)
+                    self.features.add('whole data aggregate READ')
+                if self.mode=='pythonic' and self.is_config_subfield(target):
+                    self.features.add('bounded CONFIG field READ')
+                    destination=dict(body=self.current_routine.name if self.current_routine else self.program.name,
+                        root=root,field=target.value,type_spec=spec,line=target.token.line,column=target.token.column,
+                        file_input=bool(file_code) and not optional_file,target_evaluated_once=True,validated_before_publication=True)
+                    if spec==('INTEGER',):destination['integer_range']=[-8,7]
+                    self.config_field_read_uses.append(destination)
+                    destinations[-1]['config_field']=target.value
+                    if spec==('INTEGER',):destinations[-1]['integer_range']=[-8,7]
+                if format_exprs:
+                    destinations[-1].update(format_specifiers=[literal if literal is not None else dict(expression=True,
+                        line=expr.token.line, column=expr.token.column) for literal, expr in zip(literals, format_exprs)],
+                        dynamic_formats=any(value is None for value in literals))
+                    self.features.add(f'READ {spec[0]} formatting')
+            controls = f', line_breaks={tuple(line_breaks)!r}' if line_breaks else ''
+            cooperative_file=bool(file_code) and self.cooperative
+            reader=(f'_rt.cooperative_optional_file_read(self._state,{file_code},' if optional_file and cooperative_file else f'self._state.optional_file_read({file_code},' if optional_file else f'_rt.cooperative_file_read(self._state,{file_code},' if cooperative_file else f'self._state.file_read({file_code},' if file_code else 'self._state.read_items(')
+            prefix='yield from ' if cooperative_file else ''
+            if aggregate_input:
+                captured=self.fresh();flat_targets=self.fresh();flat_formats=self.fresh();flat_breaks=self.fresh()
+                self.line(f'{captured} = [{", ".join(read_groups)}]',token)
+                self.line(f'{flat_targets}, {flat_formats}, {flat_breaks} = _rt.flatten_read_groups({captured}, {tuple(line_breaks)!r}, {line})',token)
+                self.line(f'{prefix}{reader}{flat_targets}, {line}, line_breaks={flat_breaks}, formats={flat_formats})',token)
+            elif formatted:
+                captured = self.fresh()
+                self.line(f'{captured} = [{", ".join(references)}]', token)
+                self.line(f'{prefix}{reader}[item[0] for item in {captured}], {line}{controls}, formats=[item[1] for item in {captured}])', token)
+            else:
+                self.line(f'{prefix}{reader}[{", ".join(references)}], {line}{controls})', token)
+            self.read_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
+                                       line=line, column=token.column, destinations=destinations,
+                                       targets_evaluated_once=True, response_validated_before_assignment=True))
+            if line_breaks: self.read_uses[-1]['line_breaks'] = line_breaks
+        elif kind in ('if', 'while'):
+            condition = self.require_type(stmt.args[0], 'BOOLEAN')
+            self.line(f'{kind} {self.test_code(condition,line)}:', token)
+            self.indent += 1
+            self.block(stmt.body)
+            self.indent -= 1
+            if kind == 'if' and stmt.alternate:
+                self.line('else:')
+                self.indent += 1
+                self.block(stmt.alternate)
+                self.indent -= 1
+        elif kind == 'repeat':
+            condition = self.require_type(stmt.args[0], 'BOOLEAN')
+            self.line('while True:', token)
+            self.indent += 1
+            self.block(stmt.body)
+            self.line(f'if {self.test_code(condition,line)}:')
+            self.indent += 1
+            self.line('break')
+            self.indent -= 2
+        elif kind == 'for':
+            counter,reference,first,last,adjustment,step=self.for_values(stmt)
+            root=self.protection_root(counter)
+            stop, item = self.fresh(), self.fresh()
+            # Manual: initialize count before final is evaluated (final may read count).
+            if self.mode=='pythonic':
+                captured=self.fresh();self.line(f'{captured} = {reference}')
+                self.line(f'{captured}.set({first}, {line})')
+            else:self.line(f'self._state.set({counter.value!r}, {first}, {line})')
+            if self.mode == 'pythonic':
+                self.line('try:')
+                self.indent += 1
+            self.line(f'{stop} = {last}')
+            start=f'_rt.require({captured}.raw(), {line})' if self.mode=='pythonic' else f'self._state.get({counter.value!r})'
+            self.line(f'for {item} in range({start}, {stop} + ({adjustment}), {step}):')
+            self.indent += 1
+            self.line(f'self._state.tick({line})')
+            if self.mode=='pythonic':self.line(f'{captured}.set({item}, {line})')
+            else:self.line(f'self._state.set({counter.value!r}, {item}, {line})')
+            self.active_counters.add(root)
+            self.block(stmt.body)
+            self.active_counters.remove(root)
+            self.indent -= 1
+            if self.mode == 'pythonic':
+                self.indent -= 1
+                self.line('finally:')
+                self.indent += 1
+                self.line(f'{captured}.clear()')
+                self.indent -= 1
+            else:
+                self.line(f'self._state.clear({counter.value!r})')
+        elif kind == 'select':
+            _, cases = stmt.args
+            temporary = self.fresh()
+            self.line(f'{temporary} = {self.select_code(stmt)}', token)
+            self.line(f'match {temporary}:')
+            self.indent += 1
+            for index, (case_token, _, body) in enumerate(cases):
+                self.line(f'case {index}:', case_token)
+                self.indent += 1
+                self.block(body)
+                self.indent -= 1
+            self.line('case _:')
+            self.indent += 1
+            if stmt.has_else:
+                self.block(stmt.alternate)
+            else:
+                self.line(f'raise _rt.KarelRuntimeError("No match in CASE", {line})', token)
+            self.indent -= 2
+        elif kind == 'call':
+            expr = stmt.args[0]
+            if self.mode=='pythonic' and expr.value in ex.PROCEDURES and expr.value not in self.routines:
+                self.line(self.service_call(expr),token); return
+            if self.mode == 'pythonic' and expr.value in REGISTER_PROCEDURES and expr.value not in self.routines:
+                self.line(self.numeric_register(expr), token)
+                return
+            if self.mode == 'pythonic' and expr.value in TIME_TEXT_PROCEDURES and expr.value not in self.routines:
+                self.line(self.time_text_conversion(expr), token)
+                return
+            if self.mode == 'pythonic' and expr.value in CONFIG_TEXT_PROCEDURES and expr.value not in self.routines:
+                self.line(self.config_text_conversion(expr), token)
+                return
+            if expr.value in JOINT_PROCEDURES:
+                self.line(self.joint_conversion(expr), token)
+                return
+            if expr.value == 'UNPOS':
+                self.line(self.unpos_procedure(expr), token)
+                return
+            if expr.value in BUILTIN_PROCEDURES:
+                self.line(self.conversion_procedure(expr), token)
+                return
+            if expr.value not in self.routines:
+                self.error('E_CALL', f'Unknown or unsupported procedure {expr.value}', token)
+            if self.routines[expr.value].return_type:
+                self.error('E_CALL', 'Statement calls require procedures', token)
+            self.check_for_call(token, self.routines[expr.value])
+            self.line(self.routine_call(expr), token)
+        elif kind == 'return':
+            expr = stmt.args[0]
+            if self.current_routine is None:
+                self.error('E_RETURN', 'RETURN is only implemented inside routines', token)
+            if self.active_counters:
+                if self.mode == 'strict' and not self.has_fresh_active_counters():
+                    self.error('E_FOR_COUNTER', 'RETURN inside FOR requires every active counter to be a fresh routine-local variable', token)
+                if self.has_fresh_active_counters(): self.features.add('RETURN from FOR with fresh local counters')
+                if self.mode == 'pythonic': self.features.add('RETURN from FOR with counter cleanup')
+            spec = self.current_routine.return_type
+            if spec is None:
+                if expr: self.error('E_RETURN', 'Procedure RETURN cannot return a value', token)
+                self.line('return', token)
+            else:
+                if not expr: self.error('E_RETURN', 'Function RETURN requires a value', token)
+                value, value_type = self.expression(expr)
+                source_type_spec=value_type;cartesian_conversion=False;conversion_kind='none'
+                if self.mode=='pythonic' and rt.collection_type(spec):
+                    if spec==value_type:
+                        value=f'_rt.collection_source_value({spec!r},{value},{line},source_spec={value_type!r})'
+                    else:value=self.path_conversion_value(spec,value_type,value,expr.token,'RETURN')
+                    self.line(f'return {value}',token)
+                    self.features.add('logical scalar collection function result');return
+                if self.mode=='pythonic' and rt.collection_array_type(spec):
+                    if not rt.collection_array_source_accepts(spec,value_type):
+                        if rt.path_array_conversion_layout(spec,value_type) is None:
+                            self.error('E_ARRAY_RETURN_SOURCE','Collection ARRAY result requires compatible PATH layouts or matching component schemas',expr.token)
+                        value=self.path_conversion_value(spec,value_type,value,expr.token,'RETURN')
+                        value_type=spec
+                    self.line(f'return _rt.collection_array_result({spec!r},{value},{line},source_spec={value_type!r})',token)
+                    self.features.add('logical collection ARRAY function result');return
+                if self.mode=='pythonic' and rt.real_integral_kind(spec,value_type):
+                    value=f'_rt.real_integral_value({spec!r},{value},{line})'
+                    value_type=spec;conversion_kind='real_integral'
+                    self.features.add('checked REAL to integral result')
+                elif self.mode=='pythonic' and rt.config_word_kind(spec,value_type):
+                    value=self.config_word_conversion(spec,value_type,value,token,'RETURN')
+                    value_type=spec;conversion_kind='config_word'
+                elif self.mode=='pythonic' and rt.numeric_array_kind(spec,value_type):
+                    value=f'_rt.convert_numeric_array({spec!r},{value},{line})'
+                    value_type=spec;conversion_kind='numeric_array'
+                    self.features.add('numeric ARRAY conversion')
+                    self.numeric_array_uses.append(dict(operation='RETURN',body=self.current_routine.name,routine=self.current_routine.name,
+                        line=line,column=token.column,source_type_spec=source_type_spec,target_type_spec=spec,
+                        evaluated_once=True,independent_value=True,before_cleanup=True))
+                elif self.mode=='pythonic' and rt.positional_array_kind(spec,value_type):
+                    value=f'_rt.convert_positional_array({spec!r},{value},{line})'
+                    value_type=spec;cartesian_conversion=True;conversion_kind='positional_array'
+                    self.features.add('positional ARRAY conversion')
+                    self.positional_array_uses.append(dict(operation='RETURN',body=self.current_routine.name,routine=self.current_routine.name,
+                        line=line,column=token.column,source_type_spec=source_type_spec,target_type_spec=spec,
+                        evaluated_once=True,independent_value=True,before_cleanup=True))
+                elif self.mode=='pythonic' and rt.kinematic_array_kind(spec,value_type):
+                    value=f'self._state.kinematic_array({spec!r},{value},{line},kind="RETURN")'
+                    value_type=spec;cartesian_conversion=True;conversion_kind='kinematic_array'
+                    self.current_routine.may_services=True
+                    self.features.update(('extended services','kinematic ARRAY conversion'))
+                    self.kinematic_array_uses.append(dict(operation='RETURN',body=self.current_routine.name,routine=self.current_routine.name,
+                        line=line,column=token.column,source_type_spec=source_type_spec,target_type_spec=spec,
+                        evaluated_once=True,independent_value=True,before_cleanup=True))
+                elif self.mode=='pythonic' and rt.kinematic_record_kind(spec,value_type):
+                    value=f'self._state.kinematic_record({spec!r},{value},{line},kind="RETURN",source_spec={value_type!r})'
+                    value_type=spec;conversion_kind='kinematic_record'
+                    self.current_routine.may_services=True;self.features.update(('extended services','kinematic STRUCTURE conversion'))
+                    self.kinematic_record_uses.append(dict(operation='RETURN',body=self.current_routine.name,routine=self.current_routine.name,
+                        line=line,column=token.column,source_type_spec=source_type_spec,target_type_spec=spec,
+                        conversion_kind=rt.kinematic_record_kind(spec,source_type_spec),evaluated_once=True,independent_value=True,before_cleanup=True,geometry_preflight=True))
+                elif self.mode=='pythonic' and rt.record_schema_kind(spec,value_type):
+                    value=f'_rt.convert_record_schema({spec!r},{value},{line},source_spec={value_type!r})'
+                    value_type=spec;conversion_kind='record_schema'
+                    self.features.add('source STRUCTURE schema result')
+                    self.record_schema_uses.append(dict(operation='RETURN',body=self.current_routine.name,routine=self.current_routine.name,
+                        line=line,column=token.column,source_type_spec=source_type_spec,target_type_spec=spec,
+                        conversion_kind=rt.record_schema_kind(spec,source_type_spec),evaluated_once=True,independent_value=True,before_cleanup=True))
+                elif self.mode=='pythonic' and rt.array_schema_compatible(spec,value_type):
+                    value=f'_rt.convert_array_schema({spec!r},{value},{line})'
+                    value_type=spec;conversion_kind='array_schema'
+                    self.features.add('source ARRAY schema result')
+                    self.array_schema_uses.append(dict(operation='RETURN',body=self.current_routine.name,routine=self.current_routine.name,
+                        line=line,column=token.column,source_type_spec=source_type_spec,target_type_spec=spec,
+                        schema_change_kind=rt.array_schema_kind(spec,source_type_spec) or 'declared_result',
+                        evaluated_once=True,independent_value=True,before_cleanup=True))
+                elif self.mode=='pythonic' and spec[0]==value_type[0]=='JOINTPOS' and spec!=value_type:
+                    value=f'_rt.convert_joint_width({spec!r},{value},{line})'
+                    value_type=spec;cartesian_conversion=True;conversion_kind='joint_width'
+                    self.features.add('checked joint width conversion')
+                    self.joint_width_uses.append(dict(operation='RETURN',body=self.current_routine.name,routine=self.current_routine.name,
+                        line=line,column=token.column,source_type_spec=source_type_spec,target_type_spec=spec,
+                        evaluated_once=True,independent_value=True,before_cleanup=True))
+                elif self.mode=='pythonic' and ((spec[0]=='JOINTPOS' and value_type[0] in ('POSITION','XYZWPR','XYZWPREXT')) or (value_type[0]=='JOINTPOS' and spec[0] in ('POSITION','XYZWPR','XYZWPREXT'))):
+                    value=f'self._state.kinematic_interface({spec!r},{value},{line},result=True)'
+                    value_type=spec;cartesian_conversion=True;conversion_kind='kinematic'
+                    self.current_routine.may_services=True
+                    self.features.update(('extended services','kinematic interface result conversion'))
+                    self.kinematic_interface_uses.append(dict(operation='KINEMATIC_RETURN',body=self.current_routine.name,routine=self.current_routine.name,
+                        line=line,column=token.column,source_type_spec=source_type_spec,target_type_spec=spec,evaluated_once=True,independent_value=True,before_cleanup=True))
+                elif self.mode=='pythonic' and spec!=value_type and spec[0] in ('POSITION','XYZWPR','XYZWPREXT') and value_type[0] in ('POSITION','XYZWPR','XYZWPREXT'):
+                    value=f'_rt.convert_position({spec!r},{value},{line})'
+                    value_type=spec
+                    cartesian_conversion=True;conversion_kind='cartesian'
+                    self.features.add('Cartesian interface result conversion')
+                if not self.compatible(spec, value_type): self.error('E_RETURN', 'Wrong function return type', token)
+                if spec[0] == 'ARRAY':
+                    source = expr
+                    while source.kind == 'group': source = source.args[0]
+                    sources = ('name', 'field', 'index', 'call') if self.mode == 'pythonic' else ('name', 'field', 'index')
+                    wrong_identity = (rt.array_identity(value_type) is not None and
+                                      (self.mode == 'strict' or rt.array_identity(value_type) != rt.array_identity(spec)))
+                    expected_outer_rank = len(rt.array_shape(spec)) if self.mode == 'pythonic' else 1
+                    if (source.kind not in sources or value_type[0] != 'ARRAY'
+                            or wrong_identity or len(rt.array_shape(value_type)) != expected_outer_rank
+                            or (value_type[2] != spec[2] and not
+                                (spec[2][0]==value_type[2][0]=='STRING' and (spec[2][1] is None or value_type[2][1] is None)))):
+                        self.error('E_ARRAY_RETURN_SOURCE', 'ARRAY RETURN requires matching outer representation, nominal identity and exact element type', expr.token)
+                    self.array_return_uses.append(dict(routine=self.current_routine.name, element_type=spec[2][0], element_spec=spec[2], line=line,
+                                                       column=token.column, expression_kind=expr.kind,
+                                                       logical_rank=len(rt.array_dimensions(spec)),
+                                                       result_spec=spec, declared_dimensions=rt.array_shape(spec), nominal_identity=rt.array_identity(spec),
+                                                       independent_copy=True, initialized_elements_required=self.mode!='pythonic'))
+                    self.line(f'return _rt.array_result({spec!r}, {value}, {line})', token)
+                elif spec[0] == 'STRING':
+                    self.string_return_uses.append(dict(routine=self.current_routine.name, capacity=spec[1],
+                                                       capacity_defaulted=self.current_routine.string_result_defaulted,
+                                                       line=line, column=token.column, expression_kind=expr.kind,
+                                                       evaluated_once=True, right_truncation=True))
+                    self.line(f'return _rt.checked({spec!r}, {value}, {line})', token)
+                elif spec == ('VECTOR',):
+                    self.vector_return_uses.append(dict(routine=self.current_routine.name, line=line, column=token.column,
+                                                       expression_kind=expr.kind, independent_writable_copy=True))
+                    self.line(f'return _rt.checked({spec!r}, {value}, {line})' if self.mode=='pythonic' else f'return _rt.vector_value({value}, {line})', token)
+                elif spec[0] == 'STRUCTURE':
+                    self.structure_return_uses.append(dict(routine=self.current_routine.name, type_name=spec[1], line=line,
+                                                          column=token.column, expression_kind=expr.kind, independent_writable_copy=True))
+                    self.line(f'return _rt.structure_value({spec!r}, {value}, {line})', token)
+                elif spec[0] in POSITIONAL_VALUE_TYPES:
+                    self.positional_return_uses.append(dict(routine=self.current_routine.name, type_spec=spec, line=line,
+                                                           column=token.column, expression_kind=expr.kind, independent_writable_copy=True))
+                    if self.mode=='pythonic':self.positional_return_uses[-1].update(source_type_spec=source_type_spec,converted=cartesian_conversion,conversion_kind=conversion_kind)
+                    self.line(f'return _rt.checked({spec!r}, {value}, {line})' if self.mode=='pythonic' else f'return _rt.positional_value({spec!r}, {value}, {line})', token)
+                elif self.mode=='pythonic' and spec[0] in NARROW_TYPES:
+                    self.line(f'return _rt.require(_rt.checked({spec!r}, {value}, {line}), {line})', token)
+                else:
+                    self.line(f'return _rt.checked({spec!r}, {value}, {line})', token)
+        else: self.error('E_INTERNAL', f'Unexpected statement {kind}', token)
+
+    def emit(self):
+        if self.mode=='pythonic':self.normalize_array_chains()
+        self.validate_symbols()
+        self.line(f'# Generated by karel2py {__version__}; offline prototype, not controller-equivalence proof.')
+        self.line('from karel2py import runtime as _rt')
+        self.line()
+        self.line('class Program:')
+        self.indent = 1
+        self.line(f'source_program = {self.program.name!r}')
+        self.line(f'translation_mode = {self.mode!r}')
+        self.line(f'source_directives = {tuple((row["name"], row["argument"]) for row in self.program.directive_metadata)!r}')
+        self.line(f'source_storage_declarations = {tuple((row["owner"],row["name"],row["pool"],row["line"],row["column"]) for row in self.program.storage_declarations)!r}')
+        if self.program.storage_declarations:self.features.add('VAR storage clause')
+        self.line(f'source_groups = {tuple(sorted(set(row["group"] for row in self.group_uses)))!r}')
+        self.line(f'imported_variables = {tuple(self.program.imported_variables)!r}')
+        self.line(f'imported_types = {tuple((row["name"], row["owner"]) for row in self.program.imported_types)!r}')
+        owners = {name:self.program.name for name in self.user_types}
+        owners.update((row['name'],row['owner']) for row in self.program.imported_types)
+        self.line(f'type_owners = {owners!r}')
+        if self.program.imported_types: self.features.add('source-linked TYPE FROM declaration')
+        self.line(f'routine_interfaces = { {r.name:dict(parameters=tuple(spec for _,spec in r.parameters),result=r.return_type,external=r.external) for r in self.program.routines}!r}')
+        self.line(f'external_array_shapes = {tuple(self.array_shapes.items())!r}')
+        self.line(f'variable_types = {self.user_types!r}')
+        if self.mode=='pythonic':
+            self.line('input_analysis = None')
+            self.line('input_analysis_sha256 = None')
+        self.line(f'@_rt._with_numeric_mode({self.mode!r})')
+        self.line('def __init__(self, *, sleep=None, write=None, read=None, joint_axes=None, pose_tolerance=None, external_tolerance=None, clock_us=None, registers=None, context=None):')
+        self.indent = 2
+        self.line(f'self._state = _rt.State({self.types!r}, {self.constants!r}, sleep=sleep, write=write, read=read, joint_axes=joint_axes, pose_tolerance=pose_tolerance, external_tolerance=external_tolerance, clock_us=clock_us, registers=registers, context=context)')
+        self.line(f'self._state.program_name={self.program.name!r}')
+        self.line('self._state.program=self')
+        self.line('if len(self.source_groups)==1: self._state.robot_group=self.source_groups[0]')
+        if self.mode=='pythonic': self.line('_rt.configure_task(self._state,self.source_directives)')
+        self.line('self._state.execution.variables.attach(self.source_program,self._state)')
+        self.indent = 1
+        self.line()
+        self.line('@property')
+        self.line('def source_settings(self):')
+        self.indent = 2
+        self.line('return self._state._source_settings.copy()')
+        self.indent = 1
+        self.line()
+        self.line('@property')
+        self.line('def pose_tolerance(self):')
+        self.indent = 2
+        self.line('return self._state.pose_tolerance')
+        self.indent = 1
+        self.line()
+        self.line('@property')
+        self.line('def write_requests(self):')
+        self.indent = 2
+        self.line('return tuple(request.copy() for request in self._state.write_requests)')
+        self.indent = 1
+        self.line()
+        self.line('@property')
+        self.line('def read_requests(self):')
+        self.indent = 2
+        self.line('return self._state.read_observations()')
+        self.indent = 1
+        self.line()
+        self.line('@property')
+        self.line('def clock_reads(self):')
+        self.indent = 2
+        self.line('return tuple(observation.copy() for observation in self._state.clock_reads)')
+        self.indent = 1
+        self.line()
+        self.line('@property')
+        self.line('def register_requests(self):')
+        self.indent = 2
+        self.line('return tuple(request.copy() for request in self._state.register_requests)')
+        self.indent = 1
+        self.line('@property')
+        self.line('def service_requests(self):')
+        self.indent = 2
+        self.line('return tuple(request.copy() for request in self._state.service_requests)')
+        self.indent = 1
+        self.line()
+        self.line('@property')
+        self.line('def task_settings(self):')
+        self.indent = 2
+        self.line('return _rt.task_root(self._state)._task_settings.copy()')
+        self.indent = 1
+        self.line('@property')
+        self.line('def task_trace(self):')
+        self.indent = 2
+        self.line('return tuple(row.copy() for row in _rt.task_root(self._state)._task_trace)')
+        self.indent = 1
+        self.line()
+        self.line('@property')
+        self.line('def abort_info(self):')
+        self.indent = 2
+        self.line('return self._state.abort_info')
+        self.indent = 1
+        self.line()
+        self.line('def snapshot(self):')
+        self.indent = 2
+        self.line('return self._state.snapshot()')
+        self.indent = 1
+        for routine in self.program.routines:
+            self.current_routine = routine
+            self.line()
+            argument_names = [f'_argument_{i}' for i in range(len(routine.parameters))]
+            signature = ', '.join(['self'] + argument_names)
+            self.line(f'@_rt._with_numeric_mode({self.mode!r})')
+            self.line(f'def _routine_{routine.name}({signature}):', routine.token)
+            self.indent = 2
+            self.line(f'self._state.tick({routine.token.line})')
+            bindings = ', '.join(f'{token.value!r}: {arg}' for (token, _), arg in zip(routine.parameters, argument_names))
+            self.line(f'self._state.enter_routine({routine.local_types!r}, {routine.token.line}, {{{bindings}}}, routine={routine.name!r})')
+            self.line('try:')
+            self.indent = 3
+            if routine.external:
+                self.line(f'return (yield from self._state.external_call({routine.external!r},{routine.name!r},[{", ".join(argument_names)}],{routine.return_type!r},{routine.token.line}))',routine.token)
+            else: self.emit_body(routine.body)
+            if routine.return_type and not routine.external:
+                self.line(f'raise _rt.KarelRuntimeError("Function completed without RETURN", {routine.token.line})')
+            self.indent = 2
+            self.line('finally:')
+            self.indent = 3
+            self.line('self._state.leave_routine()')
+            self.indent = 1
+        self.current_routine = None
+        self.line()
+        if self.cooperative:
+            self.line(f'@_rt._with_numeric_mode({self.mode!r})')
+            self.line('def run(self, *, max_steps=100000):'); self.indent=2
+            self.line('return _rt.run_cooperative(self,max_steps)'); self.indent=1
+            self.line(f'@_rt._with_numeric_mode({self.mode!r})')
+            self.line('def resume(self):'); self.indent=2
+            self.line('return _rt.resume_cooperative(self)'); self.indent=1
+            self.line(f'@_rt._with_numeric_mode({self.mode!r})')
+            self.line('def powerup(self):'); self.indent=2; self.line('return _rt.powerup_cooperative(self)'); self.indent=1
+            self.line('def pause(self):'); self.indent=2; self.line("_rt.request_task_control(self._state,'PAUSE')"); self.indent=1
+            self.line('def stop(self):'); self.indent=2; self.line('return _rt.stop_cooperative(self)'); self.indent=1
+            self.line('@property'); self.line('def task_state(self):'); self.indent=2; self.line('return self._state.task_state'); self.indent=1
+        self.line(f'@_rt._with_numeric_mode({self.mode!r})')
+        sync_entry=self.mode=='pythonic' and not self.cooperative
+        self.line('def _execute(self):' if self.cooperative else 'def _execute_sync(self):' if sync_entry else 'def run(self, *, max_steps=100000):')
+        self.indent = 2
+        if self.cooperative: self.line('if False: yield None')
+        if not self.cooperative and not sync_entry:
+            self.line('self._state.begin(max_steps)')
+            self.line('self._state._driving=True')
+            self.line('try:'); self.indent+=1
+        if self.cooperative: self.line('try:'); self.indent+=1
+        self.emit_body(self.program.body)
+        if self.cooperative:
+            self.indent-=1; self.line('except _rt.KarelRuntimeError as _failure:'); self.indent+=1
+            self.line('yield from _rt.runtime_failure(self._state,_failure)'); self.line('raise'); self.indent-=1
+        self.line('return self._state.snapshot()')
+        if not self.cooperative and not sync_entry:
+            self.indent-=1;self.line('finally:');self.indent+=1
+            self.line('self._state._driving=False')
+            self.line('self._state.finish_teach_programs()')
+        if sync_entry:
+            self.indent=1;self.line()
+            self.line(f'@_rt._with_numeric_mode({self.mode!r})')
+            self.line('def run(self, *, max_steps=100000):');self.indent=2
+            self.line('self._state.begin(max_steps)');self.line('self._state._driving=True')
+            self.line('_completed = False')
+            self.line('try:');self.indent=3
+            self.line('_result = self._execute_sync()')
+            self.line('_completed = True')
+            self.line('return _result')
+            self.indent=2;self.line('finally:');self.indent=3
+            self.line('self._state._driving=False');self.line('self._state.finish_teach_programs(interrupted=not _completed)')
+        if self.mode=='pythonic' and self.program.routines:
+            counter_roots={routine.name:set() for routine in self.program.routines if not routine.external}
+            for use in self.reference_for_uses:
+                if use['body'] in counter_roots and use['root'] is not None:
+                    counter_roots[use['body']].add(use['root'])
+            self.indent=1
+            self.line(f'local_for_roots = { {name:tuple(sorted(roots)) for name,roots in counter_roots.items()}!r}')
+        if self.mode=='pythonic' and self.cooperative:
+            self.indent=1
+            self.line(f'source_checkpoints = {tuple(sorted(self.source_checkpoints))!r}')
+            self.line(f'skippable_checkpoints = {tuple(sorted(self.skippable_checkpoints))!r}')
+        self.indent = 0
+        self.line()
+        self.line('if __name__ == "__main__":')
+        self.indent = 1
+        if self.mode=='pythonic' or self.features & (JOINT_PROCEDURES | REGISTER_PROCEDURES) or self.features & {'read','operator >=<','extended services','ports','memory files'}:
+            self.line('import argparse as _argparse')
+            self.line('_parser = _argparse.ArgumentParser(description="Explicit offline execution context; no controller connection")')
+            if self.features & JOINT_PROCEDURES:
+                self.line('_parser.add_argument("--joint-axes", type=int, choices=range(1, 10), required=True)')
+            if self.features & REGISTER_PROCEDURES:
+                self.line('_parser.add_argument("--registers", help="UTF-8 JSON numeric bank; defaults to the numeric bank in --context")')
+            if 'operator >=<' in self.features:
+                self.line('_parser.add_argument("--location-tolerance-mm", type=float, required=True)')
+                self.line('_parser.add_argument("--orientation-tolerance-deg", type=float, required=True)')
+                self.line('_config = _parser.add_mutually_exclusive_group(required=True)')
+                self.line('_config.add_argument("--check-config", dest="check_config", action="store_true")')
+                self.line('_config.add_argument("--ignore-config", dest="check_config", action="store_false")')
+            if 'read' in self.features:
+                self.line('_input = _parser.add_mutually_exclusive_group(required=False)')
+                self.line('_input.add_argument("--read-values", help="UTF-8 JSON list of typed response batches, one per READ")')
+                self.line('_input.add_argument("--read-text", help="UTF-8 ASCII text input for Pythonic READ")')
+            self.line('_parser.add_argument("--context", help="Explicit offline service configuration JSON")')
+            self.line('_rt.directory_files_options(_parser)')
+            self.line('_parser.add_argument("--state-out", help="Save offline banks and global values as JSON")')
+            self.line('_parser.add_argument("--max-steps", type=int, default=100000, help="Maximum execution steps")')
+            if self.mode=='pythonic':
+                self.line('_parser.add_argument("--external-collections", help="UTF-8 JSON fixed logical values for explicitly named external collection functions")')
+                self.line('_parser.add_argument("--external-values", help="UTF-8 JSON explicit data, procedures, argument cases and staged outputs for external routines")')
+            if 'operator >=<' in self.features:
+                self.line('_parser.add_argument("--external-axis-tolerances", type=float, nargs=3, help="Explicit tolerances for EXT1, EXT2, EXT3")')
+            self.line('_args = _parser.parse_args()')
+            self.line('if _args.max_steps < 1: _parser.error("--max-steps must be positive")')
+            self.line('_files = _rt.directory_files_from_args(_parser, _args)')
+            self.line('import json as _json')
+            self.line('_context = None')
+            self.line('if _args.context is not None:')
+            self.indent += 1
+            self.line('try:')
+            self.indent += 1
+            if self.mode=='pythonic':
+                self.line('_context = _rt.ExecutionContext.load(_args.context)')
+            else:
+                self.line('with open(_args.context, encoding="utf-8-sig") as _stream: _context = _rt.ExecutionContext.from_config(_json.load(_stream))')
+            self.indent -= 1
+            self.line('except (OSError, KeyError, TypeError, ValueError, _rt.KarelRuntimeError) as _error:')
+            self.indent += 1
+            self.line('_parser.error("Invalid service context: "+str(_error))')
+            self.indent -= 2
+            if self.mode=='pythonic':
+                self.line('if _args.external_collections is not None or _args.external_values is not None:')
+                self.indent+=1;self.line('try:');self.indent+=1
+                self.line('_bindings = _rt.load_external_bindings(values=_args.external_values, collections=_args.external_collections, outputs=(_args.state_out,))')
+                self.line('if _context is None: _context = _rt.ExecutionContext()')
+                self.line('_context.externals.update(_bindings)')
+                self.indent-=1;self.line('except (OSError, ValueError, _rt.KarelRuntimeError) as _error:')
+                self.indent+=1;self.line('_parser.error(("Invalid external collections: " if _args.external_values is None else "Invalid external bindings: ")+str(_error))');self.indent-=2
+            self.line('if _files is not None or _args.state_out is not None:')
+            self.indent += 1
+            self.line('if _context is None: _context = _rt.ExecutionContext()')
+            self.line('if _files is not None: _context.files = _files')
+            self.indent -= 1
+            if self.features & REGISTER_PROCEDURES:
+                self.line('_registers = _context.numeric if _context is not None else None')
+                self.line('if _args.registers is not None:')
+                self.indent += 1
+                self.line('try:')
+                self.indent += 1
+                self.line('with open(_args.registers, encoding="utf-8-sig") as _stream:')
+                self.indent += 1
+                self.line('_registers = _rt.NumericRegisters.from_config(_json.load(_stream))')
+                self.indent -= 2
+                self.line('except (OSError, TypeError, ValueError, _rt.KarelRuntimeError) as _error:')
+                self.indent += 1
+                self.line('_parser.error("Unable to load numeric registers: " + str(_error))')
+                self.indent -= 2
+                self.line('if _registers is None: _parser.error("Numeric register calls require --registers or --context with a numeric bank")')
+                self.line('if _context is None: _context = _rt.ExecutionContext()')
+                self.line('_context.numeric = _registers')
+            if 'operator >=<' in self.features:
+                self.line('try:')
+                self.indent += 1
+                self.line('_pose_tolerance = _rt.checked_pose_tolerance((_args.location_tolerance_mm, _args.orientation_tolerance_deg, _args.check_config))')
+                self.indent -= 1
+                self.line('except ValueError as _error:')
+                self.indent += 1
+                self.line('_parser.error(str(_error))')
+                self.indent -= 1
+            if 'read' in self.features:
+                self.line('_responses = None')
+                self.line('if _args.read_values is not None or _args.read_text is not None:')
+                self.indent += 1
+                self.line('import json as _json')
+                self.line('try:')
+                self.indent += 1
+                self.line('with open(_args.read_values if _args.read_values is not None else _args.read_text, encoding="utf-8-sig", newline="") as _stream:')
+                self.indent += 1
+                self.line('_responses = _json.load(_stream) if _args.read_values is not None else _rt.TextInput(_stream.read())')
+                self.indent -= 2
+                self.line('except (OSError, ValueError) as _error:')
+                self.indent += 1
+                self.line('_parser.error("Unable to load READ input: " + str(_error))')
+                self.indent -= 1
+                self.line('if _args.read_values is not None:')
+                self.indent += 1
+                self.line('if type(_responses) is not list: _parser.error("READ batches must be a JSON list")')
+                self.line('_batches = iter(_responses)')
+                self.line('_responses = lambda request: next(_batches)')
+                self.indent -= 2
+            context = ['context=_context']
+            if self.features & REGISTER_PROCEDURES: context.append('registers=_registers')
+            if self.features & JOINT_PROCEDURES: context.append('joint_axes=_args.joint_axes')
+            if 'operator >=<' in self.features: context.extend(('pose_tolerance=_pose_tolerance','external_tolerance=_args.external_axis_tolerances'))
+            if 'read' in self.features: context.append('read=_responses')
+            self.line(f'_program = Program({", ".join(context)})')
+            self.line('print(_program.run(max_steps=_args.max_steps))')
+            self.line('if _args.state_out is not None:')
+            self.indent += 1
+            self.line('if _program._state.registers is not None: _context.numeric = _program._state.registers')
+            self.line('_context.save(_args.state_out)')
+            self.indent -= 1
+        else:
+            self.line('print(Program().run())')
+        result = '\n'.join(self.lines) + '\n'
+        ast.parse(result)
+        return result

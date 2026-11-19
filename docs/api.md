@@ -646,9 +646,9 @@ frames. Runtime errors, sticky KarelAbort and terminal KarelStop are distinct.
 new run. Services retain their explicit shared state.
 
 Install the complete `karel2py` package alongside generated modules. Runtime
-services share support modules; project translation additionally uses
-`project.py`, `compiler.py`, `lexer.py`, `includes.py` and `fileio.py`. Installing
-the package supplies those dependencies.
+services share support modules. Project translation also uses the compiler
+passes and include resolver supplied by that package. See
+[compiler architecture](compiler-architecture.md).
 
 `UNINIT` supports whole CONFIG, VECTOR, POSITION, XYZWPR and XYZWPREXT storage
 in Pythonic mode. Any missing nested leaf yields TRUE, with no storage mutation.
