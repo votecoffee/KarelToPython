@@ -122,6 +122,23 @@ class TypeQueries:
             self.error('E_POSITION_READ_ONLY',
                        'POSITION NORMAL, ORIENT and APPROACH fields and their components are read-only', target.token)
 
+    def check_read_target(self, target):
+        base = target
+        while base.kind in ('field', 'index'):
+            base = base.args[0]
+        if target.kind not in ('name', 'field', 'index') or base.kind not in ('name', 'using_ref'):
+            self.error('E_READ_ITEM', 'READ requires scalar storage rooted in a variable', target.token)
+        root = self.root_name(target)
+        if root in self.visible_constants():
+            self.error('E_CONST_ASSIGN', 'READ cannot write CONST', target.token)
+        if self.protection_root(target) in self.active_counters:
+            self.error('E_FOR_COUNTER', 'READ cannot write an active FOR counter', target.token)
+        if self.is_position_read_only_access(target):
+            self.error('E_POSITION_READ_ONLY', 'READ cannot write POSITION orientation fields', target.token)
+        if self.is_value_only_subfield(target) and self.mode != 'pythonic':
+            self.error('E_CONFIG_OUTPUT', 'READ into CONFIG subfields needs a separate bounded output policy', target.token)
+        return root
+
     def check_byname_counter(self, operand):
         if self.named_active_counters() or self.protection_root(operand.entry) in self.active_counters:
             self.error('E_FOR_COUNTER', 'BYNAME cannot alias or write an active FOR counter', operand.token)

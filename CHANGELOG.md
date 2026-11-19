@@ -1,5 +1,13 @@
 # Changelog
 
+## 26.1119.235207 - 2026-11-19
+
+- Check robot frame, tool, and pose write targets separately from generation.
+  Stage source capture before selectors and keep system reads in the same
+  generation module.
+- Move staged READ and WRITE generation and format checks out of the statement
+  dispatcher. Preserve default FILE bindings and aggregate capture order.
+
 ## 26.1119.234539 - 2026-11-19
 
 - Check assignment schemas before emitting scalar, aggregate, and collection

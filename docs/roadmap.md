@@ -18,8 +18,9 @@ prefixes and check service storage. Routine and service generation have dedicate
 modules. Routine argument and result plans share conversion selection while
 keeping their distinct ARRAY and collection checks. Assignment analysis and
 generation now cover ordinary writes, ARRAY prefixes, collection copies, and
-routine result receivers. Next, isolate system pose and frame/tool selection
-writes, then separate the remaining staged statement I/O. The runtime and
+routine result receivers. Robot system access and staged READ and WRITE have
+dedicated analysis and generation modules. Next, isolate motion request and
+task-control statement generation from the general dispatcher. The runtime and
 extended services can be split by ownership after their boundaries are covered
 with regressions. See [compiler architecture](compiler-architecture.md).
 

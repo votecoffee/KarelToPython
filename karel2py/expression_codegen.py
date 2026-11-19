@@ -126,26 +126,11 @@ class ExpressionLowering:
         return f'_rt.config_word_value({target!r},{value},{token.line})'
 
     def expression(self, expr, raw=False, *, allow_array_result=False, collection_io=False):
-        if expr.kind=='system_selection':
-            group=self.require_type(expr.args[0],'INTEGER')
-            self.system_selection_uses.append(dict(operation='READ_'+expr.value,body=self.current_routine.name if self.current_routine else self.program.name,
-                line=expr.token.line,column=expr.token.column,evaluated_once=True,private_value=True,result_type='INTEGER'))
-            self.features.update(('robot frame/tool selection','extended services'))
-            return f'self._state.system_selection({expr.value!r},_rt.integer({group},{expr.args[0].token.line}),{expr.token.line})',('INTEGER',)
-        pose=expr if expr.kind=='system_pose' else self.system_axis_root(expr)
+        if expr.kind == 'system_selection':
+            return self.lower_system_selection(expr)
+        pose = expr if expr.kind == 'system_pose' else self.system_axis_root(expr)
         if pose is not None:
-            axis=None if pose is expr else expr.value
-            result_type='POSITION' if axis is None else 'REAL'
-            codes=[self.require_type(argument,'INTEGER') for argument in pose.args]
-            codes=[f'_rt.integer({code},{argument.token.line})' for code,argument in zip(codes,pose.args)]
-            row=dict(operation=pose.value,body=self.current_routine.name if self.current_routine else self.program.name,
-                line=expr.token.line,column=expr.token.column,evaluated_once=True,independent_value=True,result_type=result_type)
-            if axis is not None:row['path']=(axis,)
-            if row not in self.system_pose_uses:self.system_pose_uses.append(row)
-            self.features.update(('robot system pose value','extended services'))
-            number=codes[1] if len(codes)>1 else 'None'
-            selector='' if axis is None else f',axis={axis!r}'
-            return f'self._state.system_pose({pose.value!r},{codes[0]},{number},{expr.token.line}{selector})',(result_type,)
+            return self.lower_system_pose(expr, pose)
         if expr.kind=='motion_event':
             return f'self._state.execution.require("motion",{expr.token.line}).condition(self._state,{expr.value},{expr.token.line})',('BOOLEAN',)
         if expr.kind=='captured': return expr.value
@@ -676,12 +661,3 @@ class ExpressionLowering:
         if expected == 'REAL' and spec[0] in INTEGRAL_TYPES: return f'_rt.real({code}, {expr.token.line})'
         if spec[0] != expected: self.error('E_TYPE', f'Expected {expected}, found {spec[0]}', expr.token)
         return code
-
-    @staticmethod
-    def format_literal(expr):
-        """Recognize signed/grouped literals without folding runtime expressions."""
-        sign = 1
-        while expr.kind == 'group' or expr.kind == 'unary' and expr.value in ('+', '-'):
-            if expr.kind == 'unary' and expr.value == '-': sign = -sign
-            expr = expr.args[0]
-        return sign * expr.value if expr.kind == 'literal' and type(expr.value) is int else None

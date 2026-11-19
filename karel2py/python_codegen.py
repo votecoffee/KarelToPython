@@ -17,8 +17,10 @@ from .declarations import DeclarationPasses
 from .syntax import Expr, Statement
 from .select_analysis import check_select
 from .expression_codegen import ExpressionLowering
+from .robot_system_codegen import RobotSystemLowering
 from .routine_codegen import RoutineLowering
 from .service_codegen import ServiceCallLowering
+from .statement_io_codegen import StatementIOLowering
 from .type_checking import TypeQueries
 from .control_flow import FlowGraph, counter_text, validate_labels
 from .lexer import Token, TranslationError
@@ -27,7 +29,8 @@ from . import extended as ex
 from . import runtime as rt
 
 
-class Emitter(DeclarationPasses, TypeQueries, ExpressionLowering, AssignmentLowering, RoutineLowering, ServiceCallLowering):
+class Emitter(DeclarationPasses, TypeQueries, ExpressionLowering, AssignmentLowering,
+              RoutineLowering, RobotSystemLowering, ServiceCallLowering, StatementIOLowering):
     """Emit a Python module from a parsed program and its checked declarations."""
 
     def __init__(self, program, filename, array_shapes=None, mode='strict', cooperative=False):
@@ -537,12 +540,8 @@ class Emitter(DeclarationPasses, TypeQueries, ExpressionLowering, AssignmentLowe
         return self.expression(expr)
 
     def statement_body(self, stmt, file_code=None):
-        optional_file=self.mode=='pythonic' and file_code is None and stmt.kind in ('read','write_items')
         token, kind = stmt.token, stmt.kind
         line = token.line
-        if optional_file:
-            file_code=self.fresh()
-            self.line(f'{file_code}=self._state.default_file({("READ" if kind=="read" else "WRITE")!r},{line})',token)
         if kind=='motion_control':
             captured=[]
             for expr in stmt.args[1] or []:
@@ -708,57 +707,14 @@ class Emitter(DeclarationPasses, TypeQueries, ExpressionLowering, AssignmentLowe
                 self.line(f'self._state.file_open({file_value},{mode},{name},{line})',token)
             else: self.line(f'self._state.file_close({file_value},{line})',token)
             return
-        if kind=='system_selection_assign':
-            self.check_for_call(token);target,expr=stmt.args
-            if target.kind!='system_selection':self.error('E_SYSTEM_SELECTION_TARGET','Active frame/tool assignment requires one group selector and no descendant fields',target.token)
-            value=self.require_type(expr,'INTEGER');captured=self.fresh()
-            self.line(f'{captured}=_rt.assignment_value({value},{line})',token)
-            group=self.require_type(target.args[0],'INTEGER');selected=self.fresh()
-            self.line(f'{selected}=_rt.integer({group},{target.args[0].token.line})',target.token)
-            self.line(f'self._state.system_selection_write({target.value!r},{selected},{captured},{line})',token)
-            self.system_selection_uses.append(dict(operation='WRITE_'+target.value,body=self.current_routine.name if self.current_routine else self.program.name,
-                line=line,column=token.column,evaluated_once=True,rhs_before_selector=True,atomic_selection=True))
-            self.features.update(('robot frame/tool selection','extended services'));return
-        if kind=='system_pose_assign':
-            self.check_for_call(token)
-            target,expr=stmt.args;root=target;path=[]
-            while root.kind in ('field','group'):
-                if root.kind=='field':path.insert(0,root.value)
-                root=root.args[0]
-            allowed={(),('LOCATION',),*(('LOCATION',axis) for axis in ('X','Y','Z')),
-                ('CONFIG_DATA',),*(('CONFIG_DATA',name) for name,_ in rt.record_fields(('CONFIG',))),
-                *((axis,) for axis in ex.SYSTEM_POSE_AXES)}
-            if root.kind!='system_pose' or tuple(path) not in allowed:
-                self.error('E_SYSTEM_POSE_TARGET','System pose writes require a whole pose or a LOCATION, CONFIG_DATA or external-axis field',target.token)
-            value,actual=self.expression(expr)
-            expected=self.access_type(target)
-            joint_conversion=not path and self.mode=='pythonic' and actual[0]=='JOINTPOS'
-            if not path:
-                if actual[0] not in ('POSITION','XYZWPR','XYZWPREXT') and not joint_conversion:
-                    self.error('E_TYPE','System pose assignment requires a Cartesian pose or Pythonic JOINTPOS value',expr.token)
-            elif self.mode=='pythonic' and rt.real_integral_kind(expected,actual):
-                value=f'_rt.real_integral_value({expected!r},{value},{line})'
-                self.features.add('checked REAL to integral system pose field')
-            elif not self.compatible(expected,actual):
-                self.error('E_TYPE',f'System pose field requires {expected}',expr.token)
-            if joint_conversion:
-                value=f"self._state.kinematic_assignment(('XYZWPREXT',),{value},{line})"
-                self.features.add('kinematic assignment')
-                if self.current_routine:self.current_routine.may_services=True
-                self.kinematic_assignment_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
-                    line=line,column=token.column,source_type=actual,target_type=('XYZWPREXT',),target_kind='system_pose',
-                    evaluated_once=True,independent_value=True))
-            captured=self.fresh();self.line(f'{captured}=_rt.assignment_value({value},{line})',token)
-            selectors=[]
-            for argument in root.args:
-                code=self.require_type(argument,'INTEGER');temporary=self.fresh()
-                self.line(f'{temporary}=_rt.integer({code},{argument.token.line})',argument.token);selectors.append(temporary)
-            number=selectors[1] if len(selectors)>1 else 'None'
-            self.line(f'self._state.system_pose_write({root.value!r},{selectors[0]},{number},{captured},{tuple(path)!r},{line})',token)
-            self.system_pose_writes.append(dict(operation=root.value,body=self.current_routine.name if self.current_routine else self.program.name,
-                line=line,column=token.column,path=tuple(path),source_type=actual,evaluated_once=True,rhs_before_selectors=True,atomic_table_publication=True))
-            if joint_conversion:self.system_pose_writes[-1].update(kinematic_conversion=True,stored_type=('XYZWPREXT',))
-            self.features.update(('robot system pose assignment','extended services'));return
+        if kind == 'system_selection_assign':
+            target, value = stmt.args
+            self.lower_system_selection_write(target, value, token)
+            return
+        if kind == 'system_pose_assign':
+            target, value = stmt.args
+            self.lower_system_pose_write(target, value, token)
+            return
         if kind == 'assign':
             target, value = stmt.args
             self.lower_assignment(target, value, token)
@@ -794,192 +750,11 @@ class Emitter(DeclarationPasses, TypeQueries, ExpressionLowering, AssignmentLowe
                                       condition_type='BOOLEAN', evaluation='once per check until true',
                                       yield_seconds=0.0, step_budgeted=True))
         elif kind == 'write_items':
-            pieces, items = [], []
-            write_groups=[];aggregate_output=False
-            for item in stmt.args:
-                if item.kind == 'write_cr':
-                    pieces.append(repr('\n'));write_groups.append('['+repr('\n')+']')
-                    items.append(dict(data_type='CR', line=item.token.line, column=item.token.column,
-                                      format_specifiers=[]))
-                    continue
-                value, spec = self.expression(item.args[0],collection_io=True)
-                data_type = spec[0]
-                aggregate=data_type not in ('STRING','BOOLEAN','INTEGER','REAL',*NARROW_TYPES)
-                if aggregate and (self.mode!='pythonic' or not rt.aggregate_write_type(spec)):
-                    self.error('E_TYPE',f'WRITE requires scalar or resource-free aggregate data, found {data_type}',item.token)
-                aggregate_output=aggregate_output or aggregate
-                format_exprs = item.args[1:]
-                format_kinds=rt.aggregate_format_kinds(spec) if aggregate else {data_type}
-                format_codes = [self.require_type(expr, 'INTEGER') for expr in format_exprs]
-                literals = [self.format_literal(expr) for expr in format_exprs]
-                formats = [literal if literal is not None else dict(expression=True, line=expr.token.line,
-                            column=expr.token.column) for literal, expr in zip(literals, format_exprs)]
-                width = literals[0] if literals else None
-                second = literals[1] if len(literals) == 2 else None
-                if width is not None and (width < 0 or format_kinds!={'STRING'} and width > 254):
-                    self.error('E_WRITE_FORMAT', 'WRITE width must be nonnegative; numeric/BOOLEAN widths are limited to 254', format_exprs[0].token)
-                if 'BOOLEAN' in format_kinds and len(format_exprs) == 2:
-                    self.error('E_WRITE_FORMAT', 'BOOLEAN WRITE accepts only a width', format_exprs[1].token)
-                if second is not None:
-                    valid = all(kind=='STRING' and second in (0,1,2,3) or kind=='REAL' and -254<=second<=254
-                                or kind in INTEGRAL_TYPES and second in (0,*range(2,17)) for kind in format_kinds)
-                    if not valid:
-                        self.error('E_WRITE_FORMAT', f'Invalid {data_type} WRITE second format specifier', format_exprs[1].token)
-                if aggregate:
-                    options=f',file={file_code}' if file_code else ''
-                    check=',check=self._state.tick' if rt.collection_type(spec) or rt.collection_array_type(spec) else ''
-                    rendered=(f'_rt.format_aggregate_write(_rt.capture_aggregate_write({spec!r},{value},{item.token.line}{check}),[{", ".join(format_codes)}],{item.token.line}{options})'
-                              if format_exprs else f'_rt.aggregate_write_pieces({spec!r},{value},{item.token.line}{options}{check})')
-                    write_groups.append(rendered);pieces.append(rendered)
-                else:
-                    rendered=f'_rt.{"optional_file_piece" if optional_file else "file_piece"}({file_code},{data_type!r},{value},[{", ".join(format_codes)}],{item.token.line})' if file_code else f'_rt.format_write_item({data_type!r}, {value}, [{", ".join(format_codes)}], {item.token.line})'
-                    pieces.append(rendered);write_groups.append('['+rendered+']')
-                items.append(dict(data_type=data_type, line=item.token.line, column=item.token.column,
-                                  format_specifiers=formats, dynamic_formats=any(x is None for x in literals)))
-                if aggregate:
-                    items[-1].update(aggregate=True,type_spec=spec,scalar_order='ARRAY-row-major/QUEUE-entry-order/INTEGER-values' if rt.queue_io_type(spec) else 'ARRAY-row-major/PATH-header/nodes/declaration/row-major/joint-axis' if rt.path_array_io_type(spec) else 'PATH-header/nodes/declaration/row-major/joint-axis' if data_type=='PATH' else 'declaration/row-major/joint-axis',formats='uniform scalar formats' if format_exprs else 'scalar defaults',capture_before_formats=True)
-                    self.features.add('whole data aggregate WRITE')
-                self.features.add(f'WRITE {data_type} output request')
-                if formats: self.features.add(f'WRITE {data_type} formatting')
-            file_option=f',file={file_code}' if file_code else ''
-            if self.cooperative:
-                method='cooperative_write_groups' if aggregate_output else 'cooperative_write_items'
-                values=write_groups if aggregate_output else pieces
-                self.line(f'yield from _rt.{method}(self._state,[{", ".join(values)}],{line}{file_option})',token)
-            elif aggregate_output:self.line(f'self._state.write_groups([{", ".join(write_groups)}], {line}{file_option})',token)
-            else:self.line(f'self._state.write_items([{", ".join(pieces)}], {line}{file_option})', token)
-            self.features.add('WRITE output request')
-            if any(item['data_type'] == 'CR' for item in items): self.features.add('WRITE CR newline')
-            if len(items) > 1: self.features.add('WRITE multiple data items')
-            self.write_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
-                                        line=token.line, column=token.column,
-                                        data_type=items[0]['data_type'] if len(items) == 1 else 'MIXED',
-                                        data_items=len(items), items=items, evaluated='Left to right, once per expression: value, width, second format; validate/render each item before the next; one request after complete rendering',
-                                        format_specifiers=items[0]['format_specifiers'] if len(items) == 1 else []))
-            if len(items) == 1 and items[0]['data_type'] != 'CR' and not items[0].get('aggregate'):
-                formats = items[0]['format_specifiers']
-                width = formats[0] if formats else None
-                is_string = items[0]['data_type'] == 'STRING'
-                alignment = formats[1] if is_string and len(formats) == 2 else 0
-                dynamic_width = isinstance(width, dict)
-                dynamic_alignment = isinstance(alignment, dict)
-                self.write_uses[-1].update(
-                    format_width=width, alignment='dynamic' if dynamic_alignment else 'right' if not is_string or alignment in (1, 3) else 'left',
-                    quoted='dynamic' if dynamic_alignment else is_string and alignment in (2, 3),
-                    width_policy=('dynamic' if dynamic_width or dynamic_alignment else
-                                  'contents_length' if is_string and width is not None and (width == 0 or width > 254)
-                                  else 'fixed' if is_string and formats else 'minimum' if formats else 'unformatted'))
+            self.lower_write_items(stmt, file_code)
         elif kind == 'write':
-            value, spec = self.expression(stmt.args[0])
-            data_type = spec[0]
-            if data_type not in ('STRING', 'BOOLEAN', 'INTEGER'):
-                self.error('E_TYPE', f'WRITE requires STRING or unformatted BOOLEAN/INTEGER, found {data_type}', stmt.args[0].token)
-            formats = stmt.args[1]
-            width = formats[0] if formats else None
-            alignment = formats[1] if len(formats) == 2 else 0
-            if data_type in ('BOOLEAN', 'INTEGER'):
-                if formats:
-                    self.error('E_WRITE_FORMAT', f'{data_type} WRITE formatting is not implemented; use the unformatted default', stmt.args[2][0])
-                self.line(f'self._state.write_{data_type.lower()}({value}, {line})', token)
-                evaluated = ('once; initialization/INTEGER/nonnegative guard before request' if data_type == 'INTEGER'
-                             else 'once; initialization/BOOLEAN guard before request')
-            else:
-                if alignment in (2, 3) and not 1 <= width <= 254:
-                    self.error('E_WRITE_FORMAT', 'Quoted WRITE requires literal width 1..254; quoted width fallback is not implemented', stmt.args[2][0])
-                options = f', width={width}, alignment={alignment}' if formats else ''
-                self.line(f'self._state.write_string({value}, {line}{options})', token)
-                evaluated = 'once; ASCII/length guard before formatting/request'
-                if formats: self.features.add('WRITE STRING formatting')
-            self.features.add(f'WRITE {data_type} output request')
-            self.write_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
-                                        line=token.line, column=token.column, data_type=data_type,
-                                        data_items=1, evaluated=evaluated,
-                                        format_specifiers=formats, format_width=width,
-                                        alignment='right' if alignment in (1, 3) else 'left',
-                                        quoted=alignment in (2, 3),
-                                        width_policy=('contents_length' if width == 0 or (width is not None and width > 254)
-                                                      else 'fixed' if formats else 'unformatted')))
+            self.lower_legacy_write(stmt)
         elif kind == 'read':
-            references, destinations, line_breaks = [], [], []
-            read_groups=[];aggregate_input=False
-            formatted = any(item.kind == 'read_item' for item in stmt.args)
-            for item in stmt.args:
-                if item.kind == 'read_cr':
-                    line_breaks.append(len(references))
-                    continue
-                target = item.args[0] if item.kind == 'read_item' else item
-                format_exprs = item.args[1:] if item.kind == 'read_item' else []
-                base = target
-                while base.kind in ('field', 'index'): base = base.args[0]
-                if target.kind not in ('name', 'field', 'index') or base.kind not in ('name','using_ref'):
-                    self.error('E_READ_ITEM', 'READ requires scalar storage rooted in a variable', target.token)
-                root = self.root_name(target)
-                if root in self.visible_constants(): self.error('E_CONST_ASSIGN', 'READ cannot write CONST', target.token)
-                if self.protection_root(target) in self.active_counters: self.error('E_FOR_COUNTER', 'READ cannot write an active FOR counter', target.token)
-                if self.is_position_read_only_access(target):
-                    self.error('E_POSITION_READ_ONLY', 'READ cannot write POSITION orientation fields', target.token)
-                if self.is_value_only_subfield(target) and self.mode!='pythonic':
-                    self.error('E_CONFIG_OUTPUT', 'READ into CONFIG subfields needs a separate bounded output policy', target.token)
-                reference, spec = self.reference(target,config_read=self.mode=='pythonic' and self.is_config_subfield(target),allow_prefix=self.mode=='pythonic',collection_prefix=self.mode=='pythonic' and rt.collection_array_type(self.access_type(target)),collection_io=True)
-                aggregate=spec[0] not in (*INTEGRAL_TYPES,'BOOLEAN','REAL','STRING')
-                if aggregate and (self.mode!='pythonic' or not rt.aggregate_read_type(spec)):
-                    self.error('E_READ_TYPE','READ requires scalar or Pythonic resource-free aggregate data',target.token)
-                format_kinds=rt.aggregate_format_kinds(spec) if aggregate else {spec[0]}
-                aggregate_input=aggregate_input or aggregate
-                format_codes = [self.require_type(expr, 'INTEGER') for expr in format_exprs]
-                literals = [self.format_literal(expr) for expr in format_exprs]
-                if literals and literals[0] is not None and not 0 <= literals[0] <= 254:
-                    self.error('E_READ_FORMAT', 'READ width must be in 0..254', format_exprs[0].token)
-                if len(literals) == 2 and literals[1] is not None:
-                    second = literals[1]
-                    valid = all(kind in ('BOOLEAN','REAL') or kind=='STRING' and second in (0,2)
-                                or kind in INTEGRAL_TYPES and second in (0,*range(2,17)) for kind in format_kinds)
-                    if not valid: self.error('E_READ_FORMAT', f'Invalid {spec[0]} READ second format specifier', format_exprs[1].token)
-                if aggregate:
-                    check=',check=self._state.tick' if rt.collection_type(spec) or rt.collection_array_type(spec) else ''
-                    captured_group=f'_rt.capture_aggregate_read_target({reference}, [], {line}{check})'
-                    read_groups.append(f'_rt.format_aggregate_read_group({captured_group},[{", ".join(format_codes)}],{line})' if format_exprs else captured_group)
-                else:read_groups.append(f'[_rt.capture_read_target({reference}, [{", ".join(format_codes)}], {line})]')
-                references.append(f'_rt.capture_read_target({reference}, [{", ".join(format_codes)}], {line})'
-                                  if formatted else reference)
-                destinations.append(dict(root=root, expression_kind=target.kind, type_spec=spec,
-                                         line=target.token.line, column=target.token.column))
-                if aggregate:
-                    destinations[-1].update(aggregate=True,scalar_order='ARRAY-row-major/QUEUE-entry-order/INTEGER-values' if rt.queue_io_type(spec) else 'ARRAY-row-major/PATH-header/nodes/declaration/row-major/joint-axis' if rt.path_array_io_type(spec) else 'PATH-header/nodes/declaration/row-major/joint-axis' if spec[0]=='PATH' else 'declaration/row-major/joint-axis',formats='uniform scalar formats' if format_exprs else 'scalar defaults',capture_before_formats=True)
-                    self.features.add('whole data aggregate READ')
-                if self.mode=='pythonic' and self.is_config_subfield(target):
-                    self.features.add('bounded CONFIG field READ')
-                    destination=dict(body=self.current_routine.name if self.current_routine else self.program.name,
-                        root=root,field=target.value,type_spec=spec,line=target.token.line,column=target.token.column,
-                        file_input=bool(file_code) and not optional_file,target_evaluated_once=True,validated_before_publication=True)
-                    if spec==('INTEGER',):destination['integer_range']=[-8,7]
-                    self.config_field_read_uses.append(destination)
-                    destinations[-1]['config_field']=target.value
-                    if spec==('INTEGER',):destinations[-1]['integer_range']=[-8,7]
-                if format_exprs:
-                    destinations[-1].update(format_specifiers=[literal if literal is not None else dict(expression=True,
-                        line=expr.token.line, column=expr.token.column) for literal, expr in zip(literals, format_exprs)],
-                        dynamic_formats=any(value is None for value in literals))
-                    self.features.add(f'READ {spec[0]} formatting')
-            controls = f', line_breaks={tuple(line_breaks)!r}' if line_breaks else ''
-            cooperative_file=bool(file_code) and self.cooperative
-            reader=(f'_rt.cooperative_optional_file_read(self._state,{file_code},' if optional_file and cooperative_file else f'self._state.optional_file_read({file_code},' if optional_file else f'_rt.cooperative_file_read(self._state,{file_code},' if cooperative_file else f'self._state.file_read({file_code},' if file_code else 'self._state.read_items(')
-            prefix='yield from ' if cooperative_file else ''
-            if aggregate_input:
-                captured=self.fresh();flat_targets=self.fresh();flat_formats=self.fresh();flat_breaks=self.fresh()
-                self.line(f'{captured} = [{", ".join(read_groups)}]',token)
-                self.line(f'{flat_targets}, {flat_formats}, {flat_breaks} = _rt.flatten_read_groups({captured}, {tuple(line_breaks)!r}, {line})',token)
-                self.line(f'{prefix}{reader}{flat_targets}, {line}, line_breaks={flat_breaks}, formats={flat_formats})',token)
-            elif formatted:
-                captured = self.fresh()
-                self.line(f'{captured} = [{", ".join(references)}]', token)
-                self.line(f'{prefix}{reader}[item[0] for item in {captured}], {line}{controls}, formats=[item[1] for item in {captured}])', token)
-            else:
-                self.line(f'{prefix}{reader}[{", ".join(references)}], {line}{controls})', token)
-            self.read_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
-                                       line=line, column=token.column, destinations=destinations,
-                                       targets_evaluated_once=True, response_validated_before_assignment=True))
-            if line_breaks: self.read_uses[-1]['line_breaks'] = line_breaks
+            self.lower_read(stmt, file_code)
         elif kind in ('if', 'while'):
             condition = self.require_type(stmt.args[0], 'BOOLEAN')
             self.line(f'{kind} {self.test_code(condition,line)}:', token)
