@@ -11,10 +11,10 @@ and [desktop guide](desktop.md).
 The first extraction separates parsing, AST data, declaration analysis, type
 queries, control-flow validation and lowering, Python generation, and reports.
 Unary and binary operator rules return schemas independently of emission.
-SELECT checking returns typed CASE rows before dispatch generation. Routine
-argument conversions and checked service signatures now have their own module.
-Next, separate reference and value argument planning from code generation,
-including scoped write checks and service operand roles. The runtime and
+SELECT checking returns typed CASE rows before dispatch generation. Call
+analysis checks routine binding plans, protected counters, and service
+operand schemas. Next, separate special argument capture for BYNAME, FILE
+and collection storage, and isolate service storage checks. The runtime and
 extended services can be split by ownership after their boundaries are covered
 with regressions. See [compiler architecture](compiler-architecture.md).
 

@@ -61,10 +61,80 @@ def routine_argument_conversion(expected, actual, *, mode, guarded_array=False):
     return None
 
 
+def check_routine_call(expr, routine, *, mode, has_routine_call, error):
+    """Check call shape and return source arguments paired with their formals."""
+    expected, supplied = len(routine.parameters), len(expr.args)
+    if supplied != expected:
+        error('E_ARGUMENTS', f'{expr.value} expects {expected} arguments, received {supplied}', expr.token)
+    if mode == 'strict' and supplied > 1 and any(has_routine_call(arg) for arg in expr.args):
+        error('E_EVALUATION_ORDER', 'Multiple arguments containing routine calls need evaluation-order validation', expr.token)
+    return zip(expr.args, routine.parameters)
+
+
+@dataclass(frozen=True)
+class RoutineArgumentPlan:
+    expected_schema: tuple
+    bound_schema: tuple
+    conversion: str | None
+    by_reference: bool
+    guarded_array: bool
+    guarded_string: bool
+
+    @property
+    def bounded_string_value(self):
+        return (not self.by_reference and self.expected_schema[0] == self.bound_schema[0] == 'STRING'
+                and self.expected_schema[1] is not None)
+
+
+def plan_routine_argument(expected, actual, *, mode, reference):
+    """Resolve the passing mode, bound schema and any runtime forwarding guards."""
+    guarded_array = mode == 'pythonic' and reference and array_formal_forward_match(expected, actual)
+    guarded_string = (mode == 'pythonic' and reference and expected[0] == actual[0] == 'STRING'
+                      and expected[1] is not None and actual[1] is None)
+    conversion = routine_argument_conversion(expected, actual, mode=mode, guarded_array=guarded_array)
+    return RoutineArgumentPlan(
+        expected_schema=expected,
+        bound_schema=expected if conversion else actual,
+        conversion=conversion,
+        by_reference=reference and conversion is None,
+        guarded_array=guarded_array,
+        guarded_string=guarded_string,
+    )
+
+
+def validate_routine_argument(plan, routine_name, token, *, mode, active_counter, writable_formal, error):
+    """Check parameter compatibility and scoped restrictions in source diagnostic order."""
+    expected, actual = plan.expected_schema, plan.bound_schema
+    if (not rt.parameter_accepts(expected, actual)
+            and not (plan.bounded_string_value or plan.guarded_array or plan.guarded_string)):
+        error('E_TYPE', f'{routine_name} parameter expects {expected[0]}, found {actual[0]}', token)
+    if plan.by_reference:
+        if active_counter and (mode == 'strict' or writable_formal):
+            error('E_FOR_COUNTER', 'An active FOR counter cannot be passed to a potentially writable formal; '
+                  'use parentheses for a value argument', token)
+    elif expected[0] == 'ARRAY' and mode == 'strict':
+        error('E_ARRAY_VALUE', 'Whole ARRAY arguments cannot be passed by value', token)
+    elif expected[0] == 'STRING' and mode != 'pythonic' and writable_formal:
+        error('E_STRING_VALUE', 'STRING value arguments require a read-only formal; '
+              'this parameter may be written through assignments or nested calls', token)
+
+
 @dataclass(frozen=True)
 class CheckedServiceSignature:
+    name: str
     parameters: tuple
     explicit_node_flag: bool
+
+    def check_operand(self, index, spec, token, *, node_schema, error):
+        """Validate a typed operand and carry the first PATH's NODEDATA schema."""
+        _, kind = self.parameters[index]
+        if not ex.matches(spec, kind):
+            error('E_TYPE', f'{self.name} expects {kind}, found {spec[0]}', token)
+        if index == 0 and self.name in ex.OPTIONAL_PATH_NODE:
+            node_schema = spec[1] or rt.PREDEFINED_STRUCTURES['STD_PTH_NODE']
+        if kind == 'PATH_NODE' and spec != node_schema and not self.explicit_node_flag:
+            error('E_TYPE', f'{self.name} node input must match the declared NODEDATA', token)
+        return node_schema
 
 
 def check_service_signature(name, count, token, *, mode, error):
@@ -83,4 +153,4 @@ def check_service_signature(name, count, token, *, mode, error):
         # Register selection determines the model conversion after value capture.
         signature = tuple((passing, 'RANGE_POSITION') if index == 1 else (passing, kind)
                           for index, (passing, kind) in enumerate(signature))
-    return CheckedServiceSignature(signature, node_flag and count == maximum)
+    return CheckedServiceSignature(name, signature, node_flag and count == maximum)

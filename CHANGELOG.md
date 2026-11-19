@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1119.231711 - 2026-11-19
+
+- Plan routine argument binding and forwarding checks in call analysis. Check
+  parameter compatibility and active FOR counter restrictions before emitting
+  the call. Validate service operand schemas and PATH NODEDATA in the same
+  module.
+
 ## 26.1119.230858 - 2026-11-19
 
 - Separate routine argument conversion, fixed ARRAY forwarding and service
