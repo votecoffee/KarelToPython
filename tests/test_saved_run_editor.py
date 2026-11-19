@@ -1,11 +1,13 @@
 """Saved-run editing, revision checks, and cooperative cancellation."""
 import json
+from copy import deepcopy
 from pathlib import Path
 import tempfile
 from threading import Event, Thread
 import unittest
 
 from karel2py import runner, translate
+from karel2py.structured_inputs import structured_slot
 
 
 class SavedRunEditorTests(unittest.TestCase):
@@ -26,6 +28,100 @@ class SavedRunEditorTests(unittest.TestCase):
         document, self.revision = runner.save_input_value(
             self.path, (source_kind, owner, path), value_kind, text, expected=self.revision)
         return document
+
+    def draft(self, key):
+        document, _ = runner.read_document(self.path)
+        template = document['inputs']['template']
+        candidate, binding = next((candidate, binding) for candidate, binding in
+                                  zip(template['discovery']['inputs'], template['bindings'])
+                                  if (candidate['kind'], candidate['program'], candidate['path']) == key)
+        return structured_slot(document['inputs']['context'], candidate, binding).draft(candidate['path'])
+
+    def save_structure(self, key, payload):
+        document, self.revision = runner.save_input_structure(self.path, key, payload, expected=self.revision)
+        return document
+
+    def test_structured_record_draft_keeps_other_roots_and_missing_leaves(self):
+        missing = {'uninitialized': True}
+        self.create('target=source n=source.count', declarations='''
+            TYPE item_t=STRUCTURE count:INTEGER ready:BOOLEAN label:STRING[7] ENDSTRUCTURE
+            VAR source,target:item_t n:INTEGER''',
+            context={'variables': [{'program': 'OTHER', 'path': 'KEEP', 'type': 'INTEGER', 'value': 17}]})
+        key = ('variable', 'DEMO', 'SOURCE')
+        draft = self.draft(key)
+        fields = dict(draft.fields)
+        fields['SOURCE.COUNT'].set_text('INTEGER', '9')
+        fields['SOURCE.READY'].set_text('BOOLEAN', 'false')
+        self.assertEqual(self.path.read_bytes(), self.revision)
+        result = self.save_structure(key, draft.checked_payload())
+        values = result['inputs']['context']['variables']
+        self.assertEqual(values[0], {'program': 'OTHER', 'path': 'KEEP', 'type': 'INTEGER', 'value': 17})
+        self.assertEqual(values[1]['value'], {'COUNT': 9, 'READY': False, 'LABEL': missing})
+        observed = runner.run_document(self.path)['results']['variables']
+        self.assertEqual(observed['TARGET'], values[1]['value'])
+        self.assertEqual(observed['N'], 9)
+
+    def test_structured_array_row_edit_retains_sibling_row(self):
+        missing = {'uninitialized': True}
+        context = {'variables': [{'program': 'DEMO', 'path': 'G', 'type': ['ARRAY', [2, 2], ['INTEGER']],
+                                  'value': [[1, 2], [3, missing]]}]}
+        self.create('row=g[2]', declarations='VAR g:ARRAY[2,2]OF INTEGER row:ARRAY[2]OF INTEGER', context=context)
+        key = ('variable', 'DEMO', 'G[2]')
+        draft = self.draft(key)
+        dict(draft.fields)['G[2][2]'].set_text('INTEGER', '13')
+        edited = self.save_structure(key, draft.checked_payload())
+        self.assertEqual(edited['inputs']['context']['variables'][0]['value'], [[1, 2], [3, 13]])
+        self.assertEqual(runner.run_document(self.path)['results']['variables']['ROW'], [3, 13])
+
+    def test_structured_new_position_requires_complete_cartesian_data(self):
+        self.create('p=GET_POS_REG(2,s,3)', declarations='VAR p:XYZWPREXT s:INTEGER',
+                    context={'positions': {'count': 2, 'groups': [3], 'comments': {'2': 'keep'}}})
+        key = ('position_register', None, '2[group=3]')
+        draft = self.draft(key)
+        self.assertEqual(draft.spec, ('XYZWPREXT',))
+        self.assertTrue(all(slot.value is None for _, slot in draft.fields))
+        with self.assertRaisesRegex(ValueError, 'complete data'):
+            draft.checked_payload()
+        with self.assertRaises(ValueError):
+            self.save_structure(key, draft.payload)
+        self.assertEqual(self.path.read_bytes(), self.revision)
+        for path, slot in draft.fields:
+            kind = slot.options[0]
+            text = 'true' if kind == 'BOOLEAN' else '0'
+            slot.set_text(kind, '12.5' if path.endswith('.X') else text)
+        result = self.save_structure(key, draft.checked_payload())
+        self.assertEqual(result['inputs']['context']['positions']['comments'], {'2': 'keep'})
+        self.assertEqual(result['inputs']['context']['positions']['values']['3:2']['type'], ['XYZWPREXT'])
+        self.assertEqual(result['inputs']['template']['bindings'][0]['status'], 'supplied')
+        self.assertEqual(runner.run_document(self.path)['results']['variables']['P']['X'], 12.5)
+
+    def test_structured_existing_position_uses_its_stored_group_key_and_joint_width(self):
+        self.create('p=GET_JPOS_REG(2,s,3)', declarations='VAR p:JOINTPOS s:INTEGER',
+                    context={'positions': {'count': 2, 'groups': [3], 'values': {
+                        '3:02': {'type': 'JOINTPOS2', 'value': [1.0, 2.0]}}}})
+        key = ('position_register', None, '2[group=3]')
+        draft = self.draft(key)
+        self.assertEqual(draft.spec, ('JOINTPOS', 2))
+        dict(draft.fields)['2[group=3][2]'].set_text('REAL', '7.25')
+        edited = self.save_structure(key, draft.checked_payload())
+        self.assertEqual(edited['inputs']['context']['positions']['values'], {
+            '3:02': {'type': 'JOINTPOS2', 'value': {'axes': [1.0, 7.25]}}})
+        self.assertEqual(runner.run_document(self.path)['results']['variables']['P']['axes'], [1.0, 7.25] + [0.0] * 7)
+
+    def test_structured_rejects_bad_record_domain_and_stale_revision(self):
+        self.create('target=source', declarations='VAR target,source:CONFIG')
+        key = ('variable', 'DEMO', 'SOURCE')
+        draft = self.draft(key)
+        invalid = deepcopy(draft.payload)
+        invalid['CFG_TURN_NO1'] = 8
+        with self.assertRaisesRegex(ValueError, 'limited to -8..7'):
+            self.save_structure(key, invalid)
+        self.assertEqual(self.path.read_bytes(), self.revision)
+        disk_edit = self.revision + b'\n'
+        self.path.write_bytes(disk_edit)
+        with self.assertRaisesRegex(ValueError, 'changed on disk'):
+            self.save_structure(key, draft.payload)
+        self.assertEqual(self.path.read_bytes(), disk_edit)
 
     def test_selected_scalars_preserve_saved_record_array_and_joint_representations(self):
         missing = {'uninitialized': True}

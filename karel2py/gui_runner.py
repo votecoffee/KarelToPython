@@ -6,7 +6,9 @@ from queue import Empty, Queue
 from threading import Event, Thread
 
 from . import runner
+from .gui_structured_inputs import prompt_structure
 from .runner_values import input_key, scalar_options, scalar_slot
+from .structured_inputs import structured_slot, supports_structure
 
 
 def _prompt_value(parent, path, slot):
@@ -164,9 +166,11 @@ class RunWindow:
 
     def _configure_value_editor(self, editable):
         candidate, binding = self._selected_rows()
-        available = (editable and scalar_options(candidate) and binding.get('context_pointer')
+        structure = supports_structure(candidate)
+        available = (editable and (scalar_options(candidate) or structure) and binding.get('context_pointer')
                      and binding.get('status') != 'unmapped')
-        self.edit_value.configure(state='normal' if available else 'disabled')
+        self.edit_value.configure(text='Edit fields…' if structure else 'Edit value…',
+                                  state='normal' if available else 'disabled')
 
     def _select_input(self, _event=None):
         self._configure()
@@ -202,17 +206,26 @@ class RunWindow:
             return
         candidate, binding = self._selected_rows()
         try:
-            slot = scalar_slot(deepcopy(self.document['inputs']['context']), candidate, binding)
-            value = _prompt_value(self.window, binding['path'], slot)
+            context = deepcopy(self.document['inputs']['context'])
+            label = binding['path']
+            if supports_structure(candidate):
+                draft = structured_slot(context, candidate, binding).draft(label)
+                payload = prompt_structure(self.window, label, draft, _prompt_value)
+                changes = (payload,) if payload is not None else None
+                save = runner.save_input_structure
+            else:
+                slot = scalar_slot(context, candidate, binding)
+                changes = _prompt_value(self.window, label, slot)
+                save = runner.save_input_value
         except (ValueError, OSError) as error:
             self.message.showerror('Unable to edit input', str(error), parent=self.window)
             return
-        if value is None:
+        if changes is None:
             return
         path, revision, protected = self.path, self.revision, self.protected
         selected = input_key(candidate)
-        self._start('Validating and saving the selected input…', lambda: (path, *runner.save_input_value(
-            path, selected, *value, expected=revision, protected=protected)))
+        self._start('Validating and saving the selected input…', lambda: (path, *save(
+            path, selected, *changes, expected=revision, protected=protected)))
 
     def _show(self, path, document, revision):
         self.path, self.document, self.revision = path, document, revision

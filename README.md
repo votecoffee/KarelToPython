@@ -3,7 +3,7 @@
 ![KarelToPython icon](karel2py/assets/icons/karel_to_python_icon_64x64.png)
 
 KarelToPython translates a supported subset of FANUC KAREL into Python for
-offline inspection and execution. The current build is **26.1119.221310**.
+offline inspection and execution. The current build is **26.1119.222702**.
 
 ## Table of Contents
 
@@ -59,10 +59,9 @@ python -m karel2py.gui
 
 Open KAREL, choose **Translate to Python**, then **Save Python**. Choose
 **Run Python**, then **New from Python** to select the generated file and
-create a saved run. Select a discovered scalar and choose **Edit value** to
-validate and save it. Use **Edit context** for service configuration or
-aggregate values. **Run** executes the saved inputs, and **Last result** shows
-termination status and saved state.
+create a saved run. Select a discovered input and choose **Edit value** or
+**Edit fields**. Use **Edit context** to configure services. **Run** executes
+the saved inputs, and **Last result** shows termination status and saved state.
 **WRITE output** shows the captured text. See the [desktop guide](docs/desktop.md).
 
 ### Python

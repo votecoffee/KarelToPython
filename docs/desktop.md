@@ -39,11 +39,11 @@ Closing during a job asks for confirmation and does not publish its results.
 3. Select a row in **Discovered inputs** to see its type, source location,
    and context path. Review **Requirements** for unresolved accesses and
    services that need configuration.
-4. Choose **Edit value** to save a selected scalar. The editor checks the type
-   and range, offers a Boolean choice, and lets you choose INTEGER or REAL for
-   a numeric register. A successful edit updates the input status immediately.
-   Use **Edit context** and **Save inputs** for aggregate values, position
-   registers, service configuration and ports supplied through physical samples.
+4. Choose **Edit value** for a scalar or **Edit fields** for a shaped value.
+   The editor checks the type and range, offers a Boolean choice, and lets you
+   choose INTEGER or REAL for a numeric register. A successful save updates the
+   input status. Use **Edit context** and **Save inputs** to configure service
+   banks and ports supplied through physical samples.
 5. Choose **Run** and confirm the selected Python is trusted. **Last result**
    shows variable and service snapshots, failure details, and completion status.
    **WRITE output** displays the captured text.
@@ -58,6 +58,16 @@ registers and logical ports. Configure missing banks in **Edit context** first.
 The value editor checks the saved document revision and resolves the selected
 input from the pinned Python again. Each edit preserves sibling fields, other
 bank values, and the last result. Replay updates the result using the new inputs.
+
+**Edit fields** opens a paged draft for a discovered record, array, pose,
+joint value, or configured position register with an explicit group. Select
+fields to enter values and choose **OK** to save the draft together. A variable
+can keep missing fields. A position register needs complete checked data.
+An existing position register keeps its type and joint width. A new entry
+starts with the getter's declared schema and missing fields. The save uses the
+canonical state representation for the selected value. Use **Edit context**
+for an individual row in a legacy flat array or to supply a different position
+register type.
 
 Each replay uses the saved inputs and pinned Python bytes. Results stay in
 the same JSON document. **Rediscover** takes a selected generated Python file

@@ -130,6 +130,59 @@ class WorkbenchWindowTests(unittest.TestCase):
                 self.assertIn('42', window.output.get('1.0', 'end-1c'))
                 self.assertEqual(json.loads(path.read_bytes())['inputs']['context'], context)
 
+    def test_saved_run_paged_field_editor_saves_selected_array_value(self):
+        from tkinter import ttk
+
+        case = self
+
+        class EmbeddedDialog(ttk.Frame):
+            # Exercise the real dialog widgets without showing a modal window.
+            def __init__(self, parent, *, title):
+                super().__init__(parent)
+                self.result = None
+                self.body(self)
+                case.assertEqual(len(self.tree.get_children()), 64)
+                self.move_page(1)
+                case.assertEqual(self.tree.get_children(), ('64',))
+                self.tree.selection_set('64')
+                self.edit_field()
+                case.assertTrue(self.validate())
+                self.apply()
+                self.destroy()
+
+            def grab_set(self):
+                pass
+
+        with tempfile.TemporaryDirectory() as directory:
+            self.source('PROGRAM DEMO VAR values,copied:ARRAY[65]OF INTEGER n:INTEGER BEGIN copied=values n=copied[65] END DEMO')
+            analysis = analyze_source(self.app.document.text)
+            target = Path(directory) / 'demo.py'
+            path = Path(directory) / 'demo.run.json'
+            analysis.export(target, 'python')
+            self.app.open_runner()
+            window = self.app.run_window
+            window.window.withdraw()
+            self.addCleanup(lambda: None if window.closed else window.window.destroy())
+            from karel2py import runner
+
+            runner.create_document(target, path, discover=True)
+            window._show(path, *runner.read_document(path))
+            window.inputs.selection_set('0')
+            window._select_input()
+            self.assertEqual(str(window.edit_value['text']), 'Edit fields…')
+            with patch('tkinter.simpledialog.Dialog', EmbeddedDialog), \
+                    patch('karel2py.gui_runner._prompt_value', return_value=('INTEGER', '41')) as prompt:
+                window.edit_selected()
+            deadline = time.monotonic() + 10
+            while window.busy and time.monotonic() < deadline:
+                self.root.update()
+                time.sleep(.01)
+            self.assertFalse(window.busy)
+            self.assertEqual(prompt.call_args.args[1], 'VALUES[65]')
+            saved = runner.read_document(path)[0]
+            self.assertEqual(saved['inputs']['context']['variables'][0]['value'], [{'uninitialized': True}] * 64 + [41])
+            self.assertEqual(runner.run_document(path)['results']['variables']['N'], 41)
+
     def test_diagnostic_navigates_to_exact_source_line_and_column(self):
         self.source('PROGRAM DEMO\nBEGIN\n  UNKNOWN\nEND DEMO')
         self.app.start()

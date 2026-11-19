@@ -250,10 +250,9 @@ def save_context(path, text, *, expected, protected=()):
     return document, revision
 
 
-def save_input_value(path, selected, kind, text, *, expected, protected=()):
-    """Save one discovered scalar using a freshly validated target binding."""
+def _save_discovered_value(path, selected, update, *, expected, protected):
     from .input_template import _prepare
-    from .runner_values import input_key, scalar_slot
+    from .runner_values import input_key
 
     path, original, document, target_path = _editable_document(path, expected)
     if 'template' not in document['inputs']:
@@ -263,13 +262,33 @@ def save_input_value(path, selected, kind, text, *, expected, protected=()):
     report = template['discovery']
     for candidate, binding in zip(report['inputs'], template['bindings']):
         if input_key(candidate) == selected:
-            scalar_slot(context, candidate, binding).set_text(kind, text)
+            update(context, candidate, binding)
             break
     else:
         raise RunDocumentError('This input is no longer in the discovery report.')
     _replace_prepared_inputs(document, _prepare(report, context, materialize=False))
     revision = _store(path, document, expected=original, protected=(target_path, *protected))
     return document, revision
+
+
+def save_input_value(path, selected, kind, text, *, expected, protected=()):
+    """Save one discovered scalar using a freshly validated target binding."""
+    from .runner_values import scalar_slot
+
+    def update(context, candidate, binding):
+        scalar_slot(context, candidate, binding).set_text(kind, text)
+
+    return _save_discovered_value(path, selected, update, expected=expected, protected=protected)
+
+
+def save_input_structure(path, selected, payload, *, expected, protected=()):
+    """Save a checked aggregate or position draft with one file publication."""
+    from .structured_inputs import structured_slot
+
+    def update(context, candidate, binding):
+        structured_slot(context, candidate, binding).replace(payload)
+
+    return _save_discovered_value(path, selected, update, expected=expected, protected=protected)
 
 
 def refresh_document(source, destination, *, target=None, expected=None, protected=()):

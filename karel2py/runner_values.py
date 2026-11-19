@@ -73,10 +73,10 @@ def _field_key(payload, name):
 
 
 def _array_slot(payload, spec, indices):
-    """Resolve a scalar inside a canonical or legacy flat physical ARRAY."""
+    """Resolve an element or a nested row inside saved ARRAY storage."""
     shape = rt.array_shape(spec)
-    if len(indices) != len(shape) or any(type(index) is not int or not 1 <= index <= size
-                                         for index, size in zip(indices, shape)):
+    if not 1 <= len(indices) <= len(shape) or any(type(index) is not int or not 1 <= index <= size
+                                                 for index, size in zip(indices, shape)):
         raise InputTemplateError('The input ARRAY index is outside its saved shape.')
     if len(shape) > 1 and isinstance(payload, list) and len(payload) == prod(shape):
         try:
@@ -86,6 +86,8 @@ def _array_slot(payload, spec, indices):
                 for item in array_state_values(shape, payload):
                     restore_value(spec[2], item)
         except (ValueError, rt.KarelRuntimeError):
+            if len(indices) < len(shape):
+                raise InputTemplateError('A row in legacy flat storage requires Edit context.')
             offset = 0
             for index, size in zip(indices, shape):
                 offset = offset * size + index - 1
@@ -95,7 +97,8 @@ def _array_slot(payload, spec, indices):
     return payload, indices[-1] - 1
 
 
-def _variable_slot(context, candidate, selectors):
+def variable_location(context, candidate):
+    """Resolve the actual JSON receiver and its concrete schema."""
     row = next((row for row in context.get('variables', ())
                 if row['program'].upper() == candidate['program'] and row['path'].upper() == candidate['root_path']), None)
     if row is None:
@@ -103,7 +106,7 @@ def _variable_slot(context, candidate, selectors):
     container, key = row, 'value'
     spec = tuple_spec(candidate['root_type'])
     config_field = False
-    remaining = list(selectors)
+    remaining = list(candidate.get('selectors', ()))
     while remaining:
         payload = container[key]
         kind, value = remaining.pop(0)
@@ -116,9 +119,10 @@ def _variable_slot(context, candidate, selectors):
             tail = remaining[:len(shape) - 1]
             if any(selector != 'index' for selector, _ in tail):
                 raise InputTemplateError('The array selector needs its complete index.')
-            container, key = _array_slot(payload, spec, [value, *(index for _, index in tail)])
+            indices = [value, *(index for _, index in tail)]
+            container, key = _array_slot(payload, spec, indices)
             del remaining[:len(shape) - 1]
-            spec = spec[2]
+            spec = spec[2] if len(indices) == len(shape) else ('ARRAY', shape[len(indices):], spec[2])
         elif kind == 'index' and spec[0] == 'JOINTPOS':
             if type(value) is not int or not 1 <= value <= rt.joint_width(spec):
                 raise InputTemplateError('The joint axis is outside its saved width.')
@@ -128,7 +132,7 @@ def _variable_slot(context, candidate, selectors):
             raise InputTemplateError('This selector requires Edit context.')
     if (type(key) is int and not isinstance(container, list)) or (type(key) is str and not isinstance(container, dict)):
         raise InputTemplateError('The saved receiver has no initialized shape. Review Edit context.')
-    return ScalarSlot(container, key, (spec[0],), spec[1] if spec[0] == 'STRING' else None, config_field)
+    return container, key, spec, config_field
 
 
 def _bank_slot(context, candidate, binding, options):
@@ -153,10 +157,10 @@ def scalar_slot(context, candidate, binding):
         raise InputTemplateError('This input needs a scalar binding. Review Requirements or Edit context.')
     try:
         if candidate['kind'] == 'variable':
-            slot = _variable_slot(context, candidate, candidate.get('selectors', ()))
-            if slot.options != options:
+            container, key, spec, config_field = variable_location(context, candidate)
+            if (spec[0],) != options:
                 raise InputTemplateError('The selected scalar does not match its discovered type.')
-            return slot
+            return ScalarSlot(container, key, options, spec[1] if spec[0] == 'STRING' else None, config_field)
         return _bank_slot(context, candidate, binding, options)
     except (IndexError, KeyError, TypeError, ValueError, rt.KarelRuntimeError) as error:
         if isinstance(error, InputTemplateError):

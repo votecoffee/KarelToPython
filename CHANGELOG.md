@@ -1,5 +1,13 @@
 # Changelog
 
+## 26.1119.222702 - 2026-11-19
+
+- Edit record, array, joint and pose fields in a paged desktop draft. Save
+  the selected input together, retaining unrelated context and the last run.
+  Position registers require complete data and preserve existing types and groups.
+- Check SELECT selectors and CASE expressions in a typed pass before emitting
+  the dispatch call. Preserve evaluation order, source diagnostics, and reports.
+
 ## 26.1119.221310 - 2026-11-19
 
 - Edit discovered scalar variables, array cells, record fields, joint axes,
