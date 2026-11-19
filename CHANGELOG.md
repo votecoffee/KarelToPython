@@ -1,5 +1,14 @@
 # Changelog
 
+## 26.1119.214847 - 2026-11-19
+
+- Extract the KAREL parser, AST, declaration and type resolution, control-flow
+  validation, expression lowering, Python generation, and report assembly.
+- Put installation and the first conversion near the top of the README. Move
+  the detailed feature history and service reference into the feature guide.
+- Add desktop discovery, validated context editing, saved input refresh,
+  execution, cancellation, and result inspection for standalone Pythonic runs.
+
 ## 26.1116.161602 - 2026-11-16
 
 - Recognize STR_LEN as a pure discovery operation rather than an unknown service.

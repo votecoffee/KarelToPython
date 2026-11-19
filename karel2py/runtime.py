@@ -4209,6 +4209,7 @@ class State:
         self.program_name=''
         self._task_frames=[];self._task_line=0;self._has_run=False
         self._debug_statement=None
+        self._run_cancel_check = None
         self._task_run = None
         self._last_task_run = None
         self._task_run_services = {}
@@ -4345,6 +4346,7 @@ class State:
     def tick(self, line=None, *, _diagnostic=True):
         if line is not None: task_root(self)._task_line=line
         if self._budget_parent is not None: self._budget_parent.tick(line,_diagnostic=False)
+        if self._run_cancel_check is not None: self._run_cancel_check(line)
         if self._aborted: raise KarelAbort(self._abort_line)
         if self.task_state=='stopped': raise KarelStop('Task is stopped')
         update_timers(self,line)

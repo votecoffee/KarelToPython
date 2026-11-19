@@ -144,7 +144,7 @@ def _store(path, document, *, expected=None, protected=()):
     raw = _encode(document)
     check_output(path, overwrite=expected is not None, protected=protected)
     if expected is not None and _read(path) != expected:
-        raise RunDocumentError('Run document changed during execution; external edits preserved')
+        raise RunDocumentError('Run document changed during the operation; external edits preserved')
     atomic_bytes(path, raw, overwrite=expected is not None)
     return raw
 
@@ -158,7 +158,7 @@ def create_document(target, destination, *, context=None, max_steps=100000, max_
     return document
 
 
-def _document_fields(document):
+def _document_fields(document, *, inspect_only=False):
     if (type(document) is not dict or set(document) != {'schema', 'target', 'limits', 'inputs', 'results'}
             or document['schema'] != SCHEMA):
         raise RunDocumentError('Expected a karel2py.run.v1 document')
@@ -177,7 +177,7 @@ def _document_fields(document):
         raise RunDocumentError('inputs requires context and optional template annotations')
     if document['results'] is not None and type(document['results']) is not dict:
         raise RunDocumentError('results must be null or an object')
-    if document['results'] is not None and document['results'].get('status') == 'running':
+    if not inspect_only and document['results'] is not None and document['results'].get('status') == 'running':
         raise RunDocumentError('Previous run is running or interrupted; resolve it and reset results to null before retrying')
     if 'template' in inputs:
         from .input_template import validate_annotations
@@ -196,10 +196,51 @@ def _validate(document, path):
     return target_path, code, _context(inputs['context'])
 
 
-def refresh_document(source, destination, *, target=None):
+def read_document(path):
+    """Read a saved document and the exact file revision used by its editor."""
+    raw = _read(path)
+    document = _decode(raw)
+    _document_fields(document, inspect_only=True)
+    return document, raw
+
+
+def _expected_revision(actual, expected):
+    if expected is not None and actual != expected:
+        raise RunDocumentError('Run document changed on disk. Reopen it before continuing.')
+
+
+def save_context(path, text, *, expected, protected=()):
+    """Validate and save edited inputs against the revision shown by the editor."""
+    path = Path(path).absolute()
+    original = _read(path)
+    _expected_revision(original, expected)
+    document = _decode(original)
+    target, _, inputs = _document_fields(document)
+    context = _decode(text.encode('utf-8'))
+    _context(context)
+    target_path, identity, _ = _target(path.parent / target['path'])
+    if identity != {key: target[key] for key in ('sha256', 'program', 'mode')}:
+        raise RunDocumentError('Python target changed. Rediscover into a new run document.')
+    if 'template' in inputs:
+        from .input_template import prepare_inputs
+        target_bytes = _read(target_path)
+        if hashlib.sha256(target_bytes).hexdigest() != identity['sha256']:
+            raise RunDocumentError('Python target changed during input discovery')
+        prepared = prepare_inputs(target_bytes, filename=str(target_path), context=context)
+        if 'refresh' in inputs['template']:
+            prepared['template']['refresh'] = inputs['template']['refresh']
+        inputs.update(prepared)
+    else:
+        inputs['context'] = context
+    revision = _store(path, document, expected=original, protected=(target_path, *protected))
+    return document, revision
+
+
+def refresh_document(source, destination, *, target=None, expected=None, protected=()):
     """Rediscover into a new document, retaining the original and its results."""
     source, destination = Path(source).absolute(), Path(destination).absolute()
     original = _read(source)
+    _expected_revision(original, expected)
     previous = _decode(original)
     old_target, limits, inputs = _document_fields(previous)
     selected = Path(target) if target is not None else source.parent / old_target['path']
@@ -223,7 +264,7 @@ def refresh_document(source, destination, *, target=None):
     document['inputs']['template'] = template
     if _read(source) != original:
         raise RunDocumentError('Source run document changed during refresh; external edits preserved')
-    _store(destination, document, protected=(source, selected))
+    _store(destination, document, protected=(source, selected, *protected))
     return document
 
 
@@ -235,15 +276,21 @@ def _now():
     return datetime.now(timezone.utc).isoformat()
 
 
-def run_document(path):
+class _RunCancelled(KeyboardInterrupt):
+    """Unwind generated execution and preserve partial results on request."""
+
+
+def run_document(path, *, expected=None, cancel_event=None, protected=()):
     """Execute pinned trusted Python once; publish terminal/partial results."""
     path = Path(path).absolute()
     original = _read(path)
+    _expected_revision(original, expected)
     document = _decode(original)
     target, code, context = _validate(document, path)
     started = _now()
     document['results'] = dict(status='running', runner_version=__version__, started_utc=started)
-    pending = _store(path, document, expected=original, protected=(target,))
+    protected = (target, *protected)
+    pending = _store(path, document, expected=original, protected=protected)
     output, length = [], 0
     program = None
     failure = None
@@ -257,14 +304,29 @@ def run_document(path):
         output.append(text)
         length += len(text)
 
+    def check_cancelled(line=None):
+        if cancel_event.is_set():
+            error = _RunCancelled('Run cancelled by the user')
+            error.line = line
+            raise error
+
+    def sleep(seconds):
+        if cancel_event.wait(seconds):
+            check_cancelled()
+
     with rt._numeric_scope('pythonic'):
         try:
+            if cancel_event is not None:
+                check_cancelled()
             namespace = dict(__name__='_karel2py_run_target', __file__=str(target))
             exec(code, namespace)
             cls = namespace.get('Program')
             if not isinstance(cls, type) or cls.source_program != document['target']['program'] or cls.translation_mode != 'pythonic':
                 raise RunDocumentError('Loaded target identity differs from inspected metadata')
             program = cls(context=context, write=write)
+            if cancel_event is not None:
+                program._state._run_cancel_check = check_cancelled
+                program._state._sleep = sleep
             program.run(max_steps=document['limits']['max_steps'])
         except BaseException as error:
             failure = _error(error)
@@ -272,6 +334,8 @@ def run_document(path):
                       'aborted' if isinstance(error, rt.KarelAbort) else
                       'stopped' if isinstance(error, rt.KarelStop) else
                       'paused' if isinstance(error, rt.KarelPause) else 'failed')
+            if cancel_event is not None and program is not None:
+                program._state._run_cancel_check = None
             if program is not None and callable(getattr(program, 'stop', None)):
                 try:
                     program.stop()
@@ -293,7 +357,7 @@ def run_document(path):
     document['results'] = dict(status=status, runner_version=__version__, started_utc=started,
                                finished_utc=_now(), variables=snapshot, context=state,
                                text_output=''.join(output), error=failure, capture_errors=capture_errors)
-    _store(path, document, expected=pending, protected=(target,))
+    _store(path, document, expected=pending, protected=protected)
     return document
 
 

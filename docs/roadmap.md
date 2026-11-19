@@ -5,21 +5,25 @@ Functional Pythonic conversion remains the implementation priority. Current
 behavior and restrictions are documented in the [support guide](language-support.md)
 and [desktop guide](desktop.md).
 
+## Compiler decomposition
+
+The first extraction separates parsing, AST data, declaration analysis, type
+queries, control-flow validation and lowering, Python generation, and reports.
+The next compiler steps are to give expression checks an independent typed
+interface and reduce shared emitter state in small changes. The runtime and
+extended services can be split by ownership after their boundaries are covered
+with regressions. See [compiler architecture](compiler-architecture.md).
+
 ## Python runner and parameter editor
 
-**Status: in progress.** The standalone [run-document service and CLI](run-documents.md)
-now run pinned Pythonic generated modules with explicitly supplied context,
-separate inputs/results and partial failure capture. [Bounded input discovery](input-discovery.md)
-now follows generated source contracts without target execution. Optional input
-templates prepare whole-root missing-value shapes while preserving supplied
-context and recording remaining requirements. Complete discovery, automatic
-value editing, the parameter editor, linked-project runs and GUI execution remain future work.
-Expose the shared execution behavior through a workbench tab or popup after
-those input and worker interfaces are ready.
+The [desktop runner](desktop.md#discover-inputs-and-run-python) and CLI share
+standalone run documents. The desktop lists discovered input paths and source
+locations, validates edits to the JSON context, and runs the selected Python
+with cancellation and saved results. Both entry points can carry compatible
+inputs to a new document on refresh.
 
-CLI input refresh now preserves compatible edited values in a new run document,
-reports catalog/schema changes and retains the original/results. The graphical
-editing and refresh interface remains planned.
+Remaining work includes individual typed value controls, broader static discovery,
+and saved runs that can select and pin multiple linked program modules.
 
 ### Discover inputs from Python
 

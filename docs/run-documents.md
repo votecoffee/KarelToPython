@@ -5,8 +5,8 @@ module and stores supplied inputs and results in separate sections of one JSON
 document. It uses the existing offline runtime and adds no controller connection.
 This is the first foundation of the [runner milestone](roadmap.md#python-runner-and-parameter-editor).
 [Bounded input discovery and optional input templates](input-discovery.md) are
-available through the CLI; initial values remain explicit and the GUI parameter
-editor remains future work.
+available through the CLI and the [desktop runner](desktop.md#discover-inputs-and-run-python).
+Both use explicit initial values and the same saved document format.
 
 ## Prepare and run
 

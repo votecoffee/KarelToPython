@@ -28,6 +28,7 @@ class Workbench:
         self._queue = queue.Queue()
         self._poll = None
         self._diagnostics = {}
+        self.run_window = None
         self.editors = {}
         self.search_visible = False
         self._search_signature = None
@@ -97,6 +98,7 @@ class Workbench:
         self._button(toolbar, 'New', self.new).pack(side='left', padx=(6, 0))
         self._button(toolbar, 'Save source as…', self.save_source).pack(side='left', padx=6)
         self._button(toolbar, 'Check project…', self.check_project).pack(side='left')
+        self._button(toolbar, 'Run Python…', self.open_runner).pack(side='left', padx=(6, 0))
         self.translate_button = self._button(toolbar, 'Translate to Python', lambda: self.start(True), style='Primary.TButton')
         self.translate_button.pack(side='right')
         self._button(toolbar, 'Validate', lambda: self.start(False)).pack(side='right', padx=8)
@@ -683,10 +685,25 @@ class Workbench:
         self.root.clipboard_append(self.analysis.python_source)
         self.status.set('Generated Python copied to the clipboard.')
 
+    def open_runner(self):
+        if self.busy:
+            return
+        if self.run_window is not None and not self.run_window.closed:
+            self.run_window.window.lift()
+            return
+        from .gui_runner import RunWindow
+
+        protected = self.analysis.protected if self.analysis is not None else ()
+        if self.document.path is not None:
+            protected += (self.document.path,)
+        self.run_window = RunWindow(self.root, protected=protected)
+
     def about(self):
         self.message.showinfo('About KarelToPython', f'KarelToPython {__version__}\n\nKAREL-to-Python offline translator.\nPythonic mode; strict mode is a future milestone.\n\nValidate and translate without running source programs.\nhttps://github.com/votecoffee/KarelToPython', parent=self.root)
 
     def close(self):
+        if self.run_window is not None and not self.run_window.closed and not self.run_window.close():
+            return
         if self.busy:
             if not self.message.askyesno('Operation in progress', 'An operation is still running. Close the window?', parent=self.root): return
             # Saving is unavailable until a worker finishes, so do not offer it here.

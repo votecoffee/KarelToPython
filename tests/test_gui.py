@@ -1,5 +1,6 @@
 """Native Tk interaction checks; require a display, otherwise skip explicitly."""
 import importlib.util
+import json
 import os
 from pathlib import Path
 import tempfile
@@ -79,6 +80,46 @@ class WorkbenchWindowTests(unittest.TestCase):
         self.assertTrue(self.app.analysis.accepted)
         self.assertIsNone(self.app.analysis.python_source)
         self.assertEqual(str(self.app.copy_button['state']), 'disabled')
+
+    def test_saved_run_discovers_edits_executes_and_shows_results(self):
+        with tempfile.TemporaryDirectory() as directory:
+            self.source('PROGRAM DEMO VAR n,x:INTEGER BEGIN n=x+1 WRITE(n,CR) END DEMO')
+            analysis = analyze_source(self.app.document.text)
+            target = Path(directory) / 'demo.py'
+            path = Path(directory) / 'demo.run.json'
+            analysis.export(target, 'python')
+            self.app.open_runner()
+            window = self.app.run_window
+            window.window.withdraw()
+            self.addCleanup(lambda: None if window.closed else window.window.destroy())
+
+            def wait_for_run_window():
+                deadline = time.monotonic() + 10
+                while window.busy and time.monotonic() < deadline:
+                    self.root.update()
+                    time.sleep(.01)
+                self.assertFalse(window.busy)
+
+            with patch.object(window, '_pick_python', return_value=target), \
+                    patch.object(window, '_destination', return_value=path), \
+                    patch.object(window.message, 'showerror', side_effect=AssertionError('runner error')):
+                window.new()
+                wait_for_run_window()
+                self.assertEqual(window.inputs.item('0', 'values'), ('variable', 'X', 'required', 'missing'))
+                context = json.loads(window.context.get('1.0', 'end-1c'))
+                context['variables'][0]['value'] = 41
+                window.context.replace('1.0', 'end-1c', json.dumps(context))
+                window.save()
+                wait_for_run_window()
+                self.assertEqual(window.inputs.item('0', 'values')[-1], 'supplied')
+                with patch.object(window.message, 'askyesno', return_value=True):
+                    window.run()
+                    wait_for_run_window()
+                result = json.loads(window.result.get('1.0', 'end-1c'))
+                self.assertEqual(result['status'], 'completed')
+                self.assertEqual(result['variables']['N'], 42)
+                self.assertIn('42', window.output.get('1.0', 'end-1c'))
+                self.assertEqual(json.loads(path.read_bytes())['inputs']['context'], context)
 
     def test_diagnostic_navigates_to_exact_source_line_and_column(self):
         self.source('PROGRAM DEMO\nBEGIN\n  UNKNOWN\nEND DEMO')

@@ -31,6 +31,32 @@ new operation completes. The worker runs separately from the GUI event loop;
 only one operation runs at a time. Editing/options are disabled while it runs.
 Closing during a job asks for confirmation and does not publish its results.
 
+## Discover inputs and run Python
+
+1. Save a standalone translation using **Save Python** and open **Run Python**.
+2. Choose **New from Python**, select the generated module, and save a new JSON
+   run document. **Open run** reopens a document from the desktop or CLI.
+3. Select a row in **Discovered inputs** to see its type, source location,
+   and context path. Review **Requirements** for unresolved accesses and
+   services that need configuration.
+4. Fill in **Edit context**, then choose **Save inputs**. The editor accepts the
+   same JSON context as the CLI. Saving validates the context and updates the
+   discovered input statuses. Bank sizes and missing values are supplied here.
+5. Choose **Run** and confirm the selected Python is trusted. **Last result**
+   shows variable and service snapshots, failure details, and completion status.
+   **WRITE output** displays the captured text.
+
+**Cancel run** requests cancellation at a generated execution checkpoint or
+during a host `DELAY`. The saved result records cancellation and available
+partial state. Cancellation applies to supported generated code checkpoints.
+
+Each replay uses the saved inputs and pinned Python bytes. Results stay in
+the same JSON document. **Rediscover** takes a selected generated Python file
+and saves a new run document with compatible inputs and a change summary.
+See [saved runs](run-documents.md) and [input discovery](input-discovery.md) for
+the JSON layouts and current coverage. Use the [project CLI](portable-projects.md)
+for linked project execution.
+
 ## Edit and navigate
 
 The KAREL editor has Undo/Redo, Cut/Copy/Paste and Select All commands. Source,
@@ -67,7 +93,7 @@ available for a single translated source, and does not modify the source.
 
 Pythonic mode is the default. **Enable pause / resume** requests cooperative
 code generation, including for source without explicit task-control statements.
-This option does not execute, pause or resume a task inside the GUI.
+The saved runner records a pause as a terminal run result.
 
 **ARRAY sizes** supplies otherwise unknown global dimensions, using the CLI's
 literal shape grammar. Separate entries with semicolons, for example
@@ -103,14 +129,9 @@ to translation, including unsaved edits. It is distinct from an original file's
 bytes, BOM and newline representation. Reports may contain local paths and
 source details; save them locally rather than adding them to public source.
 
-The GUI constructs no controller connection and offers no source execution
-button. Generated modules retain the existing [offline runtime](offline-services.md)
-and must be run explicitly with the required context outside the workbench.
-The standalone [run-document CLI](run-documents.md) now saves supplied inputs
-and execution results in one JSON file, with optional discovered input templates.
-The [workbench runner milestone](roadmap.md#python-runner-and-parameter-editor)
-will integrate CLI input discovery, a parameter tab or popup and GUI execution. Those
-interfaces are not implemented in the current workbench.
+Saved runs use the [offline runtime](offline-services.md) with explicit context.
+Choose a local destination for the run document and generated Python. Reopen a
+run document if it changes on disk before an edit or execution.
 
 ## Development checks
 

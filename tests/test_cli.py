@@ -38,8 +38,12 @@ root=Path(sys.argv[1]);sys.path[:0]=[str(root),str(root/'tests')]
 loader=unittest.TestLoader();suite=unittest.TestSuite()
 for name in ('test_gui.py','test_editor.py'):
     suite.addTests(loader.discover(str(root/'tests'),pattern=name))
+from test_gui import WorkbenchWindowTests
+from test_editor import NativeEditorTests
+native_count=sum(loader.loadTestsFromTestCase(cls).countTestCases()
+                 for cls in (WorkbenchWindowTests, NativeEditorTests))
 result=unittest.TextTestRunner(stream=io.StringIO()).run(suite)
-assert result.wasSuccessful() and len(result.skipped)==32
+assert result.wasSuccessful() and len(result.skipped)==native_count
 assert 'tkinter' not in sys.modules
 '''
         result=subprocess.run([sys.executable,'-I','-c',probe,str(ROOT)],cwd=self.root,
