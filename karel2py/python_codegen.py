@@ -16,6 +16,7 @@ from .compiler_language import (
 )
 from .declarations import DeclarationPasses
 from .syntax import Expr, Statement
+from .select_analysis import check_select
 from .expression_codegen import ExpressionLowering
 from .type_checking import TypeQueries
 from .control_flow import FlowGraph, counter_text, validate_labels
@@ -172,75 +173,43 @@ class Emitter(DeclarationPasses, TypeQueries, ExpressionLowering):
             conflicts.update(self.current_routine.local_types)
         return validate_labels(statements, conflicts=conflicts, mode=self.mode, error=self.error)
 
-    def case_values(self,stmt,category=None):
-        result = []
-        for _, values, _ in stmt.args[1]:
-            resolved = []
-            for expr in values:
-                value = self.constant(expr)
-                if self.mode=='pythonic':
-                    try:rt.select_scalar(value,category,expr.token.line)
-                    except rt.KarelRuntimeError as exc:self.error('E_CASE','CASE constant does not match SELECT '+category+' category: '+str(exc),expr.token)
-                elif type(value) is not int or not -2147483648 <= value <= 2147483647:
-                    self.error('E_CASE','CASE values must be INTEGER constants',expr.token)
-                resolved.append(value)
-            result.append(tuple(resolved))
-        return result
-
     def select_code(self, stmt):
-        category=None
-        if self.mode=='pythonic':
-            selector,spec=self.expression(stmt.args[0])
-            if spec[0] in (*INTEGRAL_TYPES,'REAL'):category='NUMERIC'
-            elif spec[0] in ('BOOLEAN','STRING'):category=spec[0]
-            else:self.error('E_TYPE','SELECT requires BOOLEAN, ASCII STRING or finite numeric scalar values',stmt.args[0].token)
-        else:selector=self.require_type(stmt.args[0],'INTEGER')
-        expressions=[];case_types=[];sites=[];dynamic=False
-        if self.mode=='pythonic':
-            def constant_form(expr):
-                if expr.kind in ('literal','real_literal','predefined'):return True
-                if expr.kind=='name':return expr.value in self.visible_constants()
-                return expr.kind in ('group','unary','binary') and all(constant_form(child) for child in expr.args)
-            cases=[]
-            for case_index,(_,values,_) in enumerate(stmt.args[1]):
-                row=[];codes=[];types=[]
-                for value_index,expr in enumerate(values):
-                    known=constant_form(expr)
-                    if known:
-                        value=self.constant(expr)
-                        try:rt.select_scalar(value,category,expr.token.line)
-                        except rt.KarelRuntimeError as exc:self.error('E_CASE','CASE constant does not match SELECT '+category+' category: '+str(exc),expr.token)
-                        kind='BOOLEAN' if type(value) is bool else 'INTEGER' if type(value) is int else 'REAL' if type(value) is float else 'STRING'
-                        row.append(value);code=repr(value)
-                    else:
-                        code,value_spec=self.expression(expr)
-                        kind=value_spec[0]
-                        actual='NUMERIC' if kind in (*INTEGRAL_TYPES,'REAL') else kind
-                        if actual!=category:self.error('E_CASE','CASE expression does not match SELECT '+category+' category',expr.token)
-                        code=f'_rt.select_scalar({code},{category!r},{expr.token.line})'
-                        row.append(None);dynamic=True
-                    codes.append(code);types.append(kind)
-                    sites.append(dict(clause=case_index,value_index=value_index,line=expr.token.line,column=expr.token.column,
-                        expression_kind=expr.kind,type=kind,dynamic=not known,evaluated_once=True))
-                cases.append(tuple(row));expressions.append('('+','.join(codes)+',)');case_types.append(types)
-            # Validate/capture the selector before any case expression effects.
-            selector=f'_rt.select_scalar({selector},{category!r},{stmt.token.line})'
-            table='('+','.join(expressions)+',)'
+        checked = check_select(stmt, mode=self.mode, expression=self.expression, require_type=self.require_type,
+                               constant=self.constant, visible_constants=self.visible_constants, error=self.error)
+        category, selector, spec = checked.category, checked.selector, checked.schema
+        cases = [tuple(case.value for case in row) for row in checked.clauses]
+        sites = []
+        if category is None:
+            table = repr(tuple(cases))
         else:
-            cases=self.case_values(stmt,category);table=repr(tuple(cases))
+            expressions = []
+            for case_index, row in enumerate(checked.clauses):
+                codes = []
+                for value_index, case in enumerate(row):
+                    expr = case.source
+                    code = f'_rt.select_scalar({case.code},{category!r},{expr.token.line})' if case.dynamic else repr(case.value)
+                    codes.append(code)
+                    sites.append(dict(clause=case_index, value_index=value_index, line=expr.token.line, column=expr.token.column,
+                                      expression_kind=expr.kind, type=case.kind, dynamic=case.dynamic, evaluated_once=True))
+                expressions.append('(' + ','.join(codes) + ',)')
+            # Validate/capture the selector before any case expression effects.
+            selector = f'_rt.select_scalar({selector},{category!r},{stmt.token.line})'
+            table = '(' + ','.join(expressions) + ',)'
         self.select_scopes.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
                                        line=stmt.token.line, column=stmt.token.column, case_values=cases,
                                        case_count=len(cases), has_else=stmt.has_else,
                                        empty_else=stmt.has_else and not stmt.alternate,
                                        no_match='else_clause' if stmt.has_else else 'KarelRuntimeError'))
-        if self.mode=='pythonic':
-            self.select_scopes[-1].update(selector_type=spec,comparison_category=category,case_types=case_types,
-                dynamic_cases=dynamic,case_expressions=sites,case_evaluation='all_once_left_to_right_before_matching')
-            if spec[0] in ('BOOLEAN','STRING','REAL'):self.features.add('Pythonic scalar SELECT')
-            if dynamic:self.features.add('dynamic SELECT case expressions')
+        if category is not None:
+            dynamic = any(site['dynamic'] for site in sites)
+            case_types = [[case.kind for case in row] for row in checked.clauses]
+            self.select_scopes[-1].update(selector_type=spec, comparison_category=category, case_types=case_types,
+                dynamic_cases=dynamic, case_expressions=sites, case_evaluation='all_once_left_to_right_before_matching')
+            if spec[0] in ('BOOLEAN', 'STRING', 'REAL'): self.features.add('Pythonic scalar SELECT')
+            if dynamic: self.features.add('dynamic SELECT case expressions')
         self.features.add('SELECT first matching CASE')
         self.features.add('SELECT no-match guard')
-        category_code=f',category={category!r}' if self.mode=='pythonic' else ''
+        category_code = f',category={category!r}' if category is not None else ''
         return f'_rt.select_case({selector}, {table}, {stmt.has_else!r}, {stmt.token.line}{category_code})'
 
     def emit_body(self, statements):
