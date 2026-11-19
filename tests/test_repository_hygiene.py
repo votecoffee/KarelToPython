@@ -60,10 +60,12 @@ class RepositoryHygieneTests(unittest.TestCase):
         self.assertTrue(any('private/generated artifact' in error for error in errors))
 
     def test_run_document_schema_is_rejected_under_an_arbitrary_json_name(self):
-        value=dict(schema='karel2py.run.v1',target={},inputs={'context':{}},results=None)
-        (self.root/'session.json').write_text(json.dumps(value),encoding='utf-8')
-        _,errors=checker.check_repository(self.root)
-        self.assertTrue(any('private run document' in error for error in errors))
+        for schema in ('karel2py.run.v1', 'karel2py.project-run.v1'):
+            with self.subTest(schema=schema):
+                value=dict(schema=schema,target={},inputs={'context':{}},results=None)
+                (self.root/'session.json').write_text(json.dumps(value),encoding='utf-8')
+                _,errors=checker.check_repository(self.root)
+                self.assertTrue(any('private run document' in error for error in errors))
 
     def test_run_contract_documentation_is_allowed(self):
         value=dict(schema='karel2py.run.v1',contracts=dict(inputs='Supplied context',results='Terminal snapshots'))

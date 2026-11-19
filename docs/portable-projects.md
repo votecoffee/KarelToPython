@@ -153,6 +153,11 @@ Pass the mappings again on later runs that need them.
 
 ## Linked source projects
 
+The project CLI can export the checked cooperative modules with
+`--python-out DIRECTORY`. Use them with the saved-run CLI to pin the
+module set and replay it from explicit inputs. See
+[linked project runs](run-documents.md#linked-project-runs).
+
 ```python
 from karel2py import load_project
 

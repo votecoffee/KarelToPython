@@ -134,11 +134,29 @@ class Project:
         self.source_files=tuple(library.paths)
         self._link_types()
 
-    def _link_types(self):
+    @classmethod
+    def from_generated(cls, classes, paths):
+        """Use already loaded cooperative Program classes with the source linker."""
+        if not classes or classes.keys() != paths.keys():
+            raise ValueError('A linked project needs one path per generated program')
+        project = cls.__new__(cls)
+        project.classes = dict(classes)
+        project.translations = {}
+        project.source_files = tuple(paths.values())
+        project.array_shapes = {name: dict(program.external_array_shapes) for name, program in classes.items()}
+        declarations = {
+            (name, local): dict(owner=owner, source_file=str(paths[name]), source_line=1, source_column=1)
+            for name, program in classes.items() for local, owner in program.imported_types
+        }
+        project._link_types(declarations)
+        return project
+
+    def _link_types(self, declarations=None):
         # Work only with class/report metadata: no global allocation or KAREL body
         # runs until every external type interface and ownership chain has been checked.
-        declarations={(program,row['name']):row for program,translation in self.translations.items()
-                      for row in translation.report['imported_types']}
+        if declarations is None:
+            declarations={(program,row['name']):row for program,translation in self.translations.items()
+                          for row in translation.report['imported_types']}
         links={key:(row['owner'],key[1]) for key,row in declarations.items() if row['owner']!=key[0]}
 
         def fail(key,code,message):
@@ -244,6 +262,22 @@ def load_project(directory,*,array_shapes=None,include_dirs=(),include_devices=N
     return Project(sources,array_shapes=array_shapes,includes=library,array_context=array_context)
 
 
+def export_python(project, directory, *, protected=()):
+    """Publish the already translated cooperative modules with new filenames."""
+    from .fileio import check_output
+    from .storage import atomic_bytes
+
+    root = Path(directory).resolve(strict=True)
+    if not root.is_dir():
+        raise ValueError('Python module output must be a directory')
+    outputs = {name: root / (name.lower() + '.py') for name in project.translations}
+    for path in outputs.values():
+        check_output(path, protected=(*project.source_files, *protected))
+    for name, path in outputs.items():
+        atomic_bytes(path, project.translations[name].python_source.encode('utf-8'), overwrite=False)
+    return outputs
+
+
 def main(argv=None):
     import argparse,json,sys
     parser=argparse.ArgumentParser(description=f'KarelToPython {__version__} - {__doc__}')
@@ -256,6 +290,7 @@ def main(argv=None):
     parser.add_argument('--external-values',type=Path,help='Explicit data, procedures, argument cases and staged outputs for external routines')
     rt.directory_files_options(parser)
     parser.add_argument('--state-out',type=Path)
+    parser.add_argument('--python-out',type=Path,help='Export new cooperative Python modules into an existing directory after linking')
     parser.add_argument('--trace-out',type=Path,help='Atomically save task settings and bounded checkpoint traces, including partial traces on failure')
     parser.add_argument('--max-cycles',type=int,default=100000)
     parser.add_argument('--max-steps',type=int,default=100000,help='Maximum execution steps per task run, including linked routines')
@@ -266,6 +301,8 @@ def main(argv=None):
     args=parser.parse_args(argv)
     if args.max_steps<1:parser.error('--max-steps must be positive')
     if args.max_cycles<1:parser.error('--max-cycles must be positive')
+    if args.python_out and (args.entry or args.state_out or args.trace_out):
+        parser.error('--python-out checks linkage and exports modules without executing an entry or saving runtime state')
     files=rt.directory_files_from_args(parser,args)
     array_shapes={}
     for name,shape in args.array_shape:
@@ -305,6 +342,15 @@ def main(argv=None):
     if files is not None:context.files=files
     context.tasks=rt.TaskScheduler(max_steps=args.max_steps)
     instance=project.instantiate(context=context)
+    if args.python_out:
+        protected = tuple(path for path in (args.context, args.array_context, args.external_values, args.external_collections) if path is not None)
+        try:
+            modules = export_python(project, args.python_out, protected=protected)
+        except (OSError, ValueError) as error:
+            parser.exit(1, 'karel2py.project: ' + str(error) + '\n')
+        print(json.dumps({'programs': sorted(modules), 'linked': True,
+                          'modules': {name: str(path) for name, path in modules.items()}}, indent=2))
+        return 0
     def save_trace():
         from .storage import atomic_bytes
         payload=(json.dumps(instance.trace_snapshot(),indent=2,allow_nan=False)+'\n').encode('utf-8')

@@ -1,5 +1,13 @@
 # Changelog
 
+## 26.1119.223627 - 2026-11-19
+
+- Export cooperative Python modules from an explicitly selected linked source
+  project with `project --python-out`.
+- Prepare and replay a CLI saved run that pins every generated module and
+  starts one named program. Reuse the source linker and scheduler, capture
+  each program's state, and preserve explicit inputs on replay and failure.
+
 ## 26.1119.222702 - 2026-11-19
 
 - Edit record, array, joint and pose fields in a paged desktop draft. Save

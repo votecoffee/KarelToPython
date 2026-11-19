@@ -376,8 +376,9 @@ The [semantic ledger](semantics/input_discovery_semantics.json) records this
 contract. `karel2py.input_template.prepare_inputs(source, context=...)` returns
 independent `context` and `template` objects for CLI/host reuse; invalid contexts
 raise `InputTemplateError`. The [template ledger](semantics/input_template_semantics.json)
-records its contract. Broader discovery and linked runs remain
-[future work](roadmap.md).
+records its contract. [Linked project runs](run-documents.md#linked-project-runs)
+use explicit inputs while discovery across linked routines remains on the
+[roadmap](roadmap.md).
 
 `karel2py.input_refresh.refresh_inputs(source, inputs, filename=...)` returns fresh
 context and template objects without changing the supplied inputs. Invalid

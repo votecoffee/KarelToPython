@@ -11,6 +11,7 @@ from urllib.parse import unquote, urlsplit
 ROOT = Path(__file__).resolve().parents[1]
 LOCAL_ROOTS = {'.local', '.venv', 'venv', 'work', 'outputs', 'build', 'dist', '__pycache__'}
 PRIVATE_SUFFIXES = {'.pdf', '.pc', '.zip', '.7z', '.log', '.pyc', '.pyo'}
+PRIVATE_RUN_SCHEMAS = ('karel2py.run.v1', 'karel2py.project-run.v1')
 PROFILE_PATH = re.compile(r'(?i)(?:[a-z]:[/\\]+(?:users|documents and settings|~localwork)[/\\]|/(?:users|home)/[^/\s]+/)')
 LINK = re.compile(r'(?<!!)\[[^\]\n]+\]\(([^)\n]+)\)')
 
@@ -76,12 +77,12 @@ def check_repository(root=ROOT):
             continue
         if PROFILE_PATH.search(text):
             errors.append(relative + ': contains a machine/profile-specific absolute path')
-        if path.suffix.lower() == '.json' and any(schema in text for schema in ('karel2py.run.v1', 'karel2py.inputs.v1')):
+        if path.suffix.lower() == '.json' and any(schema in text for schema in (*PRIVATE_RUN_SCHEMAS, 'karel2py.inputs.v1')):
             try:
                 document = json.loads(text)
             except (ValueError, RecursionError):
                 document = None
-            if (type(document) is dict and document.get('schema') == 'karel2py.run.v1'
+            if (type(document) is dict and document.get('schema') in PRIVATE_RUN_SCHEMAS
                     and {'target', 'inputs', 'results'} <= set(document)):
                 errors.append(relative + ': private run document belongs outside public source')
             if (type(document) is dict and document.get('schema') == 'karel2py.inputs.v1'

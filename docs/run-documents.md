@@ -43,9 +43,50 @@ The original and its results remain intact; the new result section is null.
 See [refreshing inputs](input-discovery.md#refresh-edited-inputs) for migration,
 provenance and unresolved-running-marker behavior.
 
-No GUI is opened. The CLI process runs synchronously; a future GUI worker can
-use the shared service. `--version` displays the same fixed application version
-as the translator and project CLIs.
+The CLI runs synchronously. The desktop runner uses the same standalone
+document service through a worker. `--version` displays the same fixed
+application version as the translator and project CLIs.
+
+## Linked project runs
+
+Export checked cooperative Python from a source directory, select the exported
+modules in scheduling order, and name the program to start:
+
+```sh
+python -c "from pathlib import Path; Path('.local/linked-python').mkdir(parents=True, exist_ok=True)"
+python -m karel2py.project examples/for_start_capture_linked --python-out .local/linked-python
+python -m karel2py.runner create-project .local/linked.run.json .local/linked-python/main.py .local/linked-python/lib.py --entry MAIN
+python -m karel2py.runner run .local/linked.run.json
+```
+
+The exporter uses declared program names for the new filenames. It checks
+the source project and its linkage before publishing each module atomically.
+Use a fresh output directory to keep the exported set together. You can also select
+already generated Pythonic modules translated with `--cooperative`. Include
+every module required by the linked project. The project scheduler uses the
+listed order to break ties between tasks of equal priority.
+
+The `karel2py.project-run.v1` document stores the entry in `target.program`
+and each module's path, declared program, and SHA-256 in `target.modules`.
+Paths are relative when the document and module are on the same volume.
+Creation inspects Python syntax and pins bytes without
+executing the modules. Execution verifies every pin before loading trusted
+Python from the captured bytes. The existing linker checks types, imported
+variables and routine signatures before starting the entry body. A changed
+module requires a new document. You can select up to 64 modules of up to
+16 MiB each, within a 32 MiB combined byte limit.
+
+Use `--context` at creation or edit `inputs.context` before replay. All programs
+share one fresh offline context and virtual scheduler. `--max-steps` limits
+each task, `--max-cycles` bounds the scheduler and `--max-output-chars` bounds
+combined WRITE text. `results.programs` records each program's observed state
+and available variables. The variable snapshots include cleanup of suspended
+frames and counters. The document also records output, final context, and any
+failure or cancellation. Replay always starts from saved inputs.
+
+Linked run documents currently use the CLI and explicit JSON inputs.
+Automatic discovery across linked calls, desktop editing, and migration
+of linked documents remain on the [roadmap](roadmap.md#python-runner-and-parameter-editor).
 
 ## Inputs and results
 

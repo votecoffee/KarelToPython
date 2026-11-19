@@ -1,4 +1,4 @@
-"""Explicit standalone Pythonic runs with separate saved inputs and results."""
+"""Explicit Pythonic runs with separate saved inputs and results."""
 import argparse
 import ast
 from copy import deepcopy
@@ -17,6 +17,7 @@ from .storage import atomic_bytes
 
 
 SCHEMA = 'karel2py.run.v1'
+PROJECT_SCHEMA = 'karel2py.project-run.v1'
 MAX_BYTES = 16 * 1024 * 1024
 
 
@@ -71,6 +72,11 @@ def _encode(value):
 def _target(path):
     path = Path(path).resolve(strict=True)
     raw = _read(path)
+    identity, code = _inspect_python(path, raw)
+    return path, identity, code
+
+
+def _inspect_python(path, raw, *, cooperative=False):
     try:
         source = raw.decode('utf-8-sig')
         tree = ast.parse(source, filename=str(path), feature_version=(3, 11))
@@ -88,10 +94,12 @@ def _target(path):
                     metadata[name] = ast.literal_eval(node.value)
         program, mode = metadata.get('source_program'), metadata.get('translation_mode')
         if type(program) is not str or not re.fullmatch(r'[A-Z_][A-Z_0-9]*', program) or mode != 'pythonic':
-            raise ValueError('A standalone Pythonic generated Program identity is required')
+            raise ValueError('A Pythonic generated Program identity is required')
+        if cooperative and not any(isinstance(node, ast.FunctionDef) and node.name == '_execute' for node in classes[0].body):
+            raise ValueError('Linked runs require cooperative generated modules. Translate with --cooperative or export the linked project.')
     except (UnicodeError, SyntaxError, ValueError, TypeError, RecursionError) as error:
         raise RunDocumentError('Invalid Python target: ' + str(error)) from error
-    return path, dict(sha256=hashlib.sha256(raw).hexdigest(), program=program, mode=mode), code
+    return dict(sha256=hashlib.sha256(raw).hexdigest(), program=program, mode=mode), code
 
 
 def _context(config):
@@ -335,35 +343,59 @@ class _RunCancelled(KeyboardInterrupt):
     """Unwind generated execution and preserve partial results on request."""
 
 
+def _run_status(error):
+    if isinstance(error, KeyboardInterrupt): return 'cancelled'
+    if isinstance(error, rt.KarelAbort): return 'aborted'
+    if isinstance(error, rt.KarelStop): return 'stopped'
+    if isinstance(error, rt.KarelPause): return 'paused'
+    return 'failed'
+
+
+def _check_cancelled(event, line=None):
+    if event is not None and event.is_set():
+        error = _RunCancelled('Run cancelled by the user')
+        error.line = line
+        raise error
+
+
+class _RunOutput:
+    def __init__(self, limit):
+        self.limit = limit
+        self.parts = []
+        self.length = 0
+
+    def write(self, text):
+        if type(text) is not str or self.length + len(text) > self.limit:
+            raise rt.KarelRuntimeError('Runner text output limit exceeded')
+        self.length += len(text)
+        self.parts.append(text)
+
+    def text(self):
+        return ''.join(self.parts)
+
+
 def run_document(path, *, expected=None, cancel_event=None, protected=()):
     """Execute pinned trusted Python once; publish terminal/partial results."""
     path = Path(path).absolute()
     original = _read(path)
     _expected_revision(original, expected)
     document = _decode(original)
+    if type(document) is dict and document.get('schema') == PROJECT_SCHEMA:
+        from .project_run import run_project_document
+        return run_project_document(path, document, original, cancel_event=cancel_event, protected=protected)
     target, code, context = _validate(document, path)
     started = _now()
     document['results'] = dict(status='running', runner_version=__version__, started_utc=started)
     protected = (target, *protected)
     pending = _store(path, document, expected=original, protected=protected)
-    output, length = [], 0
+    output = _RunOutput(document['limits']['max_output_chars'])
     program = None
     failure = None
     status = 'completed'
     capture_errors = {}
 
-    def write(text):
-        nonlocal length
-        if type(text) is not str or length + len(text) > document['limits']['max_output_chars']:
-            raise rt.KarelRuntimeError('Runner text output limit exceeded')
-        output.append(text)
-        length += len(text)
-
     def check_cancelled(line=None):
-        if cancel_event.is_set():
-            error = _RunCancelled('Run cancelled by the user')
-            error.line = line
-            raise error
+        _check_cancelled(cancel_event, line)
 
     def sleep(seconds):
         if cancel_event.wait(seconds):
@@ -378,17 +410,14 @@ def run_document(path, *, expected=None, cancel_event=None, protected=()):
             cls = namespace.get('Program')
             if not isinstance(cls, type) or cls.source_program != document['target']['program'] or cls.translation_mode != 'pythonic':
                 raise RunDocumentError('Loaded target identity differs from inspected metadata')
-            program = cls(context=context, write=write)
+            program = cls(context=context, write=output.write)
             if cancel_event is not None:
                 program._state._run_cancel_check = check_cancelled
                 program._state._sleep = sleep
             program.run(max_steps=document['limits']['max_steps'])
         except BaseException as error:
             failure = _error(error)
-            status = ('cancelled' if isinstance(error, KeyboardInterrupt) else
-                      'aborted' if isinstance(error, rt.KarelAbort) else
-                      'stopped' if isinstance(error, rt.KarelStop) else
-                      'paused' if isinstance(error, rt.KarelPause) else 'failed')
+            status = _run_status(error)
             if cancel_event is not None and program is not None:
                 program._state._run_cancel_check = None
             if program is not None and callable(getattr(program, 'stop', None)):
@@ -411,7 +440,7 @@ def run_document(path, *, expected=None, cancel_event=None, protected=()):
             capture_errors['context'] = _error(error)
     document['results'] = dict(status=status, runner_version=__version__, started_utc=started,
                                finished_utc=_now(), variables=snapshot, context=state,
-                               text_output=''.join(output), error=failure, capture_errors=capture_errors)
+                               text_output=output.text(), error=failure, capture_errors=capture_errors)
     _store(path, document, expected=pending, protected=protected)
     return document
 
@@ -427,6 +456,14 @@ def main(argv=None):
     create.add_argument('--discover', action='store_true', help='Prepare missing variable shapes and input requirements without target execution')
     create.add_argument('--max-steps', type=int, default=100000)
     create.add_argument('--max-output-chars', type=int, default=1048576)
+    project = subparsers.add_parser('create-project', help='Pin a set of cooperative generated Python modules')
+    project.add_argument('document', type=Path)
+    project.add_argument('modules', type=Path, nargs='+')
+    project.add_argument('--entry', required=True, help='Declared KAREL program to start')
+    project.add_argument('--context', type=Path, help='Explicit execution-context JSON copied into inputs')
+    project.add_argument('--max-steps', type=int, default=100000, help='Execution step limit per task')
+    project.add_argument('--max-cycles', type=int, default=100000, help='Scheduler cycle limit')
+    project.add_argument('--max-output-chars', type=int, default=1048576, help='Combined WRITE output limit')
     discover = subparsers.add_parser('discover', help='Inspect read-before-write inputs without importing or executing Python')
     discover.add_argument('target', type=Path)
     discover.add_argument('--output', type=Path, help='New private JSON report; otherwise print the full report')
@@ -439,6 +476,15 @@ def main(argv=None):
     args = parser.parse_args(argv)
     print(f'KarelToPython {__version__}', file=sys.stderr)
     try:
+        if args.command == 'create-project':
+            from .project_run import create_project_document
+
+            context = _decode(_read(args.context)) if args.context else None
+            document = create_project_document(args.modules, args.document, entry=args.entry, context=context,
+                max_steps=args.max_steps, max_cycles=args.max_cycles, max_output_chars=args.max_output_chars,
+                protected=(args.context,) if args.context else ())
+            print(json.dumps(dict(status='prepared', program=document['target']['program'], modules=len(args.modules))))
+            return 0
         if args.command == 'refresh':
             document = refresh_document(args.source, args.document, target=args.target)
             template = document['inputs']['template']
