@@ -17,6 +17,13 @@ _CONVERSION_FEATURES = {
     'cartesian': 'Cartesian interface value conversion',
     'integer_to_real': 'INTEGER to REAL value argument',
 }
+_RESULT_CONVERSION_FEATURES = {
+    'real_integral': 'checked REAL to integral result',
+    'record_schema': 'source STRUCTURE schema result',
+    'array_schema': 'source ARRAY schema result',
+    'kinematic': 'kinematic interface result conversion',
+    'cartesian': 'Cartesian interface result conversion',
+}
 _CONVERSION_REPORTS = {
     'numeric_array': 'numeric_array_uses',
     'positional_array': 'positional_array_uses',
@@ -89,16 +96,72 @@ def record_routine_conversion(emitter, routine, formal, argument, plan, source):
     operation = 'KINEMATIC_ARGUMENT' if conversion == 'kinematic' else 'ARGUMENT'
     row = dict(operation=operation, **_argument_site(emitter, routine, formal), **_position(argument),
                source_type_spec=source, target_type_spec=target)
+    _append_conversion_report(emitter, report_name, conversion, row)
+
+
+def _append_conversion_report(emitter, report_name, conversion, row, *, returning=False):
+    source, target = row['source_type_spec'], row['target_type_spec']
     if conversion == 'kinematic_record':
         row['conversion_kind'] = rt.kinematic_record_kind(target, source)
     elif conversion == 'record_schema':
         row['conversion_kind'] = rt.record_schema_kind(target, source)
     elif conversion == 'array_schema':
-        row['schema_change_kind'] = rt.array_schema_kind(target, source)
+        schema_change = rt.array_schema_kind(target, source)
+        row['schema_change_kind'] = (schema_change or 'declared_result') if returning else schema_change
     row.update(evaluated_once=True, independent_value=True)
+    if returning:
+        row['before_cleanup'] = True
     if conversion == 'kinematic_record':
         row['geometry_preflight'] = True
     getattr(emitter, report_name).append(row)
+
+
+def record_result_conversion(emitter, token, plan):
+    conversion = plan.conversion
+    if conversion is None:
+        return
+    feature = _RESULT_CONVERSION_FEATURES.get(conversion, _CONVERSION_FEATURES.get(conversion))
+    if feature:
+        emitter.features.add(feature)
+    if conversion in ('kinematic_array', 'kinematic_record', 'kinematic'):
+        emitter.features.add('extended services')
+    report_name = _CONVERSION_REPORTS.get(conversion)
+    if report_name is not None:
+        operation = 'KINEMATIC_RETURN' if conversion == 'kinematic' else 'RETURN'
+        name = emitter.current_routine.name
+        row = dict(operation=operation, body=name, routine=name, line=token.line, column=token.column,
+                   source_type_spec=plan.source_schema, target_type_spec=plan.declared_schema)
+        _append_conversion_report(emitter, report_name, conversion, row, returning=True)
+
+
+def record_routine_result(emitter, token, operand, plan):
+    spec, routine = plan.declared_schema, emitter.current_routine
+    line, column = token.line, token.column
+    if spec[0] == 'ARRAY':
+        emitter.array_return_uses.append(dict(
+            routine=routine.name, element_type=spec[2][0], element_spec=spec[2], line=line,
+            column=column, expression_kind=operand.kind, logical_rank=len(rt.array_dimensions(spec)),
+            result_spec=spec, declared_dimensions=rt.array_shape(spec), nominal_identity=rt.array_identity(spec),
+            independent_copy=True, initialized_elements_required=emitter.mode != 'pythonic'))
+    elif spec[0] == 'STRING':
+        emitter.string_return_uses.append(dict(
+            routine=routine.name, capacity=spec[1], capacity_defaulted=routine.string_result_defaulted,
+            line=line, column=column, expression_kind=operand.kind, evaluated_once=True, right_truncation=True))
+    elif spec == ('VECTOR',):
+        emitter.vector_return_uses.append(dict(
+            routine=routine.name, line=line, column=column, expression_kind=operand.kind,
+            independent_writable_copy=True))
+    elif spec[0] == 'STRUCTURE':
+        emitter.structure_return_uses.append(dict(
+            routine=routine.name, type_name=spec[1], line=line, column=column,
+            expression_kind=operand.kind, independent_writable_copy=True))
+    elif spec[0] in POSITIONAL_VALUE_TYPES:
+        row = dict(routine=routine.name, type_spec=spec, line=line, column=column,
+                   expression_kind=operand.kind, independent_writable_copy=True)
+        if emitter.mode == 'pythonic':
+            row.update(source_type_spec=plan.source_schema, converted=plan.conversion in _POSITION_CONVERSIONS,
+                       conversion_kind=plan.conversion or 'none')
+        emitter.positional_return_uses.append(row)
 
 
 def _record_value_argument(emitter, argument, site, plan, source):

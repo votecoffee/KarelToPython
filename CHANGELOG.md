@@ -1,5 +1,11 @@
 # Changelog
 
+## 26.1119.233726 - 2026-11-19
+
+- Generate routine calls and RETURN values in a dedicated module. Use checked
+  result plans for scalar, ARRAY, and collection returns, and share conversion
+  selection and report recording with routine arguments.
+
 ## 26.1119.233044 - 2026-11-19
 
 - Collect routine binding, conversion, and service call records in a dedicated

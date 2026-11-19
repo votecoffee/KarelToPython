@@ -16,20 +16,6 @@ from .compiler_language import (
     TIMER_FUNCTIONS,
     TIME_TEXT_PROCEDURES,
 )
-from .call_analysis import (
-    check_byname_argument,
-    check_routine_call,
-    check_routine_value_storage,
-    plan_routine_argument,
-    validate_routine_argument,
-)
-from .call_reporting import (
-    record_file_prefix,
-    record_routine_binding,
-    record_routine_conversion,
-    record_service_call,
-    record_value_subfield,
-)
 from .operator_types import POSE_OPERANDS, binary_result, operand_type, unary_result
 from . import extended as ex
 from . import runtime as rt
@@ -37,31 +23,6 @@ from . import runtime as rt
 
 class ExpressionLowering:
     """Lower expressions against the current checked program and emitter scope."""
-
-    def file_prefix_reference_code(self,argument):
-        base,container=self.expression(argument.args[0],raw=True)
-        codes=[self.require_type(index,'INTEGER') for index in argument.args[1:]]
-        return f'_rt.resource_array_prefix_reference({base},({", ".join(codes)},),{container!r},{argument.token.line})',container
-
-    def file_prefix_argument(self, argument, routine, formal, selected):
-        code, container = self.file_prefix_reference_code(argument)
-        record_file_prefix(self, routine, formal, argument, container, selected)
-        return code, selected
-
-    def check_for_call(self, token, routine=None):
-        if self.active_counters:
-            if self.mode == 'strict' and not self.has_fresh_active_counters():
-                self.error('E_FOR_COUNTER', 'Routine calls inside FOR require every active counter to be a fresh routine-local variable', token)
-            if self.mode == 'pythonic' and routine is not None:
-                locals_only = {t.value for t, _ in self.current_routine.declarations} if self.current_routine else set()
-                conflict = (self.named_active_counters() - locals_only) & routine.global_writes
-                if conflict:
-                    self.error('E_FOR_COUNTER', 'Routine may write active global FOR counter(s): ' + ', '.join(sorted(conflict)), token)
-                aggregate_roots={root for root in self.named_active_counters()-locals_only if self.types[root][0] not in INTEGRAL_TYPES}
-                if aggregate_roots and routine.name in self.external_write_routines:
-                    self.error('E_FOR_COUNTER','External routine effects cannot prove active aggregate counter roots unchanged',token)
-            if self.has_fresh_active_counters(): self.features.add('routine call inside FOR with fresh local counters')
-            if self.mode == 'pythonic': self.features.add('routine call inside FOR with checked counter effects')
 
     def geometry_operand(self,code,spec,token,operation):
         if self.mode=='pythonic' and spec==('VECTOR',) and operation in (':','INV','FRAME'):
@@ -687,9 +648,6 @@ class ExpressionLowering:
                                               context='Explicit Program(joint_axes=...) required; declared width must match'))
         return f'self._state.joint_conversion({expr.value!r}, {source}, {target}, {status}, {expr.token.line})'
 
-    def has_routine_call(self, expr):
-        return expr.kind == 'call' and expr.value in self.routines or any(self.has_routine_call(x) for x in expr.args)
-
     def unpos_procedure(self, expr):
         if self.mode=='pythonic':
             if len(expr.args) not in (8,11):
@@ -755,118 +713,6 @@ class ExpressionLowering:
             source_type=spec,source_kind=expr.args[0].kind,source_snapshot=True,external_axis_outputs=with_axes,
             overlap='Outputs checked disjoint at runtime; captured source may also be output storage'))
         return f'_rt.unpos_value({source}, [{", ".join(outputs)}], line={expr.token.line})'
-
-    def lower_byname_argument(self, operand, expected):
-        self.check_for_call(operand.token)
-        self.check_byname_counter(operand)
-        program = self.require_type(operand.program, 'STRING')
-        path = self.require_type(operand.path, 'STRING')
-        self.check_byname_entry(operand.entry)
-        reference, spec = self.reference(operand.entry)
-        operand.check_entry_schema(spec, error=self.error)
-
-        self.features.add('parameter by reference')
-        record_service_call(self, 'BYNAME', operand.token)
-        return f'self._state.byname_argument({expected!r},{program},{path},{reference},{operand.token.line})'
-
-    def routine_call(self, expr):
-        routine = self.routines[expr.value]
-        pairs = check_routine_call(expr, routine, mode=self.mode, has_routine_call=self.has_routine_call, error=self.error)
-        arguments = []
-        for argument, (formal, expected) in pairs:
-            line = argument.token.line
-            byname = check_byname_argument(argument, mode=self.mode, routines=self.routines, error=self.error)
-            if byname is not None:
-                arguments.append(self.lower_byname_argument(byname, expected))
-                continue
-            if self.is_position_read_only_access(argument) and not self.is_system_pose_path(argument):
-                self.error('E_POSITION_READ_ONLY_ARG', 'Bare POSITION orientation arguments need read-only passing evidence; use an explicit scalar expression for a value', argument.token)
-            is_reference, file_prefix = self.routine_argument_storage(argument)
-            if is_reference:
-                if file_prefix is None:
-                    code, actual = self.reference(argument)
-                else:
-                    code, actual = self.file_prefix_argument(argument, routine, formal, file_prefix)
-                if self.is_value_only_subfield(argument):
-                    value, actual = self.expression(argument)
-                    code = f'_rt.value_argument({expected!r}, {value}, {line})'
-                    is_reference = False
-                    association_type = self.access_type(argument.args[0])[0] if self.is_association_subfield(argument) else None
-                    record_value_subfield(self, routine, formal, argument, association_type=association_type)
-            else:
-                value, actual = self.expression(argument)
-                capture = check_routine_value_storage(expected, actual, argument.token, mode=self.mode, error=self.error)
-                if capture is None:
-                    code = f'_rt.value_argument({expected!r}, {value}, {line})'
-                else:
-                    if capture.needs_conversion:
-                        value = self.path_conversion_value(expected, actual, value, argument.token, 'ARGUMENT')
-                    actual = capture.value_schema
-                    if capture.is_array:
-                        code = f'_rt.collection_array_argument({expected!r},{value},{line},source_spec={actual!r})'
-                        self.features.add('private logical collection ARRAY argument')
-                    else:
-                        code = f'_rt.collection_argument({expected!r},{value},{line},source_spec={actual!r})'
-                        self.features.add('private logical scalar collection argument')
-            source_schema = actual
-            plan = plan_routine_argument(expected, actual, mode=self.mode, reference=is_reference)
-            conversion = plan.conversion
-            if conversion == 'real_integral':
-                value,_=self.expression(argument)
-                code=f'_rt.value_argument({expected!r},_rt.real_integral_value({expected!r},{value},{line}),{line})'
-            elif conversion == 'config_word':
-                value,_=self.expression(argument)
-                value=self.config_word_conversion(expected,actual,value,argument.token,'ARGUMENT')
-                code=f'_rt.value_argument({expected!r},{value},{line})'
-            elif conversion == 'numeric_array':
-                value,_=self.expression(argument)
-                code=f'_rt.value_argument({expected!r},_rt.convert_numeric_array({expected!r},{value},{line}),{line})'
-            elif conversion == 'positional_array':
-                value,_=self.expression(argument)
-                code=f'_rt.value_argument({expected!r},_rt.convert_positional_array({expected!r},{value},{line}),{line})'
-            elif conversion == 'kinematic_array':
-                value,_=self.expression(argument)
-                code=f'_rt.value_argument({expected!r},self._state.kinematic_array({expected!r},{value},{line},kind="ARGUMENT"),{line})'
-            elif conversion == 'kinematic_record':
-                value,_=self.expression(argument)
-                code=f'_rt.value_argument({expected!r},self._state.kinematic_record({expected!r},{value},{line},kind="ARGUMENT",source_spec={actual!r}),{line})'
-            elif conversion == 'record_schema':
-                value,_=self.expression(argument)
-                code=f'_rt.value_argument({expected!r},_rt.convert_record_schema({expected!r},{value},{line},source_spec={actual!r}),{line})'
-            elif conversion == 'array_schema':
-                value,_=self.expression(argument)
-                code=f'_rt.value_argument({expected!r},_rt.convert_array_schema({expected!r},{value},{line}),{line})'
-            elif conversion == 'joint_width':
-                value,_=self.expression(argument)
-                code=f'_rt.value_argument({expected!r},_rt.convert_joint_width({expected!r},{value},{line}),{line})'
-            elif conversion == 'kinematic':
-                value,_=self.expression(argument)
-                code=f'_rt.value_argument({expected!r},self._state.kinematic_interface({expected!r},{value},{line}),{line})'
-            elif conversion == 'cartesian':
-                value,_=self.expression(argument)
-                code=f'_rt.value_argument({expected!r},{value},{line})'
-            elif conversion == 'integral_narrow':
-                value,_=self.expression(argument)
-                code=f'_rt.value_argument({expected!r},{value},{line})'
-            elif conversion == 'narrow_promotion':
-                value, _ = self.expression(argument)
-                code = f'_rt.value_argument({expected!r}, {value}, {line})'
-            elif conversion == 'integer_to_real':
-                value, _ = self.expression(argument)
-                code = f'_rt.value_argument({expected!r}, {value}, {line})'
-            if conversion in ('kinematic_array', 'kinematic_record', 'kinematic') and self.current_routine:
-                self.current_routine.may_services = True
-            record_routine_conversion(self, routine, formal, argument, plan, source_schema)
-            active_counter = plan.by_reference and self.protection_root(argument) in self.active_counters
-            validate_routine_argument(plan, expr.value, argument.token, mode=self.mode, active_counter=active_counter,
-                                      writable_formal=formal.value in routine.parameter_writes, error=self.error)
-            if not plan.by_reference and expected[0] == 'STRING':
-                code = (f'_rt.value_argument({expected!r}, {value}, {line})' if plan.bounded_string_value
-                        else f'_rt.string_value_argument({value}, {line})')
-            record_routine_binding(self, routine, formal, argument, plan, source_schema, active_counter=active_counter)
-            arguments.append(code)
-        result=f'self._routine_{expr.value}({", ".join(arguments)})'
-        return f'(yield from {result})' if self.cooperative else result
 
     def require_type(self, expr, expected):
         code, spec = self.expression(expr)

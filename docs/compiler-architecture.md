@@ -10,10 +10,11 @@ input-discovery contract to the result.
 | Declaration analysis | `declarations.py`, `compiler_language.py` | `DeclarationPasses` resolves declarations, constants, and types. It normalizes source references and records routine effects in the emitter's current scope. |
 | Type queries | `type_checking.py` | `TypeQueries` inspects schemas, resolves scoped references and FILE prefixes, and checks storage for BYNAME and service operands. Declaration analysis and lowering share these queries. |
 | Operator rules | `operator_types.py` | Unary and binary rules check operand schemas and return a result schema. Python generation applies evaluation order, source diagnostics, and reporting. |
-| Call analysis | `call_analysis.py` | Plans passing mode, schema conversions, BYNAME operands and collection capture. Validates bindings and protected counter use, resolves service signatures, and checks PATH node compatibility. |
+| Call analysis | `call_analysis.py` | Plans routine arguments and results, including conversion, storage, and collection rules. Validates bindings and protected counter use, resolves service signatures, and checks PATH node compatibility. |
 | SELECT checking | `select_analysis.py` | `check_select()` returns a checked selector and typed CASE rows in source order. The emitter assembles the dispatch call and report from those rows. |
 | Control flow | `control_flow.py` | `validate_labels()` checks scope entry with the declared names and source mode. `FlowGraph` lowers a validated body to dispatch nodes. |
-| Generation | `expression_codegen.py`, `python_codegen.py` | `ExpressionLowering` checks expression types and lowers access and routine calls. `Emitter.emit()` drives validation and emits Python. |
+| Generation | `expression_codegen.py`, `python_codegen.py` | `ExpressionLowering` lowers expressions and access paths. `Emitter.emit()` drives validation and emits Python. |
+| Routine generation | `routine_codegen.py` | Captures arguments in source order and emits calls and checked RETURN values. |
 | Service generation | `service_codegen.py` | Lowers storage references, bounded ARRAY operands, and captured values in source order. Checks each typed operand against its service signature. |
 | Reports | `call_reporting.py`, `report_base.py`, `report_services.py`, `report_language.py`, `report_interfaces.py`, `reporting.py` | Call reporting records argument binding and conversions as the call is lowered. Report builders collect this evidence and describe the policies applied to the translation. |
 
@@ -26,7 +27,9 @@ operands. FILE prefix emission uses the selected schema from type queries.
 Collection capture plans indicate whether to convert a PATH layout or copy
 the existing logical value. Lowering emits the runtime calls in source order.
 The reporting module records the chosen bindings, conversions, forwarding
-guards, and source locations.
+guards, and source locations. `RoutineResultPlan` carries the declared
+result, operand schema, and conversion. RETURN analysis checks ARRAY source
+shape and identity before generation emits an independent result.
 Keep label validation independent of Python emission. The report modules are
 applied in order because later policies extend earlier entries.
 

@@ -1,4 +1,4 @@
-"""Routine argument and service signature checks without Python emission."""
+"""Routine argument, result, and service checks without Python emission."""
 from dataclasses import dataclass
 
 from . import extended as ex
@@ -37,23 +37,31 @@ def array_formal_forward_match(expected, actual):
     )
 
 
+def _pythonic_interface_conversion(expected, actual, *, guarded_array=False, array_result=False):
+    for conversion, matches in PYTHONIC_CONVERSIONS:
+        if matches(expected, actual):
+            return conversion
+    if ((array_result or not guarded_array) and rt.array_schema_compatible(expected, actual)
+            and (array_result or not rt.parameter_accepts(expected, actual))):
+        return 'array_schema'
+    target_kind, source_kind = expected[0], actual[0]
+    if target_kind == source_kind == 'JOINTPOS' and expected != actual:
+        return 'joint_width'
+    if (target_kind == 'JOINTPOS' and source_kind in CARTESIAN_TYPES
+            or source_kind == 'JOINTPOS' and target_kind in CARTESIAN_TYPES):
+        return 'kinematic'
+    if expected != actual and target_kind in CARTESIAN_TYPES and source_kind in CARTESIAN_TYPES:
+        return 'cartesian'
+    return None
+
+
 def routine_argument_conversion(expected, actual, *, mode, guarded_array=False):
     """Return the selected value conversion, or None if no conversion applies."""
     target_kind, source_kind = expected[0], actual[0]
     if mode == 'pythonic':
-        for conversion, matches in PYTHONIC_CONVERSIONS:
-            if matches(expected, actual):
-                return conversion
-        if (not guarded_array and rt.array_schema_compatible(expected, actual)
-                and not rt.parameter_accepts(expected, actual)):
-            return 'array_schema'
-        if target_kind == source_kind == 'JOINTPOS' and expected != actual:
-            return 'joint_width'
-        if (target_kind == 'JOINTPOS' and source_kind in CARTESIAN_TYPES
-                or source_kind == 'JOINTPOS' and target_kind in CARTESIAN_TYPES):
-            return 'kinematic'
-        if expected != actual and target_kind in CARTESIAN_TYPES and source_kind in CARTESIAN_TYPES:
-            return 'cartesian'
+        conversion = _pythonic_interface_conversion(expected, actual, guarded_array=guarded_array)
+        if conversion is not None:
+            return conversion
         if target_kind in NARROW_TYPES and source_kind in INTEGRAL_TYPES and actual != expected:
             return 'integral_narrow'
     if target_kind in ('INTEGER', 'REAL') and source_kind in NARROW_TYPES:
@@ -119,6 +127,64 @@ def validate_routine_argument(plan, routine_name, token, *, mode, active_counter
     elif expected[0] == 'STRING' and mode != 'pythonic' and writable_formal:
         error('E_STRING_VALUE', 'STRING value arguments require a read-only formal; '
               'this parameter may be written through assignments or nested calls', token)
+
+
+@dataclass(frozen=True)
+class RoutineResultPlan:
+    declared_schema: tuple
+    source_schema: tuple
+    conversion: str | None = None
+    collection: str | None = None
+
+    @property
+    def value_schema(self):
+        return self.declared_schema if self.conversion else self.source_schema
+
+
+def check_return_operand(expected, operand, token, *, error):
+    if expected is None and operand is not None:
+        error('E_RETURN', 'Procedure RETURN cannot return a value', token)
+    if expected is not None and operand is None:
+        error('E_RETURN', 'Function RETURN requires a value', token)
+
+
+def _check_array_return(expected, actual, operand, *, mode, error):
+    source = operand
+    while source.kind == 'group':
+        source = source.args[0]
+    sources = ('name', 'field', 'index', 'call') if mode == 'pythonic' else ('name', 'field', 'index')
+    identity = rt.array_identity(actual)
+    wrong_identity = identity is not None and (mode == 'strict' or identity != rt.array_identity(expected))
+    expected_rank = len(rt.array_shape(expected)) if mode == 'pythonic' else 1
+    if (source.kind not in sources or actual[0] != 'ARRAY'
+            or wrong_identity or len(rt.array_shape(actual)) != expected_rank
+            or (actual[2] != expected[2] and not (
+                expected[2][0] == actual[2][0] == 'STRING' and (expected[2][1] is None or actual[2][1] is None)))):
+        error('E_ARRAY_RETURN_SOURCE', 'ARRAY RETURN requires matching outer representation, nominal identity and exact element type',
+              operand.token)
+
+
+def check_routine_result(expected, actual, operand, token, *, mode, compatible, error):
+    """Check a typed RETURN operand before choosing its Python value wrapper."""
+    conversion = None
+    if mode == 'pythonic':
+        if rt.collection_type(expected):
+            conversion = 'collection_schema' if expected != actual else None
+            return RoutineResultPlan(expected, actual, conversion, collection='scalar')
+        if rt.collection_array_type(expected):
+            if not rt.collection_array_source_accepts(expected, actual):
+                if rt.path_array_conversion_layout(expected, actual) is None:
+                    error('E_ARRAY_RETURN_SOURCE', 'Collection ARRAY result requires compatible PATH layouts or matching component schemas',
+                          operand.token)
+                conversion = 'collection_schema'
+            return RoutineResultPlan(expected, actual, conversion, collection='array')
+        conversion = _pythonic_interface_conversion(expected, actual, array_result=True)
+    plan = RoutineResultPlan(expected, actual, conversion)
+    if not compatible(expected, plan.value_schema):
+        error('E_RETURN', 'Wrong function return type', token)
+    if expected[0] == 'ARRAY':
+        _check_array_return(expected, plan.value_schema, operand, mode=mode, error=error)
+    return plan
 
 
 @dataclass(frozen=True)

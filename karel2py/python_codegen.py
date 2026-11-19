@@ -9,7 +9,6 @@ from .compiler_language import (
     JOINT_PROCEDURES,
     MULTI_OUTPUT_PROCEDURES,
     NARROW_TYPES,
-    POSITIONAL_VALUE_TYPES,
     REGISTER_PROCEDURES,
     SKIPPABLE_STATEMENTS,
     TIME_TEXT_PROCEDURES,
@@ -18,6 +17,7 @@ from .declarations import DeclarationPasses
 from .syntax import Expr, Statement
 from .select_analysis import check_select
 from .expression_codegen import ExpressionLowering
+from .routine_codegen import RoutineLowering
 from .service_codegen import ServiceCallLowering
 from .type_checking import TypeQueries
 from .control_flow import FlowGraph, counter_text, validate_labels
@@ -27,7 +27,7 @@ from . import extended as ex
 from . import runtime as rt
 
 
-class Emitter(DeclarationPasses, TypeQueries, ExpressionLowering, ServiceCallLowering):
+class Emitter(DeclarationPasses, TypeQueries, ExpressionLowering, RoutineLowering, ServiceCallLowering):
     """Emit a Python module from a parsed program and its checked declarations."""
 
     def __init__(self, program, filename, array_shapes=None, mode='strict', cooperative=False):
@@ -1212,148 +1212,7 @@ class Emitter(DeclarationPasses, TypeQueries, ExpressionLowering, ServiceCallLow
             self.check_for_call(token, self.routines[expr.value])
             self.line(self.routine_call(expr), token)
         elif kind == 'return':
-            expr = stmt.args[0]
-            if self.current_routine is None:
-                self.error('E_RETURN', 'RETURN is only implemented inside routines', token)
-            if self.active_counters:
-                if self.mode == 'strict' and not self.has_fresh_active_counters():
-                    self.error('E_FOR_COUNTER', 'RETURN inside FOR requires every active counter to be a fresh routine-local variable', token)
-                if self.has_fresh_active_counters(): self.features.add('RETURN from FOR with fresh local counters')
-                if self.mode == 'pythonic': self.features.add('RETURN from FOR with counter cleanup')
-            spec = self.current_routine.return_type
-            if spec is None:
-                if expr: self.error('E_RETURN', 'Procedure RETURN cannot return a value', token)
-                self.line('return', token)
-            else:
-                if not expr: self.error('E_RETURN', 'Function RETURN requires a value', token)
-                value, value_type = self.expression(expr)
-                source_type_spec=value_type;cartesian_conversion=False;conversion_kind='none'
-                if self.mode=='pythonic' and rt.collection_type(spec):
-                    if spec==value_type:
-                        value=f'_rt.collection_source_value({spec!r},{value},{line},source_spec={value_type!r})'
-                    else:value=self.path_conversion_value(spec,value_type,value,expr.token,'RETURN')
-                    self.line(f'return {value}',token)
-                    self.features.add('logical scalar collection function result');return
-                if self.mode=='pythonic' and rt.collection_array_type(spec):
-                    if not rt.collection_array_source_accepts(spec,value_type):
-                        if rt.path_array_conversion_layout(spec,value_type) is None:
-                            self.error('E_ARRAY_RETURN_SOURCE','Collection ARRAY result requires compatible PATH layouts or matching component schemas',expr.token)
-                        value=self.path_conversion_value(spec,value_type,value,expr.token,'RETURN')
-                        value_type=spec
-                    self.line(f'return _rt.collection_array_result({spec!r},{value},{line},source_spec={value_type!r})',token)
-                    self.features.add('logical collection ARRAY function result');return
-                if self.mode=='pythonic' and rt.real_integral_kind(spec,value_type):
-                    value=f'_rt.real_integral_value({spec!r},{value},{line})'
-                    value_type=spec;conversion_kind='real_integral'
-                    self.features.add('checked REAL to integral result')
-                elif self.mode=='pythonic' and rt.config_word_kind(spec,value_type):
-                    value=self.config_word_conversion(spec,value_type,value,token,'RETURN')
-                    value_type=spec;conversion_kind='config_word'
-                elif self.mode=='pythonic' and rt.numeric_array_kind(spec,value_type):
-                    value=f'_rt.convert_numeric_array({spec!r},{value},{line})'
-                    value_type=spec;conversion_kind='numeric_array'
-                    self.features.add('numeric ARRAY conversion')
-                    self.numeric_array_uses.append(dict(operation='RETURN',body=self.current_routine.name,routine=self.current_routine.name,
-                        line=line,column=token.column,source_type_spec=source_type_spec,target_type_spec=spec,
-                        evaluated_once=True,independent_value=True,before_cleanup=True))
-                elif self.mode=='pythonic' and rt.positional_array_kind(spec,value_type):
-                    value=f'_rt.convert_positional_array({spec!r},{value},{line})'
-                    value_type=spec;cartesian_conversion=True;conversion_kind='positional_array'
-                    self.features.add('positional ARRAY conversion')
-                    self.positional_array_uses.append(dict(operation='RETURN',body=self.current_routine.name,routine=self.current_routine.name,
-                        line=line,column=token.column,source_type_spec=source_type_spec,target_type_spec=spec,
-                        evaluated_once=True,independent_value=True,before_cleanup=True))
-                elif self.mode=='pythonic' and rt.kinematic_array_kind(spec,value_type):
-                    value=f'self._state.kinematic_array({spec!r},{value},{line},kind="RETURN")'
-                    value_type=spec;cartesian_conversion=True;conversion_kind='kinematic_array'
-                    self.current_routine.may_services=True
-                    self.features.update(('extended services','kinematic ARRAY conversion'))
-                    self.kinematic_array_uses.append(dict(operation='RETURN',body=self.current_routine.name,routine=self.current_routine.name,
-                        line=line,column=token.column,source_type_spec=source_type_spec,target_type_spec=spec,
-                        evaluated_once=True,independent_value=True,before_cleanup=True))
-                elif self.mode=='pythonic' and rt.kinematic_record_kind(spec,value_type):
-                    value=f'self._state.kinematic_record({spec!r},{value},{line},kind="RETURN",source_spec={value_type!r})'
-                    value_type=spec;conversion_kind='kinematic_record'
-                    self.current_routine.may_services=True;self.features.update(('extended services','kinematic STRUCTURE conversion'))
-                    self.kinematic_record_uses.append(dict(operation='RETURN',body=self.current_routine.name,routine=self.current_routine.name,
-                        line=line,column=token.column,source_type_spec=source_type_spec,target_type_spec=spec,
-                        conversion_kind=rt.kinematic_record_kind(spec,source_type_spec),evaluated_once=True,independent_value=True,before_cleanup=True,geometry_preflight=True))
-                elif self.mode=='pythonic' and rt.record_schema_kind(spec,value_type):
-                    value=f'_rt.convert_record_schema({spec!r},{value},{line},source_spec={value_type!r})'
-                    value_type=spec;conversion_kind='record_schema'
-                    self.features.add('source STRUCTURE schema result')
-                    self.record_schema_uses.append(dict(operation='RETURN',body=self.current_routine.name,routine=self.current_routine.name,
-                        line=line,column=token.column,source_type_spec=source_type_spec,target_type_spec=spec,
-                        conversion_kind=rt.record_schema_kind(spec,source_type_spec),evaluated_once=True,independent_value=True,before_cleanup=True))
-                elif self.mode=='pythonic' and rt.array_schema_compatible(spec,value_type):
-                    value=f'_rt.convert_array_schema({spec!r},{value},{line})'
-                    value_type=spec;conversion_kind='array_schema'
-                    self.features.add('source ARRAY schema result')
-                    self.array_schema_uses.append(dict(operation='RETURN',body=self.current_routine.name,routine=self.current_routine.name,
-                        line=line,column=token.column,source_type_spec=source_type_spec,target_type_spec=spec,
-                        schema_change_kind=rt.array_schema_kind(spec,source_type_spec) or 'declared_result',
-                        evaluated_once=True,independent_value=True,before_cleanup=True))
-                elif self.mode=='pythonic' and spec[0]==value_type[0]=='JOINTPOS' and spec!=value_type:
-                    value=f'_rt.convert_joint_width({spec!r},{value},{line})'
-                    value_type=spec;cartesian_conversion=True;conversion_kind='joint_width'
-                    self.features.add('checked joint width conversion')
-                    self.joint_width_uses.append(dict(operation='RETURN',body=self.current_routine.name,routine=self.current_routine.name,
-                        line=line,column=token.column,source_type_spec=source_type_spec,target_type_spec=spec,
-                        evaluated_once=True,independent_value=True,before_cleanup=True))
-                elif self.mode=='pythonic' and ((spec[0]=='JOINTPOS' and value_type[0] in ('POSITION','XYZWPR','XYZWPREXT')) or (value_type[0]=='JOINTPOS' and spec[0] in ('POSITION','XYZWPR','XYZWPREXT'))):
-                    value=f'self._state.kinematic_interface({spec!r},{value},{line},result=True)'
-                    value_type=spec;cartesian_conversion=True;conversion_kind='kinematic'
-                    self.current_routine.may_services=True
-                    self.features.update(('extended services','kinematic interface result conversion'))
-                    self.kinematic_interface_uses.append(dict(operation='KINEMATIC_RETURN',body=self.current_routine.name,routine=self.current_routine.name,
-                        line=line,column=token.column,source_type_spec=source_type_spec,target_type_spec=spec,evaluated_once=True,independent_value=True,before_cleanup=True))
-                elif self.mode=='pythonic' and spec!=value_type and spec[0] in ('POSITION','XYZWPR','XYZWPREXT') and value_type[0] in ('POSITION','XYZWPR','XYZWPREXT'):
-                    value=f'_rt.convert_position({spec!r},{value},{line})'
-                    value_type=spec
-                    cartesian_conversion=True;conversion_kind='cartesian'
-                    self.features.add('Cartesian interface result conversion')
-                if not self.compatible(spec, value_type): self.error('E_RETURN', 'Wrong function return type', token)
-                if spec[0] == 'ARRAY':
-                    source = expr
-                    while source.kind == 'group': source = source.args[0]
-                    sources = ('name', 'field', 'index', 'call') if self.mode == 'pythonic' else ('name', 'field', 'index')
-                    wrong_identity = (rt.array_identity(value_type) is not None and
-                                      (self.mode == 'strict' or rt.array_identity(value_type) != rt.array_identity(spec)))
-                    expected_outer_rank = len(rt.array_shape(spec)) if self.mode == 'pythonic' else 1
-                    if (source.kind not in sources or value_type[0] != 'ARRAY'
-                            or wrong_identity or len(rt.array_shape(value_type)) != expected_outer_rank
-                            or (value_type[2] != spec[2] and not
-                                (spec[2][0]==value_type[2][0]=='STRING' and (spec[2][1] is None or value_type[2][1] is None)))):
-                        self.error('E_ARRAY_RETURN_SOURCE', 'ARRAY RETURN requires matching outer representation, nominal identity and exact element type', expr.token)
-                    self.array_return_uses.append(dict(routine=self.current_routine.name, element_type=spec[2][0], element_spec=spec[2], line=line,
-                                                       column=token.column, expression_kind=expr.kind,
-                                                       logical_rank=len(rt.array_dimensions(spec)),
-                                                       result_spec=spec, declared_dimensions=rt.array_shape(spec), nominal_identity=rt.array_identity(spec),
-                                                       independent_copy=True, initialized_elements_required=self.mode!='pythonic'))
-                    self.line(f'return _rt.array_result({spec!r}, {value}, {line})', token)
-                elif spec[0] == 'STRING':
-                    self.string_return_uses.append(dict(routine=self.current_routine.name, capacity=spec[1],
-                                                       capacity_defaulted=self.current_routine.string_result_defaulted,
-                                                       line=line, column=token.column, expression_kind=expr.kind,
-                                                       evaluated_once=True, right_truncation=True))
-                    self.line(f'return _rt.checked({spec!r}, {value}, {line})', token)
-                elif spec == ('VECTOR',):
-                    self.vector_return_uses.append(dict(routine=self.current_routine.name, line=line, column=token.column,
-                                                       expression_kind=expr.kind, independent_writable_copy=True))
-                    self.line(f'return _rt.checked({spec!r}, {value}, {line})' if self.mode=='pythonic' else f'return _rt.vector_value({value}, {line})', token)
-                elif spec[0] == 'STRUCTURE':
-                    self.structure_return_uses.append(dict(routine=self.current_routine.name, type_name=spec[1], line=line,
-                                                          column=token.column, expression_kind=expr.kind, independent_writable_copy=True))
-                    self.line(f'return _rt.structure_value({spec!r}, {value}, {line})', token)
-                elif spec[0] in POSITIONAL_VALUE_TYPES:
-                    self.positional_return_uses.append(dict(routine=self.current_routine.name, type_spec=spec, line=line,
-                                                           column=token.column, expression_kind=expr.kind, independent_writable_copy=True))
-                    if self.mode=='pythonic':self.positional_return_uses[-1].update(source_type_spec=source_type_spec,converted=cartesian_conversion,conversion_kind=conversion_kind)
-                    self.line(f'return _rt.checked({spec!r}, {value}, {line})' if self.mode=='pythonic' else f'return _rt.positional_value({spec!r}, {value}, {line})', token)
-                elif self.mode=='pythonic' and spec[0] in NARROW_TYPES:
-                    self.line(f'return _rt.require(_rt.checked({spec!r}, {value}, {line}), {line})', token)
-                else:
-                    self.line(f'return _rt.checked({spec!r}, {value}, {line})', token)
+            self.routine_return(stmt.args[0], token)
         else: self.error('E_INTERNAL', f'Unexpected statement {kind}', token)
 
     def emit(self):
