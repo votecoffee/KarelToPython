@@ -1,5 +1,11 @@
 # Changelog
 
+## 26.1119.225206 - 2026-11-19
+
+- Create linked run documents from the desktop. Select cooperative Python
+  modules, choose a declared entry program, and set the scheduler tie-break
+  order. Validate the reviewed module hashes again before saving.
+
 ## 26.1119.224734 - 2026-11-19
 
 - Open pinned linked runs from the desktop, edit and save their offline context,

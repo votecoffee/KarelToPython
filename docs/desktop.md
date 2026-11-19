@@ -77,13 +77,16 @@ the JSON layouts and current coverage.
 
 ### Run a linked project
 
-1. Export the cooperative Python modules and create the pinned JSON using
-   [the project and runner CLIs](run-documents.md#linked-project-runs).
-2. Choose **Run Python**, then **Open run**, and select that JSON. **Pinned
-   modules** lists the declared programs, their paths, and their SHA-256 hashes.
-3. Set the initial values in **Edit context** and choose **Save inputs**. For
+1. Export or translate all required cooperative Python modules.
+   [Linked project export](run-documents.md#linked-project-runs)
+2. Choose **Run Python**, then **New linked**, and select the generated `.py`
+   files. Choose the program to start. Use **Move up** and **Move down** to
+   arrange the order that breaks scheduling ties between equal-priority tasks.
+3. Save the new run JSON. **Pinned modules** shows the saved order, paths and
+   SHA-256 hashes. Use **Open run** to open existing JSON from the CLI or desktop.
+4. Set the initial values in **Edit context** and choose **Save inputs**. For
    a variable owned by another program, set its `program` field to the owner.
-4. Choose **Run**. In **Last result**, choose **All results** for the complete
+5. Choose **Run**. In **Last result**, choose **All results** for the complete
    report or select a program for its state and variable snapshot. **WRITE
    output** shows the combined text.
 

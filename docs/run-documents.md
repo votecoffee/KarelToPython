@@ -84,10 +84,11 @@ and available variables. The variable snapshots include cleanup of suspended
 frames and counters. The document also records output, final context, and any
 failure or cancellation. Replay always starts from saved inputs.
 
-Create the pinned document with the CLI, then open it from the
-[desktop runner](desktop.md#run-a-linked-project) to edit the explicit context,
-run or cancel, and inspect each program's saved snapshot. A desktop input save
-checks the document revision and all module pins and preserves the last report.
+In the desktop runner, **New linked** inspects selected Python files,
+lets you choose the entry and module order, and saves the same document format.
+It checks the reviewed module paths and hashes again before saving. A desktop
+input save checks the document revision and module pins and preserves the last
+report. [Run a linked project in the desktop runner](desktop.md#run-a-linked-project)
 Automatic discovery across linked calls and migration of linked documents
 remain on the [roadmap](roadmap.md#python-runner-and-parameter-editor).
 
@@ -171,6 +172,9 @@ WRITE text is retained in the document.
 both accept `discover=True` for optional input preparation.
 `refresh_document(source, destination, target=...)` rediscovers into a new
 document, preserving compatible inputs without executing the target.
+`karel2py.project_run.inspect_project_modules(paths)` returns the ordered pins
+without executing the modules. Pass the reviewed pins in that same order as
+`expected_modules` to `create_project_document` to check them before saving.
 `run_document(path)` executes and returns the saved document. API preflight or
 publication errors raise `RunDocumentError` or a filesystem error. Run documents
 and generated modules belong outside tracked public source or in ignored `.local/`.

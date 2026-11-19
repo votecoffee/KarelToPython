@@ -3,7 +3,7 @@
 ![KarelToPython icon](karel2py/assets/icons/karel_to_python_icon_64x64.png)
 
 KarelToPython translates a supported subset of FANUC KAREL into Python for
-offline inspection and execution. The current build is **26.1119.224734**.
+offline inspection and execution. The current build is **26.1119.225206**.
 
 ## Table of Contents
 
@@ -62,7 +62,9 @@ Open KAREL, choose **Translate to Python**, then **Save Python**. Choose
 create a saved run. Select a discovered input and choose **Edit value** or
 **Edit fields**. Use **Edit context** to configure services. **Run** executes
 the saved inputs, and **Last result** shows termination status and saved state.
-**WRITE output** shows the captured text. See the [desktop guide](docs/desktop.md).
+**WRITE output** shows the captured text. Choose **New linked** to pin several
+cooperative Python modules and select an entry program.
+See the [desktop guide](docs/desktop.md).
 
 ### Python
 
@@ -88,8 +90,7 @@ Inputs and results share one JSON file. Use `runner refresh` to carry compatible
 inputs to a new translation. See [saved runs](docs/run-documents.md) and
 [input discovery](docs/input-discovery.md).
 For multiple linked modules, export cooperative Python and pin the set with
-`runner create-project`. Open the resulting JSON from **Run Python** to edit
-the context and inspect each program's results.
+`runner create-project`. The CLI and desktop use the same saved format.
 See [linked project runs](docs/run-documents.md#linked-project-runs).
 
 ## Supported Features

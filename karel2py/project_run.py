@@ -1,4 +1,5 @@
 """Pin and replay a linked set of already generated Python modules."""
+from dataclasses import dataclass
 from functools import partial
 import inspect
 import os
@@ -12,6 +13,13 @@ from .runner import (MAX_BYTES, PROJECT_SCHEMA, RunDocumentError, _check_cancell
 
 MAX_MODULES = 64
 MAX_PROJECT_BYTES = 32 * 1024 * 1024
+
+
+@dataclass(frozen=True)
+class ModulePin:
+    program: str
+    path: Path
+    sha256: str
 
 
 def _program_name(name):
@@ -31,12 +39,24 @@ def _read_modules(paths):
         size += len(raw)
         if size > MAX_PROJECT_BYTES:
             raise RunDocumentError('Linked Python modules exceed 32 MiB in total.')
-        identity, code = _inspect_python(path, raw, cooperative=True)
+        try:
+            identity, code = _inspect_python(path, raw, cooperative=True)
+        except RunDocumentError as error:
+            raise RunDocumentError(f'{path}: {error}') from error
         program = identity['program']
         if program in modules:
             raise RunDocumentError(f'Duplicate linked program {program}.')
         modules[program] = (path, identity['sha256'], code)
     return modules
+
+
+def _module_pins(modules):
+    return tuple(ModulePin(program, path, sha256) for program, (path, sha256, _) in modules.items())
+
+
+def inspect_project_modules(paths):
+    """Read declared program names and pins in the selected order without executing code."""
+    return _module_pins(_read_modules(tuple(paths)))
 
 
 def _validate_limits(limits):
@@ -48,7 +68,7 @@ def _validate_limits(limits):
 
 
 def create_project_document(paths, destination, *, entry, context=None, max_steps=100000, max_cycles=100000,
-                            max_output_chars=1048576, protected=()):
+                            max_output_chars=1048576, protected=(), expected_modules=None):
     """Inspect and pin each selected module without importing its code."""
     destination = Path(destination).absolute()
     limits = dict(max_steps=max_steps, max_cycles=max_cycles, max_output_chars=max_output_chars)
@@ -57,20 +77,23 @@ def create_project_document(paths, destination, *, entry, context=None, max_step
         raise RunDocumentError('Choose a declared program name for the linked entry.')
     entry = entry.upper()
     modules = _read_modules(tuple(paths))
+    pins = _module_pins(modules)
+    if expected_modules is not None and pins != tuple(expected_modules):
+        raise RunDocumentError('A linked Python module changed after review. Select the modules again.')
     if entry not in modules:
         raise RunDocumentError('The linked entry must be one of the selected modules.')
     config = {} if context is None else _decode(_encode(context))
     _context(config)
     rows = []
-    for program, (path, sha256, _) in modules.items():
+    for pin in pins:
         try:
-            name = os.path.relpath(path, destination.parent.resolve())
+            name = os.path.relpath(pin.path, destination.parent.resolve())
         except ValueError:
-            name = str(path)
-        rows.append(dict(path=name, program=program, sha256=sha256))
+            name = str(pin.path)
+        rows.append(dict(path=name, program=pin.program, sha256=pin.sha256))
     target = dict(program=entry, mode='pythonic', modules=rows)
     document = dict(schema=PROJECT_SCHEMA, target=target, limits=limits, inputs=dict(context=config), results=None)
-    module_paths = tuple(item[0] for item in modules.values())
+    module_paths = tuple(pin.path for pin in pins)
     _store(destination, document, protected=(*module_paths, *protected))
     return document
 

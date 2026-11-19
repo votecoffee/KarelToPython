@@ -130,6 +130,73 @@ class WorkbenchWindowTests(unittest.TestCase):
                 self.assertIn('42', window.output.get('1.0', 'end-1c'))
                 self.assertEqual(json.loads(path.read_bytes())['inputs']['context'], context)
 
+    def test_creates_linked_run_with_reviewed_module_order_and_entry(self):
+        from tkinter import ttk
+
+        from karel2py import runner, translate
+        from karel2py.gui_runner import RunWindow
+
+        case = self
+
+        class EmbeddedDialog(ttk.Frame):
+            def __init__(self, parent, *, title):
+                super().__init__(parent)
+                self.body(self)
+                case.assertEqual(tuple(self.entry['values']), ('LIB', 'MAIN'))
+                case.assertEqual(self.tree.item('MAIN', 'values'), ('MAIN', 'worker.py'))
+                self.tree.selection_set('MAIN')
+                self.update_buttons()
+                case.assertTrue(self.module_path['text'].endswith('worker.py'))
+                self.up.invoke()
+                case.assertEqual(self.tree.get_children(), ('MAIN', 'LIB'))
+                self.entry.current(0)
+                case.assertTrue(self.validate())
+                self.apply()
+                self.destroy()
+
+        window = RunWindow(self.root)
+        window.window.withdraw()
+        self.addCleanup(window.window.destroy)
+
+        def wait_for_run_window():
+            deadline = time.monotonic() + 10
+            while window.busy and time.monotonic() < deadline:
+                self.root.update()
+                time.sleep(.01)
+            self.assertFalse(window.busy)
+
+        with tempfile.TemporaryDirectory() as directory:
+            folder = Path(directory)
+            source = {
+                'library.py': 'PROGRAM LIB VAR n:INTEGER BEGIN n=42 WRITE(n,CR) END LIB',
+                'worker.py': 'PROGRAM MAIN VAR n:INTEGER BEGIN n=1 END MAIN',
+            }
+            for name, program in source.items():
+                (folder / name).write_bytes(translate(program, cooperative=True).python_source.encode())
+            selection = tuple(str(folder / name) for name in source)
+            destination = folder / 'selected.linked.run.json'
+            with patch.object(window.dialog, 'askopenfilenames', return_value=selection), \
+                    patch('tkinter.simpledialog.Dialog', EmbeddedDialog), \
+                    patch.object(window, '_destination', side_effect=(None, destination)) as save, \
+                    patch.object(window.message, 'showerror', side_effect=AssertionError('runner error')):
+                window.buttons['New linked…'].invoke()
+                wait_for_run_window()
+                self.assertIsNone(window.document)
+                self.assertFalse(destination.exists())
+                window.buttons['New linked…'].invoke()
+                wait_for_run_window()
+            save.assert_called_with('lib.linked')
+            document, revision = runner.read_document(destination)
+            self.assertEqual(window.document, document)
+            self.assertEqual(window.path, destination)
+            self.assertIsNone(document['results'])
+            self.assertEqual(document['target']['program'], 'LIB')
+            self.assertEqual([row['program'] for row in document['target']['modules']], ['MAIN', 'LIB'])
+            self.assertEqual(window.tabs.select(), str(window.edits_page))
+            result = runner.run_document(destination, expected=revision)['results']
+            self.assertEqual(result['text_output'].strip(), '42')
+            self.assertEqual(result['programs']['LIB']['values']['N'], 42)
+
     def test_linked_run_opens_edits_replays_and_filters_saved_program_results(self):
         from karel2py import runner, translate
         from karel2py.gui_runner import RunWindow

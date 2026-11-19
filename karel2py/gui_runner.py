@@ -6,6 +6,7 @@ from queue import Empty, Queue
 from threading import Event, Thread
 
 from . import runner
+from .gui_project_run import select_linked_modules
 from .gui_structured_inputs import prompt_structure
 from .runner_values import input_key, scalar_options, scalar_slot
 from .structured_inputs import structured_slot, supports_structure
@@ -75,7 +76,8 @@ class RunWindow:
         toolbar = ttk.Frame(self.window, padding=8)
         toolbar.pack(fill='x')
         self.buttons = {}
-        for label, command in (('New from Python…', self.new), ('Open run…', self.open),
+        for label, command in (('New from Python…', self.new), ('New linked…', self.new_linked),
+                               ('Open run…', self.open),
                                ('Rediscover…', self.refresh), ('Save inputs', self.save),
                                ('Run', self.run), ('Cancel run', self.cancel)):
             button = ttk.Button(toolbar, text=label, command=command, style='Compact.TButton')
@@ -154,7 +156,7 @@ class RunWindow:
         loaded = self.document is not None
         interrupted = loaded and (self.document['results'] or {}).get('status') == 'running'
         editable = loaded and not interrupted and not self.busy
-        for label in ('New from Python…', 'Open run…'):
+        for label in ('New from Python…', 'New linked…', 'Open run…'):
             self.buttons[label].configure(state='disabled' if self.busy else 'normal')
         self.buttons['Rediscover…'].configure(state='normal' if editable and not self._linked() else 'disabled')
         for label in ('Save inputs', 'Run'):
@@ -316,7 +318,7 @@ class RunWindow:
             initialfile=stem + '.run.json', defaultextension='.json', filetypes=[('Run JSON', '*.json')])
         return Path(value).absolute() if value else None
 
-    def _start(self, message, action, *, cancel_event=None, show_results=False):
+    def _start(self, message, action, *, cancel_event=None, show_results=False, on_success=None):
         if self.busy:
             return
         queue = Queue()
@@ -331,27 +333,30 @@ class RunWindow:
             except Exception as error:
                 queue.put(error)
 
-        def receive():
-            try:
-                outcome = queue.get_nowait()
-            except Empty:
-                self.window.after(50, receive)
-                return
-            self.busy = False
-            self.cancel_event = None
-            self._configure()
-            if isinstance(outcome, Exception):
-                self.status.set(str(outcome))
-                self.message.showerror('Run document operation failed', str(outcome), parent=self.window)
-                return
-            self.status.set('Run document ready.')
-            self._show(*outcome)
-            if show_results:
-                self.tabs.select(self.results_page)
-                self.status.set('Run ' + self.document['results']['status'] + '.')
-
         Thread(target=worker, name='karel2py-run-document').start()
-        self.window.after(50, receive)
+        self.window.after(50, self._receive, queue, show_results, on_success)
+
+    def _receive(self, queue, show_results, on_success):
+        try:
+            outcome = queue.get_nowait()
+        except Empty:
+            self.window.after(50, self._receive, queue, show_results, on_success)
+            return
+        self.busy = False
+        self.cancel_event = None
+        self._configure()
+        if isinstance(outcome, Exception):
+            self.status.set(str(outcome))
+            self.message.showerror('Run document operation failed', str(outcome), parent=self.window)
+            return
+        if on_success is not None:
+            on_success(outcome)
+            return
+        self.status.set('Run document ready.')
+        self._show(*outcome)
+        if show_results:
+            self.tabs.select(self.results_page)
+            self.status.set('Run ' + self.document['results']['status'] + '.')
 
     def new(self):
         if self.busy or not self._discard_edits():
@@ -369,6 +374,38 @@ class RunWindow:
             return path, *runner.read_document(path)
 
         self._start('Discovering inputs…', create)
+
+    def new_linked(self):
+        from .project_run import inspect_project_modules
+
+        if self.busy or not self._discard_edits():
+            return
+        paths = self.dialog.askopenfilenames(
+            parent=self.window, title='Select cooperative generated Python', filetypes=[('Python', '*.py')])
+        if paths:
+            self._start('Inspecting linked modules…', lambda: inspect_project_modules(paths),
+                        on_success=self._save_new_linked)
+
+    def _save_new_linked(self, modules):
+        from .project_run import create_project_document
+
+        selection = select_linked_modules(self.window, modules)
+        if selection is None:
+            self.status.set('Linked run creation cancelled.')
+            return
+        entry, ordered = selection
+        path = self._destination(entry.lower() + '.linked')
+        if path is None:
+            self.status.set('Linked run creation cancelled.')
+            return
+        protected = self.protected
+
+        def create():
+            create_project_document([pin.path for pin in ordered], path, entry=entry, expected_modules=ordered,
+                                    protected=protected)
+            return path, *runner.read_document(path)
+
+        self._start('Saving linked run…', create)
 
     def open(self):
         if self.busy or not self._discard_edits():

@@ -10,7 +10,7 @@ import unittest
 from unittest.mock import patch
 
 from karel2py import runner, translate
-from karel2py.project_run import create_project_document
+from karel2py.project_run import create_project_document, inspect_project_modules
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -56,6 +56,26 @@ class SavedProjectTests(unittest.TestCase):
             self.assertEqual(result['programs']['MAIN']['values']['N'], 7)
             self.assertEqual(result['programs']['LIB']['values']['N'], 7)
             self.assertIn('7', result['text_output'])
+
+    def test_reviewed_modules_keep_the_selected_order_and_refuse_changed_bytes(self):
+        main, lib = self.module('MAIN'), self.module('LIB')
+        with lib.open('ab') as stream:
+            stream.write(b'raise AssertionError("module executed during review")\n')
+        reviewed = inspect_project_modules([main, lib])
+        self.assertEqual([(pin.program, pin.path) for pin in reviewed],
+                         [('MAIN', main.resolve()), ('LIB', lib.resolve())])
+        self.assertEqual(reviewed[1].sha256, sha256(lib.read_bytes()).hexdigest())
+        with lib.open('ab') as stream:
+            stream.write(b'# changed while choosing entry\n')
+        with self.assertRaisesRegex(ValueError, 'changed after review'):
+            self.create(main, lib, expected_modules=reviewed)
+        self.assertFalse(self.document.exists())
+
+        reordered = inspect_project_modules([lib, main])
+        saved = self.create(lib, main, expected_modules=reordered)
+        self.assertEqual(saved['target']['program'], 'MAIN')
+        self.assertEqual([row['program'] for row in saved['target']['modules']], ['LIB', 'MAIN'])
+        self.assertIsNone(saved['results'])
 
     def test_all_pins_must_match_before_any_module_executes(self):
         main, lib = self.module('MAIN'), self.module('LIB')
