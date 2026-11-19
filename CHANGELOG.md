@@ -1,5 +1,11 @@
 # Changelog
 
+## 26.1119.233044 - 2026-11-19
+
+- Collect routine binding, conversion, and service call records in a dedicated
+  reporting module. Generate service references, bounded arrays, and captured
+  values through separate operand handlers.
+
 ## 26.1119.232343 - 2026-11-19
 
 - Check direct BYNAME operands and plan logical collection argument capture

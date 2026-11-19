@@ -18,6 +18,7 @@ from .declarations import DeclarationPasses
 from .syntax import Expr, Statement
 from .select_analysis import check_select
 from .expression_codegen import ExpressionLowering
+from .service_codegen import ServiceCallLowering
 from .type_checking import TypeQueries
 from .control_flow import FlowGraph, counter_text, validate_labels
 from .lexer import Token, TranslationError
@@ -26,7 +27,7 @@ from . import extended as ex
 from . import runtime as rt
 
 
-class Emitter(DeclarationPasses, TypeQueries, ExpressionLowering):
+class Emitter(DeclarationPasses, TypeQueries, ExpressionLowering, ServiceCallLowering):
     """Emit a Python module from a parsed program and its checked declarations."""
 
     def __init__(self, program, filename, array_shapes=None, mode='strict', cooperative=False):

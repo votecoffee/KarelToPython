@@ -10,10 +10,8 @@ from .compiler_language import (
     INTEGRAL_TYPES,
     MULTI_OUTPUT_PROCEDURES,
     NARROW_TYPES,
-    POSITIONAL_VALUE_TYPES,
     PREDEFINED_CONSTANTS,
     PYTHONIC_CONSTRUCTORS,
-    RECORD_TYPES,
     REGISTER_PROCEDURES,
     TIMER_FUNCTIONS,
     TIME_TEXT_PROCEDURES,
@@ -22,11 +20,16 @@ from .call_analysis import (
     check_byname_argument,
     check_routine_call,
     check_routine_value_storage,
-    check_service_signature,
     plan_routine_argument,
     validate_routine_argument,
 )
-from .control_flow import counter_text
+from .call_reporting import (
+    record_file_prefix,
+    record_routine_binding,
+    record_routine_conversion,
+    record_service_call,
+    record_value_subfield,
+)
 from .operator_types import POSE_OPERANDS, binary_result, operand_type, unary_result
 from . import extended as ex
 from . import runtime as rt
@@ -42,13 +45,8 @@ class ExpressionLowering:
 
     def file_prefix_argument(self, argument, routine, formal, selected):
         code, container = self.file_prefix_reference_code(argument)
-        line = argument.token.line
-        self.file_prefix_argument_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
-            routine=routine.name,parameter=formal.value,line=line,column=argument.token.column,
-            source_selector=counter_text(argument),source_type_spec=container,selected_type_spec=selected,
-            supplied_subscripts=len(argument.args)-1,evaluated_once=True,original_cells=True))
-        self.features.add('direct FILE prefix reference argument')
-        return code,selected
+        record_file_prefix(self, routine, formal, argument, container, selected)
+        return code, selected
 
     def check_for_call(self, token, routine=None):
         if self.active_counters:
@@ -591,82 +589,6 @@ class ExpressionLowering:
                                          outputs=2 if parsing else 1, source_copied=not parsing))
         return f'_rt.config_text_conversion({expr.value!r}, {source}, {", ".join(outputs)}, line={expr.token.line}{options})'
 
-    def bounded_service_argument(self, expr, limit, *, nullable):
-        def locate(value):
-            while value.kind == 'group':
-                value = value.args[0]
-            if not self.is_array_prefix_value(value):
-                return self.expression(value, raw=nullable)
-            base, spec = locate(value.args[0])
-            index, selected = self.index_code(value, spec, allow_prefix=True)
-            return f'_rt.service_array_view({base},{index},{spec!r},{value.token.line})', selected
-
-        value, spec = locate(expr)
-        line = expr.token.line
-        return f'_rt.bounded_service_array({spec!r},{value},{limit},{line},check=lambda:self._state.tick({line}))', spec
-
-    def service_call(self,expr):
-        checked = check_service_signature(expr.value, len(expr.args), expr.token, mode=self.mode, error=self.error)
-        self.check_for_call(expr.token)
-        if ex.variable_write_call(expr.value,expr.args) and self.named_active_counters(): self.error('E_FOR_COUNTER',expr.value+' cannot indirectly write an active FOR counter',expr.token)
-        codes=[]
-        path_node_spec=None
-        for index,(value,(mode,kind)) in enumerate(zip(expr.args,checked.parameters)):
-            discarded=value
-            while discarded.kind=='group': discarded=discarded.args[0]
-            if kind=='TABLE_ACTION' and not self.is_bare_storage(discarded):
-                code,spec=self.expression(value)
-                if spec!=('INTEGER',):self.error('E_TYPE','ACT_TBL action requires INTEGER',value.token)
-                codes.append(code);continue
-            if kind=='ERROR_CURSOR':
-                sentinel=None
-                if discarded.kind=='literal': sentinel=discarded.value
-                elif discarded.kind=='predefined': sentinel=PREDEFINED_CONSTANTS.get(discarded.value)
-                elif discarded.kind=='name': sentinel=self.visible_constants().get(discarded.value)
-                if type(sentinel) is int and sentinel==2147483647:
-                    codes.append('2147483647'); continue
-            if mode=='m' and discarded.kind=='literal' and type(discarded.value) is int and discarded.value==0:
-                codes.append('0'); continue
-            if mode=='s':
-                self.check_static_service_storage(discarded, value.token)
-                prefix=self.mode=='pythonic' and kind in ex.ARRAY_REFERENCE_KINDS and self.is_array_prefix_value(discarded)
-                code,spec=self.reference(discarded,allow_prefix=prefix)
-                if prefix:code=f'_rt.array_prefix_reference({code},{value.token.line})'
-            elif mode in ('o','r','m'):
-                self.check_service_output_storage(value)
-                prefix=self.mode=='pythonic' and kind in ex.ARRAY_REFERENCE_KINDS and self.is_array_prefix_value(value)
-                code,spec=self.reference(value,allow_prefix=prefix or self.mode=='pythonic' and expr.value=='GET_VAR' and index==3,collection_prefix=expr.value=='GET_VAR' and index==3)
-                if prefix:code=f'_rt.array_prefix_reference({code},{value.token.line})'
-            elif self.mode=='pythonic' and index==1 and expr.value in ('SEND_DATAPC','QUEUE_ATTACH','RMCN_SEND'):
-                packet = expr.value == 'SEND_DATAPC'
-                code,spec = self.bounded_service_argument(discarded, 244 if packet else 32, nullable=packet)
-            else:
-                variable_input=mode=='v' or (expr.value=='SET_VAR' and index==3)
-                reference_input=(variable_input and self.is_bare_storage(discarded)
-                                 and not self.is_system_pose_path(discarded)
-                                 and (not self.is_array_prefix_value(discarded) or expr.value=='SET_VAR' and index==3 and rt.collection_array_type(self.access_type(discarded.args[0]))))
-                if reference_input: code,spec=self.reference(discarded,allow_prefix=expr.value=='SET_VAR' and index==3,collection_prefix=expr.value=='SET_VAR' and index==3)
-                else: code,spec=self.expression(value)
-                if kind=='GEOMETRY_POSE' and spec[0]=='JOINTPOS': code=self.geometry_operand(code,spec,value.token,expr.value)
-                if kind=='REAL' and spec[0] in INTEGRAL_TYPES: code=f'_rt.real({code},{value.token.line})'; spec=('REAL',)
-                if mode!='v' and kind=='INTEGER' and spec[0] in NARROW_TYPES: code=f'_rt.integer({code},{value.token.line})'; spec=('INTEGER',)
-                check=''
-                if (self.mode=='pythonic' and expr.value=='SET_VAR' and index==3
-                        and spec[0] in ('PATH','QUEUE_TYPE','ARRAY','JOINTPOS',*RECORD_TYPES)):
-                    check=f',check=lambda:self._state.tick({value.token.line})'
-                if reference_input: code=f'_rt.variable_reference({code},{value.token.line}{check})'
-                elif variable_input: code=f'_rt.variable_value({spec!r},{code},{value.token.line}{check})'
-                elif self.mode=='pythonic' and kind=='PATH_NODE' and spec[0]=='STRUCTURE':
-                    code=f'_rt.path_node_seed(self._state,{spec!r},{code},{value.token.line})'
-                elif kind=='ANY' or spec[0] in (*RECORD_TYPES,'JOINTPOS','ARRAY'): code=f'_rt.service_value({code},{value.token.line})'
-            path_node_spec = checked.check_operand(index, spec, value.token, node_schema=path_node_spec, error=self.error)
-            codes.append(code)
-        self.features.add(expr.value); self.features.add('extended services')
-        self.service_uses.append(dict(operation=expr.value,body=self.current_routine.name if self.current_routine else self.program.name,line=expr.token.line,column=expr.token.column))
-        if expr.value in ex.COOPERATIVE_PROCEDURES:
-            return f'(yield from _rt.cooperative_service(self._state,{expr.value!r},[{", ".join(codes)}],{expr.token.line}))'
-        return f'self._state.extended_call({expr.value!r},[{", ".join(codes)}],{expr.token.line})'
-
     def numeric_register(self, expr):
         reading = expr.value == 'GET_REG'
         if len(expr.args) != (5 if reading else 3):
@@ -843,10 +765,8 @@ class ExpressionLowering:
         reference, spec = self.reference(operand.entry)
         operand.check_entry_schema(spec, error=self.error)
 
-        self.features.update(('BYNAME', 'extended services', 'parameter by reference'))
-        self.service_uses.append(dict(
-            operation='BYNAME', body=self.current_routine.name if self.current_routine else self.program.name,
-            line=operand.token.line, column=operand.token.column))
+        self.features.add('parameter by reference')
+        record_service_call(self, 'BYNAME', operand.token)
         return f'self._state.byname_argument({expected!r},{program},{path},{reference},{operand.token.line})'
 
     def routine_call(self, expr):
@@ -871,14 +791,8 @@ class ExpressionLowering:
                     value, actual = self.expression(argument)
                     code = f'_rt.value_argument({expected!r}, {value}, {line})'
                     is_reference = False
-                    row=dict(body=self.current_routine.name if self.current_routine else self.program.name,
-                        routine=routine.name,parameter=formal.value,field=argument.value,
-                        line=line,column=argument.token.column,evaluated_once=True)
-                    if self.is_association_subfield(argument):
-                        self.features.add('association subfield value argument')
-                        self.association_value_uses.append(dict(row,record_type=self.access_type(argument.args[0])[0]))
-                    else:
-                        self.features.add('CONFIG subfield value argument');self.config_value_uses.append(row)
+                    association_type = self.access_type(argument.args[0])[0] if self.is_association_subfield(argument) else None
+                    record_value_subfield(self, routine, formal, argument, association_type=association_type)
             else:
                 value, actual = self.expression(argument)
                 capture = check_routine_value_storage(expected, actual, argument.token, mode=self.mode, error=self.error)
@@ -894,166 +808,62 @@ class ExpressionLowering:
                     else:
                         code = f'_rt.collection_argument({expected!r},{value},{line},source_spec={actual!r})'
                         self.features.add('private logical scalar collection argument')
-            source_actual=actual;cartesian_conversion=False;conversion_kind='none'
+            source_schema = actual
             plan = plan_routine_argument(expected, actual, mode=self.mode, reference=is_reference)
             conversion = plan.conversion
             if conversion == 'real_integral':
                 value,_=self.expression(argument)
                 code=f'_rt.value_argument({expected!r},_rt.real_integral_value({expected!r},{value},{line}),{line})'
-                conversion_kind='real_integral'
-                self.features.add('checked REAL to integral value argument')
             elif conversion == 'config_word':
                 value,_=self.expression(argument)
                 value=self.config_word_conversion(expected,actual,value,argument.token,'ARGUMENT')
                 code=f'_rt.value_argument({expected!r},{value},{line})'
-                conversion_kind='config_word'
             elif conversion == 'numeric_array':
                 value,_=self.expression(argument)
                 code=f'_rt.value_argument({expected!r},_rt.convert_numeric_array({expected!r},{value},{line}),{line})'
-                conversion_kind='numeric_array'
-                self.features.add('numeric ARRAY conversion')
-                self.numeric_array_uses.append(dict(operation='ARGUMENT',body=self.current_routine.name if self.current_routine else self.program.name,
-                    routine=routine.name,parameter=formal.value,line=line,column=argument.token.column,
-                    source_type_spec=source_actual,target_type_spec=expected,evaluated_once=True,independent_value=True))
             elif conversion == 'positional_array':
                 value,_=self.expression(argument)
                 code=f'_rt.value_argument({expected!r},_rt.convert_positional_array({expected!r},{value},{line}),{line})'
-                cartesian_conversion=True;conversion_kind='positional_array'
-                self.features.add('positional ARRAY conversion')
-                self.positional_array_uses.append(dict(operation='ARGUMENT',body=self.current_routine.name if self.current_routine else self.program.name,
-                    routine=routine.name,parameter=formal.value,line=line,column=argument.token.column,
-                    source_type_spec=source_actual,target_type_spec=expected,evaluated_once=True,independent_value=True))
             elif conversion == 'kinematic_array':
                 value,_=self.expression(argument)
                 code=f'_rt.value_argument({expected!r},self._state.kinematic_array({expected!r},{value},{line},kind="ARGUMENT"),{line})'
-                cartesian_conversion=True;conversion_kind='kinematic_array'
-                self.features.update(('extended services','kinematic ARRAY conversion'))
-                if self.current_routine:self.current_routine.may_services=True
-                self.kinematic_array_uses.append(dict(operation='ARGUMENT',body=self.current_routine.name if self.current_routine else self.program.name,
-                    routine=routine.name,parameter=formal.value,line=line,column=argument.token.column,
-                    source_type_spec=source_actual,target_type_spec=expected,evaluated_once=True,independent_value=True))
             elif conversion == 'kinematic_record':
                 value,_=self.expression(argument)
                 code=f'_rt.value_argument({expected!r},self._state.kinematic_record({expected!r},{value},{line},kind="ARGUMENT",source_spec={actual!r}),{line})'
-                conversion_kind='kinematic_record'
-                self.features.update(('extended services','kinematic STRUCTURE conversion'))
-                if self.current_routine:self.current_routine.may_services=True
-                self.kinematic_record_uses.append(dict(operation='ARGUMENT',body=self.current_routine.name if self.current_routine else self.program.name,
-                    routine=routine.name,parameter=formal.value,line=line,column=argument.token.column,
-                    source_type_spec=source_actual,target_type_spec=expected,conversion_kind=rt.kinematic_record_kind(expected,source_actual),
-                    evaluated_once=True,independent_value=True,geometry_preflight=True))
             elif conversion == 'record_schema':
                 value,_=self.expression(argument)
                 code=f'_rt.value_argument({expected!r},_rt.convert_record_schema({expected!r},{value},{line},source_spec={actual!r}),{line})'
-                conversion_kind='record_schema'
-                self.features.add('source STRUCTURE schema conversion')
-                self.record_schema_uses.append(dict(operation='ARGUMENT',body=self.current_routine.name if self.current_routine else self.program.name,
-                    routine=routine.name,parameter=formal.value,line=line,column=argument.token.column,
-                    source_type_spec=source_actual,target_type_spec=expected,conversion_kind=rt.record_schema_kind(expected,source_actual),
-                    evaluated_once=True,independent_value=True))
             elif conversion == 'array_schema':
                 value,_=self.expression(argument)
                 code=f'_rt.value_argument({expected!r},_rt.convert_array_schema({expected!r},{value},{line}),{line})'
-                conversion_kind='array_schema'
-                self.features.add('source ARRAY schema conversion')
-                self.array_schema_uses.append(dict(operation='ARGUMENT',body=self.current_routine.name if self.current_routine else self.program.name,
-                    routine=routine.name,parameter=formal.value,line=line,column=argument.token.column,
-                    source_type_spec=source_actual,target_type_spec=expected,schema_change_kind=rt.array_schema_kind(expected,source_actual),
-                    evaluated_once=True,independent_value=True))
             elif conversion == 'joint_width':
                 value,_=self.expression(argument)
                 code=f'_rt.value_argument({expected!r},_rt.convert_joint_width({expected!r},{value},{line}),{line})'
-                cartesian_conversion=True;conversion_kind='joint_width'
-                self.features.add('checked joint width conversion')
-                self.joint_width_uses.append(dict(operation='ARGUMENT',body=self.current_routine.name if self.current_routine else self.program.name,
-                    routine=routine.name,parameter=formal.value,line=line,column=argument.token.column,
-                    source_type_spec=source_actual,target_type_spec=expected,evaluated_once=True,independent_value=True))
             elif conversion == 'kinematic':
                 value,_=self.expression(argument)
                 code=f'_rt.value_argument({expected!r},self._state.kinematic_interface({expected!r},{value},{line}),{line})'
-                cartesian_conversion=True;conversion_kind='kinematic'
-                self.features.update(('extended services','kinematic interface conversion'))
-                if self.current_routine:self.current_routine.may_services=True
-                self.kinematic_interface_uses.append(dict(operation='KINEMATIC_ARGUMENT',body=self.current_routine.name if self.current_routine else self.program.name,
-                    routine=routine.name,parameter=formal.value,line=line,column=argument.token.column,
-                    source_type_spec=source_actual,target_type_spec=expected,evaluated_once=True,independent_value=True))
             elif conversion == 'cartesian':
                 value,_=self.expression(argument)
                 code=f'_rt.value_argument({expected!r},{value},{line})'
-                cartesian_conversion=True;conversion_kind='cartesian'
-                self.features.add('Cartesian interface value conversion')
             elif conversion == 'integral_narrow':
                 value,_=self.expression(argument)
                 code=f'_rt.value_argument({expected!r},{value},{line})'
-                self.features.add('checked integral to '+expected[0]+' value argument')
             elif conversion == 'narrow_promotion':
-                narrow_type = actual[0]
                 value, _ = self.expression(argument)
                 code = f'_rt.value_argument({expected!r}, {value}, {line})'
-                self.features.add(narrow_type + ' to ' + expected[0] + ' value argument')
             elif conversion == 'integer_to_real':
                 value, _ = self.expression(argument)
                 code = f'_rt.value_argument({expected!r}, {value}, {line})'
-                self.features.add('INTEGER to REAL value argument')
-            actual, is_reference = plan.bound_schema, plan.by_reference
-            active_counter = is_reference and self.protection_root(argument) in self.active_counters
+            if conversion in ('kinematic_array', 'kinematic_record', 'kinematic') and self.current_routine:
+                self.current_routine.may_services = True
+            record_routine_conversion(self, routine, formal, argument, plan, source_schema)
+            active_counter = plan.by_reference and self.protection_root(argument) in self.active_counters
             validate_routine_argument(plan, expr.value, argument.token, mode=self.mode, active_counter=active_counter,
                                       writable_formal=formal.value in routine.parameter_writes, error=self.error)
-            if active_counter:
-                self.features.add('read-only active FOR counter reference')
-            if not is_reference and expected[0] == 'ARRAY':
-                self.features.add('writable ARRAY value argument')
-                self.array_value_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
-                                                  routine=routine.name, parameter=formal.value, formal_spec=expected,
-                                                  source_spec=actual, line=line, column=argument.token.column,
-                                                  expression_kind=argument.kind, evaluated_once=True,
-                                                  independent_writable_copy=True, initialized_elements_required=True))
-                if conversion_kind in ('positional_array','kinematic_array','numeric_array','array_schema','record_schema','kinematic_record'):self.array_value_uses[-1].update(source_spec=source_actual,converted=True,conversion_kind=conversion_kind)
-                if conversion_kind in ('numeric_array','array_schema','record_schema','kinematic_record'):self.array_value_uses[-1].update(initialized_elements_required=False,missing_data_preserved=True)
-            if not is_reference and expected[0] == 'STRING':
-                bounded_string_value = plan.bounded_string_value
-                code = (f'_rt.value_argument({expected!r}, {value}, {line})' if bounded_string_value
+            if not plan.by_reference and expected[0] == 'STRING':
+                code = (f'_rt.value_argument({expected!r}, {value}, {line})' if plan.bounded_string_value
                         else f'_rt.string_value_argument({value}, {line})')
-                self.features.add('writable STRING value argument' if self.mode == 'pythonic' else 'read-only STRING value argument')
-                self.string_value_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
-                                                   routine=routine.name, parameter=formal.value,
-                                                   line=line, column=argument.token.column, expression_kind=argument.kind,
-                                                   evaluated_once=True, independent_writable_copy=self.mode == 'pythonic',
-                                                   temporary_capacity=(expected[1] if bounded_string_value else 254) if self.mode == 'pythonic' else None))
-            if not is_reference and expected[0] == 'STRUCTURE':
-                self.features.add('named STRUCTURE value argument')
-                self.structure_value_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
-                                                      routine=routine.name, parameter=formal.value, type_name=expected[1],
-                                                      line=line, column=argument.token.column, expression_kind=argument.kind,
-                                                      evaluated_once=True, independent_writable_copy=True))
-            if not is_reference and expected == ('VECTOR',):
-                self.features.add('VECTOR value argument')
-                self.vector_value_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
-                                                   routine=routine.name, parameter=formal.value,
-                                                   line=line, column=argument.token.column, expression_kind=argument.kind,
-                                                   evaluated_once=True, independent_writable_copy=True))
-            if not is_reference and expected[0] in POSITIONAL_VALUE_TYPES:
-                self.features.add('exact positional value argument')
-                self.positional_value_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
-                                                       routine=routine.name, parameter=formal.value, type_spec=expected,
-                                                       line=line, column=argument.token.column, expression_kind=argument.kind,
-                                                       evaluated_once=True, independent_writable_copy=True))
-                if self.mode=='pythonic':self.positional_value_uses[-1].update(source_type_spec=source_actual,converted=cartesian_conversion,conversion_kind=conversion_kind)
-            if expected[0] in ('STRING', 'ARRAY', *RECORD_TYPES, 'JOINTPOS'):
-                self.features.add(expected[0] + (' reference parameter' if is_reference else ' value parameter'))
-            self.features.add('parameter by reference' if is_reference else 'parameter by value')
-            if plan.guarded_string:
-                self.features.add('runtime-checked bounded STRING forwarding')
-                self.string_forward_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
-                    routine=routine.name,parameter=formal.value,line=line,column=argument.token.column,
-                    source_type_spec=actual,target_type_spec=expected,alias_retained=True,
-                    validation='Existing routine entry requires matching concrete STRING capacity before callee body/frame allocation'))
-            if plan.guarded_array:
-                self.features.add('runtime-checked fixed ARRAY forwarding')
-                self.array_forward_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
-                    routine=routine.name,parameter=formal.value,line=line,column=argument.token.column,
-                    source_type_spec=actual,target_type_spec=expected,alias_retained=True,
-                    validation='Existing routine entry requires a matching concrete reference before callee body/frame allocation'))
+            record_routine_binding(self, routine, formal, argument, plan, source_schema, active_counter=active_counter)
             arguments.append(code)
         result=f'self._routine_{expr.value}({", ".join(arguments)})'
         return f'(yield from {result})' if self.cooperative else result

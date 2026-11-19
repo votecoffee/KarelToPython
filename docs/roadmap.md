@@ -14,8 +14,9 @@ Unary and binary operator rules return schemas independently of emission.
 SELECT checking returns typed CASE rows before dispatch generation. Call
 analysis checks routine binding plans, BYNAME operands, collection capture,
 and service operand schemas. Scoped type queries identify borrowable FILE
-prefixes and check service storage. Next, separate routine call reporting
-from emission and split service operand lowering by role. The runtime and
+prefixes and check service storage. Call reporting and service operand lowering
+have dedicated modules. Next, isolate routine-call generation and reuse the
+checked call boundary for routine result handling. The runtime and
 extended services can be split by ownership after their boundaries are covered
 with regressions. See [compiler architecture](compiler-architecture.md).
 
