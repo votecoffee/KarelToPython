@@ -1,5 +1,13 @@
 # Changelog
 
+## 26.1119.230858 - 2026-11-19
+
+- Separate routine argument conversion, fixed ARRAY forwarding and service
+  signature checks from Python emission. Use the same conversion rules for
+  reference analysis and emitted routine calls.
+- Record the remaining linked runner milestones and the current implementation
+  order in the roadmap.
+
 ## 26.1119.230039 - 2026-11-19
 
 - Discover read-before-write candidates in saved linked projects through the

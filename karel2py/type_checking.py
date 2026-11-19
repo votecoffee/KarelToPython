@@ -14,20 +14,6 @@ from .compiler_language import (
 class TypeQueries:
     """Inspect source schemas and reference paths in the current scope."""
 
-    @staticmethod
-    def array_formal_forward_match(expected,actual):
-        """Defer unknown ARRAY sizes only; routine entry keeps exact checks."""
-        if expected[0]!='ARRAY' or actual[0]!='ARRAY' or rt.array_identity(expected) is not None:return False
-        if expected[2][0]=='ARRAY':
-            first,second=rt.array_shape(expected),rt.array_shape(actual)
-            elements=rt.parameter_accepts(expected[2],actual[2])
-        else:
-            first,second=rt.array_dimensions(expected),rt.array_dimensions(actual)
-            elements=rt.parameter_accepts(expected[2],rt.array_leaf_spec(actual))
-        return (elements and len(first)==len(second)
-            and any(wanted is not None and supplied is None for wanted,supplied in zip(first,second))
-            and all(wanted is None or supplied is None or wanted==supplied for wanted,supplied in zip(first,second)))
-
     def is_predefined_file(self,expr):
         if self.mode!='pythonic' or expr.kind!='name' or expr.value not in ex.PREDEFINED_FILE_NAMES:return False
         local=(self.current_routine.local_types.keys() | self.current_routine.local_constants.keys()) if self.current_routine else set()

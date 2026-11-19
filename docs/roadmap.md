@@ -1,8 +1,9 @@
 # Roadmap
 
-These milestones describe released foundations and remaining work, without dated commitments.
-Functional Pythonic conversion remains the implementation priority. Current
-behavior and restrictions are documented in the [support guide](language-support.md)
+Functional Pythonic conversion remains the implementation priority. Within that
+work, continue the incremental compiler decomposition first, then complete the
+Python runner workflow. Strict compatibility follows functional coverage.
+Current behavior and restrictions are documented in the [support guide](language-support.md)
 and [desktop guide](desktop.md).
 
 ## Compiler decomposition
@@ -10,9 +11,10 @@ and [desktop guide](desktop.md).
 The first extraction separates parsing, AST data, declaration analysis, type
 queries, control-flow validation and lowering, Python generation, and reports.
 Unary and binary operator rules return schemas independently of emission.
-SELECT checking returns typed CASE rows before dispatch generation. The next
-steps are to extend that boundary to more expression families and reduce
-shared emitter state in small changes. The runtime and
+SELECT checking returns typed CASE rows before dispatch generation. Routine
+argument conversions and checked service signatures now have their own module.
+Next, separate reference and value argument planning from code generation,
+including scoped write checks and service operand roles. The runtime and
 extended services can be split by ownership after their boundaries are covered
 with regressions. See [compiler architecture](compiler-architecture.md).
 
@@ -28,10 +30,26 @@ inputs to a new document on refresh.
 The desktop and CLI create pinned linked runs with an explicit entry and module
 order. The desktop edits the JSON context and shows each saved program snapshot.
 The linked discovery report follows synchronous calls with matching signatures,
-reference arguments, and imported variables. Remaining work includes preparing
-and editing linked input templates, resolving scheduled-task and callback effects,
-and carrying edited inputs to a revised module set.
+reference arguments, and imported variables.
 [Linked input discovery](input-discovery.md#linked-project-discovery)
+
+### Remaining linked-run work
+
+1. **Prepare and edit linked inputs.** Create owner-qualified templates from the
+   report. Share binding and validation rules across the CLI and desktop, and
+   expose scalar and structured fields in the desktop editor. Keep missing
+   values and unresolved service requirements visible.
+   Verify the document revision and module pins on save, and retain prior results.
+2. **Carry inputs to a revised module set.** Create a new linked document with
+   the selected entry and ordered pins. Carry only inputs whose owner, path,
+   and schema are compatible. Report changed, removed, and unresolved
+   bindings and preserve the original document and results.
+3. **Expand linked discovery.** Analyze scheduled child tasks, handler actions,
+   and callbacks where their targets and effects can be resolved. Keep dynamic
+   selections and unknown timing or external effects visible in the report.
+4. **Export linked sources from the desktop.** Reuse linked-project validation
+   and cooperative Python export so the desktop workflow can begin with KAREL
+   source files. Keep the existing output and source-file protections.
 
 ### Discover inputs from Python
 

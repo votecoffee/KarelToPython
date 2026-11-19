@@ -3,7 +3,7 @@
 ![KarelToPython icon](karel2py/assets/icons/karel_to_python_icon_64x64.png)
 
 KarelToPython translates a supported subset of FANUC KAREL into Python for
-offline inspection and execution. The current build is **26.1119.230039**.
+offline inspection and execution. The current build is **26.1119.230858**.
 
 ## Table of Contents
 
@@ -105,8 +105,8 @@ See [linked project runs](docs/run-documents.md#linked-project-runs).
 
 Pythonic mode uses practical Python numeric behavior. The [feature guide](docs/feature-guide.md)
 covers translation options, offline services, and the detailed feature history.
-See the [roadmap](docs/roadmap.md) for remaining runner coverage, compiler
-decomposition, and the future strict mode.
+See the [roadmap](docs/roadmap.md) for the compiler decomposition, remaining
+linked runner work, and the future strict mode.
 
 ## Development
 

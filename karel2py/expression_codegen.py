@@ -18,6 +18,7 @@ from .compiler_language import (
     TIMER_FUNCTIONS,
     TIME_TEXT_PROCEDURES,
 )
+from .call_analysis import array_formal_forward_match, check_service_signature, routine_argument_conversion
 from .control_flow import counter_text
 from .operator_types import POSE_OPERANDS, binary_result, operand_type, unary_result
 from . import extended as ex
@@ -53,19 +54,9 @@ class ExpressionLowering:
             actual=self.file_prefix_spec(argument)
             if actual is None:return False
         else:actual=self.access_type(argument)
-        if self.mode=='pythonic' and rt.real_integral_kind(expected,actual):return False
-        if self.mode=='pythonic' and (rt.config_word_kind(expected,actual) or rt.numeric_array_kind(expected,actual) or rt.positional_array_kind(expected,actual) or rt.kinematic_array_kind(expected,actual)):return False
-        if self.mode=='pythonic' and expected[0]==actual[0]=='JOINTPOS' and expected!=actual:return False
-        if self.mode=='pythonic' and ((expected[0]=='JOINTPOS' and actual[0] in ('POSITION','XYZWPR','XYZWPREXT')) or (actual[0]=='JOINTPOS' and expected[0] in ('POSITION','XYZWPR','XYZWPREXT'))):return False
-        if self.mode=='pythonic' and expected!=actual and expected[0] in ('POSITION','XYZWPR','XYZWPREXT') and actual[0] in ('POSITION','XYZWPR','XYZWPREXT'):return False
-        if (self.mode=='pythonic' and rt.array_schema_compatible(expected,actual) and not rt.parameter_accepts(expected,actual)
-                and not self.array_formal_forward_match(expected,actual)):return False
-        if self.mode=='pythonic' and (rt.record_schema_kind(expected,actual) or rt.kinematic_record_kind(expected,actual)):return False
-        if self.is_value_only_subfield(argument):return False
-        if expected[0] in ('INTEGER','REAL') and actual[0] in NARROW_TYPES:return False
-        if expected==('REAL',) and actual==('INTEGER',):return False
-        if self.mode=='pythonic' and expected[0] in NARROW_TYPES and actual[0] in INTEGRAL_TYPES and actual!=expected:return False
-        return True
+        guarded_array = self.mode == 'pythonic' and array_formal_forward_match(expected, actual)
+        conversion = routine_argument_conversion(expected, actual, mode=self.mode, guarded_array=guarded_array)
+        return conversion is None and not self.is_value_only_subfield(argument)
 
     def check_for_call(self, token, routine=None):
         if self.active_counters:
@@ -629,25 +620,12 @@ class ExpressionLowering:
         return f'_rt.bounded_service_array({spec!r},{value},{limit},{line},check=lambda:self._state.tick({line}))', spec
 
     def service_call(self,expr):
-        if expr.value=='BYNAME': self.error('E_BYNAME_CONTEXT','BYNAME is permitted only as a direct user routine argument',expr.token)
-        signature=ex.PROCEDURES.get(expr.value,ex.FUNCTIONS.get(expr.value,((),None))[0])
-        minimum=len(signature)-(expr.value in ex.OPTIONAL_LAST or expr.value in ex.OPTIONAL_GROUP or expr.value in ex.OPTIONAL_PATH_NODE)
-        default_masks=self.mode=='pythonic' and expr.value in ('CURPOS','CURJPOS') and not expr.args
-        node_flag=self.mode=='pythonic' and expr.value in ex.OPTIONAL_PATH_NODE
-        maximum=len(signature)+node_flag
-        explicit_node_flag=node_flag and len(expr.args)==maximum
-        if not default_masks and not minimum<=len(expr.args)<=maximum: self.error('E_ARGUMENTS',f'{expr.value} requires {minimum}..{maximum} arguments',expr.token)
-        signature=ex.signature_for(expr.value,len(expr.args))
-        if self.mode=='pythonic' and expr.value in ('SET_POS_REG','SET_EPOS_REG','SET_JPOS_REG'):
-            # Capture the supplied positional value before later selectors. The
-            # selected register group chooses any runtime model conversion.
-            signature=tuple((mode,'RANGE_POSITION') if index==1 else (mode,kind)
-                            for index,(mode,kind) in enumerate(signature))
+        checked = check_service_signature(expr.value, len(expr.args), expr.token, mode=self.mode, error=self.error)
         self.check_for_call(expr.token)
         if ex.variable_write_call(expr.value,expr.args) and self.named_active_counters(): self.error('E_FOR_COUNTER',expr.value+' cannot indirectly write an active FOR counter',expr.token)
         codes=[]
         path_node_spec=None
-        for index,(value,(mode,kind)) in enumerate(zip(expr.args,signature)):
+        for index,(value,(mode,kind)) in enumerate(zip(expr.args,checked.parameters)):
             discarded=value
             while discarded.kind=='group': discarded=discarded.args[0]
             if kind=='TABLE_ACTION' and (discarded.kind not in ('name','field','index') or self.root_name(discarded) in self.visible_constants()):
@@ -703,7 +681,7 @@ class ExpressionLowering:
             if not ex.matches(spec,kind): self.error('E_TYPE',f'{expr.value} expects {kind}, found {spec[0]}',value.token)
             if index==0 and expr.value in ex.OPTIONAL_PATH_NODE:
                 path_node_spec=spec[1] or rt.PREDEFINED_STRUCTURES['STD_PTH_NODE']
-            if kind=='PATH_NODE' and spec!=path_node_spec and not explicit_node_flag:
+            if kind=='PATH_NODE' and spec!=path_node_spec and not checked.explicit_node_flag:
                 self.error('E_TYPE',f'{expr.value} node input must match the declared NODEDATA',value.token)
             codes.append(code)
         self.features.add(expr.value); self.features.add('extended services')
@@ -943,20 +921,21 @@ class ExpressionLowering:
                     self.features.add('private logical collection ARRAY argument')
                 else:code = f'_rt.value_argument({expected!r}, {value}, {line})'
             source_actual=actual;cartesian_conversion=False;conversion_kind='none'
-            guarded_shape=self.mode=='pythonic' and is_reference and self.array_formal_forward_match(expected,actual)
+            guarded_shape = self.mode == 'pythonic' and is_reference and array_formal_forward_match(expected, actual)
+            conversion = routine_argument_conversion(expected, actual, mode=self.mode, guarded_array=guarded_shape)
             guarded_string=(self.mode=='pythonic' and is_reference and expected[0]==actual[0]=='STRING'
                 and expected[1] is not None and actual[1] is None)
-            if self.mode=='pythonic' and rt.real_integral_kind(expected,actual):
+            if conversion == 'real_integral':
                 value,_=self.expression(argument)
                 code=f'_rt.value_argument({expected!r},_rt.real_integral_value({expected!r},{value},{line}),{line})'
                 is_reference,actual=False,expected;conversion_kind='real_integral'
                 self.features.add('checked REAL to integral value argument')
-            elif self.mode=='pythonic' and rt.config_word_kind(expected,actual):
+            elif conversion == 'config_word':
                 value,_=self.expression(argument)
                 value=self.config_word_conversion(expected,actual,value,argument.token,'ARGUMENT')
                 code=f'_rt.value_argument({expected!r},{value},{line})'
                 is_reference,actual=False,expected;conversion_kind='config_word'
-            elif self.mode=='pythonic' and rt.numeric_array_kind(expected,actual):
+            elif conversion == 'numeric_array':
                 value,_=self.expression(argument)
                 code=f'_rt.value_argument({expected!r},_rt.convert_numeric_array({expected!r},{value},{line}),{line})'
                 is_reference,actual=False,expected
@@ -965,7 +944,7 @@ class ExpressionLowering:
                 self.numeric_array_uses.append(dict(operation='ARGUMENT',body=self.current_routine.name if self.current_routine else self.program.name,
                     routine=routine.name,parameter=formal.value,line=line,column=argument.token.column,
                     source_type_spec=source_actual,target_type_spec=expected,evaluated_once=True,independent_value=True))
-            elif self.mode=='pythonic' and rt.positional_array_kind(expected,actual):
+            elif conversion == 'positional_array':
                 value,_=self.expression(argument)
                 code=f'_rt.value_argument({expected!r},_rt.convert_positional_array({expected!r},{value},{line}),{line})'
                 is_reference,actual=False,expected
@@ -974,7 +953,7 @@ class ExpressionLowering:
                 self.positional_array_uses.append(dict(operation='ARGUMENT',body=self.current_routine.name if self.current_routine else self.program.name,
                     routine=routine.name,parameter=formal.value,line=line,column=argument.token.column,
                     source_type_spec=source_actual,target_type_spec=expected,evaluated_once=True,independent_value=True))
-            elif self.mode=='pythonic' and rt.kinematic_array_kind(expected,actual):
+            elif conversion == 'kinematic_array':
                 value,_=self.expression(argument)
                 code=f'_rt.value_argument({expected!r},self._state.kinematic_array({expected!r},{value},{line},kind="ARGUMENT"),{line})'
                 is_reference,actual=False,expected
@@ -984,7 +963,7 @@ class ExpressionLowering:
                 self.kinematic_array_uses.append(dict(operation='ARGUMENT',body=self.current_routine.name if self.current_routine else self.program.name,
                     routine=routine.name,parameter=formal.value,line=line,column=argument.token.column,
                     source_type_spec=source_actual,target_type_spec=expected,evaluated_once=True,independent_value=True))
-            elif self.mode=='pythonic' and rt.kinematic_record_kind(expected,actual):
+            elif conversion == 'kinematic_record':
                 value,_=self.expression(argument)
                 code=f'_rt.value_argument({expected!r},self._state.kinematic_record({expected!r},{value},{line},kind="ARGUMENT",source_spec={actual!r}),{line})'
                 is_reference,actual=False,expected;conversion_kind='kinematic_record'
@@ -994,7 +973,7 @@ class ExpressionLowering:
                     routine=routine.name,parameter=formal.value,line=line,column=argument.token.column,
                     source_type_spec=source_actual,target_type_spec=expected,conversion_kind=rt.kinematic_record_kind(expected,source_actual),
                     evaluated_once=True,independent_value=True,geometry_preflight=True))
-            elif self.mode=='pythonic' and rt.record_schema_kind(expected,actual):
+            elif conversion == 'record_schema':
                 value,_=self.expression(argument)
                 code=f'_rt.value_argument({expected!r},_rt.convert_record_schema({expected!r},{value},{line},source_spec={actual!r}),{line})'
                 is_reference,actual=False,expected;conversion_kind='record_schema'
@@ -1003,8 +982,7 @@ class ExpressionLowering:
                     routine=routine.name,parameter=formal.value,line=line,column=argument.token.column,
                     source_type_spec=source_actual,target_type_spec=expected,conversion_kind=rt.record_schema_kind(expected,source_actual),
                     evaluated_once=True,independent_value=True))
-            elif (self.mode=='pythonic' and rt.array_schema_compatible(expected,actual) and not rt.parameter_accepts(expected,actual)
-                    and not guarded_shape):
+            elif conversion == 'array_schema':
                 value,_=self.expression(argument)
                 code=f'_rt.value_argument({expected!r},_rt.convert_array_schema({expected!r},{value},{line}),{line})'
                 is_reference,actual=False,expected;conversion_kind='array_schema'
@@ -1013,7 +991,7 @@ class ExpressionLowering:
                     routine=routine.name,parameter=formal.value,line=line,column=argument.token.column,
                     source_type_spec=source_actual,target_type_spec=expected,schema_change_kind=rt.array_schema_kind(expected,source_actual),
                     evaluated_once=True,independent_value=True))
-            elif self.mode=='pythonic' and expected[0]==actual[0]=='JOINTPOS' and expected!=actual:
+            elif conversion == 'joint_width':
                 value,_=self.expression(argument)
                 code=f'_rt.value_argument({expected!r},_rt.convert_joint_width({expected!r},{value},{line}),{line})'
                 is_reference,actual=False,expected
@@ -1022,7 +1000,7 @@ class ExpressionLowering:
                 self.joint_width_uses.append(dict(operation='ARGUMENT',body=self.current_routine.name if self.current_routine else self.program.name,
                     routine=routine.name,parameter=formal.value,line=line,column=argument.token.column,
                     source_type_spec=source_actual,target_type_spec=expected,evaluated_once=True,independent_value=True))
-            elif self.mode=='pythonic' and ((expected[0]=='JOINTPOS' and actual[0] in ('POSITION','XYZWPR','XYZWPREXT')) or (actual[0]=='JOINTPOS' and expected[0] in ('POSITION','XYZWPR','XYZWPREXT'))):
+            elif conversion == 'kinematic':
                 value,_=self.expression(argument)
                 code=f'_rt.value_argument({expected!r},self._state.kinematic_interface({expected!r},{value},{line}),{line})'
                 is_reference,actual=False,expected
@@ -1032,24 +1010,24 @@ class ExpressionLowering:
                 self.kinematic_interface_uses.append(dict(operation='KINEMATIC_ARGUMENT',body=self.current_routine.name if self.current_routine else self.program.name,
                     routine=routine.name,parameter=formal.value,line=line,column=argument.token.column,
                     source_type_spec=source_actual,target_type_spec=expected,evaluated_once=True,independent_value=True))
-            elif self.mode=='pythonic' and expected!=actual and expected[0] in ('POSITION','XYZWPR','XYZWPREXT') and actual[0] in ('POSITION','XYZWPR','XYZWPREXT'):
+            elif conversion == 'cartesian':
                 value,_=self.expression(argument)
                 code=f'_rt.value_argument({expected!r},{value},{line})'
                 is_reference,actual=False,expected
                 cartesian_conversion=True;conversion_kind='cartesian'
                 self.features.add('Cartesian interface value conversion')
-            elif self.mode=='pythonic' and expected[0] in NARROW_TYPES and actual[0] in INTEGRAL_TYPES and actual!=expected:
+            elif conversion == 'integral_narrow':
                 value,_=self.expression(argument)
                 code=f'_rt.value_argument({expected!r},{value},{line})'
                 is_reference,actual=False,expected
                 self.features.add('checked integral to '+expected[0]+' value argument')
-            elif expected[0] in ('INTEGER', 'REAL') and actual[0] in NARROW_TYPES:
+            elif conversion == 'narrow_promotion':
                 narrow_type = actual[0]
                 value, _ = self.expression(argument)
                 code = f'_rt.value_argument({expected!r}, {value}, {line})'
                 is_reference, actual = False, expected
                 self.features.add(narrow_type + ' to ' + expected[0] + ' value argument')
-            elif expected[0] == 'REAL' and actual[0] == 'INTEGER':
+            elif conversion == 'integer_to_real':
                 value, _ = self.expression(argument)
                 code = f'_rt.value_argument({expected!r}, {value}, {line})'
                 is_reference, actual = False, expected
