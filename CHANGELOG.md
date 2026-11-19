@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1119.230039 - 2026-11-19
+
+- Discover read-before-write candidates in saved linked projects through the
+  CLI and desktop. Trace matching synchronous calls, reference parameters,
+  and imported global aliases across pinned modules. Report unresolved effects
+  and retain the saved inputs and results.
+
 ## 26.1119.225206 - 2026-11-19
 
 - Create linked run documents from the desktop. Select cooperative Python

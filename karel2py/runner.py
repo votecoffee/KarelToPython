@@ -486,6 +486,9 @@ def main(argv=None):
     discover = subparsers.add_parser('discover', help='Inspect read-before-write inputs without importing or executing Python')
     discover.add_argument('target', type=Path)
     discover.add_argument('--output', type=Path, help='New private JSON report; otherwise print the full report')
+    discover_project = subparsers.add_parser('discover-project', help='Discover inputs from a pinned linked run without executing it')
+    discover_project.add_argument('document', type=Path)
+    discover_project.add_argument('--output', type=Path, help='New private JSON report; otherwise print the full report')
     refresh = subparsers.add_parser('refresh', help='Rediscover into a new run document, retaining compatible edited inputs')
     refresh.add_argument('source', type=Path)
     refresh.add_argument('document', type=Path)
@@ -511,11 +514,20 @@ def main(argv=None):
                 changes={name: len(rows) for name, rows in template['refresh']['changes'].items()},
                 requirements=len(template['requirements']), unresolved=len(template['discovery']['unresolved']))))
             return 0
-        if args.command == 'discover':
-            from .input_discovery import discover_file
-            report = discover_file(args.target)
+        if args.command in ('discover', 'discover-project'):
+            if args.command == 'discover-project':
+                from .project_input_discovery import discover_project_document
+
+                report = discover_project_document(args.document)
+                module_paths = (args.document.absolute().parent / row['path'] for row in report['target']['modules'])
+                protected = (args.document, *module_paths)
+            else:
+                from .input_discovery import discover_file
+
+                report = discover_file(args.target)
+                protected = (args.target,)
             if args.output:
-                _store(args.output, report, protected=(args.target,))
+                _store(args.output, report, protected=protected)
                 print(json.dumps(dict(complete=report['complete'], inputs=len(report['inputs']), unresolved=len(report['unresolved']))))
             else:
                 print(json.dumps(report, indent=2, allow_nan=False))

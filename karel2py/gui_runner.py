@@ -90,6 +90,7 @@ class RunWindow:
         edits = ttk.Frame(self.tabs, padding=8)
         discovery = ttk.Frame(self.tabs, padding=8)
         self.inputs_page, self.edits_page, self.requirements_page = inputs, edits, discovery
+        self.linked_discovery_page = ttk.Frame(self.tabs, padding=8)
         self.results_page = ttk.Frame(self.tabs, padding=8)
         output_page = ttk.Frame(self.tabs, padding=8)
         for label, page in (('Discovered inputs', inputs), ('Edit context', edits),
@@ -114,6 +115,7 @@ class RunWindow:
         self.context_help.pack(anchor='w', pady=(0, 6))
         self.context = self._text(edits, tk, ttk)
         self.requirements = self._text(discovery, tk, ttk)
+        self.linked_discovery = self._text(self.linked_discovery_page, tk, ttk)
         self.result_filter = ttk.Frame(self.results_page)
         ttk.Label(self.result_filter, text='Program').pack(side='left', padx=(0, 6))
         self.result_program = ttk.Combobox(self.result_filter, state='readonly', width=24)
@@ -158,7 +160,10 @@ class RunWindow:
         editable = loaded and not interrupted and not self.busy
         for label in ('New from Python…', 'New linked…', 'Open run…'):
             self.buttons[label].configure(state='disabled' if self.busy else 'normal')
-        self.buttons['Rediscover…'].configure(state='normal' if editable and not self._linked() else 'disabled')
+        linked = self._linked()
+        self.buttons['Rediscover…'].configure(
+            text='Discover inputs…' if linked else 'Rediscover…',
+            state='normal' if editable or (linked and not self.busy) else 'disabled')
         for label in ('Save inputs', 'Run'):
             self.buttons[label].configure(state='normal' if editable else 'disabled')
         can_cancel = self.cancel_event is not None and not self.cancel_event.is_set()
@@ -276,6 +281,8 @@ class RunWindow:
         same_document = (self.document is not None and self.path == path and
                          self.document['schema'] == document['schema'])
         previous_program = self.result_program.get() if same_document else ''
+        if (not same_document or self.revision != revision) and str(self.linked_discovery_page) in self.tabs.tabs():
+            self.tabs.forget(self.linked_discovery_page)
         self.path, self.document, self.revision = path, document, revision
         inputs = document['inputs']
         self._show_inputs(document['target'], path, inputs.get('template', {}))
@@ -415,8 +422,26 @@ class RunWindow:
             path = Path(value).absolute()
             self._start('Opening run…', lambda: (path, *runner.read_document(path)))
 
+    def _discover_linked(self):
+        from .project_input_discovery import discover_project_document
+
+        path, revision = self.path, self.revision
+
+        def show(report):
+            self.tabs.add(self.linked_discovery_page, text='Linked inputs')
+            self._display(self.linked_discovery, self._json(report))
+            self.tabs.select(self.linked_discovery_page)
+            self.status.set(f"Found {len(report['inputs'])} input candidates and {len(report['unresolved'])} analysis gaps.")
+
+        self._start('Discovering linked inputs…', lambda: discover_project_document(path, expected=revision), on_success=show)
+
     def refresh(self):
-        if self.busy or self.path is None or self._linked() or not self._discard_edits():
+        if self.busy or self.path is None:
+            return
+        if self._linked():
+            self._discover_linked()
+            return
+        if not self._discard_edits():
             return
         target = self._pick_python()
         if target is None:

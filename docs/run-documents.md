@@ -89,8 +89,9 @@ lets you choose the entry and module order, and saves the same document format.
 It checks the reviewed module paths and hashes again before saving. A desktop
 input save checks the document revision and module pins and preserves the last
 report. [Run a linked project in the desktop runner](desktop.md#run-a-linked-project)
-Automatic discovery across linked calls and migration of linked documents
-remain on the [roadmap](roadmap.md#python-runner-and-parameter-editor).
+`runner discover-project .local/linked.run.json` reports linked input candidates
+from the pinned modules. Supply the identified values in `inputs.context`.
+[Linked input discovery](input-discovery.md#linked-project-discovery)
 
 ## Inputs and results
 

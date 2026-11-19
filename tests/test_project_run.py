@@ -10,6 +10,7 @@ import unittest
 from unittest.mock import patch
 
 from karel2py import runner, translate
+from karel2py.project_input_discovery import discover_project_document
 from karel2py.project_run import create_project_document, inspect_project_modules
 
 
@@ -56,6 +57,85 @@ class SavedProjectTests(unittest.TestCase):
             self.assertEqual(result['programs']['MAIN']['values']['N'], 7)
             self.assertEqual(result['programs']['LIB']['values']['N'], 7)
             self.assertIn('7', result['text_output'])
+
+    def test_discovery_follows_linked_reference_writes_and_transitive_global_owners(self):
+        main = self.module('MAIN', 'fill(cell) w=11 WRITE(n,cell)', 'VAR n,w FROM BRIDGE:INTEGER cell:INTEGER',
+                           'ROUTINE fill(x:INTEGER) FROM BRIDGE')
+        bridge = self.module('BRIDGE', 'WRITE(unused)', 'VAR n,w FROM DATA:INTEGER unused:INTEGER',
+                             'ROUTINE fill(dst:INTEGER) BEGIN dst=w END fill')
+        data = self.module('DATA', declarations='VAR n,w:INTEGER')
+        context = {'variables': [dict(program='DATA', path=name, type='INTEGER', value=value)
+                                 for name, value in (('N', 2), ('W', 3))]}
+        created = self.create(main, bridge, data, context=context)
+        revision = self.document.read_bytes()
+        with patch('builtins.exec', side_effect=AssertionError('discovery executed the target')):
+            report = discover_project_document(self.document, expected=revision)
+        self.assertEqual(self.document.read_bytes(), revision)
+        self.assertEqual(report['target']['modules'], created['target']['modules'])
+        self.assertEqual(report['target']['sha256'], sha256(revision).hexdigest())
+        self.assertTrue(report['complete'])
+        self.assertEqual([(row['program'], row['path'], row['certainty']) for row in report['inputs']],
+                         [('DATA', 'N', 'required'), ('DATA', 'W', 'required')])
+        origin = report['inputs'][1]['locations'][0]
+        self.assertEqual((origin['program'], origin['routine']), ('BRIDGE', 'FILL'))
+        self.assertEqual(runner.run_document(self.document)['results']['programs']['MAIN']['values']['CELL'], 3)
+
+    def test_discovery_keeps_caller_root_schema_for_reference_reads_in_linked_branches(self):
+        main = self.module('MAIN', 'update(values[2]) WRITE(values[2])', 'VAR values:ARRAY[2] OF INTEGER',
+                           'ROUTINE update(x:INTEGER) FROM LIB')
+        lib = self.module('LIB', declarations='VAR flag:BOOLEAN',
+                          routines='ROUTINE update(cell:INTEGER) BEGIN IF flag THEN cell=cell+1 ENDIF END update')
+        self.create(main, lib)
+        report = discover_project_document(self.document)
+        self.assertTrue(report['complete'])
+        inputs = {(row['program'], row['path']): row for row in report['inputs']}
+        self.assertEqual(set(inputs), {('MAIN', 'VALUES[2]'), ('LIB', 'FLAG')})
+        value = inputs['MAIN', 'VALUES[2]']
+        self.assertEqual(value['root_type'], ['ARRAY', 2, ['INTEGER']])
+        self.assertEqual(value['selectors'], [('index', 2)])
+        self.assertEqual({row['program'] for row in value['locations']}, {'MAIN', 'LIB'})
+
+    def test_discovery_skips_unavailable_contract_and_refuses_a_changed_pin(self):
+        main = self.module('MAIN', 'host(n) WRITE(s)', routines='ROUTINE host(x:INTEGER) FROM LIB')
+        lib = self.module('LIB', routines='ROUTINE host(x:INTEGER) BEGIN x=1 END host')
+        with lib.open('ab') as stream:
+            stream.write(b'raise AssertionError("discovery executed a module")\n')
+        self.create(main, lib)
+        revision = self.document.read_bytes()
+        report = discover_project_document(self.document)
+        self.assertFalse(report['complete'])
+        self.assertEqual([(row['code'], row['location']['program']) for row in report['unresolved']],
+                         [('contract', 'LIB'), ('routine', 'MAIN')])
+        self.assertEqual([(row['path'], row['certainty']) for row in report['inputs']],
+                         [('N', 'conditional'), ('S', 'conditional')])
+        self.assertEqual(self.document.read_bytes(), revision)
+        with lib.open('ab') as stream:
+            stream.write(b'# different module bytes\n')
+        with self.assertRaisesRegex(ValueError, 'linked Python module changed'):
+            discover_project_document(self.document)
+        self.assertEqual(self.document.read_bytes(), revision)
+
+    def test_discovery_distinguishes_same_named_routines_in_different_modules(self):
+        main = self.module('MAIN', 'n=step()', routines=(
+            'ROUTINE relay:INTEGER FROM LIB '
+            'ROUTINE step:INTEGER BEGIN RETURN relay() END step'))
+        lib = self.module('LIB', declarations='VAR offset:INTEGER', routines=(
+            'ROUTINE step:INTEGER BEGIN RETURN offset END step '
+            'ROUTINE relay:INTEGER BEGIN RETURN step() END relay'))
+        self.create(main, lib)
+        report = discover_project_document(self.document)
+        self.assertTrue(report['complete'])
+        self.assertEqual([(row['program'], row['path']) for row in report['inputs']], [('LIB', 'OFFSET')])
+        self.assertEqual(report['inputs'][0]['locations'][0]['routine'], 'STEP')
+
+    def test_incompatible_linked_interface_stays_unresolved(self):
+        main = self.module('MAIN', 'host(n)', routines='ROUTINE host(x:INTEGER) FROM LIB')
+        lib = self.module('LIB', routines='ROUTINE host(x:REAL) BEGIN WRITE(x) END host')
+        self.create(main, lib)
+        report = discover_project_document(self.document)
+        self.assertEqual([row['code'] for row in report['unresolved']], ['routine'])
+        self.assertEqual([(row['program'], row['path'], row['certainty']) for row in report['inputs']],
+                         [('MAIN', 'N', 'conditional')])
 
     def test_reviewed_modules_keep_the_selected_order_and_refuse_changed_bytes(self):
         main, lib = self.module('MAIN'), self.module('LIB')
@@ -251,6 +331,15 @@ class SavedProjectTests(unittest.TestCase):
         modules = json.loads(exported.stdout)['modules']
         created = self.cli('karel2py.runner', 'create-project', self.document, modules['MAIN'], modules['LIB'], '--entry', 'MAIN')
         self.assertEqual(created.returncode, 0, created.stderr)
+        before_discovery = self.document.read_bytes()
+        report_path = self.folder / 'project.inputs.report.json'
+        discovery = self.cli('karel2py.runner', 'discover-project', self.document, '--output', report_path)
+        self.assertEqual(discovery.returncode, 0, discovery.stderr)
+        self.assertEqual(json.loads(report_path.read_bytes())['target']['program'], 'MAIN')
+        blocked_report = self.cli('karel2py.runner', 'discover-project', self.document, '--output', modules['LIB'])
+        self.assertEqual(blocked_report.returncode, 2, blocked_report.stdout)
+        self.assertIn('protected', blocked_report.stderr)
+        self.assertEqual(self.document.read_bytes(), before_discovery)
         replay = self.cli('karel2py.runner', 'run', self.document)
         self.assertEqual(replay.returncode, 0, replay.stderr + replay.stdout)
         result = json.loads(self.document.read_bytes())['results']

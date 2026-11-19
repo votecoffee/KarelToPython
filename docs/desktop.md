@@ -84,9 +84,13 @@ the JSON layouts and current coverage.
    arrange the order that breaks scheduling ties between equal-priority tasks.
 3. Save the new run JSON. **Pinned modules** shows the saved order, paths and
    SHA-256 hashes. Use **Open run** to open existing JSON from the CLI or desktop.
-4. Set the initial values in **Edit context** and choose **Save inputs**. For
-   a variable owned by another program, set its `program` field to the owner.
-5. Choose **Run**. In **Last result**, choose **All results** for the complete
+4. Choose **Discover inputs** to inspect candidates and analysis gaps in
+   **Linked inputs**. The report identifies the program that owns the variable
+   and the program where the read occurred.
+5. Set the initial values in **Edit context** and choose **Save inputs**. Set each
+   linked variable's `program` field to its owner. Discovery leaves the JSON
+   unchanged.
+6. Choose **Run**. In **Last result**, choose **All results** for the complete
    report or select a program for its state and variable snapshot. **WRITE
    output** shows the combined text.
 

@@ -30,6 +30,32 @@ are protected from replacement. Exit code 0 includes partial reports; inspect
 errors return 2. Reports belong in ignored `.local/` or outside public source.
 The repository check also rejects full report instances under other JSON names.
 
+## Linked project discovery
+
+Start with the JSON from `runner create-project` or the desktop **New linked**
+workflow. Run the following command or choose **Discover inputs** on that saved
+run in the desktop runner.
+
+```console
+python -m karel2py.runner discover-project .local/linked.run.json
+```
+
+The report identifies the saved run revision and ordered module pins. Discovery
+follows the entry body and synchronous calls with matching linked signatures.
+It tracks reference arguments and resolves chains of imported globals to the
+program that owns their storage. A definite write through any recognized alias
+counts as a write to the owner's variable. A candidate's `program` is that
+owner. Each source location's `program` identifies the module containing the
+read. The entry alone starts the analysis, so a library's top-level body is
+included only if that program is selected as entry.
+
+Missing or invalid analysis contracts, mismatched routine interfaces, recursion,
+scheduled tasks and unmodeled service effects produce gaps. Changed pinned
+Python bytes prevent discovery. The report describes inputs for the modeled
+paths and leaves the saved inputs and results intact. Enter values in
+`inputs.context` using the reported owner and root schema. Add `--output`
+to save the report to a new private JSON file.
+
 ## Report and values
 
 The `karel2py.inputs.v1` report contains target byte identity, `inputs`,
@@ -349,9 +375,8 @@ The [scalar-call example](../examples/discovery_scalar_calls.kl) identifies SOUR
 and produces TOTAL=14 with SOURCE=11, preserving an unused missing ARRAY cell.
 The [address example](../examples/discovery_scalar_addresses.kl) identifies only
 SAMPLES[2] and computes its own GET_VAR path; the supplied whole-root context
-leaves the other cells missing. [Linked calls](../examples/scalar_discovery_calls_linked/main.kl)
-provide runtime execution evidence; linked static effect discovery remains
-incomplete. [Regressions](../tests/test_input_scalar_calls.py) and the
+leaves the other cells missing. The [linked call example](../examples/scalar_discovery_calls_linked/main.kl)
+provides offline runtime evidence. [Regressions](../tests/test_input_scalar_calls.py) and the
 [semantic ledger](semantics/input_scalar_call_semantics.json) record the offline
 contract. This is source-access analysis, without runtime-readiness or native
 compiler/controller equivalence claims.
@@ -376,9 +401,9 @@ The [semantic ledger](semantics/input_discovery_semantics.json) records this
 contract. `karel2py.input_template.prepare_inputs(source, context=...)` returns
 independent `context` and `template` objects for CLI/host reuse; invalid contexts
 raise `InputTemplateError`. The [template ledger](semantics/input_template_semantics.json)
-records its contract. [Linked project runs](run-documents.md#linked-project-runs)
-use explicit inputs while discovery across linked routines remains on the
-[roadmap](roadmap.md).
+records its contract. `karel2py.project_input_discovery.discover_project_document(path)`
+returns a linked report. Pass `expected` with the exact saved JSON bytes to
+require the same revision as the caller's open document.
 
 `karel2py.input_refresh.refresh_inputs(source, inputs, filename=...)` returns fresh
 context and template objects without changing the supplied inputs. Invalid

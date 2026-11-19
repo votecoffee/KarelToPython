@@ -37,6 +37,7 @@ class _Location:
     root: object
     parts: tuple = ()
     spec: object = field(default=None, compare=False, hash=False)
+    root_spec: object = field(default=None, compare=False, hash=False)
 
     @property
     def key(self):
@@ -148,10 +149,25 @@ def _merged_value(values,spec=None):
 
 
 class _Analyzer:
-    def __init__(self, plan):
-        self.plan=plan;self.program=plan['program'];self.steps=0;self.serial=0
-        self.inputs={};self.unresolved={};self.frames=[];self.exits=[];self.contexts={}
-        self.imports={row['name']:row['owner'] for row in plan.get('imports',[])}
+    def __init__(self, plan, *, linked_plans=None):
+        self.plan = plan
+        self.steps = 0
+        self.serial = 0
+        self.inputs = {}
+        self.unresolved = {}
+        self.frames = []
+        self.exits = []
+        self.contexts = {}
+        self.linked_plans = linked_plans
+        plans = linked_plans if linked_plans is not None else {plan['program']: plan}
+        self.imports = {
+            name: {local: (owner.upper(), foreign) for local, owner, foreign in item.get('imports', [])}
+            for name, item in plans.items()
+        }
+
+    @property
+    def program(self):
+        return self.plan['program']
 
     def tick(self):
         self.steps+=1
@@ -168,19 +184,44 @@ class _Analyzer:
         for span in self.plan.get('origins',[]):
             if span['expanded_start']<=line<=span['expanded_end']:
                 file=span['file'];physical=span['source_start']+line-span['expanded_start'];break
-        return dict(file=file,line=physical,column=node.get('column',1),
-                    routine=self.frames[-1]['name'] if self.frames else None,
-                    python_lines=sorted({row['python_line'] for row in self.plan.get('source_map',[]) if row['karel_line']==line}))
+        location=dict(file=file,line=physical,column=node.get('column',1),
+                      routine=self.frames[-1]['name'] if self.frames else None,
+                      python_lines=sorted({row['python_line'] for row in self.plan.get('source_map',[]) if row['karel_line']==line}))
+        if self.linked_plans is not None:
+            location['program']=self.program
+        return location
 
     def unresolved_at(self, code, message, node):
-        location=self.where(node);key=(code,message,location['file'],location['line'],location['column'],location['routine'])
+        location=self.where(node);key=(code,message,location.get('program'),location['file'],location['line'],location['column'],location['routine'])
         self.unresolved.setdefault(key,dict(code=code,message=message,location=location))
 
-    def slot(self, name):
-        if self.frames and name in self.frames[-1]['slots']:return self.frames[-1]['slots'][name]
-        if name in self.plan['types']:
-            return _Location('variable',self.imports.get(name,self.program),name,spec=self.plan['types'][name])
-        return None
+    def global_slot(self, name, node):
+        if name not in self.plan['types']:
+            return None
+        spec = self.plan['types'][name]
+        owner, root = self.program, name
+        visited = set()
+        while root in self.imports.get(owner, {}):
+            self.tick()
+            key = owner, root
+            if key in visited:
+                self.unresolved_at('linked-variable', f'Cyclic imported variable linkage: {owner}.{root}', node)
+                return None
+            visited.add(key)
+            owner, root = self.imports[owner][root]
+            if self.linked_plans is None:
+                self.unresolved_at('linked-variable', f'Imported variable owner has not been checked: {owner}.{root}', node)
+                break
+            target = self.linked_plans.get(owner, {})
+            if target.get('status') != 'available' or target.get('types', {}).get(root) != spec:
+                self.unresolved_at('linked-variable', f'Missing or incompatible imported variable: {owner}.{root}', node)
+                return None
+        return _Location('variable', owner, root, spec=spec, root_spec=spec)
+
+    def slot(self, name, node):
+        if self.frames and name in self.frames[-1]['slots']:
+            return self.frames[-1]['slots'][name]
+        return self.global_slot(name,node)
 
     def constant(self, name):
         if self.frames and name in self.frames[-1]['constants']:return self.frames[-1]['constants'][name]
@@ -201,13 +242,13 @@ class _Analyzer:
         if selected is None:
             self.unresolved_at('selection','Unsupported or unbounded selected schema for '+loc.path,node)
             return None
-        return _Location(loc.kind,loc.owner,loc.root,(*loc.parts,(kind,value)),selected)
+        return _Location(loc.kind,loc.owner,loc.root,(*loc.parts,(kind,value)),selected,loc.root_spec)
 
     def locate(self, expr, flow, conditional):
         if not isinstance(expr,dict):return None
         kind=expr.get('kind');args=expr.get('args',[])
-        if 'token' in expr:return self.slot(expr['token'])
-        if kind=='name':return self.slot(expr['value'])
+        if 'token' in expr:return self.slot(expr['token'],expr)
+        if kind=='name':return self.slot(expr['value'],expr)
         if kind=='group':return self.locate(args[0],flow,conditional)
         if kind=='field':
             base=self.locate(args[0],flow,conditional)
@@ -275,7 +316,7 @@ class _Analyzer:
                     self.inputs[key]=dict(kind=loc.kind,program=loc.owner or None,path=loc.path,type=spec,
                                           certainty=certainty,locations=[],reason='Read before a definite source write')
                     if loc.kind=='variable':
-                        self.inputs[key].update(root_path=str(loc.root),root_type=self.plan['types'].get(loc.root),selectors=list(loc.parts))
+                        self.inputs[key].update(root_path=str(loc.root),root_type=loc.root_spec,selectors=list(loc.parts))
                     elif loc.kind=='port':
                         self.inputs[key].update(port=loc.root,index=dict(loc.parts).get('index'))
                     elif loc.kind.endswith('_register'):
@@ -368,7 +409,7 @@ class _Analyzer:
             except ValueError:return _Value()
         if kind=='predefined':return _Value({'ON':True,'OFF':False,'MININT':-2147483648,'MAXINT':2147483647}.get(value,UNKNOWN))
         if kind=='name':
-            loc=self.slot(value)
+            loc=self.slot(value,node)
             if loc:return self.read(loc,node,flow,conditional,partial=partial)
             constant=self.constant(value)
             if constant is not UNKNOWN:return _Value(constant)
@@ -491,7 +532,7 @@ class _Analyzer:
             if type(owner) is str and owner.upper() in ('',self.program) and type(path) is str:
                 match=re.match(r'[A-Za-z_][A-Za-z_0-9]*',path)
                 if match and match[0].upper() in self.plan['types']:
-                    root=match[0].upper();loc=_Location('variable',self.imports.get(root,self.program),root,spec=self.plan['types'][root])
+                    loc=self.global_slot(match[0].upper(),node)
                     rest=path[match.end():]
                     while rest and loc:
                         field=re.match(r'\.([A-Za-z_][A-Za-z_0-9]*)',rest)
@@ -542,6 +583,20 @@ class _Analyzer:
             self.write(loc,_Value(),flow,node,definite=status)
         return _Value(complete=reading or not signature)
 
+    def routine_target(self, name, interface):
+        owner = interface['external']
+        if not owner:
+            return self.plan, interface
+        if self.linked_plans is None:
+            return None, None
+        target = self.linked_plans.get(owner.upper(), {})
+        routine = target.get('routines', {}).get(name)
+        if (target.get('status') != 'available' or routine is None or routine['external'] or
+                routine['result'] != interface['result'] or
+                [spec for _, spec in routine['parameters']] != [spec for _, spec in interface['parameters']]):
+            return None, None
+        return target, routine
+
     def routine(self, name, args, node, flow, conditional):
         routine=self.plan['routines'][name]
         modes=node.get('passing',[]);actual=[]
@@ -552,11 +607,15 @@ class _Analyzer:
             else:
                 self.unresolved_at('argument','Routine passing mode is unresolved: '+name,node)
                 actual.append(self.expr(item,flow,conditional))
-        if routine['external'] or name in [frame['name'] for frame in self.frames] or len(self.frames)>=32:
-            self.unresolved_at('routine','External or recursive routine effects are unresolved: '+name,node)
+        target_plan, target_routine = self.routine_target(name, routine)
+        routine_key = (target_plan['program'], name) if target_plan else None
+        if target_routine is None or any(frame['key'] == routine_key for frame in self.frames) or len(self.frames) >= 32:
+            qualified = (routine['external'] or self.program) + '.' + name
+            self.unresolved_at('routine', 'External or recursive routine effects are unresolved: '+qualified, node)
             for item in actual:
                 if isinstance(item,_Location):self.read(item,node,flow,True)
             self.opaque(flow);return _Value(complete=False)
+        routine = target_routine
         self.serial+=1;owner='@'+name+':'+str(self.serial)
         bindings=[]
         for (formal,spec),item in zip(routine['parameters'],actual):
@@ -570,7 +629,7 @@ class _Analyzer:
                 self.unresolved_at('parameter-shape','Concrete ARRAY shape conflicts with routine constraint: '+name+'.'+formal,node)
                 self.opaque(flow);return _Value(complete=False)
             bindings.append((formal,spec,item,resolved))
-        frame=dict(name=name,slots={key:_Location('local',owner,key,spec=spec) for key,spec in routine['types'].items()},
+        frame=dict(name=name,key=routine_key,slots={key:_Location('local',owner,key,spec=spec) for key,spec in routine['types'].items()},
                    constants=routine['constants'])
         for formal,spec,item,resolved in bindings:
             if isinstance(item,_Location):frame['slots'][formal]=item
@@ -578,13 +637,17 @@ class _Analyzer:
                 if spec==['STRING',None]:resolved=['STRING',254]
                 loc=_Location('local',owner,formal,spec=resolved);frame['slots'][formal]=loc
                 self.write(loc,item or _Value(complete=False),flow,node)
-        old_exits=self.exits;self.exits=[];self.frames.append(frame)
+        old_exits, self.exits = self.exits, []
+        caller_plan, self.plan = self.plan, target_plan
+        self.frames.append(frame)
         try:
             self.block(routine['body'],flow,conditional)
             exits=self.exits[:]
             if not flow.stopped and routine['result'] is None:exits.append((flow.copy(),_Value()))
         finally:
-            self.frames.pop();self.exits=old_exits
+            self.frames.pop()
+            self.exits = old_exits
+            self.plan = caller_plan
         if not exits:
             flow.stopped=True;return _Value(complete=False)
         merged=_merge([item[0] for item in exits])
@@ -701,23 +764,35 @@ class _Analyzer:
         self.block(node.get('body',[]),flow,True);self.block(node.get('alternate',[]),flow,True)
 
 
+def analyze_plan(plan, target, *, linked_plans=None):
+    analyzer = _Analyzer(plan, linked_plans=linked_plans)
+    modules = linked_plans.values() if linked_plans is not None else (plan,)
+    for module in modules:
+        if module.get('status') != 'available':
+            analyzer.plan = module
+            analyzer.unresolved_at('contract', module.get('reason', 'Analysis contract unavailable'), {})
+    analyzer.plan = plan
+    if plan.get('status') == 'available':
+        try:
+            analyzer.block(plan['body'], _Flow())
+        except _Limit as error:
+            analyzer.unresolved_at('limit', str(error), {})
+    rows = sorted(analyzer.inputs.values(), key=lambda row: (row['kind'], row['program'] or '', row['path']))
+    return dict(schema='karel2py.inputs.v1', target=target, complete=not analyzer.unresolved,
+                inputs=rows, unresolved=list(analyzer.unresolved.values()),
+                context_requirements=list(analyzer.contexts.values()),
+                boundary=('Source-flow candidates from a checked generated contract only; '
+                          'no target imports/execution, invented values, host callback guarantees or controller proof.'))
+
+
 def discover_inputs(python_source, *, filename='<python>'):
     """Return candidates and explicit gaps; never execute the selected Python."""
     raw=python_source.encode('utf-8') if type(python_source) is str else python_source
     if type(raw) is not bytes or len(raw)>MAX_BYTES:raise InputDiscoveryError('Python input requires at most 16 MiB')
     try:
         plan=extract(raw.decode('utf-8-sig'))
-        analyzer=_Analyzer(plan)
-        if plan.get('status')!='available':
-            analyzer.unresolved_at('contract',plan.get('reason','Analysis contract unavailable'),{})
-        else:
-            try:analyzer.block(plan['body'],_Flow())
-            except _Limit as error:analyzer.unresolved_at('limit',str(error),{})
-        rows=sorted(analyzer.inputs.values(),key=lambda row:(row['kind'],row['program'] or '',row['path']))
-        return dict(schema='karel2py.inputs.v1',target=dict(file=str(filename),sha256=hashlib.sha256(raw).hexdigest(),program=plan['program']),
-                    complete=not analyzer.unresolved,inputs=rows,unresolved=list(analyzer.unresolved.values()),
-                    context_requirements=list(analyzer.contexts.values()),
-                    boundary='Source-flow candidates from a checked generated contract only; no target imports/execution, invented values, host callback guarantees or controller proof.')
+        target=dict(file=str(filename),sha256=hashlib.sha256(raw).hexdigest(),program=plan['program'])
+        return analyze_plan(plan,target)
     except (InputContractError,UnicodeError,KeyError,IndexError,TypeError,ValueError,AttributeError,RecursionError) as error:
         raise InputDiscoveryError(str(error)) from error
 

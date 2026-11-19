@@ -27,9 +27,11 @@ inputs to a new document on refresh.
 
 The desktop and CLI create pinned linked runs with an explicit entry and module
 order. The desktop edits the JSON context and shows each saved program snapshot.
-Remaining work includes discovery across linked calls, carrying edited inputs
-to a revised module set, and broader static discovery for standalone runs.
-[Linked project runs](run-documents.md#linked-project-runs)
+The linked discovery report follows synchronous calls with matching signatures,
+reference arguments, and imported variables. Remaining work includes preparing
+and editing linked input templates, resolving scheduled-task and callback effects,
+and carrying edited inputs to a revised module set.
+[Linked input discovery](input-discovery.md#linked-project-discovery)
 
 ### Discover inputs from Python
 
