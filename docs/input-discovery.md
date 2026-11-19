@@ -54,7 +54,8 @@ root schema and shaped value, retaining uninitialized markers where appropriate.
 Do not copy selected field/element rows directly into `context.variables`.
 The optional input-template preparation below constructs those whole-root
 shapes with missing markers. The [desktop runner](desktop.md#discover-inputs-and-run-python)
-lists the candidates and provides a validated JSON context editor.
+lists the candidates and provides both a selected scalar editor and a JSON
+context editor.
 
 Port and register candidates retain known indexes and position groups. Numeric
 register reads list INTEGER/REAL alternatives without guessing the stored kind.
@@ -375,8 +376,8 @@ The [semantic ledger](semantics/input_discovery_semantics.json) records this
 contract. `karel2py.input_template.prepare_inputs(source, context=...)` returns
 independent `context` and `template` objects for CLI/host reuse; invalid contexts
 raise `InputTemplateError`. The [template ledger](semantics/input_template_semantics.json)
-records its contract. Broader discovery, individual typed controls, and linked
-runs remain [future work](roadmap.md).
+records its contract. Broader discovery, aggregate controls, and linked runs
+remain [future work](roadmap.md).
 
 `karel2py.input_refresh.refresh_inputs(source, inputs, filename=...)` returns fresh
 context and template objects without changing the supplied inputs. Invalid

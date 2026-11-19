@@ -106,7 +106,16 @@ class WorkbenchWindowTests(unittest.TestCase):
                 window.new()
                 wait_for_run_window()
                 self.assertEqual(window.inputs.item('0', 'values'), ('variable', 'X', 'required', 'missing'))
+                window.inputs.selection_set('0')
+                window._select_input()
+                self.assertEqual(str(window.edit_value['state']), 'normal')
+                with patch('karel2py.gui_runner._prompt_value', return_value=('INTEGER', '40')) as prompt:
+                    window.edit_selected()
+                    wait_for_run_window()
+                self.assertEqual(prompt.call_args.args[1], 'X')
+                self.assertEqual(window.inputs.item('0', 'values')[-1], 'supplied')
                 context = json.loads(window.context.get('1.0', 'end-1c'))
+                self.assertEqual(context['variables'][0]['value'], 40)
                 context['variables'][0]['value'] = 41
                 window.context.replace('1.0', 'end-1c', json.dumps(context))
                 window.save()

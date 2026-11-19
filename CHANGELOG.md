@@ -1,5 +1,14 @@
 # Changelog
 
+## 26.1119.221310 - 2026-11-19
+
+- Edit discovered scalar variables, array cells, record fields, joint axes,
+  numeric and string registers, and configured logical ports from the desktop
+  input list. Validate the value against the pinned target and preserve other
+  inputs and the last result.
+- Separate unary and binary operator type rules from Python emission.
+  Preserve operand evaluation order, source diagnostics, and report metadata.
+
 ## 26.1119.214847 - 2026-11-19
 
 - Extract the KAREL parser, AST, declaration and type resolution, control-flow

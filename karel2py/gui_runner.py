@@ -1,10 +1,51 @@
 """Desktop editor for the standalone Pythonic run-document workflow."""
+from copy import deepcopy
 import json
 from pathlib import Path
 from queue import Empty, Queue
 from threading import Event, Thread
 
 from . import runner
+from .runner_values import input_key, scalar_options, scalar_slot
+
+
+def _prompt_value(parent, path, slot):
+    import tkinter as tk
+    from tkinter import messagebox, simpledialog, ttk
+
+    class ValueDialog(simpledialog.Dialog):
+        def body(self, frame):
+            value = slot.value
+            default = 'REAL' if type(value) is float and 'REAL' in slot.options else slot.options[0]
+            self.kind = tk.StringVar(frame, value=default)
+            self.text = tk.StringVar(frame, value='' if value is None else value if isinstance(value, str) else json.dumps(value))
+            ttk.Label(frame, text=path).grid(row=0, column=0, columnspan=2, sticky='w', pady=(0, 8))
+            if len(slot.options) > 1:
+                kind_widget = ttk.Combobox(frame, textvariable=self.kind, values=slot.options, width=12, state='readonly')
+            else:
+                kind_widget = ttk.Label(frame, text=default)
+            kind_widget.grid(row=1, column=0, sticky='w', padx=(0, 8))
+            if default == 'BOOLEAN':
+                field = ttk.Combobox(frame, textvariable=self.text, values=('false', 'true'), width=38, state='readonly')
+            else:
+                field = ttk.Entry(frame, textvariable=self.text, width=40)
+            field.grid(row=1, column=1, sticky='ew')
+            if slot.capacity is not None:
+                ttk.Label(frame, text=f'Up to {slot.capacity} ASCII characters').grid(row=2, column=1, sticky='w')
+            return field
+
+        def validate(self):
+            try:
+                slot.set_text(self.kind.get(), self.text.get())
+            except ValueError as error:
+                messagebox.showerror('Invalid value', str(error), parent=self)
+                return False
+            return True
+
+        def apply(self):
+            self.result = self.kind.get(), self.text.get()
+
+    return ValueDialog(parent, title='Edit input value').result
 
 
 class RunWindow:
@@ -59,6 +100,10 @@ class RunWindow:
         self.inputs.configure(yscrollcommand=scroll.set)
         self.inputs.pack(fill='both', expand=True)
         self.inputs.bind('<<TreeviewSelect>>', self._select_input)
+        self.inputs.bind('<Double-1>', self._activate_input)
+        self.inputs.bind('<Return>', self._activate_input)
+        self.edit_value = ttk.Button(inputs, text='Edit value…', command=self.edit_selected, style='Compact.TButton')
+        self.edit_value.pack(anchor='w', pady=(8, 0))
         ttk.Label(inputs, textvariable=self.detail, wraplength=700, padding=(0, 8)).pack(fill='x')
         ttk.Label(edits, text='Edit initial values and offline service configuration as JSON, then save inputs.').pack(anchor='w')
         self.context = self._text(edits, tk, ttk)
@@ -104,17 +149,31 @@ class RunWindow:
         can_cancel = self.cancel_event is not None and not self.cancel_event.is_set()
         self.buttons['Cancel run'].configure(state='normal' if can_cancel else 'disabled')
         self.context.configure(state='normal' if editable else 'disabled')
+        self._configure_value_editor(editable)
 
-    def _select_input(self, _event=None):
+    def _selected_rows(self):
         selection = self.inputs.selection()
         if not selection or self.document is None:
-            self.detail.set('')
-            return
+            return {}, {}
         template = self.document['inputs']['template']
         binding = template['bindings'][int(selection[0])]
         candidates = template['discovery'].get('inputs')
         candidate = next((row for row in candidates if isinstance(row, dict) and
-                          all(row.get(key) == binding.get(key) for key in ('kind', 'program', 'path'))), {}) if isinstance(candidates, list) else {}
+                          input_key(row) == input_key(binding)), {}) if isinstance(candidates, list) else {}
+        return candidate, binding
+
+    def _configure_value_editor(self, editable):
+        candidate, binding = self._selected_rows()
+        available = (editable and scalar_options(candidate) and binding.get('context_pointer')
+                     and binding.get('status') != 'unmapped')
+        self.edit_value.configure(state='normal' if available else 'disabled')
+
+    def _select_input(self, _event=None):
+        self._configure()
+        candidate, binding = self._selected_rows()
+        if not binding:
+            self.detail.set('')
+            return
         locations = candidate.get('locations')
         sources = [f"{row.get('file')}:{row.get('line')}:{row.get('column')}"
                    for row in locations[:5] if isinstance(row, dict)] if isinstance(locations, list) else []
@@ -125,6 +184,35 @@ class RunWindow:
         if selectors:
             pointer += f' (selected field or index: {selectors})'
         self.detail.set(f"{candidate.get('reason', '')}\nType {type_text}\nContext {pointer}\n" + '\n'.join(sources))
+
+    def _activate_input(self, event):
+        if event.keysym != 'Return':
+            row = self.inputs.identify_row(event.y)
+            if not row:
+                return
+            self.inputs.selection_set(row)
+            self._select_input()
+        self.edit_selected()
+
+    def edit_selected(self):
+        if str(self.edit_value['state']) != 'normal':
+            return
+        if self.context.edit_modified():
+            self.status.set('Save your context edits before changing a selected value.')
+            return
+        candidate, binding = self._selected_rows()
+        try:
+            slot = scalar_slot(deepcopy(self.document['inputs']['context']), candidate, binding)
+            value = _prompt_value(self.window, binding['path'], slot)
+        except (ValueError, OSError) as error:
+            self.message.showerror('Unable to edit input', str(error), parent=self.window)
+            return
+        if value is None:
+            return
+        path, revision, protected = self.path, self.revision, self.protected
+        selected = input_key(candidate)
+        self._start('Validating and saving the selected input…', lambda: (path, *runner.save_input_value(
+            path, selected, *value, expected=revision, protected=protected)))
 
     def _show(self, path, document, revision):
         self.path, self.document, self.revision = path, document, revision

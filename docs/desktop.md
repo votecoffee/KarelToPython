@@ -39,9 +39,11 @@ Closing during a job asks for confirmation and does not publish its results.
 3. Select a row in **Discovered inputs** to see its type, source location,
    and context path. Review **Requirements** for unresolved accesses and
    services that need configuration.
-4. Fill in **Edit context**, then choose **Save inputs**. The editor accepts the
-   same JSON context as the CLI. Saving validates the context and updates the
-   discovered input statuses. Bank sizes and missing values are supplied here.
+4. Choose **Edit value** to save a selected scalar. The editor checks the type
+   and range, offers a Boolean choice, and lets you choose INTEGER or REAL for
+   a numeric register. A successful edit updates the input status immediately.
+   Use **Edit context** and **Save inputs** for aggregate values, position
+   registers, service configuration and ports supplied through physical samples.
 5. Choose **Run** and confirm the selected Python is trusted. **Last result**
    shows variable and service snapshots, failure details, and completion status.
    **WRITE output** displays the captured text.
@@ -49,6 +51,13 @@ Closing during a job asks for confirmation and does not publish its results.
 **Cancel run** requests cancellation at a generated execution checkpoint or
 during a host `DELAY`. The saved result records cancellation and available
 partial state. Cancellation applies to supported generated code checkpoints.
+
+**Edit value** works for initialized or missing scalar variables, selected
+record fields, ARRAY cells and joint axes, plus configured numeric and string
+registers and logical ports. Configure missing banks in **Edit context** first.
+The value editor checks the saved document revision and resolves the selected
+input from the pinned Python again. Each edit preserves sibling fields, other
+bank values, and the last result. Replay updates the result using the new inputs.
 
 Each replay uses the saved inputs and pinned Python bytes. Results stay in
 the same JSON document. **Rediscover** takes a selected generated Python file

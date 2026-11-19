@@ -209,29 +209,65 @@ def _expected_revision(actual, expected):
         raise RunDocumentError('Run document changed on disk. Reopen it before continuing.')
 
 
-def save_context(path, text, *, expected, protected=()):
-    """Validate and save edited inputs against the revision shown by the editor."""
+def _editable_document(path, expected):
     path = Path(path).absolute()
     original = _read(path)
     _expected_revision(original, expected)
     document = _decode(original)
-    target, _, inputs = _document_fields(document)
-    context = _decode(text.encode('utf-8'))
-    _context(context)
+    target, _, _ = _document_fields(document)
     target_path, identity, _ = _target(path.parent / target['path'])
     if identity != {key: target[key] for key in ('sha256', 'program', 'mode')}:
         raise RunDocumentError('Python target changed. Rediscover into a new run document.')
-    if 'template' in inputs:
-        from .input_template import prepare_inputs
-        target_bytes = _read(target_path)
-        if hashlib.sha256(target_bytes).hexdigest() != identity['sha256']:
-            raise RunDocumentError('Python target changed during input discovery')
-        prepared = prepare_inputs(target_bytes, filename=str(target_path), context=context)
-        if 'refresh' in inputs['template']:
-            prepared['template']['refresh'] = inputs['template']['refresh']
-        inputs.update(prepared)
+    return path, original, document, target_path
+
+
+def _prepare_edited_context(document, target_path, context):
+    from .input_template import prepare_inputs
+
+    target_bytes = _read(target_path)
+    if hashlib.sha256(target_bytes).hexdigest() != document['target']['sha256']:
+        raise RunDocumentError('Python target changed during input discovery')
+    return prepare_inputs(target_bytes, filename=str(target_path), context=context)
+
+
+def _replace_prepared_inputs(document, prepared):
+    inputs = document['inputs']
+    if 'refresh' in inputs['template']:
+        prepared['template']['refresh'] = inputs['template']['refresh']
+    inputs.update(prepared)
+
+
+def save_context(path, text, *, expected, protected=()):
+    """Validate and save edited inputs against the revision shown by the editor."""
+    context = _decode(text.encode('utf-8'))
+    path, original, document, target_path = _editable_document(path, expected)
+    if 'template' in document['inputs']:
+        _replace_prepared_inputs(document, _prepare_edited_context(document, target_path, context))
     else:
-        inputs['context'] = context
+        _context(context)
+        document['inputs']['context'] = context
+    revision = _store(path, document, expected=original, protected=(target_path, *protected))
+    return document, revision
+
+
+def save_input_value(path, selected, kind, text, *, expected, protected=()):
+    """Save one discovered scalar using a freshly validated target binding."""
+    from .input_template import _prepare
+    from .runner_values import input_key, scalar_slot
+
+    path, original, document, target_path = _editable_document(path, expected)
+    if 'template' not in document['inputs']:
+        raise RunDocumentError('Discover inputs before editing a selected value.')
+    prepared = _prepare_edited_context(document, target_path, document['inputs']['context'])
+    template, context = prepared['template'], prepared['context']
+    report = template['discovery']
+    for candidate, binding in zip(report['inputs'], template['bindings']):
+        if input_key(candidate) == selected:
+            scalar_slot(context, candidate, binding).set_text(kind, text)
+            break
+    else:
+        raise RunDocumentError('This input is no longer in the discovery report.')
+    _replace_prepared_inputs(document, _prepare(report, context, materialize=False))
     revision = _store(path, document, expected=original, protected=(target_path, *protected))
     return document, revision
 

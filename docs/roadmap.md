@@ -9,8 +9,9 @@ and [desktop guide](desktop.md).
 
 The first extraction separates parsing, AST data, declaration analysis, type
 queries, control-flow validation and lowering, Python generation, and reports.
-The next compiler steps are to give expression checks an independent typed
-interface and reduce shared emitter state in small changes. The runtime and
+Unary and binary operator type rules now return schemas independently of
+emission. The next steps are to extend that boundary to more expression
+families and reduce shared emitter state in small changes. The runtime and
 extended services can be split by ownership after their boundaries are covered
 with regressions. See [compiler architecture](compiler-architecture.md).
 
@@ -18,12 +19,13 @@ with regressions. See [compiler architecture](compiler-architecture.md).
 
 The [desktop runner](desktop.md#discover-inputs-and-run-python) and CLI share
 standalone run documents. The desktop lists discovered input paths and source
-locations, validates edits to the JSON context, and runs the selected Python
+locations, validates selected scalar edits and JSON context, and runs the selected Python
 with cancellation and saved results. Both entry points can carry compatible
 inputs to a new document on refresh.
 
-Remaining work includes individual typed value controls, broader static discovery,
-and saved runs that can select and pin multiple linked program modules.
+Remaining work includes structured controls for aggregate and position data,
+broader static discovery, and saved runs that can select and pin multiple linked
+program modules.
 
 ### Discover inputs from Python
 
