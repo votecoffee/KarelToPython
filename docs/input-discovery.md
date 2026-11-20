@@ -448,10 +448,12 @@ outside the edited shape reports a gap for the transfer.
 A seeded append or insert discovers reads of the seed before the edit.
 The capture precedes evaluation of the status selector and conversion flag.
 An exact NODEDATA seed carries its known field values into the new record.
-A compatible context-free conversion with explicit TRUE tracks initialized
-fields after a successful conversion. A statically rejected layout sets
-status 3 before the index check. A shifted PATH record used as a seed
-retains its original saved input address.
+A compatible context-free conversion with explicit TRUE tracks known
+converted values as well as initialized fields. A known missing seed fails at
+capture, before the status selector and conversion flag. A known invalid
+conversion or missing converted field fails before the node edit or status
+write. A statically rejected layout sets status 3 before the index check.
+A shifted PATH record used as a seed retains its original saved input address.
 
 Model-dependent seed conversions, unknown conversion choices for different
 layouts, edits through retained aliases, and uncertain or potentially
@@ -462,16 +464,19 @@ origins for its node selectors.
 `COPY_PATH` follows a checked whole copy `(0,0)` or an inclusive forward or
 reverse range. Discovery reads the selected source nodes and declared
 header after evaluating the call operands. It preserves their saved
-addresses after prior node edits. A proved copy, including a self-copy or
-a context-free layout conversion, replaces the destination shape with
-independent records. Later `PATH_LEN`, data accesses and FILE transfers
-use that shape. The destination can be a declared PATH with no saved seed.
+addresses after prior node edits. A returned PATH is captured when the
+source routine runs, and the copy uses that detached value after later
+operands run. A proved copy replaces the destination shape with independent
+records and preserves checked scalar conversion facts. Later `PATH_LEN`,
+data accesses and FILE transfers use that shape. The destination can be a
+declared PATH with no saved seed.
 
 A copy preserves missing leaves. Reading an incompletely proven copied
 value later can report a `derived-value` gap. Known rejected layouts or
-bounds produce status 3 or 2 before reading the source records. Unknown
-bounds, unproved destination references, and model-dependent results leave
-the destination effect unresolved.
+bounds produce status 3 or 2 before reading the source records. A known
+conversion failure prevents publication and the success status write.
+Unknown bounds, unproved destination references, and model-dependent
+results leave the destination effect unresolved.
 
 Discovery also follows whole scalar PATH assignments between declared
 variables or selected PATH ARRAY cells in definite program-body flow.

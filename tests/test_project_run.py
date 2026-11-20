@@ -314,6 +314,31 @@ class SavedProjectTests(unittest.TestCase):
         self.assertEqual(result['text_output'], ' 12\n')
         self.assertEqual(result['programs']['MAIN']['values']['TARGET']['nodes'], [{'AMOUNT': 12}])
 
+    def test_linked_copy_path_consumes_detached_result_and_uses_its_input_owner(self):
+        types = ('TYPE src_n=STRUCTURE amount:REAL ENDSTRUCTURE dst_n=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+                 'src_t=PATH NODEDATA=src_n dst_t=PATH NODEDATA=dst_n')
+        main = self.module(
+            'MAIN', 'COPY_PATH(build(),0,0,target,s,TRUE) '
+                    'IF (s=0) AND (PATH_LEN(target)=1) THEN WRITE(target,CR) ELSE WRITE(unused) ENDIF',
+            types+' VAR target:dst_t s,unused:INTEGER', 'ROUTINE build:src_t FROM LIB',
+        )
+        lib = self.module(
+            'LIB', declarations=types+' VAR amount_input:REAL',
+            routines='ROUTINE build:src_t VAR local_path:src_t s:INTEGER '
+                     'BEGIN INSERT_NODE(local_path,1,s) local_path[1].amount=amount_input '
+                     'RETURN local_path END build',
+        )
+        report = self.create(main, lib, discover=True)['inputs']['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        candidate, = report['inputs']
+        self.assertEqual((candidate['program'], candidate['path'], candidate['type']),
+                         ('LIB', 'AMOUNT_INPUT', ['REAL']))
+        runner.save_input_value(self.document, ('variable', 'LIB', 'AMOUNT_INPUT'), 'REAL', '12.75',
+                                expected=self.document.read_bytes())
+        result = runner.run_document(self.document)['results']
+        self.assertEqual(result['status'], 'completed', result['error'])
+        self.assertEqual(result['text_output'], ' 12\n')
+
     def test_linked_path_assignment_tracks_converted_array_cell_without_old_seed(self):
         types = ('TYPE source_t=STRUCTURE amount:REAL ENDSTRUCTURE '
                  'row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE from_t=PATH NODEDATA=source_t ')

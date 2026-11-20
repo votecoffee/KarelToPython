@@ -426,6 +426,45 @@ class InputTemplateTests(unittest.TestCase):
         self.assertTrue(report['complete'], report['unresolved'])
         self.assertEqual(set(by_path(prepared)), {'WANTED'})
 
+    def test_copy_path_converts_only_selected_records_of_a_routine_result(self):
+        source = (
+            'PROGRAM T TYPE from_n=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+            'to_n=STRUCTURE amount:BYTE ENDSTRUCTURE '
+            'from_h=STRUCTURE total:REAL ENDSTRUCTURE to_h=STRUCTURE total:INTEGER ENDSTRUCTURE '
+            'p1=PATH NODEDATA=from_n PATHHEADER=from_h p2=PATH NODEDATA=to_n PATHHEADER=to_h '
+            'VAR b:p2 s:ARRAY[1] OF INTEGER seq,wanted,unused,seed:INTEGER '
+            'ROUTINE build:p1 VAR p:p1 status:INTEGER '
+            'BEGIN seq=seq*10+1 APPEND_NODE(p,status) APPEND_NODE(p,status) APPEND_NODE(p,status) '
+            'p.total=9.75 p[1].amount=256 p[2].amount=seed p[3].amount=8 RETURN p END build '
+            'ROUTINE first:INTEGER BEGIN seq=seq*10+2 RETURN 3 END first '
+            'ROUTINE last:INTEGER BEGIN seq=seq*10+3 RETURN 2 END last '
+            'ROUTINE slot:INTEGER BEGIN seq=seq*10+4 seed=99 RETURN 1 END slot '
+            'ROUTINE flag:BOOLEAN BEGIN seq=seq*10+5 RETURN TRUE END flag '
+            'BEGIN seq=0 seed=7 COPY_PATH(build(),first(),last(),b,s[slot()],flag()) '
+            'IF (seq=12345) AND (s[1]=0) AND (PATH_LEN(b)=2) AND (b.total=9) '
+            'AND (b[1].amount=8) AND (b[2].amount=7) THEN WRITE(wanted) ELSE WRITE(unused) ENDIF END T'
+        )
+        report = prepare_inputs(translate(source).python_source)
+        self.assertTrue(report['template']['discovery']['complete'], report['template']['discovery']['unresolved'])
+        self.assertEqual(set(by_path(report)), {'WANTED'})
+
+    def test_rejected_path_data_conversion_stops_later_reads(self):
+        source = (
+            'PROGRAM T TYPE from_n=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+            'to_n=STRUCTURE amount:BYTE ENDSTRUCTURE '
+            'p1=PATH NODEDATA=from_n p2=PATH NODEDATA=to_n '
+            'VAR a:p1 b:ARRAY[1] OF p2 s,unused:INTEGER '
+            'ROUTINE slot:INTEGER BEGIN WRITE(unused) RETURN 1 END slot '
+            'BEGIN APPEND_NODE(a,s) a[1].amount=256 s=99 {} WRITE(unused) END T'
+        )
+        for statement in ('COPY_PATH(a,0,0,b[1],s,TRUE)', 'b[slot()]=a'):
+            with self.subTest(statement=statement):
+                report = prepare_inputs(translate(source.format(statement)).python_source)['template']['discovery']
+                self.assertFalse(report['inputs'])
+                unresolved, = report['unresolved']
+                self.assertEqual(unresolved['code'], 'path-conversion')
+                self.assertIn('BYTE value outside', unresolved['message'])
+
     def test_unknown_copy_bounds_leave_destination_origin_unresolved(self):
         spec = ['PATH', ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]], None]
         context = {'variables': [dict(program='T', path='SOURCE', type=spec,
@@ -783,6 +822,43 @@ class InputTemplateTests(unittest.TestCase):
         report = prepared['template']['discovery']
         self.assertTrue(report['complete'], report['unresolved'])
         self.assertEqual(set(by_path(prepared)), {'WANTED'})
+
+    def test_seed_conversion_keeps_known_truncation_and_bounded_insert_status(self):
+        source = (
+            'PROGRAM T TYPE source_t=STRUCTURE amount:REAL ENDSTRUCTURE '
+            'target_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+            'VAR route:PATH NODEDATA=target_t seed:source_t '
+            'checks:ARRAY[2] OF INTEGER wanted,unused:INTEGER '
+            'ROUTINE slot:INTEGER BEGIN seed.amount=99.75 RETURN 1 END slot '
+            'BEGIN seed.amount=-17.75 APPEND_NODE(route,seed,checks[slot()],TRUE) '
+            'INSERT_NODE(route,999,seed,checks[2],TRUE) '
+            'IF (route[1].amount=-17) AND (checks[1]=0) AND (checks[2]=2) '
+            'AND (PATH_LEN(route)=1) THEN WRITE(wanted) ELSE WRITE(unused) ENDIF END T'
+        )
+        prepared = prepare_inputs(translate(source).python_source)
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'WANTED'})
+
+    def test_known_missing_seed_or_converted_short_stops_later_reads(self):
+        source = (
+            'PROGRAM T TYPE source_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+            'target_t=STRUCTURE amount:SHORT ENDSTRUCTURE '
+            'VAR route:PATH NODEDATA=target_t seeded:source_t codes:ARRAY[1] OF INTEGER unused:INTEGER '
+            'ROUTINE slot:INTEGER BEGIN WRITE(unused) RETURN 1 END slot '
+            'ROUTINE allow:BOOLEAN BEGIN WRITE(unused) RETURN TRUE END allow '
+            'ROUTINE fresh VAR missing:target_t '
+            'BEGIN APPEND_NODE(route,missing,codes[slot()],allow()) END fresh '
+            'BEGIN {} WRITE(unused) END T'
+        )
+        for body, code in (
+            ('fresh()', 'path-seed'),
+            ('seeded.amount=32767 APPEND_NODE(route,seeded,codes[1],TRUE)', 'path-conversion'),
+        ):
+            with self.subTest(body=body):
+                report = prepare_inputs(translate(source.format(body)).python_source)['template']['discovery']
+                self.assertFalse(report['inputs'])
+                self.assertEqual([row['code'] for row in report['unresolved']], [code])
 
     def test_incompatible_seed_reports_status_before_rejected_index(self):
         spec = ['PATH', ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]], None]

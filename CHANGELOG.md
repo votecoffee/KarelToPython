@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1120.195644 - 2026-11-20
+
+- Follow detached PATH results passed to COPY_PATH and preserve checked
+  conversion facts for selected nodes and the header.
+- Preserve known converted fields in seeded PATH edits and follow source
+  capture, selector and publication order when a seed or conversion fails.
+
 ## 26.1120.194415 - 2026-11-20
 
 - Follow compatible context-free PATH ARRAY conversions in input discovery,

@@ -153,6 +153,20 @@ class SeededPathNodeTests(unittest.TestCase):
                 self.assertEqual((p.snapshot()['TRACK']['nodes'],p.snapshot()['S']),([],99))
 
 
+    def test_converted_seed_that_produces_short_missing_marker_leaves_path_and_status(self):
+        types = ('TYPE source_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+                 'target_t=STRUCTURE amount:SHORT ENDSTRUCTURE')
+        p, _ = compile_program(
+            'APPEND_NODE(track,s) track[1].amount=7 s=99 '
+            'seed.amount=32767 APPEND_NODE(track,seed,s,TRUE)',
+            types=types, decl='track:PATH NODEDATA=target_t seed:source_t s:INTEGER',
+        )
+        with self.assertRaisesRegex(rt.KarelRuntimeError, 'uninitialized'):
+            p.run()
+        self.assertEqual(p.snapshot()['TRACK']['nodes'], [{'AMOUNT': 7}])
+        self.assertEqual(p.snapshot()['S'], 99)
+
+
 class PathListEditTests(unittest.TestCase):
     def test_insert_and_delete_charge_shifted_nodes_before_publication(self):
         for operation in ('INSERT_NODE(track,1,s)','DELETE_NODE(track,1,s)'):

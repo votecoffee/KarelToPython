@@ -89,6 +89,14 @@ class _Value:
     uninitialized: bool = False  # Positive proof, separate from incomplete knowledge.
 
 
+def _known_missing(value):
+    return value.uninitialized or any(fact.uninitialized for fact in (value.facts or {}).values())
+
+
+def _path_conversion_needs_model(layout, node_count):
+    return layout[1] == 'kinematic' or (layout[0] == 'kinematic' and node_count > 0)
+
+
 @dataclass(eq=False, frozen=True)
 class _Handler:
     plan: dict
@@ -1224,7 +1232,7 @@ class _Analyzer:
         if flow.opaque or flow.task_order_unknown or self.callback_depth or self.repeat_depth:
             return result
         if value is not None:
-            if value.uninitialized or (value.facts and any(fact.uninitialized for fact in value.facts.values())):
+            if _known_missing(value):
                 result.constant = True
             elif value.complete and value.spec:
                 result.constant = False
@@ -1288,24 +1296,37 @@ class _Analyzer:
         return (order is not None and len(status.parts) > depth + 1
                 and _path_record_identity(status.parts[depth]) in order.detached)
 
-    def path_seed_compatible(self, path, seed, convert):
-        """Return True for a modeled copy, False for status 3, or None."""
+    def path_seed_layout(self, path, seed, convert):
         if seed is None:
-            return True
+            return 'exact'
         target = path.spec[1] or self.plan.get('default_path_node')
         if not target or not seed.spec:
             return None
         target, source = tuple_spec(target), tuple_spec(seed.spec)
         if source == target:
-            return True
-        if convert is False:
-            return False
+            return 'exact'
         if convert is True:
             if rt.record_schema_kind(target, source) == 'structure':
-                return True
-            if rt.kinematic_record_kind(target, source) != 'structure':
-                return False
-        return None
+                return 'structure'
+            if rt.kinematic_record_kind(target, source) == 'structure':
+                return 'kinematic'
+            return 'rejected'
+        return 'rejected' if convert is False else None
+
+    def convert_path_seed(self, target, seed, node, flow):
+        # Continuing past the source capture requires every source field.
+        seed = self.complete_path_record(seed)
+        try:
+            converted = self.convert_path_record(target, seed, node)
+        except rt.KarelRuntimeError as error:
+            self.unresolved_at('path-conversion', str(error), node)
+            flow.stopped = True
+            return None
+        if _known_missing(converted):
+            self.unresolved_at('path-conversion', 'Converted PATH seed has an uninitialized field', node)
+            flow.stopped = True
+            return None
+        return self.complete_path_record(converted)
 
     def path_edit(self, node, flow, conditional):
         name = node['value']
@@ -1323,7 +1344,10 @@ class _Analyzer:
         flags = []
         if len(operands) > 1:
             seed_arg, status_arg, *flags = operands
-            seed = self.expr(seed_arg, flow, conditional)
+            seed = self.expr(seed_arg, flow, conditional, partial=True)
+            if _known_missing(seed):
+                self.unresolved_at('path-seed', 'PATH node seed requires all source fields initialized', seed_arg)
+                flow.stopped = True
         else:
             status_arg = operands[-1]
         if flow.stopped and not flow.opaque:
@@ -1342,11 +1366,11 @@ class _Analyzer:
             last = count if removing else count + 1
             if name == 'APPEND_NODE':
                 index = last
-            compatible = self.path_seed_compatible(path, seed, convert)
-            if compatible is False:
+            layout = self.path_seed_layout(path, seed, convert)
+            if layout == 'rejected':
                 self.write(status, _Value(3, spec=['INTEGER']), flow, node)
                 return _Value()
-            if compatible is True and type(index) is int and (removing or count < 32767):
+            if layout is not None and type(index) is int and (removing or count < 32767):
                 if not 1 <= index <= last:
                     self.write(status, _Value(2, spec=['INTEGER']), flow, node)
                     return _Value()
@@ -1358,8 +1382,11 @@ class _Analyzer:
                 prefix = order.nodes[:offset]
                 shifted = order.nodes[index if removing else offset:]
                 removed = order.nodes[offset] if removing else None
-                if (self.can_publish_path(path, flow, conditional)
-                        and self.node_edit_preserves_borrows(path, order, prefix, shifted, removed)):
+                if layout == 'kinematic':
+                    self.context('robot', None)
+                    self.unresolved_at('path-conversion', 'PATH seed conversion requires robot model results', node)
+                elif (self.can_publish_path(path, flow, conditional)
+                      and self.node_edit_preserves_borrows(path, order, prefix, shifted, removed)):
                     detached = order.detached
                     if removing:
                         depth = len(path.parts)
@@ -1370,11 +1397,14 @@ class _Analyzer:
                             detached = detached | {removed}
                         nodes = prefix + shifted
                     else:
+                        node_type = path.spec[1] or self.plan.get('default_path_node')
+                        value = (_Value(complete=False, spec=node_type, uninitialized=True) if seed is None
+                                 else self.convert_path_seed(node_type, seed, node, flow))
+                        if value is None:
+                            return _Value(complete=False)
                         self.serial += 1
                         nodes = prefix + (-self.serial,) + shifted
                         record = self.child(path, 'created-node', self.serial, node)
-                        value = (_Value(complete=False, spec=record.spec, uninitialized=True)
-                                 if seed is None else self.complete_path_record(seed))
                         self.write(record, value, flow, node)
                     flow.path_orders[path.key] = replace(
                         order, nodes=nodes, detached=detached,
@@ -1394,7 +1424,10 @@ class _Analyzer:
         for index, argument in enumerate(node['args']):
             if flow.stopped and not flow.opaque:
                 return _Value(complete=False)
-            if index in (0, 3, 4):
+            if index == 0:
+                loc, value = self.metadata_operand(argument, flow, conditional)
+                operands.append(loc if loc is not None else value)
+            elif index in (3, 4):
                 operands.append(self.locate(argument, flow, conditional))
             else:
                 operands.append(self.expr(argument, flow, conditional).constant)
@@ -1402,7 +1435,8 @@ class _Analyzer:
             return _Value(complete=False)
         source, first, last, target, status, *flags = operands
         convert = flags[0] if flags else False
-        if (source is not None and source.spec[0] == 'PATH' and target is not None and target.spec[0] == 'PATH'
+        if (source is not None and source.spec and source.spec[0] == 'PATH'
+                and target is not None and target.spec[0] == 'PATH'
                 and status is not None and self.definite_path_effect(flow, conditional)
                 and self.path_status_disjoint(target, status, flow)):
             source_type, target_type = tuple_spec(source.spec), tuple_spec(target.spec)
@@ -1416,7 +1450,11 @@ class _Analyzer:
                 self.write(status, _Value(3, spec=['INTEGER']), flow, node)
                 return _Value()
 
-            count = self.known_path_count(source, flow, conditional)
+            if isinstance(source, _Location):
+                count = self.known_path_count(source, flow, conditional)
+            else:
+                count = (len(source.path_records) - (source.spec[2] is not None)
+                         if source.path_records is not None else None)
             if layout and count is not None and type(first) is int and type(last) is int:
                 if first == last == 0:
                     indexes = range(1, count + 1)
@@ -1429,10 +1467,22 @@ class _Analyzer:
                 history = self.replaced_path_borrows(target, flow, conditional)
                 if history is not None:
                     captured = self.capture_path_copy(source, indexes, node, flow, conditional)
-                    if captured is not None and 'kinematic' not in layout:
-                        self.publish_path_records(target, captured, node, flow, history=history)
-                        self.write(status, _Value(0, spec=['INTEGER']), flow, node)
-                        return _Value()
+                    if captured is not None:
+                        if _path_conversion_needs_model(layout, len(indexes)):
+                            self.context('robot', None)
+                            self.unresolved_at('path-conversion', 'COPY_PATH conversion requires robot model results', node)
+                        elif target.spec[1] or self.plan.get('default_path_node') or not len(indexes) or target.spec == source.spec:
+                            snapshot = _Value(spec=source.spec, path_records=tuple(captured),
+                                              complete=all(record.complete for record in captured))
+                            try:
+                                value = self.convert_path_records(target.spec, snapshot, node)
+                            except rt.KarelRuntimeError as error:
+                                self.unresolved_at('path-conversion', str(error), node)
+                                flow.stopped = True
+                                return _Value(complete=False)
+                            self.publish_path_records(target, value.path_records, node, flow, history=history)
+                            self.write(status, _Value(0, spec=['INTEGER']), flow, node)
+                            return _Value()
 
         flow.path_orders[target.key if target is not None else None] = None
         self.unresolved_at('path-topology', 'COPY_PATH layout, bounds or destination effects require review', node)
@@ -1543,7 +1593,7 @@ class _Analyzer:
             self.unresolved_at('limit', 'PATH ARRAY conversion target exceeds the scalar snapshot limit', node)
             flow.stopped = True
             return _Value(complete=False, spec=target)
-        if layout[1] == 'kinematic' or layout[0] == 'kinematic' and count:
+        if _path_conversion_needs_model(layout, count):
             self.context('robot', None)
             self.unresolved_at('path-conversion', 'PATH ARRAY conversion requires robot model results', node)
             self.opaque(flow)
@@ -1643,13 +1693,21 @@ class _Analyzer:
             layout = path_conversion_layout(target_type, tuple_spec(value.spec), model=True)
             count = len(value.path_records) - int(value.spec[2] is not None)
             node_type = target[1] or self.plan.get('default_path_node')
-            if layout and 'kinematic' not in layout and node_type and self.path_snapshot_fits(target_type, count):
-                try:
-                    return self.convert_path_records(target, value, node)
-                except rt.KarelRuntimeError as error:
-                    self.unresolved_at('path-conversion', str(error), node)
+            if layout:
+                if not self.path_snapshot_fits(target_type, count):
+                    self.unresolved_at('limit', 'PATH conversion target exceeds the scalar snapshot limit', node)
                     flow.stopped = True
                     return _Value(complete=False, spec=target)
+                if _path_conversion_needs_model(layout, count):
+                    self.context('robot', None)
+                    self.unresolved_at('path-conversion', 'PATH conversion requires robot model results', node)
+                elif node_type or not count:
+                    try:
+                        return self.convert_path_records(target, value, node)
+                    except rt.KarelRuntimeError as error:
+                        self.unresolved_at('path-conversion', str(error), node)
+                        flow.stopped = True
+                        return _Value(complete=False, spec=target)
         self.unresolved_at('path-topology', 'Private PATH value or conversion requires review', node)
         self.opaque(flow)
         return _Value(complete=False, spec=target)
@@ -1661,6 +1719,8 @@ class _Analyzer:
             return
         target_type = node['path_assignment_type']
         value = self.convert_path_value(target_type, value, source_arg, flow)
+        if flow.stopped and not flow.opaque:
+            return
         target = self.locate(target_arg, flow, conditional)
         if flow.stopped and not flow.opaque:
             return
@@ -1686,6 +1746,9 @@ class _Analyzer:
         """Read the selected records and header before publishing any copy."""
         selected = (0, *indexes) if source.spec[2] is not None else indexes
         self.tick(len(selected))
+        if isinstance(source, _Value):
+            has_header = source.spec[2] is not None
+            return [source.path_records[index if has_header else index - 1] for index in selected]
         values = []
         for index in selected:
             loc = self.index_child(source, index, node, flow)
