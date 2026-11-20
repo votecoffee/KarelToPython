@@ -1,5 +1,11 @@
 # Changelog
 
+## 26.1120.011741 - 2026-11-20
+
+- Give built-in functions and typed output procedures dedicated generators.
+  Preserve checked argument order, register and conversion output storage,
+  and pose source capture before UNPOS writes.
+
 ## 26.1120.011128 - 2026-11-20
 
 - Move procedure dispatch, FILE operations, and DELAY, WAIT, and PULSE

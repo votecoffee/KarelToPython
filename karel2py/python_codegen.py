@@ -4,6 +4,7 @@ import re
 from .compiler_language import SKIPPABLE_STATEMENTS
 from .array_schema_analysis import ArraySchemaAnalysis
 from .assignment_codegen import AssignmentLowering
+from .builtin_codegen import BuiltinFunctionLowering
 from .constant_analysis import ConstantAnalysis
 from .declarations import DeclarationPasses
 from .flow_codegen import ControlFlowLowering
@@ -14,6 +15,7 @@ from .select_codegen import SelectLowering
 from .expression_codegen import ExpressionLowering
 from .motion_codegen import MotionLowering
 from .named_type_analysis import NamedTypeAnalysis
+from .output_procedure_codegen import OutputProcedureLowering
 from .procedure_codegen import ProcedureLowering
 from .program_cli_codegen import ProgramCLILowering
 from .program_codegen import ProgramLowering
@@ -38,7 +40,8 @@ class Emitter(DeclarationPasses, TypeQueries, ExpressionLowering, AssignmentLowe
               MotionLowering, TaskControlLowering, HandlerLowering, LoopLowering, UsingLowering,
               ControlFlowLowering, SelectLowering, SourceNormalization, RoutineEffectAnalysis,
               ConstantAnalysis, NamedTypeAnalysis, ArraySchemaAnalysis, RoutineDeclarations,
-              ProgramLowering, ProgramCLILowering, ProcedureLowering, TimingLowering):
+              ProgramLowering, ProgramCLILowering, ProcedureLowering, TimingLowering,
+              BuiltinFunctionLowering, OutputProcedureLowering):
     """Emit a Python module from a parsed program and its checked declarations."""
 
     def __init__(self, program, filename, array_shapes=None, mode='strict', cooperative=False):

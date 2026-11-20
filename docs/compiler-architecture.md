@@ -27,6 +27,8 @@ input-discovery contract to the result.
 | Robot system access | `robot_system_analysis.py`, `robot_system_codegen.py` | Checks writable pose paths and source schemas. Emits system reads and captures write values before frame/tool selectors. |
 | Statement I/O | `statement_io_analysis.py`, `statement_io_codegen.py` | Checks READ and WRITE formats, stages operands and FILE bindings, and emits FILE open, close, and cancellation. |
 | Statement timing | `timing_codegen.py` | Checks and emits DELAY, WAIT, and PULSE using the existing scheduler and polling calls. |
+| Built-in functions | `builtin_codegen.py` | Emits checked scalar and geometry operands, initialization queries, ARRAY lengths, and microsecond timer calls. |
+| Typed output procedures | `output_procedure_codegen.py` | Checks writable outputs and emits conversion, register, joint, and UNPOS procedures with their existing reference and capture rules. |
 | Procedure dispatch | `procedure_codegen.py` | Selects procedure lowering using the source mode and routine namespace before emitting the call. |
 | Motion | `motion_analysis.py`, `motion_codegen.py` | Checks motion operand types and PATH selectors. Captures settings, operands, and local callbacks for the offline runtime. |
 | Task control | `task_codegen.py` | Lowers local and addressed task transitions, ABORT, and event/semaphore signals with the existing scheduler checkpoints. |
