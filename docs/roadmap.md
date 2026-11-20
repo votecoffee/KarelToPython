@@ -2,8 +2,9 @@
 
 Functional Pythonic conversion remains the implementation priority. The
 compiler now separates parsing, schema validation, control-flow analysis, and
-Python generation. The next priority is resolving more linked scheduling and
-callback dependencies. Strict compatibility follows functional coverage.
+Python generation. Remaining Pythonic source forms and offline overloads take
+priority. See the [coverage backlog](unsupported.md) for gaps by feature.
+Strict compatibility follows functional coverage.
 Current behavior and restrictions are documented in the [support guide](language-support.md)
 and [desktop guide](desktop.md).
 

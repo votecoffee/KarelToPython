@@ -51,6 +51,26 @@ class FixedArrayTypeTextTests(unittest.TestCase):
         v,ctx,_,_=run(kind='ARRAY OF ARRAY[3]OF INTEGER')
         self.assertEqual((v['STATUS'],ctx.variables.bindings),(5,{}))
 
+    def test_bare_and_wildcard_layers_bind_slots_from_inner_to_outer(self):
+        cases = [
+            ('ARRAY OF ARRAY OF INTEGER', (3,2,0), (2,3)),
+            ('ARRAY[*,2,*] OF INTEGER', (3,4,0), (4,2,3)),
+            ('ARRAY[2] OF ARRAY OF INTEGER', (3,0,0), (2,3)),
+            ('ARRAY[*] OF ARRAY[3] OF INTEGER', (2,4,0), (4,2,3)),
+            (' array [ 2, * ] of integer ', (1,3,0), (3,2,1)),
+        ]
+        for kind, dims, expected in cases:
+            with self.subTest(kind=kind, dims=dims):
+                values, ctx, _, _ = run(kind=kind, dims=dims)
+                self.assertEqual(values['STATUS'], 0)
+                self.assertEqual(ref(ctx).spec, ('ARRAY', expected, rt.INTEGER))
+
+    def test_wildcard_parent_preserves_named_terminal_dimensions(self):
+        values, ctx, _, _ = run(kind='ARRAY[1,*] OF ROW_T', dims=(2,0,0))
+        self.assertEqual(values['STATUS'], 0)
+        self.assertEqual(ref(ctx).spec, ('ARRAY', (1,2), ('ARRAY',3,rt.INTEGER,'ROW_T')))
+        self.assertEqual(reserved(ctx.variables), 6)
+
     def test_named_inner_arrays_keep_identity_and_independent_children(self):
         _,ctx,_,_=run(kind='ARRAY[2]OF ROW_T')
         value=ref(ctx).raw()
@@ -139,7 +159,8 @@ class FixedArrayOperationsTests(unittest.TestCase):
     def test_file_matrix_uses_original_descriptors_and_closed_allocation_markers(self):
         files=rt.MemoryFiles();ctx=rt.ExecutionContext(files=files)
         routines="ROUTINE work(p:ARRAY OF ARRAY OF FILE) BEGIN OPEN FILE p[2,3]('WB','out') WRITE p[2,3](17) CLOSE FILE p[2,3] END work"
-        v,ctx,_,_=run("work(BYNAME('CACHE','ITEM',entry))",kind='ARRAY[2]OF ARRAY[3]OF FILE',routines=routines,context=ctx)
+        v,ctx,_,_=run("work(BYNAME('CACHE','ITEM',entry))",kind='ARRAY[*] OF ARRAY OF FILE',
+                      dims=(3,2,0),routines=routines,context=ctx)
         self.assertEqual(v['STATUS'],0);self.assertEqual(files.snapshot(),{'out':b'\x11\x00\x00\x00'})
         saved=json.loads(json.dumps(ctx.to_config()))
         self.assertEqual(saved['variables'][0]['value'],{'closed':True})
@@ -152,13 +173,14 @@ class FixedArrayOperationsTests(unittest.TestCase):
         ctx=rt.ExecutionContext(files=rt.MemoryFiles(),variable_archives=rt.VariableArchives())
         routines='ROUTINE work(p:ARRAY OF ARRAY OF route_t) BEGIN APPEND_NODE(p[2,3],status) p[2,3][1].amount=17 END work'
         body="work(BYNAME('CACHE','ITEM',entry)) SAVE('CACHE','FR:DATA.VR',status) CLEAR('CACHE.VR',status) LOAD('FR:DATA.VR',0,status)"
-        v,ctx,_,_=run(body,kind='ARRAY[2]OF ARRAY[3]OF route_t',routines=routines,context=ctx)
+        v,ctx,_,_=run(body,kind='ARRAY[2] OF ARRAY[*] OF route_t',dims=(3,0,0),routines=routines,context=ctx)
         self.assertEqual((v['STATUS'],ref(ctx).raw().snapshot()[1][2]['nodes']),(0,[{'AMOUNT':17}]))
         self.assertEqual(ref(ctx).raw().snapshot()[0][0]['nodes'],[])
 
     def test_queue_matrix_persistence_detaches_buffer_links(self):
         routine='ROUTINE work(p:ARRAY OF ARRAY OF QUEUE_TYPE) BEGIN INIT_QUEUE(p[2,3]) APPEND_QUEUE(7,p[2,3],buffer,seq,status) END work'
-        v,ctx,_,_=run("work(BYNAME('CACHE','ITEM',entry))",kind='ARRAY[2,3]OF QUEUE_TYPE',routines=routine)
+        v,ctx,_,_=run("work(BYNAME('CACHE','ITEM',entry))",kind='ARRAY OF ARRAY[*] OF QUEUE_TYPE',
+                      dims=(3,2,0),routines=routine)
         self.assertEqual(v['STATUS'],0)
         saved=json.loads(json.dumps(ctx.to_config()));restored=rt.ExecutionContext.from_config(saved)
         self.assertEqual(ref(restored).raw().snapshot()[1][2]['entries'],[[1,7]])
@@ -211,8 +233,18 @@ class FixedArrayPreflightTests(unittest.TestCase):
         p,_=build(kind='ARRAY[2]OF BAD');p.variable_types['BAD']=('ARRAY',3,rt.INTEGER)
         self.assertEqual(p.run()['STATUS'],5)
 
-    def test_repeated_bare_layers_remain_ambiguous_and_rejected(self):
-        self.invalid('ARRAY OF ARRAY OF INTEGER',dims=(2,3,0))
+    def test_too_few_slots_or_excess_combined_dimensions_reject_before_allocation(self):
+        for kind,dims in [
+            ('ARRAY OF ARRAY OF INTEGER',(2,0,0)),
+            ('ARRAY[*,*,1] OF INTEGER',(2,0,0)),
+            ('ARRAY OF ARRAY[*] OF INTEGER',(0,2,2)),
+            ('ARRAY[*,*,1] OF ARRAY OF INTEGER',(2,3,4)),
+            ('ARRAY[2,*,*] OF INTEGER',(2,3,4)),
+            ('ARRAY[*,1] OF ROW_T',(2,3,0)),
+            ('ARRAY[*,*] OF INTEGER',(200,200,0)),
+        ]:
+            with self.subTest(kind=kind,dims=dims):
+                self.invalid(kind,dims=dims)
 
     def test_shared_quota_failure_preserves_prior_created_root(self):
         body=create('INTEGER',name='FIRST',dims=(32762,0,0))+create('ARRAY[2,3]OF INTEGER')
@@ -277,7 +309,7 @@ class FixedArrayPreflightTests(unittest.TestCase):
         self.assertFalse(policy['controller_validated'])
         self.assertEqual(policy['guide'],'docs/dynamic-fixed-arrays.md')
         self.assertIn('without source evaluation',policy['validation'])
-        self.assertIn('repeated bare ARRAY',report['dynamic_array_creation_policy']['boundaries'])
+        self.assertIn('unbound placeholders',report['dynamic_array_creation_policy']['boundaries'])
         self.assertNotIn('inline nested type grammar',report['dynamic_array_creation_policy']['boundaries'])
 
 

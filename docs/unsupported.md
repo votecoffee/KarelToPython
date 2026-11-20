@@ -182,10 +182,10 @@ components with complete-batch pose validation and bounded rounding normalizatio
   memory layouts and widget rendering remain unverified.
 [Inline ARRAY source spellings](inline-arrays.md) now normalize directly written
 anonymous layers to ordinary dimensions, including declarations and routine
-interfaces. [Fixed CREATE_VAR type strings](dynamic-fixed-arrays.md) now supply
-literal ARRAY shapes for data and resource banks. Named components retain their
-identities; anonymous nested runtime schemas, expression dimensions and repeated
-bare ARRAY type-string layers remain excluded.
+interfaces. [CREATE_VAR type strings](dynamic-fixed-arrays.md) supply fixed and slot-bound
+ARRAY shapes for data and resource banks. They normalize anonymous layers and
+preserve named components. Unbound placeholders, expression dimensions and
+ragged storage remain excluded.
 
 [ARRAY formal constraints](array-formal-shapes.md) now accept fixed, wildcard or
 mixed dimensions in source, including normalized inline layers. Module constants
@@ -691,17 +691,12 @@ queue-entry policies; FILE banks remain excluded.
   mobile delivery remain unavailable. [Supplied VT tray cells](vt-trays.md) now
   expand into independent queue entries, with explicit geometry, sequence choices,
   per-cell model/routing and allocation/forwarding state.
-- The workbench currently validates/translates/reviews/exports. The standalone
-  [run-document CLI](run-documents.md) now runs pinned generated Python with
-  supplied context and separate inputs/results, including partial failures.
-  [Bounded read-before-write discovery](input-discovery.md) now reports typed
-  source candidates and unresolved effects. Optional input templates build
-  whole-root shapes with missing markers and preserve supplied context. Complete
-  discovery, automatic value editing, linked-project runs, the parameter editor and workbench execution
-  remain [future work](roadmap.md).
-  CLI refresh preserves compatible edited inputs and reports schema changes in
-  a new document. It leaves incompatible data missing and retains the original
-  results; graphical refresh and automatic value choices remain unavailable.
+- The desktop and CLI run standalone and linked Python from pinned
+  [run documents](run-documents.md). [Read-before-write discovery](input-discovery.md)
+  reports typed candidates and unresolved effects. The desktop supports editing
+  discovered values. Both entry points can carry compatible inputs into revised
+  documents while preserving the original results. Broader discovery and
+  desktop export of linked KAREL sources remain on the [roadmap](roadmap.md).
 - Public strict mode remains a future milestone. `--mode strict` is rejected;
   preserved historical exactness work is not an available public execution mode.
 

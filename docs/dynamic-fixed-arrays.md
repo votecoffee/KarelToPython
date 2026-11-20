@@ -1,8 +1,9 @@
-# Fixed ARRAY type strings in CREATE_VAR
+# ARRAY type strings in CREATE_VAR
 
-Pythonic CREATE_VAR accepts fixed ARRAY type strings, including directly written
-layers. It normalizes those dimensions before allocation, using the same schemas
-as ordinary [inline declarations](inline-arrays.md).
+Pythonic CREATE_VAR accepts fixed dimensions, `*` placeholders and bare
+`ARRAY OF` layers in ARRAY type strings. It resolves those dimensions before
+allocation, using the same concrete schemas as ordinary
+[inline declarations](inline-arrays.md).
 
 ```karel
 CREATE_VAR('CACHE','ITEM','','ARRAY[2] OF ARRAY[3] OF INTEGER',0,0,0,0,status)
@@ -20,22 +21,28 @@ its shape completely. See the [runnable example](../examples/dynamic_fixed_array
 | `ARRAY[2] OF ARRAY[3] OF INTEGER` | `0,0,0` | The same normalized schema. |
 | `ARRAY[3] OF INTEGER` | `2,4,0` | ARRAY[4,2,3] OF INTEGER. |
 | `ARRAY OF ARRAY[3] OF INTEGER` | `2,0,0` | ARRAY[2,3] OF INTEGER. |
+| `ARRAY OF ARRAY OF INTEGER` | `3,2,0` | ARRAY[2,3] OF INTEGER. |
+| `ARRAY[*,2,*] OF INTEGER` | `3,4,0` | ARRAY[4,2,3] OF INTEGER. |
+| `ARRAY[2] OF ARRAY OF INTEGER` | `3,0,0` | ARRAY[2,3] OF INTEGER. |
+| `ARRAY[*,3] OF INTEGER` | `2,4,0` | ARRAY[4,2,3] OF INTEGER. |
 | `ARRAY[2] OF row_t` | `0,0,0` | ARRAY[2] OF the supplied named row type. |
 | `ARRAY[2,3] OF FILE` | `0,0,0` | Six fresh closed FILE descriptors. |
 | `ARRAY[2,3] OF PATH` | `0,0,0` | Six independent empty default PATHs. |
 | `ARRAY[2,3] OF QUEUE_TYPE` | `0,0,0` | Six independent uninitialized queues. |
 
-Literal dimensions are outer-to-inner. Existing dimension slots add outer
-dimensions in their existing inner-to-outer argument order. Used slots must be
-contiguous from the inner slot. One optional leading `ARRAY OF` retains its
-positive-inner-slot requirement. Bare layers inside fixed layers and repeated
-bare `ARRAY OF ARRAY OF` forms remain rejected.
+Written dimensions run from outermost to innermost. Each bare `ARRAY OF` adds
+one placeholder. Bind the innermost placeholder first using `inner_dim`, then
+bind outward using `mid_dim` and `outer_dim` as needed. Remaining positive slots
+prepend dimensions in reverse argument order. Used slots must be contiguous
+from the inner slot. Every placeholder must have a supplied value.
 
-Dimensions contain one through five decimal digits and must resolve to 1..32767.
-There are no signs, expressions, constants or wildcards in runtime type text.
-Case, surrounding spaces and spaces around ARRAY brackets/commas normalize.
-The existing bounded ASCII STRING input and terminal-type spellings still apply;
-the parser does not evaluate source code.
+Fixed dimensions contain one through five decimal digits and every dimension
+must resolve to 1..32767. The text accepts ASCII case and optional spaces around
+brackets and commas. Signed and expression dimensions are rejected, and the
+parser never evaluates source code. The existing bounded STRING and terminal
+type rules continue to apply. The slot argument order follows MARRC75KR07091E
+Rev N, PDF pages 356–357. Binding placeholders inside type text is a Pythonic
+extension.
 
 Terminal scalars, bounded/default STRING, builtin records, joints, named data,
 FILE and logical collections follow their current creation rules. STRING defaults
@@ -64,7 +71,8 @@ Saved JSON uses existing normalized ARRAY schemas and creation metadata. FILE
 banks retain closed allocation markers; logical queues omit buffer links. No live
 descriptors, callbacks or suspended execution are restored.
 
-Reports expose `dynamic_fixed_array_policy`, with existing data, FILE and
+Reports expose `dynamic_fixed_array_policy` for fixed and slot-bound forms,
+with existing data, FILE and
 collection policies retaining their own ownership boundaries. The
 [semantic ledger](semantics/dynamic_fixed_array_semantics.json) and
 [authored regressions](../tests/test_dynamic_fixed_arrays.py) cover allocation,

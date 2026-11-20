@@ -3,7 +3,7 @@
 ![KarelToPython icon](karel2py/assets/icons/karel_to_python_icon_64x64.png)
 
 KarelToPython translates a supported subset of FANUC KAREL into Python for
-offline inspection and execution. The current build is **26.1120.120945**.
+offline inspection and execution. The current build is **26.1120.121835**.
 
 ## Table of Contents
 
@@ -105,6 +105,7 @@ See [linked project runs](docs/run-documents.md#linked-project-runs).
 
 - Structured control flow, labels and jumps, routines, and reference parameters.
 - Checked scalar types, arrays and records, and common math and string builtins.
+- Fixed and slot-bound [dynamic ARRAY allocation](docs/dynamic-fixed-arrays.md).
 - Offline registers, ports, files, PATH and queues, task control, and timers.
 - Position and joint operations with explicit models for kinematics.
 

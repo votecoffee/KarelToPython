@@ -32,18 +32,18 @@ dimension slots and unchanged data/resource ownership checks.
 | Named `matrix_t=ARRAY[2,3]OF INTEGER` | inner=2, other slots zero | ARRAY[2] OF matrix_t; logical dimensions (2,2,3) |
 | Named ARRAY with all slots zero | No new dimensions | Existing exact named ARRAY type |
 
-Dimension slots describe the new outer storage, in the existing inner-to-outer
-argument order. Named inner ARRAY components retain their identities and physical
-boundaries. Logical rank includes every component and remains at most three.
-No flattening, reshaping, anonymous nested components or runtime wildcard sizes
-are introduced. Used slots remain contiguous positive INTEGER values in 1..32767.
+In these forms, dimension slots add outer storage in inner-to-outer argument
+order. Logical rank includes named inner components and stays at most three.
+Named components keep their dimensions and identities. Used slots must be
+contiguous positive INTEGER values in 1..32767.
 
 `ARRAY OF` requires a positive inner slot. It accepts existing scalar data,
 bounded STRING, VECTOR/CONFIG/Cartesian/joint and resolved data-record/ARRAY
 aliases. STRING defaults to capacity 12; explicit capacities stay within 1..254.
 Case and surrounding/repeated separating spaces are normalized. Repeated bare
-syntax such as `ARRAY OF ARRAY OF INTEGER` remains rejected: supply fixed literal
-layers or a named inner type. [FILE arrays](dynamic-file-arrays.md) use separate
+layers and `*` placeholders bind through the supplied dimension slots.
+[ARRAY type text rules](dynamic-fixed-arrays.md#shape-and-type-rules) describe
+binding order. [FILE arrays](dynamic-file-arrays.md) use separate
 descriptor-allocation rules. [PATH/QUEUE arrays](collection-arrays.md) use separate reference-only
 contracts; resource fields remain excluded.
 

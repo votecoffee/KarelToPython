@@ -778,16 +778,16 @@ def add_policies(report, *, expansion, filename):
         label,line,stack=expansion.origin(row['line']) or (str(filename),row['line'],())
         row.update(source_file=label,source_line=line,source_column=row['column'],include_stack=list(stack))
     report['dynamic_fixed_array_policy']=dict(
-        syntax='Pythonic CREATE_VAR fixed ARRAY[positive decimal literals] OF layers; comma or adjacent fixed layers normalize to existing outer dimensions; one optional bare ARRAY OF prefix still requires positive dimension slots',
-        shape='Literal dimensions are outer-to-inner; existing contiguous inner/middle/outer slots prepend new outer dimensions in reversed order; total logical rank includes named components and stays at most three',
+        syntax='Pythonic CREATE_VAR accepts comma or nested ARRAY layers with positive decimal dimensions, * placeholders, and bare ARRAY OF layers',
+        shape='Bind explicit * and bare ARRAY dimensions from innermost to outermost using contiguous positive slots, then prepend remaining slots in reverse order; rank including named components is at most three',
         identity='Resolve terminal data/FILE/PATH/QUEUE types or supplied aliases through the explicit type program; named ARRAY components preserve identity and storage boundaries',
         validation='Parse bounded ASCII type text without source evaluation; existing per-root schemas, 32767 leaf/resource units, group/pool, shared reservations, collisions and checkpoint rechecks precede publication',
         persistence='Existing concrete ARRAY schemas, created FILE closed-allocation markers and logical collection/data JSON or supported archives; no new anonymous nested runtime layouts or live resources',
-        boundary='No wildcard, signed or expression dimensions, repeated bare ARRAY layers, implicit type discovery, ragged storage, native allocation/compiler/controller or strict equivalence',
+        boundary='Reject unbound placeholders, signed or expression dimensions, implicit type discovery and ragged storage; no native allocation/compiler/controller or strict equivalence',
         guide='docs/dynamic-fixed-arrays.md',controller_validated=False)
-    report['dynamic_array_creation_policy']['syntax']='Existing ARRAY OF data/aliases and named outer dimensions, plus fixed literal ARRAY type strings under dynamic_fixed_array_policy'
-    report['dynamic_array_creation_policy']['boundaries']='No runtime wildcard/ragged dimensions, expression dimensions or repeated bare ARRAY layers; resource banks retain separate FILE/collection rules; no native allocation/layout/group effects, controller or strict equivalence'
-    report['dynamic_file_array_policy']['source']+='; fixed literal type strings follow dynamic_fixed_array_policy'
+    report['dynamic_array_creation_policy']['syntax']='Existing ARRAY OF data/aliases and named outer dimensions, plus explicit and slot-bound ARRAY type strings under dynamic_fixed_array_policy'
+    report['dynamic_array_creation_policy']['boundaries']='No unbound placeholders, ragged dimensions or expression dimensions; resource banks retain separate FILE/collection rules; no native allocation/layout/group effects, controller or strict equivalence'
+    report['dynamic_file_array_policy']['source']+='; fixed and slot-bound type strings follow dynamic_fixed_array_policy'
     report['vision_packed_bmp_policy']=dict(
         input='Optional bmp_format=RGB555 or RGB565 on explicit grayscale/RGB 8/16-bit rasters; reject alpha/palette combinations; absent keeps existing output bytes',
         formats='RGB555: 16-bit BI_RGB words with unused high bit zero; RGB565: 16-bit BI_BITFIELDS with red/green/blue masks F800/07E0/001F; bottom-up little-endian words and zero DWORD row padding',

@@ -10,7 +10,10 @@ VARIABLE_SUFFIX=rf'(?:\.{IDENTIFIER}|\[ *[0-9]+(?: *, *[0-9]+)* *\])*'
 VARIABLE_SELECTOR=rf'(?:\[({IDENTIFIER})\] *)?({IDENTIFIER})({VARIABLE_SUFFIX})'
 REAL_LITERAL=r'[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[Ee][+-]?[0-9]+)?'
 MAX_LEAVES=32767
-FIXED_ARRAY_TEXT=re.compile(r'ARRAY *\[ *([0-9]{1,5}(?: *, *[0-9]{1,5}){0,2}) *\] *OF +(.+)')
+ARRAY_DIMENSION_TEXT = r'(?:[0-9]{1,5}|\*)'
+ARRAY_TYPE_LAYER = re.compile(
+    rf'ARRAY(?: +| *\[ *({ARRAY_DIMENSION_TEXT}(?: *, *{ARRAY_DIMENSION_TEXT}){{0,2}}) *\] *)OF +(.+)'
+)
 
 
 def file_storage_cost(spec):
@@ -158,6 +161,33 @@ def conflict(paths,root):
     return any(path==root or path.startswith(root+'.') or path.startswith(root+'[') for path in paths)
 
 
+def _array_type_shape(text, slots):
+    """Bind written wildcards from inner to outer, then prepend any unused slots."""
+    shape = []
+    while re.match(r'ARRAY\b', text):
+        layer = ARRAY_TYPE_LAYER.fullmatch(text)
+        if layer is None:
+            return None
+        dimensions = layer[1].split(',') if layer[1] is not None else ('*',)
+        shape.extend(None if part.strip() == '*' else int(part.strip()) for part in dimensions)
+        if len(shape) > 3:
+            return None
+        text = layer[2]
+
+    consumed = 0
+    for index in reversed(range(len(shape))):
+        size = shape[index]
+        if size is None:
+            if consumed == len(slots):
+                return None
+            shape[index] = slots[consumed]
+            consumed += 1
+        elif not 1 <= size <= MAX_LEAVES:
+            return None
+    outer_shape = (*reversed(slots[consumed:]), *shape)
+    return (text, outer_shape) if len(outer_shape) <= 3 else None
+
+
 def concrete_type(context,state,program,text,group,dimensions,line):
     """Portable data and Pythonic root resources; validate before allocation."""
     rt=runtime()
@@ -165,21 +195,15 @@ def concrete_type(context,state,program,text,group,dimensions,line):
     if (type(dimensions) not in (tuple,list) or len(dimensions)!=3
             or any(type(size) is not int or not 0<=size<=32767 for size in dimensions)):
         return None
-    literal_shape=[]
+    slots = tuple(size for size in dimensions if size)
+    if tuple(dimensions[:len(slots)]) != slots:
+        return None
+    shape = tuple(reversed(slots))
     if rt._pythonic():
-        array=re.fullmatch(r'ARRAY +OF +(.+)',text)
-        if array:
-            if not dimensions[0]:return None
-            text=array[1]
-        # Parse fixed literal layers only. No source evaluation or anonymous
-        # nested runtime schemas: merge these dimensions into one outer ARRAY.
-        while re.match(r'ARRAY\b',text):
-            fixed=FIXED_ARRAY_TEXT.fullmatch(text)
-            if fixed is None:return None
-            sizes=tuple(int(part.strip()) for part in fixed[1].split(','))
-            if len(literal_shape)+len(sizes)>3 or any(not 1<=size<=MAX_LEAVES for size in sizes):return None
-            literal_shape.extend(sizes)
-            text=fixed[2]
+        parsed = _array_type_shape(text, slots)
+        if parsed is None:
+            return None
+        text, shape = parsed
     if text in ('INTEGER','REAL','BOOLEAN','CONFIG','VECTOR','POSITION','XYZWPR','XYZWPREXT',*rt.ASSOCIATION_TYPES):
         spec=(text,)
     elif text in ('FILE','PATH','QUEUE_TYPE') and rt._pythonic():
@@ -201,10 +225,6 @@ def concrete_type(context,state,program,text,group,dimensions,line):
         owner=state if program==state.program_name else context.variables.programs.get(program)
         spec=getattr(getattr(owner,'program',None),'variable_types',{}).get(text)
         if spec is None: return None
-    # Zero means unused; dimensions must be contiguous from the inner dimension.
-    if any(type(size) is not int or not 0<=size<=32767 for size in dimensions): return None
-    if (dimensions[1] and not dimensions[0]) or (dimensions[2] and not dimensions[1]): return None
-    shape=tuple(size for size in reversed(dimensions) if size)+tuple(literal_shape)
     if spec[0] in ('FILE','PATH','QUEUE_TYPE') and not rt._pythonic(): return None
     if shape:
         if spec[0]=='ARRAY' and (not rt._pythonic() or rt.array_identity(spec) is None):return None

@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1120.121835 - 2026-11-20
+
+- Bind wildcard dimensions and repeated bare ARRAY layers in Pythonic
+  `CREATE_VAR` type strings using explicit dimension slots from inner to outer.
+- Normalize mixed fixed and slot-bound shapes for data, FILE, PATH, queues,
+  and named components under the existing allocation and persistence rules.
+
 ## 26.1120.120945 - 2026-11-20
 
 - Follow explicit top-level `PAUSE` in linked child bodies limited to
