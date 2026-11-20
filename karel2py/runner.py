@@ -237,9 +237,31 @@ def _standalone_edit_target(path, document):
     return target_path
 
 
-def _prepare_edited_context(document, target_path, context):
+def _edit_target_paths(path, document):
+    if isinstance(document, dict) and document.get('schema') == PROJECT_SCHEMA:
+        from .project_run import project_document_fields, verify_project_pins
+
+        target, _ = project_document_fields(document)
+        return tuple(row[0] for row in verify_project_pins(path, target).values())
+    return (_standalone_edit_target(path, document),)
+
+
+def _store_edited_inputs(path, document, original, target_paths, protected):
+    if document['schema'] == PROJECT_SCHEMA:
+        from .project_run import check_project_pin_bytes
+
+        check_project_pin_bytes(path, document['target'])
+    return _store(path, document, expected=original, protected=(*target_paths, *protected))
+
+
+def _prepare_edited_context(document, target_paths, context):
+    if document['schema'] == PROJECT_SCHEMA:
+        from .project_input_discovery import prepare_project_inputs
+
+        return prepare_project_inputs(document['target'], target_paths, context)
     from .input_template import prepare_inputs
 
+    target_path, = target_paths
     target_bytes = _read(target_path)
     if hashlib.sha256(target_bytes).hexdigest() != document['target']['sha256']:
         raise RunDocumentError('Python target changed during input discovery')
@@ -253,26 +275,31 @@ def _replace_prepared_inputs(document, prepared):
     inputs.update(prepared)
 
 
+def prepare_project_document(path, *, context=None, expected=None, protected=()):
+    """Prepare a pinned run's inputs and keep any saved results."""
+    path, original, document = _read_revision(path, expected)
+    if not isinstance(document, dict) or document.get('schema') != PROJECT_SCHEMA:
+        raise RunDocumentError('Expected a karel2py.project-run.v1 document.')
+    target_paths = _edit_target_paths(path, document)
+    inputs = document['inputs']
+    prepared = _prepare_edited_context(document, target_paths, inputs['context'] if context is None else context)
+    inputs.update(prepared)
+    revision = _store_edited_inputs(path, document, original, target_paths, protected)
+    return document, revision
+
+
 def save_context(path, text, *, expected, protected=()):
     """Validate and save edited inputs against the revision shown by the editor."""
     context = _decode(text.encode('utf-8'))
     path, original, document = _read_revision(path, expected)
-    if isinstance(document, dict) and document.get('schema') == PROJECT_SCHEMA:
-        from .project_run import project_document_fields, verify_project_pins
-
-        target, _ = project_document_fields(document)
-        modules = verify_project_pins(path, target)
-        target_paths = tuple(module_path for module_path, _, _ in modules.values())
-    else:
-        target_path = _standalone_edit_target(path, document)
-        target_paths = (target_path,)
+    target_paths = _edit_target_paths(path, document)
     inputs = document['inputs']
     if 'template' in inputs:
-        _replace_prepared_inputs(document, _prepare_edited_context(document, target_paths[0], context))
+        _replace_prepared_inputs(document, _prepare_edited_context(document, target_paths, context))
     else:
         _context(context)
         inputs['context'] = context
-    revision = _store(path, document, expected=original, protected=(*target_paths, *protected))
+    revision = _store_edited_inputs(path, document, original, target_paths, protected)
     return document, revision
 
 
@@ -281,10 +308,10 @@ def _save_discovered_value(path, selected, update, *, expected, protected):
     from .runner_values import input_key
 
     path, original, document = _read_revision(path, expected)
-    target_path = _standalone_edit_target(path, document)
+    target_paths = _edit_target_paths(path, document)
     if 'template' not in document['inputs']:
         raise RunDocumentError('Discover inputs before editing a selected value.')
-    prepared = _prepare_edited_context(document, target_path, document['inputs']['context'])
+    prepared = _prepare_edited_context(document, target_paths, document['inputs']['context'])
     template, context = prepared['template'], prepared['context']
     report = template['discovery']
     for candidate, binding in zip(report['inputs'], template['bindings']):
@@ -294,7 +321,7 @@ def _save_discovered_value(path, selected, update, *, expected, protected):
     else:
         raise RunDocumentError('This input is no longer in the discovery report.')
     _replace_prepared_inputs(document, _prepare(report, context, materialize=False))
-    revision = _store(path, document, expected=original, protected=(target_path, *protected))
+    revision = _store_edited_inputs(path, document, original, target_paths, protected)
     return document, revision
 
 
@@ -464,6 +491,12 @@ def run_document(path, *, expected=None, cancel_event=None, protected=()):
     return document
 
 
+def _template_counts(document):
+    template = document['inputs']['template']
+    return dict(inputs=len(template['bindings']), requirements=len(template['requirements']),
+                unresolved=len(template['discovery']['unresolved']))
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=f'KarelToPython {__version__} - explicit offline run documents')
     parser.add_argument('--version', action='version', version=__version__)
@@ -480,6 +513,7 @@ def main(argv=None):
     project.add_argument('modules', type=Path, nargs='+')
     project.add_argument('--entry', required=True, help='Declared KAREL program to start')
     project.add_argument('--context', type=Path, help='Explicit execution-context JSON copied into inputs')
+    project.add_argument('--discover', action='store_true', help='Prepare owner-qualified inputs without executing the linked modules')
     project.add_argument('--max-steps', type=int, default=100000, help='Execution step limit per task')
     project.add_argument('--max-cycles', type=int, default=100000, help='Scheduler cycle limit')
     project.add_argument('--max-output-chars', type=int, default=1048576, help='Combined WRITE output limit')
@@ -489,6 +523,9 @@ def main(argv=None):
     discover_project = subparsers.add_parser('discover-project', help='Discover inputs from a pinned linked run without executing it')
     discover_project.add_argument('document', type=Path)
     discover_project.add_argument('--output', type=Path, help='New private JSON report; otherwise print the full report')
+    prepare_project = subparsers.add_parser('prepare-project', help='Prepare inputs in an existing pinned linked run')
+    prepare_project.add_argument('document', type=Path)
+    prepare_project.add_argument('--context', type=Path, help='Replace input context from an explicit JSON file before preparation')
     refresh = subparsers.add_parser('refresh', help='Rediscover into a new run document, retaining compatible edited inputs')
     refresh.add_argument('source', type=Path)
     refresh.add_argument('document', type=Path)
@@ -504,8 +541,19 @@ def main(argv=None):
             context = _decode(_read(args.context)) if args.context else None
             document = create_project_document(args.modules, args.document, entry=args.entry, context=context,
                 max_steps=args.max_steps, max_cycles=args.max_cycles, max_output_chars=args.max_output_chars,
-                protected=(args.context,) if args.context else ())
-            print(json.dumps(dict(status='prepared', program=document['target']['program'], modules=len(args.modules))))
+                protected=(args.context,) if args.context else (), discover=args.discover)
+            summary = dict(status='prepared', program=document['target']['program'], modules=len(args.modules))
+            if args.discover:
+                summary.update(_template_counts(document))
+            print(json.dumps(summary))
+            return 0
+        if args.command == 'prepare-project':
+            context = _decode(_read(args.context)) if args.context else None
+            if args.context:
+                _context(context)
+            document, _ = prepare_project_document(args.document, context=context,
+                                                   protected=(args.context,) if args.context else ())
+            print(json.dumps(dict(status='prepared', program=document['target']['program'], **_template_counts(document))))
             return 0
         if args.command == 'refresh':
             document = refresh_document(args.source, args.document, target=args.target)
@@ -539,9 +587,7 @@ def main(argv=None):
                                        protected=(args.context,) if args.context else (), discover=args.discover)
             summary = dict(status='prepared', program=document['target']['program'])
             if args.discover:
-                template = document['inputs']['template']
-                summary.update(inputs=len(template['bindings']), requirements=len(template['requirements']),
-                               unresolved=len(template['discovery']['unresolved']))
+                summary.update(_template_counts(document))
             print(json.dumps(summary))
             return 0
         document = run_document(args.document)

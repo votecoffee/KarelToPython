@@ -1,6 +1,7 @@
 """Pin and replay a linked set of already generated Python modules."""
 from dataclasses import dataclass
 from functools import partial
+from hashlib import sha256
 import inspect
 import os
 from pathlib import Path
@@ -68,7 +69,7 @@ def _validate_limits(limits):
 
 
 def create_project_document(paths, destination, *, entry, context=None, max_steps=100000, max_cycles=100000,
-                            max_output_chars=1048576, protected=(), expected_modules=None):
+                            max_output_chars=1048576, protected=(), expected_modules=None, discover=False):
     """Inspect and pin each selected module without importing its code."""
     destination = Path(destination).absolute()
     limits = dict(max_steps=max_steps, max_cycles=max_cycles, max_output_chars=max_output_chars)
@@ -92,8 +93,16 @@ def create_project_document(paths, destination, *, entry, context=None, max_step
             name = str(pin.path)
         rows.append(dict(path=name, program=pin.program, sha256=pin.sha256))
     target = dict(program=entry, mode='pythonic', modules=rows)
-    document = dict(schema=PROJECT_SCHEMA, target=target, limits=limits, inputs=dict(context=config), results=None)
     module_paths = tuple(pin.path for pin in pins)
+    if type(discover) is not bool:
+        raise RunDocumentError('discover must be BOOLEAN')
+    inputs = dict(context=config)
+    if discover:
+        from .project_input_discovery import prepare_project_inputs
+
+        inputs = prepare_project_inputs(target, module_paths, config)
+        check_project_pin_bytes(destination, target)
+    document = dict(schema=PROJECT_SCHEMA, target=target, limits=limits, inputs=inputs, results=None)
     _store(destination, document, protected=(*module_paths, *protected))
     return document
 
@@ -120,8 +129,15 @@ def project_document_fields(document, *, inspect_only=False):
     if target['program'] not in names:
         raise RunDocumentError('The linked entry must be one of the pinned modules.')
     _validate_limits(document['limits'])
-    if type(inputs) is not dict or set(inputs) != {'context'}:
-        raise RunDocumentError('Linked run inputs require explicit context.')
+    if type(inputs) is not dict or set(inputs) not in ({'context'}, {'context', 'template'}):
+        raise RunDocumentError('Linked run inputs require context and may include template annotations.')
+    if 'template' in inputs:
+        from .input_template import validate_annotations
+
+        try:
+            validate_annotations(inputs['template'], target)
+        except ValueError as error:
+            raise RunDocumentError(str(error)) from error
     if results is not None:
         if type(results) is not dict:
             raise RunDocumentError('results must be null or an object')
@@ -137,6 +153,13 @@ def verify_project_pins(path, target):
     if [(name, sha256) for name, (_, sha256, _) in modules.items()] != [(row['program'], row['sha256']) for row in rows]:
         raise RunDocumentError('A linked Python module changed. Create a new run document.')
     return modules
+
+
+def check_project_pin_bytes(path, target):
+    """Recheck the pinned source bytes before publishing prepared inputs."""
+    for row in target['modules']:
+        if sha256(_read(path.parent / row['path'])).hexdigest() != row['sha256']:
+            raise RunDocumentError('A linked Python module changed during input preparation.')
 
 
 def _preflight(path, document):

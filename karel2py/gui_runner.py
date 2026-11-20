@@ -161,8 +161,11 @@ class RunWindow:
         for label in ('New from Python…', 'New linked…', 'Open run…'):
             self.buttons[label].configure(state='disabled' if self.busy else 'normal')
         linked = self._linked()
+        refresh_label = 'Rediscover…'
+        if linked:
+            refresh_label = 'Discover inputs…' if interrupted else 'Prepare inputs…'
         self.buttons['Rediscover…'].configure(
-            text='Discover inputs…' if linked else 'Rediscover…',
+            text=refresh_label,
             state='normal' if editable or (linked and not self.busy) else 'disabled')
         for label in ('Save inputs', 'Run'):
             self.buttons[label].configure(state='normal' if editable else 'disabled')
@@ -173,7 +176,7 @@ class RunWindow:
 
     def _selected_rows(self):
         selection = self.inputs.selection()
-        if not selection or self.document is None or self._linked():
+        if not selection or self.document is None or 'template' not in self.document['inputs']:
             return {}, {}
         template = self.document['inputs']['template']
         binding = template['bindings'][int(selection[0])]
@@ -216,6 +219,11 @@ class RunWindow:
             self._select_input()
         self.edit_selected()
 
+    def _input_label(self, binding):
+        path = str(binding.get('path', ''))
+        program = binding.get('program')
+        return f'{program}.{path}' if self._linked() and program else path
+
     def edit_selected(self):
         if str(self.edit_value['state']) != 'normal':
             return
@@ -225,7 +233,7 @@ class RunWindow:
         candidate, binding = self._selected_rows()
         try:
             context = deepcopy(self.document['inputs']['context'])
-            label = binding['path']
+            label = self._input_label(binding)
             if supports_structure(candidate):
                 draft = structured_slot(context, candidate, binding).draft(label)
                 payload = prompt_structure(self.window, label, draft, _prompt_value)
@@ -248,24 +256,35 @@ class RunWindow:
     def _show_inputs(self, target, path, template):
         self.inputs.delete(*self.inputs.get_children())
         self.detail.set('')
+        requirements = {}
         if self._linked():
             modules = target['modules']
             self.location.set(f"Entry {target['program']}  ·  {len(modules)} pinned modules\n{path}")
-            self.tabs.hide(self.inputs_page)
-            self.tabs.tab(self.requirements_page, text='Pinned modules')
-            self._display(self.requirements, self._json(modules))
-            return
+            if not template:
+                self.tabs.hide(self.inputs_page)
+                self.tabs.tab(self.requirements_page, text='Pinned modules')
+                self._display(self.requirements, self._json(modules))
+                return
+            requirements['modules'] = modules
+            self.tabs.add(self.linked_discovery_page, text='Discovery report')
+            self._display(self.linked_discovery, self._json(template['discovery']))
+        else:
+            self.location.set(f"{target['program']}  ·  {path}\nPython  {target['path']}")
 
-        self.location.set(f"{target['program']}  ·  {path}\nPython  {target['path']}")
         self.tabs.add(self.inputs_page)
         self.tabs.tab(self.requirements_page, text='Requirements')
         for index, row in enumerate(template.get('bindings', ())):
-            self.inputs.insert('', 'end', iid=str(index), values=tuple(str(row.get(key, '')) for key in ('kind', 'path', 'certainty', 'status')))
-        self._display(self.requirements, self._json({
-            'requirements': template.get('requirements', []),
-            'unresolved': template.get('discovery', {}).get('unresolved', []),
-            **({'refresh': template['refresh']} if 'refresh' in template else {}),
-        }) if template else 'Use Rediscover to prepare input annotations for this document.')
+            self.inputs.insert('', 'end', iid=str(index),
+                               values=(str(row.get('kind', '')), self._input_label(row),
+                                       str(row.get('certainty', '')), str(row.get('status', ''))))
+        requirements.update(
+            requirements=template.get('requirements', []),
+            unresolved=template.get('discovery', {}).get('unresolved', []),
+        )
+        if 'refresh' in template:
+            requirements['refresh'] = template['refresh']
+        self._display(self.requirements, self._json(requirements) if template else
+                      'Use Rediscover to prepare input annotations for this document.')
 
     def _show_result(self, _event=None):
         result = self.document['results']
@@ -292,7 +311,8 @@ class RunWindow:
         self.context_help.configure(text=help_text)
         self._display(self.context, self._json(inputs['context']), editable=True)
         if not same_document:
-            self.tabs.select(self.edits_page if self._linked() else self.inputs_page)
+            page = self.edits_page if self._linked() and 'template' not in inputs else self.inputs_page
+            self.tabs.select(page)
         result = document['results']
         snapshots = (result or {}).get('programs')
         programs = ()
@@ -409,10 +429,10 @@ class RunWindow:
 
         def create():
             create_project_document([pin.path for pin in ordered], path, entry=entry, expected_modules=ordered,
-                                    protected=protected)
+                                    protected=protected, discover=True)
             return path, *runner.read_document(path)
 
-        self._start('Saving linked run…', create)
+        self._start('Preparing linked inputs…', create)
 
     def open(self):
         if self.busy or not self._discard_edits():
@@ -435,11 +455,28 @@ class RunWindow:
 
         self._start('Discovering linked inputs…', lambda: discover_project_document(path, expected=revision), on_success=show)
 
+    def _prepare_linked(self):
+        if self.context.edit_modified():
+            self.status.set('Save your context edits before preparing linked inputs.')
+            return
+        path, revision, protected = self.path, self.revision, self.protected
+
+        def show(outcome):
+            self._show(*outcome)
+            self.tabs.select(self.inputs_page)
+            self.status.set('Linked inputs prepared.')
+
+        self._start('Preparing linked inputs…', lambda: (path, *runner.prepare_project_document(
+            path, expected=revision, protected=protected)), on_success=show)
+
     def refresh(self):
         if self.busy or self.path is None:
             return
         if self._linked():
-            self._discover_linked()
+            if (self.document['results'] or {}).get('status') == 'running':
+                self._discover_linked()
+            else:
+                self._prepare_linked()
             return
         if not self._discard_edits():
             return

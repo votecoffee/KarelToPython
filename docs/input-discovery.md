@@ -33,8 +33,7 @@ The repository check also rejects full report instances under other JSON names.
 ## Linked project discovery
 
 Start with the JSON from `runner create-project` or the desktop **New linked**
-workflow. Run the following command or choose **Discover inputs** on that saved
-run in the desktop runner.
+workflow. Use the following command for a read-only report.
 
 ```console
 python -m karel2py.runner discover-project .local/linked.run.json
@@ -55,6 +54,14 @@ Python bytes prevent discovery. The report describes inputs for the modeled
 paths and leaves the saved inputs and results intact. Enter values in
 `inputs.context` using the reported owner and root schema. Add `--output`
 to save the report to a new private JSON file.
+
+**New linked** and `runner create-project --discover` save an editable template
+as part of the run document. Use **Prepare inputs** or `runner prepare-project`
+to prepare inputs in an existing document. The saved template identifies the
+entry and ordered module pins, so its identity remains stable as you edit
+inputs and replay the run. Same-named variables are separate inputs when their
+owners differ. Bank capacities and values still come from explicit context.
+[Linked project runs](run-documents.md#linked-project-runs)
 
 ## Report and values
 
@@ -402,8 +409,12 @@ contract. `karel2py.input_template.prepare_inputs(source, context=...)` returns
 independent `context` and `template` objects for CLI/host reuse; invalid contexts
 raise `InputTemplateError`. The [template ledger](semantics/input_template_semantics.json)
 records its contract. `karel2py.project_input_discovery.discover_project_document(path)`
-returns a linked report. Pass `expected` with the exact saved JSON bytes to
-require the same revision as the caller's open document.
+returns a linked report. `karel2py.runner.prepare_project_document(path)` saves
+the linked template and returns the updated document and its exact JSON bytes.
+It uses the existing context unless a caller supplies a replacement `context`.
+Both functions accept `expected` with the saved JSON bytes to check the caller's
+open revision. The scalar and structured save APIs use the same
+`(kind, program, path)` key for linked and standalone inputs.
 
 `karel2py.input_refresh.refresh_inputs(source, inputs, filename=...)` returns fresh
 context and template objects without changing the supplied inputs. Invalid

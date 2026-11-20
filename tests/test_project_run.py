@@ -58,6 +58,130 @@ class SavedProjectTests(unittest.TestCase):
             self.assertEqual(result['programs']['LIB']['values']['N'], 7)
             self.assertIn('7', result['text_output'])
 
+    def test_linked_templates_distinguish_owners_and_support_selected_edits(self):
+        main = self.module('MAIN', 's=n+read_n() copied=values',
+                           'VAR n,s:INTEGER values,copied:ARRAY[2] OF INTEGER',
+                           'ROUTINE read_n:INTEGER FROM LIB')
+        lib = self.module('LIB', routines='ROUTINE read_n:INTEGER BEGIN RETURN n END read_n')
+        context = {'variables': [dict(program='LIB', path='N', type='INTEGER', value=11)]}
+        with patch('builtins.exec', side_effect=AssertionError('target executed during preparation')):
+            created = self.create(lib, main, context=context, discover=True)
+        template = created['inputs']['template']
+        self.assertEqual(template['target'], created['target'])
+        self.assertEqual(template['discovery']['target'], created['target'])
+        self.assertEqual({(row['program'], row['path']): row['status'] for row in template['bindings']},
+                         {('MAIN', 'N'): 'missing', ('MAIN', 'VALUES'): 'missing', ('LIB', 'N'): 'supplied'})
+        self.assertEqual(context['variables'], [dict(program='LIB', path='N', type='INTEGER', value=11)])
+
+        revision = self.document.read_bytes()
+        for owner, value in [('MAIN', '4'), ('LIB', '3')]:
+            _, revision = runner.save_input_value(
+                self.document, ('variable', owner, 'N'), 'INTEGER', value, expected=revision)
+        _, revision = runner.save_input_structure(
+            self.document, ('variable', 'MAIN', 'VALUES'), [5, 6], expected=revision)
+        with self.assertRaisesRegex(ValueError, 'no longer in the discovery report'):
+            runner.save_input_value(self.document, ('variable', 'OTHER', 'N'), 'INTEGER', '9', expected=revision)
+        self.assertEqual(self.document.read_bytes(), revision)
+        run = runner.run_document(self.document, expected=revision)
+        self.assertEqual(run['results']['status'], 'completed')
+        main_values = run['results']['programs']['MAIN']['values']
+        self.assertEqual((main_values['N'], main_values['S'], main_values['COPIED']), (4, 7, [5, 6]))
+        self.assertEqual(run['results']['programs']['LIB']['values']['N'], 3)
+        saved, _ = runner.save_input_value(
+            self.document, ('variable', 'LIB', 'N'), 'INTEGER', '17', expected=self.document.read_bytes())
+        self.assertEqual(saved['results'], run['results'])
+        self.assertEqual(saved['inputs']['template']['target'], run['target'])
+
+    def test_prepare_existing_linked_document_preserves_results_and_checks_revision(self):
+        main = self.module('MAIN', 'WRITE(n)', 'VAR n FROM LIB:INTEGER')
+        lib = self.module('LIB')
+        seed = dict(program='LIB', path='N', type='INTEGER', value=3)
+        self.create(main, lib, context={'variables': [seed]})
+        previous = runner.run_document(self.document)
+        before = self.document.read_bytes()
+        saved, revision = runner.prepare_project_document(
+            self.document, context={'variables': [dict(seed, value=8)]}, expected=before)
+        self.assertEqual(saved['results'], previous['results'])
+        self.assertEqual(saved['target'], previous['target'])
+        self.assertEqual(saved['limits'], previous['limits'])
+        self.assertEqual(saved['inputs']['context']['variables'], [dict(seed, value=8)])
+        with self.assertRaisesRegex(ValueError, 'changed on disk'):
+            runner.prepare_project_document(self.document, expected=before)
+        with self.assertRaisesRegex(ValueError, 'Invalid input template context'):
+            runner.prepare_project_document(self.document, context={'variables': False}, expected=revision)
+        self.assertEqual(self.document.read_bytes(), revision)
+
+        self.assertEqual(runner.run_document(self.document)['results']['text_output'].strip(), '8')
+        saved, _ = runner.read_document(self.document)
+        saved['inputs']['template']['target']['modules'].reverse()
+        self.document.write_text(json.dumps(saved), encoding='utf-8')
+        with self.assertRaisesRegex(ValueError, 'stale input-template'):
+            runner.read_document(self.document)
+
+    def test_linked_template_keeps_service_requirements_and_updates_binding_status(self):
+        main = self.module('MAIN', 'read_inputs()', routines='ROUTINE read_inputs FROM LIB')
+        lib = self.module('LIB', declarations='VAR enabled:BOOLEAN text:STRING[8] status:INTEGER',
+                          routines='ROUTINE read_inputs BEGIN enabled=DIN[1] GET_STR_REG(1,text,status) END read_inputs')
+        context = {'strings': {'count': 1, 'values': {'1': 'ready'}}}
+        created = self.create(main, lib, discover=True, context=context)
+        self.assertEqual(created['inputs']['context'], context)
+        template = created['inputs']['template']
+        self.assertEqual({row['kind']: row['status'] for row in template['bindings']},
+                         {'port': 'unmapped', 'string_register': 'supplied'})
+        self.assertIn('ports', [row['service'] for row in template['requirements'] if row['code'] == 'service'])
+        context['ports'] = {'counts': {'DIN': 1}, 'values': {'DIN': {'1': False}}}
+        updated, revision = runner.save_context(self.document, json.dumps(context), expected=self.document.read_bytes())
+        template = updated['inputs']['template']
+        self.assertTrue(all(row['status'] == 'supplied' for row in template['bindings']))
+        self.assertEqual(template['requirements'], [])
+        result = runner.run_document(self.document, expected=revision)['results']
+        self.assertEqual(result['status'], 'completed')
+        lib_values = result['programs']['LIB']['values']
+        self.assertEqual((lib_values['ENABLED'], lib_values['TEXT']), (False, 'ready'))
+
+    def test_linked_edit_rechecks_all_modules_before_publication(self):
+        main, lib = self.module('MAIN', 'WRITE(n)'), self.module('LIB')
+        self.create(main, lib, discover=True)
+        before = self.document.read_bytes()
+        from karel2py.runner_values import scalar_slot
+
+        def edit_and_change_pin(*args):
+            with lib.open('ab') as stream:
+                stream.write(b'# changed during input edit\n')
+            return scalar_slot(*args)
+
+        with patch('karel2py.runner_values.scalar_slot', side_effect=edit_and_change_pin):
+            with self.assertRaisesRegex(ValueError, 'module changed during input preparation'):
+                runner.save_input_value(self.document, ('variable', 'MAIN', 'N'), 'INTEGER', '5', expected=before)
+        self.assertEqual(self.document.read_bytes(), before)
+
+    def test_cli_prepares_linked_inputs_and_replays_explicit_context(self):
+        main = self.module('MAIN', 'WRITE(n)', 'VAR n FROM LIB:INTEGER')
+        lib = self.module('LIB')
+        command = self.cli('karel2py.runner', 'create-project', self.document, main, lib, '--entry', 'MAIN', '--discover')
+        self.assertEqual(command.returncode, 0, command.stderr)
+        self.assertEqual(json.loads(command.stdout)['inputs'], 1)
+        before = self.document.read_bytes()
+        read_only = self.cli('karel2py.runner', 'discover-project', self.document)
+        self.assertEqual(read_only.returncode, 0, read_only.stderr)
+        self.assertEqual(json.loads(read_only.stdout)['inputs'][0]['program'], 'LIB')
+        self.assertEqual(self.document.read_bytes(), before)
+
+        context = self.folder / 'context.json'
+        context.write_text(json.dumps({'variables': [dict(program='LIB', path='N', type='INTEGER', value=13)]}),
+                           encoding='utf-8')
+        command = self.cli('karel2py.runner', 'prepare-project', self.document, '--context', context)
+        self.assertEqual(command.returncode, 0, command.stderr)
+        self.assertEqual(json.loads(command.stdout)['requirements'], 0)
+        command = self.cli('karel2py.runner', 'run', self.document)
+        self.assertEqual(command.returncode, 0, command.stderr)
+        saved, revision = runner.read_document(self.document)
+        self.assertEqual(saved['results']['text_output'].strip(), '13')
+        context.write_text('null', encoding='utf-8')
+        command = self.cli('karel2py.runner', 'prepare-project', self.document, '--context', context)
+        self.assertNotEqual(command.returncode, 0)
+        self.assertEqual(self.document.read_bytes(), revision)
+
     def test_discovery_follows_linked_reference_writes_and_transitive_global_owners(self):
         main = self.module('MAIN', 'fill(cell) w=11 WRITE(n,cell)', 'VAR n,w FROM BRIDGE:INTEGER cell:INTEGER',
                            'ROUTINE fill(x:INTEGER) FROM BRIDGE')

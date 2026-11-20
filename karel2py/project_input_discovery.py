@@ -1,8 +1,10 @@
 """Discover synchronous input flows across a saved run's pinned modules."""
+from copy import deepcopy
 from hashlib import sha256
 
 from .input_contract import InputContractError, extract
 from .input_discovery import InputDiscoveryError, analyze_plan
+from .input_template import _prepare
 from .project_run import project_document_fields, verify_project_pins
 from .runner import RunDocumentError, _read, _read_revision
 
@@ -25,11 +27,21 @@ def discover_project_document(path, *, expected=None):
     path, revision, document = _read_revision(path, expected)
     target, _ = project_document_fields(document, inspect_only=True)
     modules = verify_project_pins(path, target)
-    plans = {name: _read_plan(name, module_path, fingerprint)
-             for name, (module_path, fingerprint, _) in modules.items()}
-    entry = target['program']
-    identity = dict(file=str(path), sha256=sha256(revision).hexdigest(), program=entry, modules=target['modules'])
+    module_paths = tuple(row[0] for row in modules.values())
+    identity = dict(file=str(path), sha256=sha256(revision).hexdigest(), program=target['program'], modules=target['modules'])
+    return _analyze_pins(target, module_paths, identity)
+
+
+def _analyze_pins(target, module_paths, identity):
+    plans = {pin['program']: _read_plan(pin['program'], path, pin['sha256'])
+             for pin, path in zip(target['modules'], module_paths, strict=True)}
     try:
-        return analyze_plan(plans[entry], identity, linked_plans=plans)
+        return analyze_plan(plans[target['program']], identity, linked_plans=plans)
     except (KeyError, IndexError, TypeError, ValueError, AttributeError, RecursionError) as error:
         raise InputDiscoveryError(str(error)) from error
+
+
+def prepare_project_inputs(target, module_paths, context):
+    """Prepare owner-qualified inputs bound to the entry and ordered module pins."""
+    report = _analyze_pins(target, module_paths, deepcopy(target))
+    return _prepare(report, context)

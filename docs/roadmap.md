@@ -2,8 +2,8 @@
 
 Functional Pythonic conversion remains the implementation priority. The
 compiler now separates parsing, schema validation, control-flow analysis, and
-Python generation. The next priority is preparing and editing linked-run
-inputs. Strict compatibility follows functional coverage.
+Python generation. The next priority is carrying edited linked-run inputs to a
+revised module set. Strict compatibility follows functional coverage.
 Current behavior and restrictions are documented in the [support guide](language-support.md)
 and [desktop guide](desktop.md).
 
@@ -54,26 +54,23 @@ explicitly grouped position registers. Both entry points can carry compatible
 inputs to a new document on refresh.
 
 The desktop and CLI create pinned linked runs with an explicit entry and module
-order. The desktop edits the JSON context and shows each saved program snapshot.
-The linked discovery report follows synchronous calls with matching signatures,
-reference arguments, and imported variables.
+order. Both prepare owner-qualified input templates, and the desktop edits
+discovered scalar and structured inputs and shows each saved program snapshot.
+Input saves check the document revision and module pins and keep prior results.
+Discovery follows synchronous calls with matching signatures, reference
+arguments, and imported variables.
 [Linked input discovery](input-discovery.md#linked-project-discovery)
 
 ### Remaining linked-run work
 
-1. **Prepare and edit linked inputs.** Create owner-qualified templates from the
-   report. Share binding and validation rules across the CLI and desktop, and
-   expose scalar and structured fields in the desktop editor. Keep missing
-   values and unresolved service requirements visible.
-   Verify the document revision and module pins on save, and retain prior results.
-2. **Carry inputs to a revised module set.** Create a new linked document with
+1. **Carry inputs to a revised module set.** Create a new linked document with
    the selected entry and ordered pins. Carry only inputs whose owner, path,
    and schema are compatible. Report changed, removed, and unresolved
    bindings and preserve the original document and results.
-3. **Expand linked discovery.** Analyze scheduled child tasks, handler actions,
+2. **Expand linked discovery.** Analyze scheduled child tasks, handler actions,
    and callbacks where their targets and effects can be resolved. Keep dynamic
    selections and unknown timing or external effects visible in the report.
-4. **Export linked sources from the desktop.** Reuse linked-project validation
+3. **Export linked sources from the desktop.** Reuse linked-project validation
    and cooperative Python export so the desktop workflow can begin with KAREL
    source files. Keep the existing output and source-file protections.
 

@@ -55,7 +55,7 @@ modules in scheduling order, and name the program to start:
 ```sh
 python -c "from pathlib import Path; Path('.local/linked-python').mkdir(parents=True, exist_ok=True)"
 python -m karel2py.project examples/for_start_capture_linked --python-out .local/linked-python
-python -m karel2py.runner create-project .local/linked.run.json .local/linked-python/main.py .local/linked-python/lib.py --entry MAIN
+python -m karel2py.runner create-project .local/linked.run.json .local/linked-python/main.py .local/linked-python/lib.py --entry MAIN --discover
 python -m karel2py.runner run .local/linked.run.json
 ```
 
@@ -76,22 +76,32 @@ variables and routine signatures before starting the entry body. A changed
 module requires a new document. You can select up to 64 modules of up to
 16 MiB each, within a 32 MiB combined byte limit.
 
-Use `--context` at creation or edit `inputs.context` before replay. All programs
-share one fresh offline context and virtual scheduler. `--max-steps` limits
+Use `--discover` to save a template with owner-qualified variable paths,
+missing-value shapes, and requirements. Supply initial values with `--context`
+at creation or edit `inputs.context` before replay. All programs share one fresh
+offline context and virtual scheduler. `--max-steps` limits
 each task, `--max-cycles` bounds the scheduler and `--max-output-chars` bounds
 combined WRITE text. `results.programs` records each program's observed state
 and available variables. The variable snapshots include cleanup of suspended
 frames and counters. The document also records output, final context, and any
 failure or cancellation. Replay always starts from saved inputs.
 
-In the desktop runner, **New linked** inspects selected Python files,
-lets you choose the entry and module order, and saves the same document format.
-It checks the reviewed module paths and hashes again before saving. A desktop
-input save checks the document revision and module pins and preserves the last
-report. [Run a linked project in the desktop runner](desktop.md#run-a-linked-project)
-`runner discover-project .local/linked.run.json` reports linked input candidates
-from the pinned modules. Supply the identified values in `inputs.context`.
-[Linked input discovery](input-discovery.md#linked-project-discovery)
+In the desktop runner, **New linked** inspects selected Python files, lets you
+choose the entry and module order, and prepares editable inputs. **Prepare
+inputs** prepares the template for an existing run. Saving inputs checks the
+document revision and module pins and preserves the last result.
+[Run a linked project in the desktop runner](desktop.md#run-a-linked-project)
+
+```sh
+python -m karel2py.runner prepare-project .local/linked.run.json
+python -m karel2py.runner discover-project .local/linked.run.json
+```
+
+`prepare-project` uses the saved input context by default. Add `--context FILE`
+to replace it with an explicit context from a separate JSON file. Preparation
+updates the input template and preserves the entry, module order, limits and
+previous results. `discover-project` reports input candidates without changing
+the document. [Linked input discovery](input-discovery.md#linked-project-discovery)
 
 ## Inputs and results
 

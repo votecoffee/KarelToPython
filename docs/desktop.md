@@ -82,14 +82,14 @@ the JSON layouts and current coverage.
 2. Choose **Run Python**, then **New linked**, and select the generated `.py`
    files. Choose the program to start. Use **Move up** and **Move down** to
    arrange the order that breaks scheduling ties between equal-priority tasks.
-3. Save the new run JSON. **Pinned modules** shows the saved order, paths and
-   SHA-256 hashes. Use **Open run** to open existing JSON from the CLI or desktop.
-4. Choose **Discover inputs** to inspect candidates and analysis gaps in
-   **Linked inputs**. The report identifies the program that owns the variable
-   and the program where the read occurred.
-5. Set the initial values in **Edit context** and choose **Save inputs**. Set each
-   linked variable's `program` field to its owner. Discovery leaves the JSON
-   unchanged.
+3. Save the new run JSON. **Discovered inputs** qualifies each variable path by
+   its owning program. Use **Open run** for existing JSON from the CLI or
+   desktop, then choose **Prepare inputs** to add or update the input template.
+4. Select a discovered input and choose **Edit value** or **Edit fields**.
+   **Requirements** shows the module pins and remaining input or service needs.
+   **Discovery report** shows the owner and source location of each candidate.
+5. Use **Edit context** and **Save inputs** to configure services or edit the
+   JSON directly. Set each linked variable's `program` field to its owner.
 6. Choose **Run**. In **Last result**, choose **All results** for the complete
    report or select a program for its state and variable snapshot. **WRITE
    output** shows the combined text.

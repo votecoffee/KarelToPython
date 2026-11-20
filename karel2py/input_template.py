@@ -200,16 +200,23 @@ def _prepare(report, context, *, materialize=True):
         raise InputTemplateError('Invalid input template context: '+str(error)) from error
 
 
+def _matches_target(target, identity):
+    if 'modules' in identity:
+        # Run results and edits change the document hash. Module pins remain stable.
+        return type(target) is dict and target == identity
+    return (type(target) is dict and set(target) == {'file', 'sha256', 'program'}
+            and type(target['file']) is str
+            and type(target['sha256']) is str and re.fullmatch(r'[0-9a-f]{64}', target['sha256'])
+            and type(target['program']) is str and re.fullmatch(r'[A-Z_][A-Z_0-9]*', target['program'])
+            and target['sha256'] == identity['sha256'] and target['program'] == identity['program'])
+
+
 def validate_annotations(template, identity):
     """Check the optional source-bound annotation envelope, never its readiness."""
     fields = {'schema', 'target', 'discovery', 'bindings', 'requirements', 'boundary'}
-    if (type(template) is not dict or set(template) not in (fields, fields | {'refresh'})
-            or template['schema'] != SCHEMA or type(template['target']) is not dict
-            or set(template['target']) != {'file', 'sha256', 'program'}
-            or type(template['target']['file']) is not str
-            or type(template['target']['sha256']) is not str or not re.fullmatch(r'[0-9a-f]{64}', template['target']['sha256'])
-            or type(template['target']['program']) is not str or not re.fullmatch(r'[A-Z_][A-Z_0-9]*', template['target']['program'])
-            or any(template['target'].get(key) != identity[key] for key in ('sha256', 'program'))
+    allowed = (fields,) if 'modules' in identity else (fields, fields | {'refresh'})
+    if (type(template) is not dict or set(template) not in allowed or template['schema'] != SCHEMA
+            or not _matches_target(template['target'], identity)
             or type(template['discovery']) is not dict or template['discovery'].get('schema') != 'karel2py.inputs.v1'
             or template['discovery'].get('target') != template['target']
             or type(template['bindings']) is not list or type(template['requirements']) is not list

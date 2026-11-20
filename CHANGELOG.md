@@ -1,5 +1,13 @@
 # Changelog
 
+## 26.1120.014523 - 2026-11-20
+
+- Prepare owner-qualified input templates when creating or opening pinned linked
+  runs. Edit discovered scalars and structured fields in the desktop runner.
+- Add `runner create-project --discover` and `runner prepare-project` for CLI
+  preparation. Preserve saved results on input edits and verify module pins
+  and document revisions before publishing changes.
+
 ## 26.1120.013431 - 2026-11-20
 
 - Separate function-call lookup and shared schema conversion emission from the
