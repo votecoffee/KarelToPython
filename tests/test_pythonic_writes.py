@@ -257,8 +257,13 @@ class PythonicWriteValidationTests(unittest.TestCase):
                      "WRITE('x'::8::-1)", 'WRITE(1::-1)', 'WRITE(CR::8)'):
             self.reject(body, 'E_WRITE_FORMAT')
 
-    def test_single_colon_still_rejected(self):
-        self.reject("WRITE('x':2)", 'E_WRITE_ITEM')
+    def test_single_colon_is_not_a_format_delimiter(self):
+        for source in ("WRITE('x':2)", "WRITE(1::2:3)", "WRITE(1+2:3)"):
+            with self.subTest(source=source):
+                self.reject(source, 'E_WRITE_ITEM')
+
+    def test_parenthesized_invalid_relative_keeps_type_diagnostic(self):
+        self.reject('WRITE((1:2))', 'E_TYPE')
 
     def test_item_count_limit(self):
         self.reject('WRITE('+','.join(["''"]*1025)+')', 'E_WRITE_ITEMS')

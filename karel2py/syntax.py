@@ -9,6 +9,7 @@ class Expr:
     token: Token
     value: object = None
     args: list = field(default_factory=list)
+    relative_in_write: bool = False
 
 
 @dataclass

@@ -77,13 +77,16 @@ class TimingLowering:
 
     def lower_pulse(self, stmt):
         token = stmt.token
-        if 'DOUT' in self.types or 'DOUT' in self.visible_constants():
-            self.error('E_PULSE', 'PULSE requires the unshadowed DOUT port bank', token)
-        number = self.require_type(stmt.args[0], 'INTEGER')
-        duration = self.require_type(stmt.args[1], 'INTEGER')
-        nowait = stmt.args[2]
+        target, milliseconds, nowait, bank = stmt.args
+        if bank in self.types or bank in self.visible_constants():
+            self.error('E_PULSE', f'PULSE requires the unshadowed {bank} port bank', token)
+        number = self.require_type(target, 'INTEGER')
+        duration = self.require_type(milliseconds, 'INTEGER')
         self.features.update(('ports', 'extended services'))
         self.pulse_uses.append(dict(
             body=self.current_routine.name if self.current_routine else self.program.name,
-            line=token.line, column=token.column, nowait=nowait, operands_evaluated_once=True))
-        self.line(f'yield from _rt.pulse_execution(self._state,{number},{duration},{nowait!r},{token.line})', token)
+            line=token.line, column=token.column, nowait=nowait, port_bank=bank,
+            operands_evaluated_once=True))
+        bank_argument = f',port_bank={bank!r}' if bank != 'DOUT' else ''
+        self.line(f'yield from _rt.pulse_execution(self._state,{number},{duration},{nowait!r},{token.line}{bank_argument})',
+                  token)

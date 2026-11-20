@@ -185,6 +185,14 @@ class AggregateWriteGuardTests(unittest.TestCase):
 
 
 class AggregateWriteFileTests(unittest.TestCase):
+    def test_direct_relative_vector_write_to_binary_file(self):
+        body = ("CNV_STR_CONF('N',cfg,s) p=POS(1,2,3,0,0,0,cfg) v.x=4 v.y=5 v.z=6 "
+                "OPEN FILE f('WB','data') WRITE f(p:v) CLOSE FILE f")
+        program, context, report = memory(body, decl='cfg:CONFIG p:XYZWPR v:VECTOR s:INTEGER f:FILE')
+        program.run()
+        self.assertEqual(context.files.files['data'], struct.pack('<fff', 5., 7., 9.))
+        self.assertEqual(report.report['writes'][0]['data_type'], 'VECTOR')
+
     def test_memory_text_file_records_one_combined_statement(self):
         p,ctx,_=memory("OPEN FILE f('WO','data') a[1]=7 a[2]=9 WRITE f('a=',a,CR) CLOSE FILE f");p.run();self.assertEqual(ctx.files.files['data'],b'a= 7 9\n');self.assertEqual(texts(p),[])
 

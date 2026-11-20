@@ -555,10 +555,11 @@ class Parser:
             return self.motion_statement(token,settings)
         if self.mode=='pythonic' and name=='MOVE':return self.motion_statement(token)
         if self.mode=='pythonic' and name=='PULSE':
-            self.expect('DOUT');self.expect('[');port=self.expression();self.expect(']');self.expect('FOR')
+            bank = 'RDO' if self.in_handler_actions and self.accept('RDO') else self.expect('DOUT').value
+            self.expect('[');port=self.expression();self.expect(']');self.expect('FOR')
             duration=self.expression();nowait=bool(self.accept('NOWAIT'))
             if nowait and self.in_handler_actions: self.error('E_CONDITION_ACTION','NOWAIT is not allowed in a PULSE handler action',token)
-            return Statement('pulse',token,[port,duration,nowait])
+            return Statement('pulse',token,[port,duration,nowait,bank])
         if self.mode=='pythonic' and name in ('PAUSE','RESUME','UNPAUSE','CONTINUE','STOP'):
             target=[]
             if name!='STOP' and self.accept('PROGRAM'):
@@ -862,7 +863,7 @@ class Parser:
                 if self.current.value == '::':
                     self.error('E_WRITE_FORMAT', 'CR does not accept format specifiers')
             else:
-                value = self.expression(allow_relative=False)
+                value = self.expression(write_value=True)
                 formats = []
                 while self.accept('::'):
                     if len(formats) == 2:
@@ -956,7 +957,7 @@ class Parser:
         node=None if self.accept('*') else self.expression()
         self.expect(']');return node
 
-    def expression(self, minimum=0, *, allow_relative=True):
+    def expression(self, minimum=0, *, allow_relative=True, write_value=False):
         self.skip_lines()
         token = self.take()
         if self.mode=='pythonic' and token.value in ('EVENT','SEMAPHORE'):
@@ -998,7 +999,9 @@ class Parser:
             left = Expr('predefined', token, token.value)
         elif token.value in ('+', '-', 'NOT'):
             # KAREL unary +/- have the same precedence as addition, below *.
-            left = Expr('unary', token, token.value, [self.expression(50 if token.value == 'NOT' else 21, allow_relative=allow_relative)])
+            operand = self.expression(50 if token.value == 'NOT' else 21,
+                                      allow_relative=allow_relative, write_value=write_value)
+            left = Expr('unary', token, token.value, [operand])
         elif token.value == '(':
             child = self.expression()
             self.expect(')')
@@ -1033,8 +1036,10 @@ class Parser:
                 self.error('E_VECTOR_ASSOCIATIVITY', 'Parenthesize chained #/@ operations; same-level association needs KAREL validation', operator)
             if self.mode == 'strict' and operator.value == '>=<':
                 self.error('E_OPERATOR', f'{operator.value} requires an unimplemented numeric/geometry mapping', operator)
-            right = self.expression(PRECEDENCE[operator.value] + 1, allow_relative=allow_relative)
-            left = Expr('binary', operator, operator.value, [left, right])
+            right = self.expression(PRECEDENCE[operator.value] + 1,
+                                    allow_relative=allow_relative, write_value=write_value)
+            left = Expr('binary', operator, operator.value, [left, right],
+                        relative_in_write=write_value and operator.value == ':')
         return left
 
     def port_edge_ends_here(self):

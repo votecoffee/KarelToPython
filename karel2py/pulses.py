@@ -59,12 +59,14 @@ def finish(bank,pulse):
         del bank._pulses[pulse.key]
 
 
-def pulse_execution(state,number,milliseconds,nowait=False,line=None):
+def pulse_execution(state,number,milliseconds,nowait=False,line=None,*,port_bank="DOUT"):
     runtime=rt()
     if not runtime._pythonic(): raise runtime.KarelRuntimeError('PULSE requires Pythonic mode',line)
     number=runtime.integer(number,line);milliseconds=runtime.integer(milliseconds,line);nowait=runtime.boolean(nowait,line)
     if not 0<=milliseconds<=86400000: raise runtime.KarelRuntimeError('PULSE requires milliseconds in 0..86400000',line)
-    bank=state.execution.require('ports',line);key=bank._key('DOUT',number,line)
+    if port_bank not in ('DOUT', 'RDO') or (port_bank == 'RDO' and nowait):
+        raise runtime.KarelRuntimeError('PULSE requires DOUT or a blocking RDO action',line)
+    bank=state.execution.require('ports',line);key=bank._key(port_bank,number,line)
     row=dict(operation='PULSE',line=line,outcome='requested');state.service_requests.append(row)
     try:
         if not milliseconds: row['outcome']='completed';return

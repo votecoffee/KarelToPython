@@ -53,6 +53,24 @@ ENDMOVE n=n+100''')
         self.assertEqual(ctx.motion.history[-1]['data']['states'][0]['after'],dict(motion='idle',held=False))
         self.assertEqual(ctx.group_locks.motion,{})
 
+    def test_rdo_pulse_is_a_blocking_local_then_action(self):
+        ctx = context()
+        ctx.ports = rt.PortBank({'RDO': 1}, {('RDO', 1): False})
+        seen = []
+
+        def sleep(seconds):
+            seen.append((seconds, ctx.ports.read('RDO', 1)))
+
+        values, _, _, result, _ = execute(
+            'n=0 ATTACH MOVE AWAY 1, UNTIL TRUE THEN PULSE RDO[1] FOR 8 n=5 ENDMOVE n=n+1',
+            ctx=ctx, sleep=sleep, clock_us=lambda: 0
+        )
+        self.assertEqual(values['N'], 6)
+        self.assertEqual(seen, [(.008, True)])
+        self.assertFalse(ctx.ports.read('RDO', 1))
+        self.assertEqual(move(ctx)['outcome'], 'cancelled')
+        self.assertEqual(result.report['pulses'][0]['port_bank'], 'RDO')
+
     def test_until_without_then_is_an_implicit_cancel(self):
         _,ctx,_,_,_=execute('ATTACH MOVE AWAY 1, UNTIL TRUE ENDMOVE')
         self.assertEqual(move(ctx)['outcome'],'cancelled')

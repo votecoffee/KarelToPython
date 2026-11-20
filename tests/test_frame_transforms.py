@@ -125,6 +125,26 @@ class FrameMathTests(unittest.TestCase):
 
 
 class FrameIntegrationTests(unittest.TestCase):
+    def test_direct_relative_pose_write_matches_the_materialized_result(self):
+        body = ('a=POS(10,20,30,0,0,90,cfg) b=POS(2,3,4,0,0,0,cfg) '
+                'result=a:b WRITE(a:b) WRITE(result)')
+        for labelled in (False, True):
+            with self.subTest(labelled=labelled):
+                program, result = compile_program(body, labelled=labelled)
+                state = program.run()
+                output = [row['text'] for row in program.write_requests]
+                self.assertEqual(output[0], output[1])
+                self.assertTrue(output[0].startswith(' 7.00000E+00 2.20000E+01 3.40000E+01'))
+                self.assertEqual(state['RESULT']['X'], 7.)
+                self.assertEqual(result.report['writes'][0]['data_type'], 'XYZWPR')
+
+    def test_relative_vector_write_obeys_precedence_and_double_colon_formats(self):
+        body = ('a=POS(10,20,30,0,0,90,cfg) v.x=2 v.y=3 v.z=4 '
+                'offset.x=1 offset.y=1 offset.z=1 WRITE(a:v+offset::0::1,CR)')
+        program, _ = compile_program(body, declarations=DECLARATIONS+' v,offset:VECTOR')
+        program.run()
+        self.assertEqual([row['text'] for row in program.write_requests], [' 8.0 23.0 35.0\n'])
+
     def test_chains_associate_left(self):
         state=execute('a=POS(0,0,0,0,0,90,cfg) b=POS(1,0,0,0,0,0,cfg) result=a:b:b')
         self.assertEqual((state['RESULT']['X'],state['RESULT']['Y']),(0,2))

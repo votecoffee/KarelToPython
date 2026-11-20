@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1120.124509 - 2026-11-20
+
+- Translate unparenthesized relative pose and VECTOR expressions in WRITE data
+  items, including explicit FILE output and formats introduced with ::.
+- Support blocking PULSE RDO in global and motion-local condition actions
+  using the existing timed-output model and a separate logical bank.
+
 ## 26.1120.123855 - 2026-11-20
 
 - Support rising and falling digital port transitions in Pythonic WAIT FOR.

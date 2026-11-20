@@ -46,9 +46,10 @@ The left pose describes the local frame in its parent; the right pose is express
 in that local frame. Operand order matters. Colon has the same precedence as
 `@` and `#`, above multiplication, and chains associate left to right. Parentheses
 override grouping. Rounding can make differently grouped chains differ slightly.
-In READ/WRITE items and formats, group a geometric subexpression, as in
-`WRITE((a:b).x::0::1,CR)`, to keep the relative operator distinct from invalid
-single-colon format syntax.
+WRITE data expressions accept relative operations directly, as in `WRITE(a:b)`
+or `WRITE target(a:v::0::1,CR)` for a VECTOR result. Use `::` to introduce
+format specifiers. Use parentheses to select a field of a relative result, as
+in `WRITE((a:b).x::0::1,CR)`.
 
 For pose composition, both operands must be complete, initialized POSITION or XYZWPR values, including
 their CONFIG records. INV preserves representation; colon returns POSITION if

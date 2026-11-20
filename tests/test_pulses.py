@@ -283,6 +283,40 @@ class PulseSourceTests(unittest.TestCase):
         sleeps=[];p,ports,_,_=setup('CONDITION[1]: WHEN TRUE DO PULSE DOUT[1] FOR 9 ENDCONDITION ENABLE CONDITION[1] n=1',sleep=sleeps.append)
         self.assertEqual(p.run()['N'],1);self.assertEqual(sleeps,[.016]);self.assertFalse(ports.read('DOUT',1))
 
+    def test_blocking_rdo_action_has_an_independent_bank_and_deadline(self):
+        ports = rt.PortBank({'DOUT': 1, 'RDO': 1},
+                            {('DOUT', 1): False, ('RDO', 1): False})
+        clock = {'us': 0}
+        observed = []
+
+        def sleep(seconds):
+            observed.append((seconds, ports.read('DOUT', 1), ports.read('RDO', 1)))
+
+        body = ('PULSE DOUT[1] FOR 40 NOWAIT '
+                'CONDITION[1]: WHEN TRUE DO PULSE RDO[1] FOR 9 ENDCONDITION '
+                'ENABLE CONDITION[1] n=1')
+        program, result = compile_program(body, context=rt.ExecutionContext(ports=ports),
+                                          clock_us=lambda: clock['us'], sleep=sleep)
+        self.assertEqual(program.run()['N'], 1)
+        self.assertEqual(observed, [(.016, True, True)])
+        self.assertEqual([row['port_bank'] for row in result.report['pulses']], ['DOUT', 'RDO'])
+        self.assertEqual(ports.snapshot(), {('DOUT', 1): True, ('RDO', 1): False})
+        self.assertEqual(ports.pending_pulses, 1)
+        clock['us'] = 40000
+        self.assertEqual(ports.poll_pulses(), 1)
+        self.assertFalse(ports.read('DOUT', 1))
+
+    def test_rdo_remains_action_only_and_needs_a_blocking_integer_duration(self):
+        cases = (
+            ('PULSE RDO[1] FOR 8', 'E_SYNTAX'),
+            ('CONDITION[1]: WHEN TRUE DO PULSE RDO[1] FOR 8 NOWAIT ENDCONDITION', 'E_CONDITION_ACTION'),
+            ('CONDITION[1]: WHEN TRUE DO PULSE RDO[1] FOR 1.5 ENDCONDITION', 'E_TYPE'),
+        )
+        for body, code in cases:
+            with self.subTest(body=body), self.assertRaises(TranslationError) as caught:
+                compile_program(body)
+            self.assertEqual(caught.exception.code, code)
+
     def test_missing_context_is_source_located(self):
         p,_=compile_program('PULSE DOUT[1] FOR 8')
         with self.assertRaisesRegex(rt.KarelRuntimeError,'ports') as caught: p.run()

@@ -74,6 +74,8 @@ class OperatorLowering:
                 and any(self.has_routine_call(argument) for argument in expr.args)):
             self.error('E_EVALUATION_ORDER', 'Boolean expressions containing routine calls are not implemented', token)
         if result_type is None:
+            if expr.relative_in_write:
+                self.error('E_WRITE_ITEM', 'WRITE format specifiers use double colons', token)
             self.error('E_TYPE', f'Unsupported {left_type[0]} {operator} {right_type[0]}', token)
         self._record_binary_operator(expr, left_type, right_type, result_type)
 

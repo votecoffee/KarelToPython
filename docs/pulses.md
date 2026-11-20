@@ -9,9 +9,14 @@ PULSE DOUT[port_no] FOR milliseconds NOWAIT
 ```
 
 Both operands are INTEGER expressions, evaluated once from left to right.
-The output must belong to the supplied DOUT bank. A declared variable named
-DOUT cannot stand in for that bank. Handler actions support the blocking form;
-NOWAIT in an action is rejected during translation.
+Standalone statements use the supplied DOUT bank. Global condition handlers
+and motion-local actions accept blocking DOUT and RDO pulses. For example,
+`WHEN ready DO PULSE RDO[1] FOR 16` uses the RDO bank. The two banks keep separate
+deadlines even at the same port number. NOWAIT in an action is rejected during
+translation.
+
+MARRC75KR07091E Rev N Appendix E figure (v) lists RDO as a condition-handler
+action. The statement form in section A.16.27 lists DOUT.
 
 ## Duration and waiting
 
