@@ -192,8 +192,8 @@ class KeyboardEndpointTests(unittest.TestCase):
         with self.assertRaisesRegex(rt.KarelRuntimeError,'explicit queued input'):p.run()
         ctx.keyboard.close_all()
 
-    def test_byte_queries_and_seeking_are_explicitly_rejected(self):
-        for statement in ('n=GET_FILE_POS(f)','n=BYTES_LEFT(f)','BYTES_AHEAD(f,n,s)','SET_FILE_POS(f,0,s)'):
+    def test_stream_availability_and_seeking_are_explicitly_rejected(self):
+        for statement in ('n=GET_FILE_POS(f)','BYTES_AHEAD(f,n,s)','SET_FILE_POS(f,0,s)'):
             with self.subTest(statement=statement):
                 ctx=context();p,_=compile_program(OPEN+statement,decl=DECL,context=ctx)
                 with self.assertRaises(rt.KarelRuntimeError):p.run()

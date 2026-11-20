@@ -141,6 +141,17 @@ class PredefinedBackendTests(unittest.TestCase):
     def test_binary_input(self):self.assertEqual(execute('READ(n) CLOSE FILE TPDISPLAY',context(initial={'data':struct.pack('<i',7)},bindings={'TPDISPLAY':binding(binary=True)}))[0]['N'],7)
     def test_binary_output(self):
         ctx=context(initial={},bindings={'TPDISPLAY':binding('out','WO',binary=True)});execute('WRITE(7) CLOSE FILE TPDISPLAY',ctx);self.assertEqual(bytes(ctx.files.files['out']),struct.pack('<i',7))
+    def test_default_keyboard_bytes_left_queries_the_bound_record(self):
+        for alias, prefix in (('TPDISPLAY', ''), ('INPUT', '%CRTDEVICE')):
+            with self.subTest(alias=alias):
+                ctx = rt.ExecutionContext(keyboard=keyboard_context(keys=['7', ' ', '9', 'ENTER']).keyboard,
+                                          predefined_files={alias: binding('KB:TPKB')})
+                state, _, _, _ = execute(
+                    f'READ(n) count=BYTES_LEFT({alias}) READ(m,CR) s=BYTES_LEFT({alias}) CLOSE FILE {alias}',
+                    ctx, prefix=prefix, cooperative=True,
+                )
+                self.assertEqual((state['N'], state['M'], state['COUNT'], state['S']), (7, 9, 3, 0))
+
     def test_default_keyboard_timeout_from_saved_binding(self):
         ctx = rt.ExecutionContext(keyboard=rt.KeyboardInput(), predefined_files={
             'TPDISPLAY': binding('KB:TPKB', read_timeout_ms=3),

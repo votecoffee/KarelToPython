@@ -2,12 +2,12 @@
 import json
 from pathlib import Path
 import subprocess
-import shutil
 import sys
 import tempfile
 import unittest
 
 from karel2py import translate, runtime as rt
+from tests.runtime_fixture import copy_runtime_package
 from karel2py.lexer import TranslationError
 from tests.legacy_numeric_support import translate as legacy_translate
 
@@ -311,9 +311,7 @@ class ReadScriptAndExampleTests(unittest.TestCase):
         program,result=compile_program(body,**options)
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder); source=root/'converted.py'; data=root/'values.json'
-            package=root/'karel2py'; package.mkdir()
-            for name in ('__init__.py','runtime.py','extended.py','storage.py','kinematics.py','scheduling.py','control.py','clocks.py', 'fileops.py', 'pulses.py', 'configtext.py', 'teach.py', 'xmlio.py', 'reference_contracts.py', 'devices.py', 'dynamic.py', 'programs.py', 'acquisition.py', 'pc_exchange.py', 'communications.py', 'remote_messages.py', 'archives.py', 'variable_archives.py', 'mixed_archives.py','diagnostics.py','kcl.py','pendant.py','dictionaries.py','dynamic_display.py','keyboard.py','table_controls.py','forms.py','controller.py', 'vision.py', 'vision_tracking.py', 'vt_queues.py', 'source_translations.py', 'array_context.py', 'record_schemas.py', 'variable_kinematics.py', 'serial_io.py', 'position_input.py', 'fileio.py', 'motion.py'):
-                shutil.copyfile(Path(__file__).resolve().parents[1]/'karel2py'/name,package/name)
+            copy_runtime_package(root)
             source.write_text(result.python_source,encoding='utf-8')
             data.write_text(json.dumps(values),encoding='utf-8')
             process=subprocess.run([sys.executable,str(source),'--read-values',str(data),*arguments],

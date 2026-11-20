@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1120.141946 - 2026-11-20
+
+- Support BYTES_LEFT on keyboard FILEs and predefined bindings, including the
+  current edited record's unread spaces and terminator.
+- Extract FILE descriptors, portable field formats and finite READ execution
+  from extended.py into file_io.py while retaining the existing runtime interface.
+
 ## 26.1120.141401 - 2026-11-20
 
 - Enable offline socket AP reads after the original open FILE commits its first

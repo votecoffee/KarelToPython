@@ -99,7 +99,7 @@ class StreamRead:
         if handle.binary:
             if self.line_breaks:
                 fail('CR is not a binary READ field', line)
-            from .extended import binary_read_fields
+            from .file_io import binary_read_fields
             self.widths = binary_read_fields(targets, self.formats, line)
             self.field_bytes = sum(width for width, _ in self.widths)
         elif raw_fields:

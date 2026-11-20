@@ -3807,7 +3807,7 @@ def format_aggregate_write(captured,formats=(),line=None,*,file=None):
         if not aggregate_write_type(captured.spec) or not (captured.spec[0]=='PATH' or path_array_io_type(captured.spec) or queue_io_type(captured.spec)):
             raise KarelRuntimeError('Only an empty PATH may omit captured output fields',line)
         if formats:
-            from .extended import binary_format
+            from .file_io import binary_format
             # Validate declared domains without creating fields or publishing
             # padding. Scalar formatters are pure and bound their temporary text.
             samples={'INTEGER':0,'SHORT':0,'BYTE':0,'REAL':0.,'BOOLEAN':False,'STRING':''}
@@ -4815,7 +4815,7 @@ class State:
         return self.read_items(targets,line,**options) if handle is None else self.file_read(handle,targets,line,**options)
 
     def file_read(self,handle,targets,line=None,**options):
-        from .extended import file_read
+        from .file_io import file_read
         return file_read(self,handle,targets,line,**options)
 
     def file_open(self,handle,mode,name,line=None):
@@ -5149,9 +5149,10 @@ def cooperative_file_read(state,handle,targets,line=None,*,line_breaks=(),format
         if handle._read_operation is operation:handle._read_operation=None
 
 
+from .file_io import FILE_READ_TIMEOUT_STATUS, MAX_FILE_TIMEOUT_MS, FileHandle, file_piece
 from .extended import (ExecutionContext, StringRegisters, PositionRegisters, PortBank, RegisterComments, CallParameters, ProgramCatalog, ProgramAttributes, PROGRAM_CONSTANTS, PeerBanks, PEER_UNAVAILABLE,
-                       SerialPorts,SERIAL_CONSTANTS,XML_CONSTANTS,MAX_FILE_TIMEOUT_MS,FILE_READ_TIMEOUT_STATUS,
-                       VariableStore, variable_value, variable_reference, MemoryFiles, FileHandle, PathValue, QueueValue, RobotContext, RobotState, file_piece,
+                       SerialPorts,SERIAL_CONSTANTS,XML_CONSTANTS,
+                       VariableStore, variable_value, variable_reference, MemoryFiles, PathValue, QueueValue, RobotContext, RobotState,
                         TaskRegistry, KarelPause, KarelStop, update_timers, timer_clock, connect_timer, disconnect_timer, release_frame_timers, finish_timers,
                         define_condition, condition_control, checkpoint, cooperative_test, pause_execution,abort_execution,
                        run_cooperative, resume_cooperative, stop_cooperative)

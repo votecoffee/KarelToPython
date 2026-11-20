@@ -1,13 +1,13 @@
 """The generated module can run with just the small runtime distribution."""
 import json
 from pathlib import Path
-import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
 
 from karel2py import translate
+from tests.runtime_fixture import copy_runtime_package
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -212,10 +212,7 @@ class RuntimePortabilityTests(unittest.TestCase):
             with self.subTest(example=example), tempfile.TemporaryDirectory() as folder:
                 result = translate((ROOT / f'examples/{example}.kl').read_text())
                 target = Path(folder)
-                package = target / 'karel2py'
-                package.mkdir()
-                for name in ('__init__.py', 'runtime.py', 'extended.py', 'storage.py', 'kinematics.py', 'scheduling.py', 'control.py', 'clocks.py', 'fileops.py', 'pulses.py', 'inspection.py', 'configtext.py', 'teach.py', 'xmlio.py', 'reference_contracts.py', 'devices.py', 'dynamic.py', 'programs.py', 'acquisition.py', 'pc_exchange.py', 'communications.py', 'remote_messages.py', 'archives.py', 'variable_archives.py', 'mixed_archives.py','diagnostics.py','kcl.py','pendant.py','dictionaries.py','dynamic_display.py','keyboard.py','table_controls.py','forms.py','controller.py', 'vision.py', 'vision_tracking.py', 'vt_queues.py', 'source_translations.py', 'array_context.py', 'record_schemas.py', 'variable_kinematics.py', 'serial_io.py', 'position_input.py', 'fileio.py', 'motion.py', 'remote.py'):
-                    shutil.copyfile(ROOT / 'karel2py' / name, package / name)
+                copy_runtime_package(target)
                 (target / 'converted.py').write_text(result.python_source, encoding='utf-8')
                 input_file=ROOT/f'examples/{example}.read.values.json'
                 batches=json.loads(input_file.read_text()) if input_file.exists() else []
@@ -256,9 +253,8 @@ class RuntimePortabilityTests(unittest.TestCase):
         observer=translate("PROGRAM OBSERVER VAR name,text: STRING[16] number,value,status: INTEGER BEGIN name='worker' GET_TSK_INFO(name,number,TSK_STATUS,value,text,status) END OBSERVER")
         worker=translate('PROGRAM WORKER VAR n: INTEGER BEGIN n=1 PAUSE n=2 END WORKER')
         with tempfile.TemporaryDirectory() as folder:
-            target=Path(folder);package=target/'karel2py';package.mkdir()
-            for name in ('__init__.py','runtime.py','extended.py','storage.py','kinematics.py','scheduling.py','control.py','clocks.py', 'fileops.py', 'pulses.py', 'configtext.py', 'teach.py', 'xmlio.py', 'reference_contracts.py', 'devices.py', 'dynamic.py', 'programs.py', 'acquisition.py', 'pc_exchange.py', 'communications.py', 'remote_messages.py', 'archives.py', 'variable_archives.py', 'mixed_archives.py','diagnostics.py','kcl.py','pendant.py','dictionaries.py','dynamic_display.py','keyboard.py','table_controls.py','forms.py','controller.py', 'vision.py', 'vision_tracking.py', 'vt_queues.py', 'source_translations.py', 'array_context.py', 'record_schemas.py', 'variable_kinematics.py', 'serial_io.py', 'position_input.py', 'fileio.py', 'motion.py'):
-                shutil.copyfile(ROOT/'karel2py'/name,package/name)
+            target=Path(folder)
+            copy_runtime_package(target)
             (target/'observer.py').write_text(observer.python_source,encoding='utf-8')
             (target/'worker.py').write_text(worker.python_source,encoding='utf-8')
             script='''from karel2py import runtime as rt

@@ -210,7 +210,8 @@ class RejectionTests(unittest.TestCase):
         self.reject('x = proc()', 'E_TYPE', extra='ROUTINE proc BEGIN END proc')
 
     def test_return_contract(self):
-        self.reject('RETURN', 'E_RETURN')
+        self.reject('RETURN', 'E_RETURN', _translator=legacy_translate)
+        self.reject('RETURN 1', 'E_RETURN')
         self.reject('', 'E_RETURN', extra='ROUTINE f: INTEGER BEGIN RETURN END f')
 
     def test_for_counter_writes_or_side_effects_blocked(self):

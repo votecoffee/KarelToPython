@@ -99,6 +99,51 @@ class KeyboardFileScalarTests(unittest.TestCase):
         self.assertEqual(p.run()['TEXT'],'abc')
 
 
+class KeyboardBytesLeftTests(unittest.TestCase):
+    def test_committed_line_counts_unread_blanks_and_terminator(self):
+        values, ctx, _, _ = execute(
+            's=BYTES_LEFT(f) READ f(x) token=BYTES_LEFT(f) '
+            'READ f(y) count=BYTES_LEFT(f) READ f(CR) key=BYTES_LEFT(f)',
+            keys=line_keys('42 17', '88'),
+        )
+        self.assertEqual((values['X'], values['Y']), (42, 17))
+        self.assertEqual((values['S'], values['TOKEN'], values['COUNT'], values['KEY']), (0, 4, 1, 0))
+        self.assertEqual([item['key'] for item in ctx.keyboard.events], line_keys('88'))
+
+    def test_timeout_keeps_current_record_count_and_excludes_next_line(self):
+        ctx = context(keys=line_keys('4 9', '3.25'))
+        task, _ = compile_program(
+            'SET_FILE_ATR(f,ATR_TIMEOUT,3) ' + OPEN +
+            'READ f(x) y=99 READ f(y,CR,real_value,CR,flag,CR) s=IO_STATUS(f) '
+            'token=BYTES_LEFT(f) key=y READ f(y,CR) count=BYTES_LEFT(f) READ f(real_value,CR)' + CLOSE,
+            decl=DECL, context=ctx, sleep=lambda _: None,
+        )
+        values = task.run()
+        self.assertEqual((values['S'], values['TOKEN'], values['KEY'], values['COUNT']), (4, 3, 99, 0))
+        self.assertEqual((values['X'], values['Y'], values['REAL_VALUE']), (4, 9, 3.25))
+
+    def test_window_counts_custom_terminator_and_preserves_echo_data(self):
+        ctx = context(keys=['4', ' ', '9', ';'])
+        values = compile_program(
+            WINDOW + "SET_FILE_ATR(f,ATR_EOL,59) OPEN FILE f('RW','WD:W1/TPKB') "
+            "READ f(x) WRITE f('ready') count=BYTES_LEFT(f) READ f(y,CR)" + CLOSE,
+            decl=DECL, context=ctx,
+        )[0].run()
+        self.assertEqual((values['X'], values['Y'], values['COUNT']), (4, 9, 3))
+        self.assertTrue(ctx.pendant.windows['W1']['lines'][0].startswith('ready'))
+
+    def test_raw_passall_is_not_an_edited_keyboard_record(self):
+        ctx = context(keys=['a', 'b'])
+        task, _ = compile_program(
+            'SET_FILE_ATR(f,ATR_PASSALL) ' + OPEN +
+            'READ f(text::1) count=BYTES_LEFT(f)' + CLOSE,
+            decl=DECL, context=ctx,
+        )
+        values = task.run()
+        self.assertEqual((values['TEXT'], values['COUNT']), ('a', 0))
+        self.assertEqual([item['key'] for item in ctx.keyboard.events], ['b'])
+
+
 class KeyboardFileEditingTests(unittest.TestCase):
     def test_insert_delete_cursor_editing(self):
         values,_,_,_=execute('READ f(text)',keys=('a','c','LEFT','b','END','DELETE','d','ENTER'))

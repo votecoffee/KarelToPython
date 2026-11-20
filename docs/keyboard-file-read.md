@@ -46,6 +46,23 @@ reads advance completed records. `CR` discards the current line's remainder;
 leading/repeated `CR` markers consume their specified records. A trailing `CR`
 does not consume key events for a future line.
 
+## Unread record bytes
+
+`BYTES_LEFT(file)` counts the unread bytes in the current submitted keyboard
+record after a typed READ. It includes spaces and the one-byte terminator.
+For example, after reading the first INTEGER in an entered line of `42 17`,
+the count is four, covering the space, two digits and terminator. The count
+is one after reading the second INTEGER and zero after consuming CR.
+
+Before the first successful edited READ, the count is zero. Later queued
+keys or submitted records belong to future input. Failed reads and timeouts
+keep the last committed record position. PASSALL and READ_KB return zero
+because their results do not produce a current edited FILE record.
+The same behavior applies to bound default FILEs and to combined window input.
+
+This follows the keyboard record query described in MARRC75KR07091E Rev N,
+section A.2.5, using injected offline input.
+
 ## Editing, echo and shared reads
 
 Printable keys insert at the cursor; DELETE removes the preceding character.

@@ -146,6 +146,15 @@ class KeyboardInput:
         handle.owner=self;handle.name=name;handle.logical_name=None;handle.mode=mode;handle.position=0;handle.status=0
         self._handles[handle]=dict(pane=pane,echo=echo,state=state,past=[],pending='',after_field=False,input_mode=None)
 
+    def bytes_left(self, handle, line=None):
+        """Count the unread suffix of the last committed keyboard record."""
+        binding = self._handles.get(handle)
+        if handle.owner is not self or binding is None or handle.mode not in ('R', 'RW'):
+            raise rt().KarelRuntimeError('Keyboard FILE is not open for text input', line)
+        if binding['input_mode'] != 'line' or not binding['after_field']:
+            return 0
+        return binding['pending'].find(chr(handle.eol)) + 1
+
     def window_handle(self,handle):
         binding=self._handles.get(handle)
         return None if handle.owner is not self or binding is None else binding['echo']

@@ -1,6 +1,7 @@
 """Shared grammar names, builtin signatures and source policies."""
 from . import extended as ex
 from . import runtime as rt
+from .file_io import FILE_TIMEOUT_ATTRIBUTE
 
 
 PRECEDENCE = {'=': 10, '<>': 10, '<': 10, '<=': 10, '>': 10, '>=': 10,
@@ -10,7 +11,7 @@ PREDEFINED_CONSTANTS = {'ON': True, 'OFF': False, 'MAXINT': 2147483647, 'MININT'
                         **ex.SERIAL_CONSTANTS,**ex.XML_CONSTANTS,**rt.DIAGNOSTIC_CONSTANTS,**rt.PENDANT_CONSTANTS,**rt.DICTIONARY_CONSTANTS,**rt.KEYBOARD_CONSTANTS,**rt.TABLE_CONSTANTS,**rt.COMMUNICATION_CONSTANTS,
                         **rt.DEVICE_CONSTANTS,**rt.DAQ_CONSTANTS,**rt.ARCHIVE_CONSTANTS,
                         'ATR_IA':1,'ATR_UF':2,'ATR_REVERSE':3,'ATR_FIELD':4,'ATR_EOL':5,
-                        'ATR_TIMEOUT': ex.FILE_TIMEOUT_ATTRIBUTE,
+                        'ATR_TIMEOUT': FILE_TIMEOUT_ATTRIBUTE,
                         **{name:row[0] for name,row in rt.ERROR_SEVERITIES.items()},**rt.TASK_CONSTANTS,**rt.PROGRAM_CONSTANTS,**rt.TPE_CONSTANTS}
 BLOCK_ENDS = {'ELSE', 'ENDIF', 'ENDWHILE', 'ENDFOR', 'UNTIL', 'CASE', 'ENDSELECT', 'ENDUSING', 'END'}
 RESERVED = BLOCK_ENDS | {

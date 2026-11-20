@@ -90,6 +90,11 @@ from the features discovered during generation.
 Keep label validation independent of Python emission. The report modules are
 applied in order because later policies extend earlier entries.
 
+Generated FILE calls still use the runtime interface. `file_io.py` owns the
+FILE descriptor, binary field plans and finite READ publication. `extended.py`
+provides service bindings and dispatch, and `communications.py` owns pending
+cooperative stream operations.
+
 For behavior-preserving moves, compare generated Python, diagnostics, source
 maps, and report content at a fixed version. Run the tests for the affected
 passes and the authored examples that exercise their interfaces. Runtime and
