@@ -367,31 +367,35 @@ and default-node metadata.
 Provide the exact typed PATH root in `inputs.context.variables` to edit its
 selected scalar or structure. The template can bind to a supplied header,
 node or field, keeping the remaining PATH values and node count intact.
-A missing root or unavailable node is reported as a `path-storage` requirement.
-During standalone preparation or refresh and linked discovery, preparation,
-or refresh, a matching saved root lets discovery expand a whole PATH, a
-selected whole PATH ARRAY cell, or a whole bank into existing header and node
-records. Linked references use the storage owner, including when a pinned
-routine reads an imported PATH passed by reference. READ uses the shape to
-identify its destinations and still requires explicit input-stream data.
-WRITE adds editable records when their fields are read before a definite
-source write. Each whole transfer item is limited to 1,024 scalar fields.
-A conditionally reached transfer, a possible topology change, a missing
-saved shape, or analysis without a saved context leaves the whole transfer
-unresolved. Linked discovery also leaves it unresolved when task or handler
-ordering requires a conservative second pass.
+An input without editable storage is reported as a `path-storage` requirement.
+Standalone and linked saved-run discovery can use the offline runtime's
+empty initial node list for a declared PATH or PATH ARRAY cell with no
+context override. An exact saved root supplies its own initial node count.
+Imports and borrowed calls use the owning program's context. A conflicting
+saved type leaves the initial shape unresolved.
 
-`PATH_LEN` uses the node count of a matching saved PATH when that shape still
-applies. This can resolve branch decisions, node selectors and FILE range
-bounds without treating any record field as an input. An unknown shape or
-unmodeled intervening node edit produces a `path-topology` gap. `NODE_SIZE`
+A known shape lets discovery expand a whole PATH, selected PATH ARRAY cell,
+or whole bank into header and node records. READ requires at least one
+existing record and explicit stream data. An empty headerless selection
+contributes no fields to WRITE. WRITE adds editable records when their fields
+are read before a definite source write. Each whole transfer item is limited
+to 1,024 scalar fields. A conditionally reached transfer or possible topology
+change can leave the transfer unresolved. The initial defaults apply to
+saved-run analysis with a validated context. A conservative linked pass
+after a task or handler ordering gap leaves the initial shape unresolved.
+
+`PATH_LEN` uses the known initial or updated node count. This can resolve
+branch decisions, node selectors and FILE range bounds without treating any
+record field as an input. An unknown shape or unmodeled intervening node
+edit produces a `path-topology` gap. `NODE_SIZE`
 uses the translator's portable NODEDATA schema size, independently of node
 count or values. Subscript expressions still contribute their own inputs
 and effects. Retranslate older Python to attach the schema when an unresolved
 subscript prevents finding it through the selected location.
 
-For a matching saved shape, discovery follows `APPEND_NODE`, `INSERT_NODE`
-and `DELETE_NODE` with known indexes in definite program-body flow. Known invalid indexes report status 2 and preserve the shape.
+With a known shape, discovery follows `APPEND_NODE`, `INSERT_NODE` and
+`DELETE_NODE` with known indexes in definite program-body flow. Known invalid
+indexes report status 2 and preserve the shape.
 Successful edits set status 0 and update later `PATH_LEN`, named data selectors
 and FILE transfers. Earlier write facts stay with the records as they move.
 If a source statement reads `ROUTE[1]` after deleting the first node, its

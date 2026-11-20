@@ -204,6 +204,48 @@ class InputTemplateTests(unittest.TestCase):
         self.assertEqual([row['code'] for row in report['unresolved']], ['input-stream'])
         self.assertEqual(by_path(prepared)['ROUTE[1]']['certainty'], 'conditional')
 
+    def test_fresh_path_can_be_copied_and_grown_without_a_context_seed(self):
+        prefix = 'TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t'
+        decl = 'source,target:route_t s,n,unused:INTEGER'
+        prepared = prepare(
+            'COPY_PATH(source,0,0,target,s) '
+            'IF (s=0) AND (PATH_LEN(target)=0) THEN APPEND_NODE(target,s) '
+            'target[PATH_LEN(target)].amount=n WRITE(target) ELSE WRITE(unused) ENDIF',
+            decl=decl, prefix=prefix,
+        )
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'N'})
+        self.assertNotIn('path_storage', report)
+        self.assertEqual([row['path'] for row in prepared['context']['variables']], ['N'])
+
+    def test_wrong_type_context_root_does_not_establish_a_default_shape(self):
+        prefix = 'TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE'
+        prepared = prepare(
+            'IF PATH_LEN(route)=0 THEN WRITE(empty) ELSE WRITE(nonempty) ENDIF',
+            decl='route:PATH NODEDATA=row_t empty,nonempty:INTEGER', prefix=prefix,
+            context={'variables': [dict(program='T', path='ROUTE', type='INTEGER', value=1)]},
+        )
+        report = prepared['template']['discovery']
+        self.assertIn('path-topology', {row['code'] for row in report['unresolved']})
+        self.assertEqual(set(by_path(prepared)), {'EMPTY', 'NONEMPTY'})
+        self.assertNotIn('path_storage', report)
+
+    def test_fresh_empty_path_write_has_no_fields_and_read_requires_records(self):
+        prefix = 'TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t'
+        for selector in ('routes', 'routes[2]'):
+            with self.subTest(selector=selector):
+                decl = 'routes:ARRAY[2] OF route_t'
+                written = prepare(f'WRITE({selector},CR)', decl=decl, prefix=prefix)
+                report = written['template']['discovery']
+                self.assertTrue(report['complete'], report['unresolved'])
+                self.assertEqual(report['inputs'], [])
+                read = prepare(f'READ({selector})', decl=decl, prefix=prefix)
+                report = read['template']['discovery']
+                self.assertEqual(report['inputs'], [])
+                self.assertTrue(any(row['message'] == 'PATH READ requires an existing header or node'
+                                    for row in report['unresolved']))
+
     def test_saved_path_count_selects_last_record_and_prunes_empty_branch(self):
         prefix = ('TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
                   'head_t=STRUCTURE total:INTEGER ENDSTRUCTURE')

@@ -12,6 +12,7 @@ from . import runtime as rt
 
 
 UNKNOWN = object()
+DEFAULT_EMPTY_PATH = object()
 MAX_STEPS = 100000
 MAX_INPUTS = 2048
 MAX_CALL_DEPTH = 32
@@ -417,14 +418,17 @@ class _Analyzer:
             return None
         return _Location(loc.kind,loc.owner,loc.root,(*loc.parts,(kind,value)),selected,loc.root_spec)
 
-    def path_io_locations(self, expr, flow, conditional):
+    def path_io_locations(self, expr, flow, conditional, *, reading=False):
         """Resolve a bounded transfer's ordered records before publishing any writes."""
         while expr['kind'] == 'group':
             expr = expr['args'][0]
         if expr['kind'] != 'path_io_range':
             location = self.locate(expr, flow, conditional, path_io=True)
-            records = self.saved_path_records(location, expr, flow, conditional)
+            records = self.path_transfer_records(location, expr, flow, conditional)
             if records is not None:
+                if reading and not records:
+                    self.unresolved_at('path-topology', 'PATH READ requires an existing header or node', expr)
+                    return [None]
                 return records
             self.retain_selected_path_storage(location, flow, conditional)
             return [location]
@@ -586,6 +590,8 @@ class _Analyzer:
         if not self.stable_path_context(loc, flow, conditional):
             return None
         count = self.saved_path_count(loc.owner, loc.root, loc.root_spec, loc.parts)
+        if count is DEFAULT_EMPTY_PATH:
+            return 0
         if count is not None:
             self.path_storage[loc.owner, loc.root] = loc.root_spec
         return count
@@ -627,11 +633,11 @@ class _Analyzer:
         if kind != 'index':
             return
         count = self.saved_path_count(loc.owner, loc.root, loc.root_spec, prefix)
-        if count is not None and 0 <= index <= count:
+        if type(count) is int and 0 <= index <= count:
             self.path_storage[loc.owner, loc.root] = loc.root_spec
 
-    def saved_path_records(self, loc, node, flow, conditional):
-        """Expand an exact initial topology while it still applies to this transfer."""
+    def path_transfer_records(self, loc, node, flow, conditional):
+        """Expand a transfer using the proven current header and node layout."""
         if loc is None or flow.opaque or flow.path_shape_unknown or conditional:
             return None
         _, terminal = _array_dimensions(loc.spec)
@@ -751,7 +757,7 @@ class _Analyzer:
                 else:
                     self.unresolved_at('limit', 'PATH value exceeds the scalar snapshot limit', node)
         if path_io:
-            records = self.saved_path_records(loc, node, flow, conditional)
+            records = self.path_transfer_records(loc, node, flow, conditional)
             if records is not None:
                 for record in records:
                     self.read(record, node, flow, conditional)
@@ -1037,7 +1043,7 @@ class _Analyzer:
                 count = self.known_path_count(loc, flow, conditional)
                 if count is not None:
                     return _Value(count, spec=['INTEGER'])
-            self.unresolved_at('path-topology', 'PATH_LEN requires a matching saved PATH with a known current node count', node)
+            self.unresolved_at('path-topology', 'PATH_LEN requires a known current node count', node)
         return _Value(spec=['INTEGER'])
 
     def complete_path_record(self, value):
@@ -2013,7 +2019,7 @@ class _Analyzer:
                     continue
                 formatted = argument['kind'] == 'read_item'
                 target = argument['args'][0] if formatted else argument
-                destinations.extend(self.path_io_locations(target, flow, conditional))
+                destinations.extend(self.path_io_locations(target, flow, conditional, reading=True))
                 if formatted:
                     for control in argument['args'][1:]:
                         if flow.stopped and not flow.opaque:

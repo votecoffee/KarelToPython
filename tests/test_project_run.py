@@ -173,6 +173,28 @@ class SavedProjectTests(unittest.TestCase):
         self.assertEqual(result['status'], 'completed', result['error'])
         self.assertEqual(result['text_output'].strip(), '19')
 
+    def test_linked_borrowed_path_bank_cell_can_grow_without_saved_seed(self):
+        types = 'TYPE row_t=STRUCTURE value:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t '
+        main = self.module('MAIN', 'grow(routes[2]) WRITE(PATH_LEN(routes[1]),routes,CR)',
+                           types+'VAR routes FROM LIB:ARRAY[2] OF route_t',
+                           'ROUTINE grow(v:route_t) FROM LIB')
+        lib = self.module('LIB', declarations=types+'VAR routes:ARRAY[2] OF route_t',
+                          routines='ROUTINE grow(v:route_t) VAR s:INTEGER '
+                                   'BEGIN APPEND_NODE(v,s) v[PATH_LEN(v)].value=31 END grow')
+        self.create(main, lib)
+        revised = self.folder/'revised.run.json'
+        prepared = runner.refresh_project_document(self.document, revised, [main, lib])['inputs']
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertFalse(report['inputs'])
+        self.assertNotIn('path_storage', report)
+        self.assertNotIn('variables', prepared['context'])
+        result = runner.run_document(revised)['results']
+        self.assertEqual(result['status'], 'completed', result['error'])
+        self.assertEqual(result['text_output'], ' 0 31\n')
+        values = result['programs']['LIB']['values']['ROUTES']
+        self.assertEqual([cell['nodes'] for cell in values], [[], [{'VALUE': 31}]])
+
     def test_linked_tail_edit_refresh_retains_seed_and_resolves_updated_count(self):
         types = 'TYPE row_t=STRUCTURE value:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t '
         main = self.module('MAIN',

@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1120.182511 - 2026-11-20
+
+- Model empty initial PATH lists for unseeded globals and PATH ARRAY cells
+  during saved-run discovery, including linked and refreshed runs.
+- Discover edits and transfers against that shape and report READ selections
+  that have no header or node records.
+
 ## 26.1120.181838 - 2026-11-20
 
 - Reuse whole-node PATH references when the same list grows back to a

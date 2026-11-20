@@ -3,7 +3,7 @@ from copy import deepcopy
 import re
 
 from . import runtime as rt
-from .input_discovery import _discover_inputs
+from .input_discovery import DEFAULT_EMPTY_PATH, _discover_inputs
 from .storage import tuple_spec
 
 
@@ -117,13 +117,15 @@ def _context_state(context):
 
 
 def _saved_path_count(execution):
-    """Build a lazy topology lookup over validated, exact context roots."""
+    """Look up exact saved topology or the runtime default for an unseeded root."""
     snapshots = {}
 
     def path_count(program, root, root_type, selectors):
         key = program, root
         reference = execution.variables.bindings.get(key)
-        if reference is None or reference.spec != tuple_spec(root_type):
+        if reference is None:
+            return DEFAULT_EMPTY_PATH
+        if reference.spec != tuple_spec(root_type):
             return None
         if key not in snapshots:
             snapshots[key] = rt.snapshot_value(reference.raw())
