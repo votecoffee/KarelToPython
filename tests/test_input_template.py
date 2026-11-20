@@ -742,13 +742,31 @@ class InputTemplateTests(unittest.TestCase):
         self.assertTrue(report['complete'], report['unresolved'])
         self.assertEqual(set(by_path(prepared)), {'ROUTE[2].AMOUNT', 'ROUTE[3].AMOUNT'})
 
-    def test_deleting_borrowed_field_record_stays_unresolved(self):
+    def test_deleted_node_field_borrow_retains_its_original_saved_address(self):
+        source = (
+            'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t '
+            'VAR route:route_t unused:INTEGER '
+            'ROUTINE edit(v:route_t;held:INTEGER) VAR s:INTEGER '
+            'BEGIN DELETE_NODE(v,1,s) WRITE(held) INSERT_NODE(v,1,s) v[1].amount=23 held=17 '
+            'IF (held=17) AND (v[1].amount=23) AND (PATH_LEN(v)=2) '
+            'THEN WRITE(v[2].amount) ELSE WRITE(unused) ENDIF END edit '
+            'BEGIN edit(route,route[1].amount) END T'
+        )
+        spec = ['PATH', ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]], None]
+        saved = dict(nodes=[{'AMOUNT': MISSING}, {'AMOUNT': MISSING}], data=None)
+        context = {'variables': [dict(program='T', path='ROUTE', type=spec, value=saved)]}
+        prepared = prepare_inputs(translate(source).python_source, context=context)
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'ROUTE[1].AMOUNT', 'ROUTE[2].AMOUNT'})
+
+    def test_unavailable_borrowed_node_origin_does_not_count_as_detached(self):
         source = (
             'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t '
             'VAR route:route_t '
             'ROUTINE edit(v:route_t;held:INTEGER) VAR s:INTEGER '
             'BEGIN DELETE_NODE(v,1,s) WRITE(held) END edit '
-            'BEGIN edit(route,route[1].amount) END T'
+            'BEGIN edit(route,route[3].amount) END T'
         )
         spec = ['PATH', ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]], None]
         saved = dict(nodes=[{'AMOUNT': MISSING}, {'AMOUNT': MISSING}], data=None)

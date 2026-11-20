@@ -91,10 +91,11 @@ class _Suspension:
 
 @dataclass(frozen=True)
 class _PathOrder:
-    """Logical order of nodes and the optional identity of a copied header."""
+    """Current record order and identities that a live descendant can still borrow."""
 
     nodes: tuple
     header: int | None = None
+    detached: frozenset[int] = frozenset()
 
 
 @dataclass
@@ -157,6 +158,15 @@ def _merge(flows):
                  {key: tuple(definitions) for key, definitions in handlers.items()},
                  set.union(*(flow.requested_tasks for flow in live)),
                  pauses,uncertain,any(flow.path_shape_unknown for flow in live),path_orders)
+
+
+def _path_node_identity(part):
+    kind, index = part
+    if kind == 'created-node':
+        return -index
+    if kind == 'index' and index > 0:
+        return index
+    return None
 
 
 def _array_dimensions(spec):
@@ -397,7 +407,8 @@ class _Analyzer:
     def definite_path_effect(self, flow, conditional):
         return not (flow.opaque or flow.path_shape_unknown or conditional or self.repeat_depth)
 
-    def can_publish_path(self, loc, flow, conditional, *, unchanged_nodes=None, shifted_nodes=()):
+    def can_publish_path(self, loc, flow, conditional, *, unchanged_nodes=None, shifted_nodes=(),
+                         removed_node=None):
         if loc is None or not self.definite_path_effect(flow, conditional):
             return False
         if not self.frames:
@@ -411,28 +422,37 @@ class _Analyzer:
         record_depth = len(loc.parts) + 1
         stationary = set(unchanged_nodes or ())
         shifted = set(shifted_nodes)
+        order = flow.path_orders.get(loc.key)
+        detached = order.detached if order is not None else ()
 
         def may_retarget(ref):
             if ref is None:
                 return True
-            if not self.path_contains_reference(loc, ref) or len(ref.parts) < record_depth:
+            part = ref.parts[record_depth - 1]
+            origin = _path_node_identity(part)
+            descendant = len(ref.parts) > record_depth
+            if descendant and origin in detached:
                 return False
             if unchanged_nodes is None:
                 return True
-            kind, index = ref.parts[record_depth - 1]
-            if kind == 'created-header' or (kind, index) == ('index', 0):
+            if part[0] == 'created-header' or part == ('index', 0):
                 return False
-            if kind == 'created-node':
-                index = -index
-            elif kind != 'index':
+            if origin is None:
                 return True
-            if index in stationary:
-                return False
-            # Whole nodes borrow a list slot. A descendant borrows storage in
-            # the record itself and survives a shift if that record still exists.
-            return len(ref.parts) == record_depth or index not in shifted
+            # Whole nodes borrow a list slot. A descendant holds the record's
+            # storage even if the edit moves or removes that record.
+            return origin not in stationary and (
+                not descendant or (origin not in shifted and origin != removed_node)
+            )
 
-        return not any(may_retarget(ref) for frame in self.frames for ref in frame['references'])
+        return not any(may_retarget(ref) for ref in self.active_path_borrows(loc))
+
+    def active_path_borrows(self, path):
+        depth = len(path.parts)
+        for frame in self.frames:
+            for ref in frame['references']:
+                if ref is None or len(ref.parts) > depth and self.path_contains_reference(path, ref):
+                    yield ref
 
     def lost_path_reference(self, loc, flow):
         if not flow.path_orders or not loc.parts:
@@ -913,6 +933,14 @@ class _Analyzer:
     def path_contains_reference(self, path, ref):
         return ref.key[:3] == path.key[:3] and ref.parts[:len(path.parts)] == path.parts
 
+    def path_status_disjoint(self, path, status, flow):
+        if not self.path_contains_reference(path, status):
+            return True
+        order = flow.path_orders.get(path.key)
+        depth = len(path.parts)
+        return (order is not None and len(status.parts) > depth + 1
+                and _path_node_identity(status.parts[depth]) in order.detached)
+
     def path_seed_compatible(self, path, seed, convert):
         """Return True for a modeled copy, False for status 3, or None."""
         if seed is None:
@@ -962,7 +990,7 @@ class _Analyzer:
 
         count = self.known_path_count(path, flow, conditional) if path is not None and path.spec[0] == 'PATH' else None
         if (count is not None and status is not None and not self.repeat_depth
-                and not self.path_contains_reference(path, status)):
+                and self.path_status_disjoint(path, status, flow)):
             removing = name == 'DELETE_NODE'
             last = count if removing else count + 1
             if name == 'APPEND_NODE':
@@ -982,8 +1010,17 @@ class _Analyzer:
                 offset = index - 1
                 prefix = order.nodes[:offset]
                 shifted = order.nodes[index if removing else offset:]
-                if self.can_publish_path(path, flow, conditional, unchanged_nodes=prefix, shifted_nodes=shifted):
+                removed = order.nodes[offset] if removing else None
+                if self.can_publish_path(path, flow, conditional, unchanged_nodes=prefix,
+                                         shifted_nodes=shifted, removed_node=removed):
+                    detached = order.detached
                     if removing:
+                        depth = len(path.parts)
+                        if any(ref is not None and len(ref.parts) > depth + 1
+                               and _path_node_identity(ref.parts[depth]) == removed
+                               for ref in self.active_path_borrows(path)):
+                            self.tick(len(detached))
+                            detached = detached | {removed}
                         nodes = prefix + shifted
                     else:
                         self.serial += 1
@@ -991,7 +1028,7 @@ class _Analyzer:
                         record = self.child(path, 'created-node', self.serial, node)
                         value = _Value(complete=False) if seed is None else self.complete_path_record(seed)
                         self.write(record, value, flow, node)
-                    flow.path_orders[path.key] = _PathOrder(nodes, order.header)
+                    flow.path_orders[path.key] = _PathOrder(nodes, order.header, detached)
                     self.write(status, _Value(0, spec=['INTEGER']), flow, node)
                     return _Value()
 
@@ -1016,7 +1053,7 @@ class _Analyzer:
         convert = flags[0] if flags else False
         if (source is not None and source.spec[0] == 'PATH' and target is not None and target.spec[0] == 'PATH'
                 and status is not None and self.definite_path_effect(flow, conditional)
-                and not self.path_contains_reference(target, status)):
+                and self.path_status_disjoint(target, status, flow)):
             source_type, target_type = tuple_spec(source.spec), tuple_spec(target.spec)
             if source_type == target_type:
                 layout = ('exact', 'exact')
@@ -1121,7 +1158,9 @@ class _Analyzer:
                 nodes.append(-self.serial)
                 record = self.child(target, 'created-node', self.serial, node)
             self.write(record, value, flow, node)
-        flow.path_orders[target.key] = _PathOrder(tuple(nodes), header)
+        previous = flow.path_orders.get(target.key)
+        detached = previous.detached if previous is not None else frozenset()
+        flow.path_orders[target.key] = _PathOrder(tuple(nodes), header, detached)
 
     def call(self, node, flow, conditional, *, statement_call=False):
         name=node['value'];args=node['args']

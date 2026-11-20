@@ -458,13 +458,16 @@ In-place node edits preserve borrowed header references. A whole-node borrow
 requires the record to keep its slot. A field or nested element borrow stays
 with its record when insertion or deletion shifts it to another slot.
 Discovery uses the original or source-created record identity, so a borrowed
-field read still identifies the original saved input. Deleting a borrowed
-record or replacing a whole PATH with borrowed records can leave discovery
-unresolved.
+field read still identifies the original saved input. A proved deletion leaves
+borrowed fields of the removed record accessible through their references.
+Their writes affect the removed record only. Later edits and replacements can
+preserve those detached references. A shifted whole-node borrow or a whole
+replacement with live references into the current records can remain unresolved.
 
-The status output must use storage disjoint from the edited PATH. A known
-rejection of a node edit or COPY_PATH updates that status and preserves the
-shape and live references.
+The status output must use storage disjoint from the edited PATH at the start
+of the service call. A field from a previously deleted record can provide this
+storage. A known rejection of a node edit or COPY_PATH updates the status and
+preserves the shape and live references.
 
 A routine invoked to evaluate another operand can run while the caller
 still holds earlier captured references, so its borrowed structural edits

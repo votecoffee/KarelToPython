@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1120.175650 - 2026-11-20
+
+- Discover fields borrowed from proved deleted PATH nodes at their original
+  saved addresses and keep their writes separate from the current records.
+- Allow those detached fields to receive statuses from later node edits and
+  COPY_PATH replacements.
+
 ## 26.1120.175032 - 2026-11-20
 
 - Follow borrowed PATH node fields and nested elements through insertions and
