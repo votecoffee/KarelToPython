@@ -133,8 +133,8 @@ def _context_state(context):
         raise InputTemplateError('Invalid input template context: '+str(error)) from error
 
 
-def _saved_path_count(execution):
-    """Look up exact saved topology or the runtime default for an unseeded root."""
+def _saved_path_count(execution, *, migrate_path=None):
+    """Look up the initial topology of a saved, migrated or unseeded root."""
     snapshots = {}
 
     def path_count(program, root, root_type, selectors):
@@ -142,17 +142,25 @@ def _saved_path_count(execution):
         reference = execution.variables.bindings.get(key)
         if reference is None:
             return DEFAULT_EMPTY_PATH
-        if reference.spec != tuple_spec(root_type):
+        spec = tuple_spec(root_type)
+        snapshot_key = key, spec
+        if snapshot_key not in snapshots:
+            if reference.spec == spec:
+                snapshots[snapshot_key] = rt.snapshot_value(reference.raw())
+            elif migrate_path is not None:
+                migrated = migrate_path(key, reference, spec)
+                if migrated is not None:
+                    snapshots[snapshot_key] = migrated.value
+        if snapshot_key not in snapshots:
             return None
-        if key not in snapshots:
-            snapshots[key] = rt.snapshot_value(reference.raw())
-        return len(_selected(reference.spec, snapshots[key], selectors)['nodes'])
+        return len(_selected(spec, snapshots[snapshot_key], selectors)['nodes'])
 
     return path_count
 
 
-def _discover_with_context(python_source, filename, execution):
-    return _discover_inputs(python_source, filename=filename, saved_path_count=_saved_path_count(execution))
+def _discover_with_context(python_source, filename, execution, *, migrate_path=None):
+    return _discover_inputs(python_source, filename=filename,
+                            saved_path_count=_saved_path_count(execution, migrate_path=migrate_path))
 
 
 def _prepare(report, context, *, materialize=True, execution=None):

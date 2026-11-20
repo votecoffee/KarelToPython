@@ -88,6 +88,68 @@ class InputRefreshTests(unittest.TestCase):
                          ('reset', 0, 1))
         self.assertEqual(migration['source_pointer'], '/inputs/context/variables/0/value')
 
+    def test_additive_path_header_migrates_saved_nodes_before_discovery(self):
+        prefix = ('TYPE node_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+                  'header_t=STRUCTURE total:INTEGER {extra} ENDSTRUCTURE '
+                  'route_t=PATH NODEDATA=node_t PATHHEADER=header_t')
+        old = code('WRITE(route.total)', decl='route:route_t', prefix=prefix.format(extra=''))
+        previous = prepare_inputs(old)
+        rows(previous)['ROUTE']['value'] = {'nodes': [{'AMOUNT': 7}], 'data': {'TOTAL': 12}}
+        original = deepcopy(previous)
+        new = code('IF PATH_LEN(route)=1 THEN WRITE(route.total,route.extra) ELSE WRITE(unused) ENDIF',
+                   decl='route:route_t unused:INTEGER', prefix=prefix.format(extra='extra:INTEGER'))
+        refreshed = refresh_inputs(new, previous)
+        self.assertEqual(previous, original)
+        self.assertEqual(rows(refreshed)['ROUTE']['value'], {'nodes': [{'AMOUNT': 7}],
+                                                            'data': {'TOTAL': 12, 'EXTRA': MISSING}})
+        report = refreshed['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual({row['path']: row['status'] for row in refreshed['template']['bindings']},
+                         {'ROUTE[0].TOTAL': 'supplied', 'ROUTE[0].EXTRA': 'missing'})
+        migration, = refreshed['template']['refresh']['variables']
+        self.assertEqual((migration['status'], migration['preserved_leaves'], migration['missing_leaves']),
+                         ('migrated', 2, 1))
+        self.assertEqual(migration['context_pointer'], '/variables/0/value')
+
+    def test_previously_headerless_path_keeps_nodes_when_header_is_added(self):
+        types = 'TYPE node_t=STRUCTURE amount:INTEGER ENDSTRUCTURE'
+        old = code('WRITE(PATH_LEN(route))', decl='route:PATH NODEDATA=node_t', prefix=types)
+        spec = ['PATH', ['STRUCTURE', 'NODE_T', [['AMOUNT', ['INTEGER']]]], None]
+        previous = prepare_inputs(old, context={'variables': [
+            dict(program='T', path='ROUTE', type=spec, value=dict(nodes=[{'AMOUNT': MISSING}], data=None)),
+        ]})
+        new = code('WRITE(PATH_LEN(route),route.total)',
+                   decl='route:PATH NODEDATA=node_t PATHHEADER=header_t',
+                   prefix=types+' header_t=STRUCTURE total:INTEGER ENDSTRUCTURE')
+        refreshed = refresh_inputs(new, previous)
+        self.assertTrue(refreshed['template']['discovery']['complete'])
+        self.assertEqual(rows(refreshed)['ROUTE']['value'], {'nodes': [{'AMOUNT': MISSING}],
+                                                            'data': {'TOTAL': MISSING}})
+        migration, = refreshed['template']['refresh']['variables']
+        self.assertEqual((migration['status'], migration['preserved_leaves'], migration['missing_leaves']),
+                         ('migrated', 0, 2))
+
+    def test_path_bank_resize_copies_overlapping_coordinates_and_records_counts(self):
+        prefix = 'TYPE node_t=STRUCTURE amount:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=node_t'
+        old = code('WRITE(PATH_LEN(routes[2,1]))', decl='routes:ARRAY[2,2] OF route_t', prefix=prefix)
+        spec = ['PATH', ['STRUCTURE', 'NODE_T', [['AMOUNT', ['INTEGER']]]], None]
+        values = [[dict(nodes=[{'AMOUNT': 11}], data=None), dict(nodes=[{'AMOUNT': 12}], data=None)],
+                  [dict(nodes=[{'AMOUNT': 21}], data=None), dict(nodes=[{'AMOUNT': 22}], data=None)]]
+        previous = prepare_inputs(old, context={'variables': [
+            dict(program='T', path='ROUTES', type=['ARRAY', [2, 2], spec], value=values),
+        ]})
+        new = code('WRITE(PATH_LEN(routes[2,1]),PATH_LEN(routes[3,1]))',
+                   decl='routes:ARRAY[3,1] OF route_t', prefix=prefix)
+        refreshed = refresh_inputs(new, previous)
+        report = refreshed['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(report['inputs'], [])
+        self.assertEqual(rows(refreshed)['ROUTES']['value'],
+                         [[values[0][0]], [values[1][0]], [dict(nodes=[], data=None)]])
+        migration, = refreshed['template']['refresh']['variables']
+        self.assertEqual((migration['status'], migration['preserved_leaves'], migration['missing_leaves']),
+                         ('migrated', 2, 0))
+
     def test_nominal_record_name_change_does_not_implicitly_transfer_fields(self):
         previous=prepare_inputs(code('n=p.a',decl='p:old_t n:INTEGER',prefix='TYPE old_t=STRUCTURE a:INTEGER ENDSTRUCTURE'))
         rows(previous)['P']['value']={'A':7}

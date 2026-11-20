@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1120.183741 - 2026-11-20
+
+- Retain saved PATH nodes through additive header changes and compatible PATH
+  ARRAY resizing in refreshed runs.
+- Discover node counts and transfers against the migrated shape before
+  publishing the refreshed document.
+
 ## 26.1120.183153 - 2026-11-20
 
 - Prepare bounded empty PATH and PATH ARRAY roots so discovered headers can

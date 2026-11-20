@@ -236,8 +236,14 @@ Changed roots receive a checked new shape, then copy compatible data:
 | STRING capacity | An existing string that fits the new capacity; no truncation during migration. |
 | Other scalar/kind/name changes | Missing markers, with the old value retained in the original document. |
 
-Incompatible PATH layouts can receive fresh, empty header templates for
-discovered header inputs. The earlier document retains the old header and nodes.
+PATH refresh can carry saved nodes through an added header or added fields
+in the same nominal header. The node schema and existing header field types
+must match. PATH ARRAY resizing also preserves overlapping coordinates when
+the array ranks and identities match. New cells have empty node lists, and
+new header fields use missing markers. Discovery uses the migrated shape
+when evaluating node counts and transfers. Incompatible layouts can receive
+fresh empty header templates for discovered header inputs. The earlier
+document retains the old header and nodes.
 
 New fields/cells remain missing. Removed inputs and unrelated context bindings,
 services, bank capacities, values and comments are retained. A changed root's new
@@ -268,9 +274,10 @@ unavailable. The new module pins are checked before publication.
 [Refresh a linked module set](run-documents.md#refresh-a-linked-module-set)
 
 Linked refresh uses the same schema compatibility rules and keys storage by
-the owning program and root path. Exact saved PATH roots needed by a whole or
-selected FILE transfer, `PATH_LEN`, or a proved node edit carry forward,
-including READ destinations with no initial fields to edit. A context variable without a matching discovered root
+the owning program and root path. Saved PATH roots with an exact or compatible
+layout carry forward when needed by a whole or selected FILE transfer,
+`PATH_LEN`, or a proved node edit. This includes READ destinations with no
+initial fields to edit. A context variable without a matching discovered root
 or PATH storage dependency is omitted from the new context. The `refresh.variables` row
 points to its original value and marks it `not-discovered` if discovery finished,
 or `unresolved` if discovery was incomplete. Even an omitted variable may be

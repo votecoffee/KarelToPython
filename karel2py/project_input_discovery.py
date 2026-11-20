@@ -33,13 +33,13 @@ def discover_project_document(path, *, expected=None):
     return _analyze_pins(target, module_paths, identity, execution=execution)
 
 
-def _analyze_pins(target, module_paths, identity=None, *, execution):
+def _analyze_pins(target, module_paths, identity=None, *, execution, migrate_path=None):
     plans = {pin['program']: _read_plan(pin['program'], path, pin['sha256'])
              for pin, path in zip(target['modules'], module_paths, strict=True)}
     identity = deepcopy(target) if identity is None else identity
     try:
         return analyze_plan(plans[target['program']], identity, linked_plans=plans,
-                            saved_path_count=_saved_path_count(execution))
+                            saved_path_count=_saved_path_count(execution, migrate_path=migrate_path))
     except (KeyError, IndexError, TypeError, ValueError, AttributeError, RecursionError) as error:
         raise InputDiscoveryError(str(error)) from error
 

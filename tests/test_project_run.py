@@ -221,6 +221,32 @@ class SavedProjectTests(unittest.TestCase):
         self.assertEqual(result['status'], 'completed', result['error'])
         self.assertEqual(result['text_output'], ' 31 32\n')
 
+    def test_linked_path_bank_refresh_keeps_migrated_path_count_only_storage(self):
+        types = 'TYPE row_t=STRUCTURE value:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t '
+        main = self.module('MAIN', 'WRITE(get_count(),CR)', routines='ROUTINE get_count:INTEGER FROM LIB')
+        lib = self.module('LIB', declarations=types+'VAR routes:ARRAY[2] OF route_t',
+                          routines='ROUTINE get_count:INTEGER BEGIN RETURN PATH_LEN(routes[2]) END get_count')
+        spec = ['PATH', ['STRUCTURE', 'ROW_T', [['VALUE', ['INTEGER']]]], None]
+        seed = dict(program='LIB', path='ROUTES', type=['ARRAY', 2, spec],
+                    value=[dict(nodes=[], data=None), dict(nodes=[{'VALUE': 31}], data=None)])
+        self.create(main, lib, context={'variables': [seed]}, discover=True)
+        previous = self.document.read_bytes()
+        new_lib = self.module('LIB', declarations=types+'VAR routes:ARRAY[3] OF route_t',
+                              routines='ROUTINE get_count:INTEGER '
+                                       'BEGIN RETURN PATH_LEN(routes[2])*10+PATH_LEN(routes[3]) END get_count')
+        revised = self.folder/'revised.run.json'
+        prepared = runner.refresh_project_document(self.document, revised, [main, new_lib])['inputs']
+        self.assertEqual(self.document.read_bytes(), previous)
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(report['inputs'], [])
+        self.assertEqual(report['path_storage'], [dict(program='LIB', path='ROUTES', type=['ARRAY', 3, spec])])
+        self.assertEqual(prepared['context']['variables'][0]['value'],
+                         [*seed['value'], dict(nodes=[], data=None)])
+        result = runner.run_document(revised)['results']
+        self.assertEqual(result['status'], 'completed', result['error'])
+        self.assertEqual(result['text_output'], ' 10\n')
+
     def test_linked_tail_edit_refresh_retains_seed_and_resolves_updated_count(self):
         types = 'TYPE row_t=STRUCTURE value:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t '
         main = self.module('MAIN',

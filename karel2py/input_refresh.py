@@ -8,6 +8,7 @@ from .input_discovery import MAX_INPUTS
 from .input_template import (
     InputTemplateError, _context_state, _discover_with_context, _prepare, _supplied, validate_annotations,
 )
+from .path_refresh import path_migrator
 from .storage import tuple_spec
 
 
@@ -95,15 +96,17 @@ def refresh_inputs(python_source, inputs, *, filename='<python>'):
     """Return fresh context and annotations for standalone Python."""
     previous = _previous_template(inputs)
     original, execution = _context_state(inputs['context'])
-    report = _discover_with_context(python_source, filename, execution)
+    migrate_path = path_migrator()
+    report = _discover_with_context(python_source, filename, execution, migrate_path=migrate_path)
     old_target = {key: previous['target'][key] for key in ('sha256', 'program')} if previous is not None else None
-    return _refresh_report(report, original, previous, old_target, execution=execution)
+    return _refresh_report(report, original, previous, old_target, execution=execution, migrate_path=migrate_path)
 
 
-def refresh_linked_inputs(report, inputs, previous_target, execution=None):
+def refresh_linked_inputs(report, inputs, previous_target, execution=None, migrate_path=None):
     """Carry saved variable values with proved storage in the new linked input catalog."""
     previous = _previous_template(inputs, linked_target=previous_target)
-    return _refresh_report(report, inputs['context'], previous, previous_target, linked=True, execution=execution)
+    return _refresh_report(report, inputs['context'], previous, previous_target,
+                           linked=True, execution=execution, migrate_path=migrate_path)
 
 
 def _compare_catalogs(previous, report):
@@ -136,18 +139,18 @@ def _variable_migration(key, row, index, new_type, status):
                 context_pointer=None, status=status)
 
 
-def _refresh_report(report, context, previous, previous_target, *, linked=False, execution=None):
+def _refresh_report(report, context, previous, previous_target, *,
+                    linked=False, execution=None, migrate_path=None):
     try:
         original = context
         if execution is None:
             original, execution = _context_state(context)
         new_roots = {(row['program'], row['root_path']): row['root_type']
                      for row in report['inputs'] if row['kind'] == 'variable'}
-        if linked:
-            # Whole transfers can depend on an exact saved shape without
-            # reading any initial field value, for example READ of a PATH.
-            new_roots.update({(row['program'], row['path']): row['type']
-                              for row in report.get('path_storage', ())})
+        # A topology query or transfer can depend on a root without a value
+        # candidate, including after a compatible PATH schema change.
+        new_roots.update({(row['program'], row['path']): row['type']
+                          for row in report.get('path_storage', ())})
         config = deepcopy(original)
         changed, rows, migrations = {}, [], []
         for index, row in enumerate(original.get('variables', [])):
@@ -163,7 +166,14 @@ def _refresh_report(report, context, previous, previous_target, *, linked=False,
                 if reference.spec != new_spec:
                     migration = _variable_migration(key, row, index, new_type, 'unmapped')
                     migrations.append(migration)
-                    changed[key] = reference, migration
+                    path = migrate_path(key, reference, new_spec) if migrate_path is not None and new_spec else None
+                    if path is None:
+                        changed[key] = reference, migration
+                    else:
+                        migration.update(status='migrated', preserved_leaves=path.preserved_leaves,
+                                         missing_leaves=path.missing_leaves,
+                                         context_pointer='/variables/'+str(len(rows))+'/value')
+                        rows.append(dict(deepcopy(row), type=deepcopy(new_type), value=path.value))
                     continue
             rows.append(deepcopy(row))
         if 'variables' in config:
@@ -179,7 +189,7 @@ def _refresh_report(report, context, previous, previous_target, *, linked=False,
             spec = tuple_spec(target['type'])
             migration['context_pointer'] = '/variables/'+str(new_index)+'/value'
             if spec[0] == 'PATH' or rt.path_array_io_type(spec):
-                # Only exact saved PATH roots carry nodes into a refreshed run.
+                # Without a compatible migration, prepare only the fresh header.
                 header = rt.array_leaf_spec(spec)[2]
                 count = prod(rt.array_dimensions(spec)) * rt.scalar_leaf_count(header)
                 migration.update(missing_leaves=count, status='reset')
