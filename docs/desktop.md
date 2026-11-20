@@ -95,8 +95,11 @@ the JSON layouts and current coverage.
    output** shows the combined text.
 
 You can reopen existing results if a module has moved or changed. Saving new
-inputs and replaying require all pinned module bytes to match. Create a new
-linked run when the module set changes.
+inputs and replaying require all pinned module bytes to match. To change the
+module set, save any pending input edits and choose **Revise linked**. Review
+the replacement modules, entry and order, then save a new run JSON. Review the
+migration under **Requirements** before running. The original run and its
+results remain available, even if the original Python files have moved.
 
 ## Edit and navigate
 

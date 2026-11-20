@@ -77,7 +77,7 @@ class RunWindow:
         toolbar.pack(fill='x')
         self.buttons = {}
         for label, command in (('New from Python…', self.new), ('New linked…', self.new_linked),
-                               ('Open run…', self.open),
+                               ('Open run…', self.open), ('Revise linked…', self.revise_linked),
                                ('Rediscover…', self.refresh), ('Save inputs', self.save),
                                ('Run', self.run), ('Cancel run', self.cancel)):
             button = ttk.Button(toolbar, text=label, command=command, style='Compact.TButton')
@@ -167,6 +167,7 @@ class RunWindow:
         self.buttons['Rediscover…'].configure(
             text=refresh_label,
             state='normal' if editable or (linked and not self.busy) else 'disabled')
+        self.buttons['Revise linked…'].configure(state='normal' if linked and editable else 'disabled')
         for label in ('Save inputs', 'Run'):
             self.buttons[label].configure(state='normal' if editable else 'disabled')
         can_cancel = self.cancel_event is not None and not self.cancel_event.is_set()
@@ -403,36 +404,52 @@ class RunWindow:
         self._start('Discovering inputs…', create)
 
     def new_linked(self):
+        if not self.busy and self._discard_edits():
+            self._choose_linked_modules()
+
+    def revise_linked(self):
+        if self.busy or not self._linked() or (self.document['results'] or {}).get('status') == 'running':
+            return
+        if self.context.edit_modified():
+            self.status.set('Save your context edits before revising the linked run.')
+            return
+        self._choose_linked_modules(source=self.path, revision=self.revision, entry=self.document['target']['program'])
+
+    def _choose_linked_modules(self, *, source=None, revision=None, entry=None):
         from .project_run import inspect_project_modules
 
-        if self.busy or not self._discard_edits():
-            return
         paths = self.dialog.askopenfilenames(
             parent=self.window, title='Select cooperative generated Python', filetypes=[('Python', '*.py')])
         if paths:
             self._start('Inspecting linked modules…', lambda: inspect_project_modules(paths),
-                        on_success=self._save_new_linked)
+                        on_success=lambda modules: self._save_linked(modules, source, revision, entry))
 
-    def _save_new_linked(self, modules):
+    def _save_linked(self, modules, source, revision, previous_entry):
         from .project_run import create_project_document
 
-        selection = select_linked_modules(self.window, modules)
+        selection = select_linked_modules(self.window, modules, default_entry=previous_entry)
         if selection is None:
-            self.status.set('Linked run creation cancelled.')
+            self.status.set('Linked run selection cancelled.')
             return
         entry, ordered = selection
-        path = self._destination(entry.lower() + '.linked')
+        stem = entry.lower() + ('.linked' if source is None else '.linked-revised')
+        path = self._destination(stem)
         if path is None:
-            self.status.set('Linked run creation cancelled.')
+            self.status.set('Linked run selection cancelled.')
             return
         protected = self.protected
+        paths = [pin.path for pin in ordered]
 
-        def create():
-            create_project_document([pin.path for pin in ordered], path, entry=entry, expected_modules=ordered,
-                                    protected=protected, discover=True)
+        def prepare():
+            if source is None:
+                create_project_document(paths, path, entry=entry, expected_modules=ordered,
+                                        protected=protected, discover=True)
+            else:
+                runner.refresh_project_document(source, path, paths, entry=entry, expected=revision,
+                                                expected_modules=ordered, protected=protected)
             return path, *runner.read_document(path)
 
-        self._start('Preparing linked inputs…', create)
+        self._start('Preparing linked inputs…', prepare)
 
     def open(self):
         if self.busy or not self._discard_edits():

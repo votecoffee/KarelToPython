@@ -74,47 +74,96 @@ def _catalog(report):
     return result
 
 
-def refresh_inputs(python_source, inputs, *, filename='<python>'):
-    """Return fresh context/annotations, without changing prior inputs or code.
-
-    Source catalog changes are separate from context migrations. Removed and
-    unrelated context bindings remain available; changed roots copy compatible
-    leaves only. Callers retain the prior document as the complete original.
-    """
+def _previous_template(inputs, *, linked_target=None):
     if type(inputs) is not dict or set(inputs) not in ({'context'}, {'context', 'template'}):
         raise InputTemplateError('Refresh requires context and optional template annotations')
     previous = inputs.get('template')
     if 'template' in inputs:
-        validate_annotations(previous, previous.get('target', {}) if type(previous) is dict else {})
+        identity = linked_target
+        if identity is None:
+            identity = previous.get('target', {}) if type(previous) is dict else {}
+            if type(identity) is not dict or 'modules' in identity:
+                raise InputTemplateError('Malformed or stale input-template annotations')
+        validate_annotations(previous, identity)
+    return previous
+
+
+def refresh_inputs(python_source, inputs, *, filename='<python>'):
+    """Return fresh context and annotations for standalone Python."""
+    previous = _previous_template(inputs)
     report = discover_inputs(python_source, filename=filename)
+    old_target = {key: previous['target'][key] for key in ('sha256', 'program')} if previous is not None else None
+    return _refresh_report(report, inputs['context'], previous, old_target)
+
+
+def refresh_linked_inputs(report, inputs, previous_target):
+    """Carry saved variable values with proved storage in the new linked input catalog."""
+    previous = _previous_template(inputs, linked_target=previous_target)
+    return _refresh_report(report, inputs['context'], previous, previous_target, linked=True)
+
+
+def _compare_catalogs(previous, report):
+    before = _catalog(previous['discovery']) if previous is not None else {}
+    after = _catalog(report)
+    old_complete = previous is not None and previous['discovery'].get('complete') is True
+    new_complete = report.get('complete') is True
+    changes = dict(added=[], removed=[], changed=[], retained=[], unresolved=[])
+    for key in sorted(before.keys() | after.keys()):
+        if key not in before:
+            if old_complete:
+                changes['added'].append(after[key])
+            else:
+                changes['unresolved'].append(dict(after=after[key], reason='Previous catalog is unavailable or incomplete; addition is unproven'))
+        elif key not in after:
+            if new_complete:
+                changes['removed'].append(before[key])
+            else:
+                changes['unresolved'].append(dict(before=before[key], reason='Current discovery is incomplete; removal is unproven'))
+        elif before[key] != after[key]:
+            changes['changed'].append(dict(before=before[key], after=after[key]))
+        else:
+            changes['retained'].append(after[key])
+    return changes, old_complete and new_complete
+
+
+def _variable_migration(key, row, index, new_type, status):
+    return dict(program=key[0], path=key[1], old_type=deepcopy(row['type']), new_type=deepcopy(new_type),
+                preserved_leaves=0, source_pointer='/inputs/context/variables/'+str(index)+'/value',
+                context_pointer=None, status=status)
+
+
+def _refresh_report(report, context, previous, previous_target, *, linked=False):
     try:
-        original = deepcopy(inputs['context'])
+        original = deepcopy(context)
         with rt._numeric_scope('pythonic'):
             execution = rt.ExecutionContext.from_config(original)
         new_roots = {(row['program'], row['root_path']): row['root_type']
                      for row in report['inputs'] if row['kind'] == 'variable'}
-        config = deepcopy(original); changed = {}; rows = []
+        config = deepcopy(original)
+        changed, rows, migrations = {}, [], []
         for index, row in enumerate(original.get('variables', [])):
             key = row['program'].upper(), row['path'].upper()
+            if linked and key not in new_roots:
+                status = 'not-discovered' if report.get('complete') is True else 'unresolved'
+                migrations.append(_variable_migration(key, row, index, None, status))
+                continue
             reference = execution.variables.bindings[key]
-            new_spec = tuple_spec(new_roots[key]) if key in new_roots and type(new_roots[key]) in (list, tuple) else None
-            if key in new_roots and reference.spec != new_spec:
-                changed[key] = (index, row, reference)
-            else:
-                rows.append(deepcopy(row))
+            if key in new_roots:
+                new_type = new_roots[key]
+                new_spec = tuple_spec(new_type) if type(new_type) in (list, tuple) else None
+                if reference.spec != new_spec:
+                    migration = _variable_migration(key, row, index, new_type, 'unmapped')
+                    migrations.append(migration)
+                    changed[key] = reference, migration
+                    continue
+            rows.append(deepcopy(row))
         if 'variables' in config:
             config['variables'] = rows
         prepared = _prepare(report, config)
         roots = {(row['program'].upper(), row['path'].upper()): index
                  for index, row in enumerate(prepared['context'].get('variables', []))}
-        migrations = []
-        for key, (old_index, old_row, reference) in changed.items():
+        for key, (reference, migration) in changed.items():
             new_index = roots.get(key)
-            migration = dict(program=key[0], path=key[1], old_type=deepcopy(old_row['type']),
-                             new_type=deepcopy(new_roots[key]), preserved_leaves=0,
-                             source_pointer='/inputs/context/variables/'+str(old_index)+'/value',
-                             context_pointer=None, status='unmapped')
-            migrations.append(migration)
             if new_index is None:
                 continue
             target = prepared['context']['variables'][new_index]
@@ -130,29 +179,9 @@ def refresh_inputs(python_source, inputs, *, filename='<python>'):
         # Recompute edited-value status without materializing any roots that
         # exceeded the first pass's shared storage budget.
         prepared = _prepare(report, prepared['context'], materialize=False)
-        before = _catalog(previous['discovery']) if previous is not None else {}
-        after = _catalog(report)
-        old_complete = previous is not None and previous['discovery'].get('complete') is True
-        new_complete = report.get('complete') is True
-        changes = dict(added=[], removed=[], changed=[], retained=[], unresolved=[])
-        for key in sorted(before.keys() | after.keys()):
-            if key not in before:
-                if old_complete:
-                    changes['added'].append(after[key])
-                else:
-                    changes['unresolved'].append(dict(after=after[key], reason='Previous catalog is unavailable or incomplete; addition is unproven'))
-            elif key not in after:
-                if new_complete:
-                    changes['removed'].append(before[key])
-                else:
-                    changes['unresolved'].append(dict(before=before[key], reason='Current discovery is incomplete; removal is unproven'))
-            elif before[key] != after[key]:
-                changes['changed'].append(dict(before=before[key], after=after[key]))
-            else:
-                changes['retained'].append(after[key])
-        old_target = {key: previous['target'][key] for key in ('sha256', 'program')} if previous is not None else None
-        prepared['template']['refresh'] = dict(schema=SCHEMA, previous_target=old_target,
-            baseline_known=previous is not None, comparison_complete=old_complete and new_complete,
+        changes, comparison_complete = _compare_catalogs(previous, report)
+        prepared['template']['refresh'] = dict(schema=SCHEMA, previous_target=deepcopy(previous_target),
+            baseline_known=previous is not None, comparison_complete=comparison_complete,
             changes=changes, variables=migrations)
         return prepared
     except (rt.KarelRuntimeError, TypeError, ValueError, KeyError, IndexError, AttributeError, RecursionError) as error:
@@ -161,7 +190,7 @@ def refresh_inputs(python_source, inputs, *, filename='<python>'):
         raise InputTemplateError('Invalid refresh inputs: '+str(error)) from error
 
 
-def validate_refresh(value):
+def validate_refresh(value, *, linked=False):
     fields = {'schema', 'previous_target', 'baseline_known', 'comparison_complete', 'changes', 'variables'}
     if (type(value) is not dict or set(value) not in (fields, fields | {'previous_document'})
             or value['schema'] != SCHEMA or type(value['baseline_known']) is not bool
@@ -173,7 +202,14 @@ def validate_refresh(value):
     target = value['previous_target']
     if value['baseline_known'] and target is None:
         raise InputTemplateError('Missing previous refresh target')
-    if target is not None and (type(target) is not dict or set(target) != {'program', 'sha256'}
+    if linked:
+        from .project_run import validate_project_target
+
+        try:
+            validate_project_target(target)
+        except ValueError as error:
+            raise InputTemplateError('Malformed previous linked refresh target') from error
+    elif target is not None and (type(target) is not dict or set(target) != {'program', 'sha256'}
             or type(target['program']) is not str or type(target['sha256']) is not str
             or not re.fullmatch(r'[0-9a-f]{64}', target['sha256'])):
         raise InputTemplateError('Malformed previous refresh target')

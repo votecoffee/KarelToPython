@@ -103,6 +103,24 @@ updates the input template and preserves the entry, module order, limits and
 previous results. `discover-project` reports input candidates without changing
 the document. [Linked input discovery](input-discovery.md#linked-project-discovery)
 
+### Refresh a linked module set
+
+```sh
+python -m karel2py.runner refresh-project .local/linked.run.json .local/revised.run.json .local/revised/lib.py .local/revised/main.py --entry MAIN
+```
+
+Supply the replacement modules in scheduling order. The saved entry is used
+when `--entry` is omitted. The old modules may have changed or moved. Refresh
+uses the original document's saved inputs and prior discovery annotations. It
+pins the replacement modules, keeps the limits and creates a document with
+empty results. The original document and results are preserved.
+
+Variable values carry forward by owning program, root path and compatible
+schema. Values with no discovered matching root are listed with pointers to the
+original document. Review the new missing values and unresolved analysis before
+replay. Desktop **Revise linked** uses the same migration.
+[Linked refresh details](input-discovery.md#refresh-a-linked-run)
+
 ## Inputs and results
 
 The schema is `karel2py.run.v1`, with `target`, `limits`, `inputs` and `results`.
@@ -185,7 +203,10 @@ both accept `discover=True` for optional input preparation.
 document, preserving compatible inputs without executing the target.
 `karel2py.project_run.inspect_project_modules(paths)` returns the ordered pins
 without executing the modules. Pass the reviewed pins in that same order as
-`expected_modules` to `create_project_document` to check them before saving.
+`expected_modules` to `create_project_document` or
+`refresh_project_document(source, destination, modules, entry=...)` to check
+them before saving. Linked refresh accepts the source document's exact JSON
+bytes as `expected`.
 `run_document(path)` executes and returns the saved document. API preflight or
 publication errors raise `RunDocumentError` or a filesystem error. Run documents
 and generated modules belong outside tracked public source or in ignored `.local/`.

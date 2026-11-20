@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1120.015327 - 2026-11-20
+
+- Add `runner refresh-project` and **Revise linked** to carry compatible
+  owner-qualified inputs to a new linked run and preserve the original results.
+- Report changed schemas, missing inputs, omitted variable values, and
+  uncertain comparisons. Carry compatible leaves when a shape changes.
+
 ## 26.1120.014523 - 2026-11-20
 
 - Prepare owner-qualified input templates when creating or opening pinned linked

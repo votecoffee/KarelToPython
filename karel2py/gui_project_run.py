@@ -1,7 +1,7 @@
 """Select the entry and scheduling order for a new linked run."""
 
 
-def select_linked_modules(parent, modules):
+def select_linked_modules(parent, modules, *, default_entry=None):
     from tkinter import messagebox, simpledialog, ttk
 
     by_name = {pin.program: pin for pin in modules}
@@ -11,7 +11,9 @@ def select_linked_modules(parent, modules):
             ttk.Label(frame, text='Entry program').grid(row=0, column=0, sticky='w', pady=(0, 8))
             self.entry = ttk.Combobox(frame, values=tuple(by_name), state='readonly', width=22)
             self.entry.grid(row=0, column=1, sticky='w', pady=(0, 8))
-            if len(by_name) == 1:
+            if default_entry in by_name:
+                self.entry.set(default_entry)
+            elif len(by_name) == 1:
                 self.entry.current(0)
 
             ttk.Label(frame, text='Module order breaks ties between tasks of equal priority.').grid(
@@ -68,4 +70,5 @@ def select_linked_modules(parent, modules):
         def apply(self):
             self.result = self.entry.get(), tuple(by_name[name] for name in self.tree.get_children())
 
-    return LinkedModulesDialog(parent, title='New linked run').result
+    title = 'New linked run' if default_entry is None else 'Revise linked run'
+    return LinkedModulesDialog(parent, title=title).result

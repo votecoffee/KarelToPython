@@ -270,7 +270,7 @@ def _prepare_edited_context(document, target_paths, context):
 
 def _replace_prepared_inputs(document, prepared):
     inputs = document['inputs']
-    if 'refresh' in inputs['template']:
+    if 'refresh' in inputs.get('template', {}):
         prepared['template']['refresh'] = inputs['template']['refresh']
     inputs.update(prepared)
 
@@ -283,7 +283,7 @@ def prepare_project_document(path, *, context=None, expected=None, protected=())
     target_paths = _edit_target_paths(path, document)
     inputs = document['inputs']
     prepared = _prepare_edited_context(document, target_paths, inputs['context'] if context is None else context)
-    inputs.update(prepared)
+    _replace_prepared_inputs(document, prepared)
     revision = _store_edited_inputs(path, document, original, target_paths, protected)
     return document, revision
 
@@ -365,15 +365,43 @@ def refresh_document(source, destination, *, target=None, expected=None, protect
     if template['target']['sha256'] != document['target']['sha256'] or template['target']['program'] != document['target']['program']:
         raise RunDocumentError('Python target changed during input refresh')
     template['refresh']['previous_target'] = {key: old_target[key] for key in ('sha256', 'program')}
+    document['inputs']['template'] = template
+    return _publish_refreshed_document(source, destination, original, document, (selected, *protected))
+
+
+def refresh_project_document(source, destination, modules, *, entry=None, expected=None,
+                             expected_modules=None, protected=()):
+    """Prepare a new linked run from saved inputs and an ordered replacement module set."""
+    from .input_refresh import refresh_linked_inputs
+    from .project_input_discovery import _analyze_pins
+    from .project_run import _project_target, check_project_pin_bytes, project_document_fields
+
+    destination = Path(destination).absolute()
+    source, original, previous = _read_revision(source, expected)
+    old_target, inputs = project_document_fields(previous)
+    target, module_paths = _project_target(
+        modules, destination, old_target['program'] if entry is None else entry, expected_modules)
+    report = _analyze_pins(target, module_paths)
+    try:
+        prepared = refresh_linked_inputs(report, inputs, old_target)
+    except ValueError as error:
+        raise RunDocumentError('Input refresh: '+str(error)) from error
+    document = dict(schema=PROJECT_SCHEMA, target=target, limits=previous['limits'], inputs=prepared, results=None)
+    check_project_pin_bytes(destination, target)
+    old_paths = tuple(source.parent / row['path'] for row in old_target['modules'])
+    return _publish_refreshed_document(source, destination, original, document, (*module_paths, *old_paths, *protected))
+
+
+def _publish_refreshed_document(source, destination, original, document, protected):
     try:
         old_path = os.path.relpath(source, destination.parent)
     except ValueError:
         old_path = str(source)
-    template['refresh']['previous_document'] = dict(path=old_path, sha256=hashlib.sha256(original).hexdigest())
-    document['inputs']['template'] = template
+    refresh = document['inputs']['template']['refresh']
+    refresh['previous_document'] = dict(path=old_path, sha256=hashlib.sha256(original).hexdigest())
     if _read(source) != original:
         raise RunDocumentError('Source run document changed during refresh; external edits preserved')
-    _store(destination, document, protected=(source, selected, *protected))
+    _store(destination, document, protected=(source, *protected))
     return document
 
 
@@ -530,6 +558,11 @@ def main(argv=None):
     refresh.add_argument('source', type=Path)
     refresh.add_argument('document', type=Path)
     refresh.add_argument('--target', type=Path, help='New generated Python; otherwise use the source document target path')
+    refresh_project = subparsers.add_parser('refresh-project', help='Carry compatible inputs to a new linked module set')
+    refresh_project.add_argument('source', type=Path)
+    refresh_project.add_argument('document', type=Path)
+    refresh_project.add_argument('modules', type=Path, nargs='+', help='Replacement modules in scheduling order')
+    refresh_project.add_argument('--entry', help='Declared KAREL entry program; defaults to the saved entry')
     run = subparsers.add_parser('run', help='Explicitly execute the pinned trusted Python target')
     run.add_argument('document', type=Path)
     args = parser.parse_args(argv)
@@ -555,8 +588,11 @@ def main(argv=None):
                                                    protected=(args.context,) if args.context else ())
             print(json.dumps(dict(status='prepared', program=document['target']['program'], **_template_counts(document))))
             return 0
-        if args.command == 'refresh':
-            document = refresh_document(args.source, args.document, target=args.target)
+        if args.command in ('refresh', 'refresh-project'):
+            if args.command == 'refresh-project':
+                document = refresh_project_document(args.source, args.document, args.modules, entry=args.entry)
+            else:
+                document = refresh_document(args.source, args.document, target=args.target)
             template = document['inputs']['template']
             print(json.dumps(dict(status='refreshed', program=document['target']['program'],
                 changes={name: len(rows) for name, rows in template['refresh']['changes'].items()},

@@ -2,8 +2,8 @@
 
 Functional Pythonic conversion remains the implementation priority. The
 compiler now separates parsing, schema validation, control-flow analysis, and
-Python generation. The next priority is carrying edited linked-run inputs to a
-revised module set. Strict compatibility follows functional coverage.
+Python generation. The next priority is expanding linked input discovery
+to scheduled tasks, handlers and callbacks. Strict compatibility follows functional coverage.
 Current behavior and restrictions are documented in the [support guide](language-support.md)
 and [desktop guide](desktop.md).
 
@@ -58,19 +58,17 @@ order. Both prepare owner-qualified input templates, and the desktop edits
 discovered scalar and structured inputs and shows each saved program snapshot.
 Input saves check the document revision and module pins and keep prior results.
 Discovery follows synchronous calls with matching signatures, reference
-arguments, and imported variables.
+arguments, and imported variables. Refreshing a module set carries compatible
+owner-qualified values into a new document and reports changed, omitted and
+unresolved inputs.
 [Linked input discovery](input-discovery.md#linked-project-discovery)
 
 ### Remaining linked-run work
 
-1. **Carry inputs to a revised module set.** Create a new linked document with
-   the selected entry and ordered pins. Carry only inputs whose owner, path,
-   and schema are compatible. Report changed, removed, and unresolved
-   bindings and preserve the original document and results.
-2. **Expand linked discovery.** Analyze scheduled child tasks, handler actions,
+1. **Expand linked discovery.** Analyze scheduled child tasks, handler actions,
    and callbacks where their targets and effects can be resolved. Keep dynamic
    selections and unknown timing or external effects visible in the report.
-3. **Export linked sources from the desktop.** Reuse linked-project validation
+2. **Export linked sources from the desktop.** Reuse linked-project validation
    and cooperative Python export so the desktop workflow can begin with KAREL
    source files. Keep the existing output and source-file protections.
 

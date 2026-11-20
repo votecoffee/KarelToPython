@@ -182,6 +182,173 @@ class SavedProjectTests(unittest.TestCase):
         self.assertNotEqual(command.returncode, 0)
         self.assertEqual(self.document.read_bytes(), revision)
 
+    def test_refresh_project_preserves_owners_limits_and_compatible_array_cells(self):
+        main = self.module('MAIN', 's=n+read_n()+gone+values[1]+values[2] n=99',
+                           'VAR n,s,gone:INTEGER values:ARRAY[2] OF INTEGER', 'ROUTINE read_n:INTEGER FROM LIB')
+        lib = self.module('LIB', routines='ROUTINE read_n:INTEGER BEGIN RETURN n END read_n')
+        variables = [dict(program=owner, path=path, type=spec, value=value) for owner, path, spec, value in (
+            ('MAIN', 'N', 'INTEGER', 4), ('LIB', 'N', 'INTEGER', 3), ('MAIN', 'GONE', 'INTEGER', 10),
+            ('MAIN', 'VALUES', ['ARRAY', 2, ['INTEGER']], [5, 6]))]
+        context = {'variables': variables, 'numeric': {'count': 1, 'values': {'1': 21}}}
+        self.create(main, lib, context=context, discover=True, max_steps=123, max_cycles=456, max_output_chars=789)
+        original = runner.run_document(self.document)
+        self.assertEqual(original['results']['programs']['MAIN']['values']['N'], 99)
+        before = self.document.read_bytes()
+        main = self.module('MAIN', 's=n+read_n()+values[1]+values[2]',
+                           'VAR n,s:INTEGER values:ARRAY[3] OF INTEGER', 'ROUTINE read_n:INTEGER FROM LIB')
+        replacement_lib = self.folder / 'new_lib.py'
+        lib.rename(replacement_lib)
+        new_folder = self.folder / 'revised'
+        new_folder.mkdir()
+        destination = new_folder / 'linked.run.json'
+        with patch('builtins.exec', side_effect=AssertionError('target executed during refresh')):
+            refreshed = runner.refresh_project_document(self.document, destination, [replacement_lib, main], expected=before)
+        self.assertEqual(self.document.read_bytes(), before)
+        self.assertEqual(refreshed['limits'], original['limits'])
+        self.assertIsNone(refreshed['results'])
+        self.assertEqual([row['program'] for row in refreshed['target']['modules']], ['LIB', 'MAIN'])
+        for pin, path in zip(refreshed['target']['modules'], (replacement_lib, main), strict=True):
+            self.assertEqual((destination.parent / pin['path']).resolve(), path)
+        annotations = refreshed['inputs']['template']['refresh']
+        self.assertEqual(annotations['previous_target'], original['target'])
+        self.assertEqual(annotations['previous_document'],
+                         dict(path=str(Path('../session.run.json')), sha256=sha256(before).hexdigest()))
+        self.assertTrue(annotations['comparison_complete'])
+        self.assertEqual([(row['program'], row['path']) for row in annotations['changes']['removed']], [('MAIN', 'GONE')])
+        self.assertEqual([(row['path'], row['status'], row['preserved_leaves']) for row in annotations['variables']],
+                         [('GONE', 'not-discovered', 0), ('VALUES', 'migrated', 2)])
+        inputs = refreshed['inputs']['context']
+        self.assertEqual(inputs['numeric'], context['numeric'])
+        self.assertEqual({(row['program'], row['path']): row['value'] for row in inputs['variables']},
+                         {('MAIN', 'N'): 4, ('LIB', 'N'): 3, ('MAIN', 'VALUES'): [5, 6, MISSING]})
+        result = runner.run_document(destination)['results']
+        self.assertEqual(result['status'], 'completed')
+        self.assertEqual(result['programs']['MAIN']['values']['S'], 18)
+        saved, revision = runner.prepare_project_document(destination)
+        self.assertEqual(saved['inputs']['template']['refresh'], annotations)
+        self.assertEqual(saved['results'], result)
+        saved, _ = runner.save_input_value(destination, ('variable', 'LIB', 'N'), 'INTEGER', '9', expected=revision)
+        self.assertEqual(saved['inputs']['template']['refresh'], annotations)
+
+    def test_refresh_project_resets_incompatible_types_without_guessing_new_owners(self):
+        main = self.module('MAIN', 'WRITE(n,flag)', 'VAR n,flag:INTEGER')
+        context = {'variables': [dict(program='MAIN', path=path, type='INTEGER', value=value)
+                                 for path, value in [('N', 7), ('FLAG', 12)]]}
+        self.create(main, discover=True, context=context)
+        main = self.module('MAIN', '', 'VAR flag:BOOLEAN', 'ROUTINE show_flag BEGIN WRITE(flag) END show_flag')
+        other = self.module('OTHER', 'show_flag() WRITE(n)', 'VAR n:INTEGER', 'ROUTINE show_flag FROM MAIN')
+        destination = self.folder / 'revised.run.json'
+        before = self.document.read_bytes()
+        result = self.cli('karel2py.runner', 'refresh-project', self.document, destination, other, main, '--entry', 'other')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout)['changes'],
+                         dict(added=1, removed=1, changed=1, retained=0, unresolved=0))
+        self.assertEqual(self.document.read_bytes(), before)
+        saved, _ = runner.read_document(destination)
+        self.assertEqual(saved['target']['program'], 'OTHER')
+        refresh = saved['inputs']['template']['refresh']
+        self.assertEqual([(row['program'], row['path'], row['status']) for row in refresh['variables']],
+                         [('MAIN', 'N', 'not-discovered'), ('MAIN', 'FLAG', 'reset')])
+        self.assertEqual({(row['program'], row['path']): row['value'] for row in saved['inputs']['context']['variables']},
+                         {('MAIN', 'FLAG'): MISSING, ('OTHER', 'N'): MISSING})
+        saved['inputs']['template']['refresh']['previous_target']['modules'][0]['sha256'] = 'bad'
+        destination.write_text(json.dumps(saved), encoding='utf-8')
+        with self.assertRaisesRegex(ValueError, 'Malformed previous linked refresh target'):
+            runner.read_document(destination)
+
+    def test_refresh_project_reports_unproven_removals_when_new_linkage_is_unresolved(self):
+        main = self.module('MAIN', 'WRITE(read_n())', routines='ROUTINE read_n:INTEGER FROM LIB')
+        lib = self.module('LIB', routines='ROUTINE read_n:INTEGER BEGIN RETURN n END read_n')
+        context = {'variables': [dict(program='LIB', path='N', type='INTEGER', value=3)]}
+        self.create(main, lib, discover=True, context=context)
+        with lib.open('ab') as stream:
+            stream.write(b'raise AssertionError("module executed during refresh")\n')
+        destination = self.folder / 'revised.run.json'
+        saved = runner.refresh_project_document(self.document, destination, [main, lib])
+        template = saved['inputs']['template']
+        self.assertFalse(template['refresh']['comparison_complete'])
+        self.assertFalse(template['refresh']['changes']['removed'])
+        self.assertEqual(template['refresh']['changes']['unresolved'][0]['before']['program'], 'LIB')
+        self.assertEqual(template['refresh']['variables'][0]['status'], 'unresolved')
+        self.assertEqual(saved['inputs']['context']['variables'], [])
+        self.assertEqual([row['code'] for row in template['discovery']['unresolved']], ['contract', 'routine'])
+
+    def test_refresh_project_context_only_source_and_fresh_provenance_on_next_refresh(self):
+        main = self.module('MAIN', 'WRITE(n)')
+        context = {'variables': [dict(program='MAIN', path='N', type='INTEGER', value=8)]}
+        self.create(main, context=context)
+        first = self.folder / 'first.run.json'
+        saved = runner.refresh_project_document(self.document, first, [main])
+        template = saved['inputs']['template']
+        self.assertFalse(template['refresh']['baseline_known'])
+        self.assertEqual(template['refresh']['changes']['unresolved'][0]['after']['path'], 'N')
+        second = self.folder / 'second.run.json'
+        saved = runner.refresh_project_document(first, second, [main])
+        refresh = saved['inputs']['template']['refresh']
+        self.assertTrue(refresh['comparison_complete'])
+        self.assertEqual(refresh['previous_document']['path'], first.name)
+        self.assertEqual(refresh['changes']['retained'][0]['path'], 'N')
+        self.assertEqual(runner.run_document(second)['results']['text_output'].strip(), '8')
+
+    def test_refresh_project_refuses_stale_source_and_reviewed_pins(self):
+        main, lib = self.module('MAIN'), self.module('LIB')
+        self.create(main, lib, discover=True)
+        original = self.document.read_bytes()
+        destination = self.folder / 'revised.run.json'
+        with self.assertRaisesRegex(ValueError, 'changed on disk'):
+            runner.refresh_project_document(self.document, destination, [main, lib], expected=b'stale')
+        pins = inspect_project_modules([main, lib])
+        with lib.open('ab') as stream:
+            stream.write(b'# changed after module review\n')
+        with self.assertRaisesRegex(ValueError, 'changed after review'):
+            runner.refresh_project_document(self.document, destination, [main, lib], expected_modules=pins)
+        self.assertEqual(self.document.read_bytes(), original)
+        self.assertFalse(destination.exists())
+
+    def test_refresh_project_rechecks_source_and_module_bytes_before_publication(self):
+        from karel2py.input_refresh import refresh_linked_inputs
+
+        main, lib = self.module('MAIN'), self.module('LIB')
+        self.create(main, lib, discover=True)
+        original = self.document.read_bytes()
+        lib_bytes = lib.read_bytes()
+        destination = self.folder / 'revised.run.json'
+        for path, expected_error in [(lib, 'module changed during'), (self.document, 'external edits preserved')]:
+            with self.subTest(path=path):
+                modified = path.read_bytes() + b'\n'
+
+                def refresh_and_change(*args):
+                    prepared = refresh_linked_inputs(*args)
+                    path.write_bytes(modified)
+                    return prepared
+
+                with patch('karel2py.input_refresh.refresh_linked_inputs', side_effect=refresh_and_change):
+                    with self.assertRaisesRegex(ValueError, expected_error):
+                        runner.refresh_project_document(self.document, destination, [main, lib])
+                self.assertFalse(destination.exists())
+                self.assertEqual(path.read_bytes(), modified)
+                if path == lib:
+                    self.assertEqual(self.document.read_bytes(), original)
+                    lib.write_bytes(lib_bytes)
+
+    def test_refresh_project_protects_existing_destinations_and_refuses_running_marker(self):
+        main, lib = self.module('MAIN'), self.module('LIB')
+        document = self.create(main, lib, discover=True)
+        original = self.document.read_bytes()
+        destination = self.folder / 'revised.run.json'
+        destination.write_bytes(b'existing')
+        for path, error in [(destination, FileExistsError), (self.document, ValueError), (main, ValueError)]:
+            with self.subTest(path=path), self.assertRaises(error):
+                runner.refresh_project_document(self.document, path, [main])
+        self.assertEqual(destination.read_bytes(), b'existing')
+        self.assertEqual(self.document.read_bytes(), original)
+        document['results'] = {'status': 'running'}
+        running = json.dumps(document).encode()
+        self.document.write_bytes(running)
+        with self.assertRaisesRegex(ValueError, 'running or interrupted'):
+            runner.refresh_project_document(self.document, destination, [main, lib])
+        self.assertEqual(self.document.read_bytes(), running)
+
     def test_discovery_follows_linked_reference_writes_and_transitive_global_owners(self):
         main = self.module('MAIN', 'fill(cell) w=11 WRITE(n,cell)', 'VAR n,w FROM BRIDGE:INTEGER cell:INTEGER',
                            'ROUTINE fill(x:INTEGER) FROM BRIDGE')

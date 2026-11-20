@@ -7,10 +7,55 @@ import tempfile
 import threading
 import time
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from karel2py import __version__
 from karel2py.workbench import Document, analyze_source
+
+
+class LinkedRunWiringTests(unittest.TestCase):
+    def test_revise_uses_the_open_revision_and_reviewed_replacement_order(self):
+        from karel2py import runner
+        from karel2py.gui_runner import RunWindow
+        from karel2py.project_run import ModulePin
+
+        editor = RunWindow.__new__(RunWindow)
+        editor.window = object()
+        editor.path = Path('original.linked.run.json')
+        editor.revision = b'opened revision'
+        editor.document = {'schema': runner.PROJECT_SCHEMA, 'target': {'program': 'MAIN'}, 'results': None}
+        editor.busy = False
+        editor.protected = (Path('source.kl'),)
+        editor.context = Mock()
+        editor.context.edit_modified.return_value = False
+        editor.status = Mock()
+        main = ModulePin('MAIN', Path('main.py'), 'a' * 64)
+        lib = ModulePin('LIB', Path('lib.py'), 'b' * 64)
+        editor.dialog = Mock()
+        editor.dialog.askopenfilenames.return_value = (main.path, lib.path)
+        destination = Path('revised.linked.run.json')
+        editor._destination = Mock(return_value=destination)
+        def start(_message, operation, *, on_success=None):
+            outcome = operation()
+            if on_success is not None:
+                on_success(outcome)
+
+        editor._start = start
+        with patch('karel2py.project_run.inspect_project_modules', return_value=(main, lib)), \
+                patch('karel2py.gui_runner.select_linked_modules', return_value=('LIB', (lib, main))) as select, \
+                patch.object(runner, 'refresh_project_document') as revise, \
+                patch.object(runner, 'read_document', return_value=({}, b'new revision')) as read:
+            editor.revise_linked()
+        select.assert_called_once_with(editor.window, (main, lib), default_entry='MAIN')
+        revise.assert_called_once_with(editor.path, destination, [lib.path, main.path], entry='LIB',
+                                       expected=editor.revision, expected_modules=(lib, main),
+                                       protected=editor.protected)
+        read.assert_called_once_with(destination)
+
+        editor.context.edit_modified.return_value = True
+        editor.revise_linked()
+        editor.dialog.askopenfilenames.assert_called_once()
+        self.assertIn('Save your context edits', editor.status.set.call_args.args[0])
 
 
 @unittest.skipUnless(os.environ.get('KAREL2PY_GUI_TESTS')=='1', 'Native GUI tests require KAREL2PY_GUI_TESTS=1')

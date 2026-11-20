@@ -68,12 +68,7 @@ def _validate_limits(limits):
         raise RunDocumentError('Linked limits require positive max_steps, max_cycles and max_output_chars up to 16777216.')
 
 
-def create_project_document(paths, destination, *, entry, context=None, max_steps=100000, max_cycles=100000,
-                            max_output_chars=1048576, protected=(), expected_modules=None, discover=False):
-    """Inspect and pin each selected module without importing its code."""
-    destination = Path(destination).absolute()
-    limits = dict(max_steps=max_steps, max_cycles=max_cycles, max_output_chars=max_output_chars)
-    _validate_limits(limits)
+def _project_target(paths, destination, entry, expected_modules):
     if type(entry) is not str or not entry.isascii() or not _program_name(entry.upper()):
         raise RunDocumentError('Choose a declared program name for the linked entry.')
     entry = entry.upper()
@@ -83,8 +78,6 @@ def create_project_document(paths, destination, *, entry, context=None, max_step
         raise RunDocumentError('A linked Python module changed after review. Select the modules again.')
     if entry not in modules:
         raise RunDocumentError('The linked entry must be one of the selected modules.')
-    config = {} if context is None else _decode(_encode(context))
-    _context(config)
     rows = []
     for pin in pins:
         try:
@@ -94,6 +87,18 @@ def create_project_document(paths, destination, *, entry, context=None, max_step
         rows.append(dict(path=name, program=pin.program, sha256=pin.sha256))
     target = dict(program=entry, mode='pythonic', modules=rows)
     module_paths = tuple(pin.path for pin in pins)
+    return target, module_paths
+
+
+def create_project_document(paths, destination, *, entry, context=None, max_steps=100000, max_cycles=100000,
+                            max_output_chars=1048576, protected=(), expected_modules=None, discover=False):
+    """Inspect and pin each selected module without importing its code."""
+    destination = Path(destination).absolute()
+    limits = dict(max_steps=max_steps, max_cycles=max_cycles, max_output_chars=max_output_chars)
+    _validate_limits(limits)
+    target, module_paths = _project_target(paths, destination, entry, expected_modules)
+    config = {} if context is None else _decode(_encode(context))
+    _context(config)
     if type(discover) is not bool:
         raise RunDocumentError('discover must be BOOLEAN')
     inputs = dict(context=config)
@@ -107,12 +112,8 @@ def create_project_document(paths, destination, *, entry, context=None, max_step
     return document
 
 
-def project_document_fields(document, *, inspect_only=False):
-    """Validate the saved envelope without reading or executing its modules."""
-    if (type(document) is not dict or set(document) != {'schema', 'target', 'limits', 'inputs', 'results'} or
-            document['schema'] != PROJECT_SCHEMA):
-        raise RunDocumentError('Expected a karel2py.project-run.v1 document.')
-    target, inputs, results = document['target'], document['inputs'], document['results']
+def validate_project_target(target):
+    """Validate an entry and its ordered linked pins without reading files."""
     if (type(target) is not dict or set(target) != {'program', 'mode', 'modules'} or
             target['mode'] != 'pythonic' or not _program_name(target['program']) or
             type(target['modules']) is not list or not 1 <= len(target['modules']) <= MAX_MODULES):
@@ -128,6 +129,15 @@ def project_document_fields(document, *, inspect_only=False):
         names.add(row['program'])
     if target['program'] not in names:
         raise RunDocumentError('The linked entry must be one of the pinned modules.')
+
+
+def project_document_fields(document, *, inspect_only=False):
+    """Validate the saved envelope without reading or executing its modules."""
+    if (type(document) is not dict or set(document) != {'schema', 'target', 'limits', 'inputs', 'results'} or
+            document['schema'] != PROJECT_SCHEMA):
+        raise RunDocumentError('Expected a karel2py.project-run.v1 document.')
+    target, inputs, results = document['target'], document['inputs'], document['results']
+    validate_project_target(target)
     _validate_limits(document['limits'])
     if type(inputs) is not dict or set(inputs) not in ({'context'}, {'context', 'template'}):
         raise RunDocumentError('Linked run inputs require context and may include template annotations.')

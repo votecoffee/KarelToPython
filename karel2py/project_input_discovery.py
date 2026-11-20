@@ -32,9 +32,10 @@ def discover_project_document(path, *, expected=None):
     return _analyze_pins(target, module_paths, identity)
 
 
-def _analyze_pins(target, module_paths, identity):
+def _analyze_pins(target, module_paths, identity=None):
     plans = {pin['program']: _read_plan(pin['program'], path, pin['sha256'])
              for pin, path in zip(target['modules'], module_paths, strict=True)}
+    identity = deepcopy(target) if identity is None else identity
     try:
         return analyze_plan(plans[target['program']], identity, linked_plans=plans)
     except (KeyError, IndexError, TypeError, ValueError, AttributeError, RecursionError) as error:
@@ -43,5 +44,5 @@ def _analyze_pins(target, module_paths, identity):
 
 def prepare_project_inputs(target, module_paths, context):
     """Prepare owner-qualified inputs bound to the entry and ordered module pins."""
-    report = _analyze_pins(target, module_paths, deepcopy(target))
+    report = _analyze_pins(target, module_paths)
     return _prepare(report, context)

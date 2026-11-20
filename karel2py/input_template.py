@@ -214,8 +214,7 @@ def _matches_target(target, identity):
 def validate_annotations(template, identity):
     """Check the optional source-bound annotation envelope, never its readiness."""
     fields = {'schema', 'target', 'discovery', 'bindings', 'requirements', 'boundary'}
-    allowed = (fields,) if 'modules' in identity else (fields, fields | {'refresh'})
-    if (type(template) is not dict or set(template) not in allowed or template['schema'] != SCHEMA
+    if (type(template) is not dict or set(template) not in (fields, fields | {'refresh'}) or template['schema'] != SCHEMA
             or not _matches_target(template['target'], identity)
             or type(template['discovery']) is not dict or template['discovery'].get('schema') != 'karel2py.inputs.v1'
             or template['discovery'].get('target') != template['target']
@@ -225,4 +224,4 @@ def validate_annotations(template, identity):
         raise InputTemplateError('Malformed or stale input-template annotations')
     if 'refresh' in template:
         from .input_refresh import validate_refresh
-        validate_refresh(template['refresh'])
+        validate_refresh(template['refresh'], linked='modules' in identity)

@@ -199,6 +199,29 @@ Failed preparation or publication preserves the original; no execution is retrie
 Review missing values and unresolved discovery effects before running the new
 document. Conditional inputs can still remain missing on untaken paths.
 
+### Refresh a linked run
+
+Use `runner refresh-project` or desktop **Revise linked** with an explicitly
+ordered set of replacement Python modules. The linked refresh reads the original
+run's context and prior annotations, so it can work even if the old modules are
+unavailable. The new module pins are checked before publication.
+[Refresh a linked module set](run-documents.md#refresh-a-linked-module-set)
+
+Linked refresh uses the same schema compatibility rules and keys storage by
+the owning program and root path. A context variable without a matching
+discovered root is omitted from the new context. The `refresh.variables` row
+points to its original value and marks it `not-discovered` if discovery finished,
+or `unresolved` if discovery was incomplete. Even an omitted variable may be
+needed by a path that analysis cannot model. Use the discovery report and
+`refresh.changes` to review those gaps and supply values explicitly.
+
+Shared offline service configuration, including saved bank values and file
+fixtures, carries forward as explicit starting context. Newly discovered
+requirements still need review. The refresh receipt records the prior entry and
+ordered module pins, whose paths are relative to the prior document when possible,
+plus the path and SHA-256 of that document. Editing or preparing the new run's
+inputs preserves the receipt.
+
 ## Supported analysis
 
 The analyzer follows source evaluation order for assignments, scalar/aggregate
