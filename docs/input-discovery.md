@@ -363,7 +363,15 @@ Provide the exact typed PATH root in `inputs.context.variables` to edit its
 selected scalar or structure. The template can bind to a supplied header,
 node or field, keeping the remaining PATH values and node count intact.
 A missing root or unavailable node is reported as a `path-storage` requirement.
-Whole-PATH operations whose shape depends on runtime data remain unresolved.
+For standalone run preparation and refresh, a matching saved root also lets
+discovery expand a whole PATH, a selected whole PATH ARRAY cell, or a whole
+bank into existing header and node records. READ uses this shape to identify
+its destinations and still requires explicit input-stream data. WRITE
+adds editable records only when their fields are read before a definite
+source write. Each transfer item is limited to 1,024 scalar fields.
+A conditionally reached transfer, a possible topology change, a missing
+saved shape, or discovery without a saved context leaves the whole
+transfer unresolved.
 
 ### Boolean and INTEGER operators
 

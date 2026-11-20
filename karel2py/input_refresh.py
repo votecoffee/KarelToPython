@@ -3,8 +3,10 @@ from copy import deepcopy
 import re
 
 from . import runtime as rt
-from .input_discovery import discover_inputs, MAX_INPUTS
-from .input_template import InputTemplateError, _prepare, _supplied, validate_annotations
+from .input_discovery import MAX_INPUTS
+from .input_template import (
+    InputTemplateError, _context_state, _discover_with_context, _prepare, _supplied, validate_annotations,
+)
 from .storage import tuple_spec
 
 
@@ -91,9 +93,10 @@ def _previous_template(inputs, *, linked_target=None):
 def refresh_inputs(python_source, inputs, *, filename='<python>'):
     """Return fresh context and annotations for standalone Python."""
     previous = _previous_template(inputs)
-    report = discover_inputs(python_source, filename=filename)
+    original, execution = _context_state(inputs['context'])
+    report = _discover_with_context(python_source, filename, execution)
     old_target = {key: previous['target'][key] for key in ('sha256', 'program')} if previous is not None else None
-    return _refresh_report(report, inputs['context'], previous, old_target)
+    return _refresh_report(report, original, previous, old_target, execution=execution)
 
 
 def refresh_linked_inputs(report, inputs, previous_target):
@@ -132,11 +135,11 @@ def _variable_migration(key, row, index, new_type, status):
                 context_pointer=None, status=status)
 
 
-def _refresh_report(report, context, previous, previous_target, *, linked=False):
+def _refresh_report(report, context, previous, previous_target, *, linked=False, execution=None):
     try:
-        original = deepcopy(context)
-        with rt._numeric_scope('pythonic'):
-            execution = rt.ExecutionContext.from_config(original)
+        original = context
+        if execution is None:
+            original, execution = _context_state(context)
         new_roots = {(row['program'], row['root_path']): row['root_type']
                      for row in report['inputs'] if row['kind'] == 'variable'}
         config = deepcopy(original)

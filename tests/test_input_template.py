@@ -152,6 +152,89 @@ class InputTemplateTests(unittest.TestCase):
         scalar_slot(result['context'], candidate, binding).set_text('INTEGER', '31')
         self.assertEqual(result['context']['variables'][0]['value'][0][1]['nodes'], [{'AMOUNT': 31}])
 
+    def test_whole_path_write_discovers_only_read_before_write_records(self):
+        from karel2py.input_discovery import discover_inputs
+        from karel2py.structured_inputs import structured_slot
+
+        prefix = ('TYPE node_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+                  'header_t=STRUCTURE total:INTEGER ENDSTRUCTURE')
+        decl = 'route:PATH NODEDATA=node_t PATHHEADER=header_t'
+        body = 'route[1].amount=18 WRITE(route)'
+        program = translate('PROGRAM T '+prefix+' VAR '+decl+' BEGIN '+body+' END T').python_source
+        context = {'variables': [dict(program='t', path='route',
+            type=['PATH', ['STRUCTURE', 'NODE_T', [['AMOUNT', ['INTEGER']]]],
+                  ['STRUCTURE', 'HEADER_T', [['TOTAL', ['INTEGER']]]]],
+            value=dict(nodes=[{'AMOUNT': MISSING}, {'AMOUNT': 9}], data={'TOTAL': MISSING}))]}
+
+        self.assertFalse(discover_inputs(program)['complete'])
+        prepared = prepare_inputs(program, context=context)
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report)
+        header, node = report['inputs']
+        bindings = by_path(prepared)
+        self.assertEqual(set(bindings), {'ROUTE[0]', 'ROUTE[2]'})
+        self.assertEqual(bindings[node['path']]['status'], 'supplied')
+        structured_slot(prepared['context'], header, bindings[header['path']]).replace({'TOTAL': 12})
+        self.assertEqual(prepared['context']['variables'][0]['value']['data'], {'TOTAL': 12})
+        self.assertEqual(context['variables'][0]['value']['data'], {'TOTAL': MISSING})
+
+    def test_whole_path_bank_and_selected_cell_use_exact_saved_shapes(self):
+        prefix = 'TYPE node_t=STRUCTURE amount:INTEGER ENDSTRUCTURE'
+        decl = 'routes:ARRAY[1,2] OF PATH NODEDATA=node_t'
+        spec = ['ARRAY', [1, 2], ['PATH', ['STRUCTURE', 'NODE_T', [['AMOUNT', ['INTEGER']]]], None]]
+        context = {'variables': [dict(program='T', path='ROUTES', type=spec,
+            value=[[dict(nodes=[], data=None), dict(nodes=[{'AMOUNT': 31}], data=None)]])]}
+        for body in ('WRITE(routes)', 'WRITE(routes[1,2])'):
+            with self.subTest(body=body):
+                prepared = prepare(body, decl=decl, prefix=prefix, context=context)
+                self.assertTrue(prepared['template']['discovery']['complete'])
+                self.assertEqual(set(by_path(prepared)), {'ROUTES[1][2][1]'})
+        empty = prepare('WRITE(routes[1,1])', decl=decl, prefix=prefix, context=context)
+        self.assertTrue(empty['template']['discovery']['complete'])
+        self.assertFalse(by_path(empty))
+
+    def test_whole_path_read_uses_shape_but_still_requires_input_stream(self):
+        prefix = 'TYPE node_t=STRUCTURE amount:INTEGER ENDSTRUCTURE'
+        context = {'variables': [dict(program='T', path='ROUTE',
+            type=['PATH', ['STRUCTURE', 'NODE_T', [['AMOUNT', ['INTEGER']]]], None],
+            value=dict(nodes=[{'AMOUNT': MISSING}], data=None))]}
+        prepared = prepare('READ(route) WRITE(route)', decl='route:PATH NODEDATA=node_t',
+                           prefix=prefix, context=context)
+        report = prepared['template']['discovery']
+        self.assertEqual([row['code'] for row in report['unresolved']], ['input-stream'])
+        self.assertEqual(by_path(prepared)['ROUTE[1]']['certainty'], 'conditional')
+
+    def test_whole_path_topology_remains_unresolved_after_unknown_mutation(self):
+        prefix = 'TYPE node_t=STRUCTURE amount:INTEGER ENDSTRUCTURE'
+        path = ['PATH', ['STRUCTURE', 'NODE_T', [['AMOUNT', ['INTEGER']]]], None]
+        seed = dict(nodes=[{'AMOUNT': 7}], data=None)
+        context = {'variables': [
+            dict(program='T', path='ROUTE', type=path, value=seed),
+            dict(program='T', path='ROUTES', type=['ARRAY', 1, path], value=[seed]),
+        ]}
+        decl = 'route:PATH NODEDATA=node_t routes:ARRAY[1] OF PATH NODEDATA=node_t s,i:INTEGER b:BOOLEAN address:STRING[10]'
+        for body, unknown in (
+            ('INSERT_NODE(route,1,s) WRITE(route)', 'ROUTE'),
+            ('routes[i]=route WRITE(routes)', 'ROUTES'),
+            ("SET_VAR(i,'',address,route,s) WRITE(route)", 'ROUTE'),
+            ('WHILE b DO WRITE(route) DELETE_NODE(route,1,s) ENDWHILE', 'ROUTE'),
+        ):
+            with self.subTest(body=body):
+                prepared = prepare(body, decl=decl, prefix=prefix, context=context)
+                report = prepared['template']['discovery']
+                self.assertTrue(any(row['code'] == 'schema' and row['message'].endswith(unknown)
+                                    for row in report['unresolved']), report)
+                self.assertFalse(any(row['root_path'] == unknown for row in report['inputs']))
+
+    def test_whole_path_expansion_enforces_scalar_limit_before_publishing(self):
+        prefix = 'TYPE node_t=STRUCTURE amount:INTEGER ENDSTRUCTURE'
+        context = {'variables': [dict(program='T', path='ROUTE',
+            type=['PATH', ['STRUCTURE', 'NODE_T', [['AMOUNT', ['INTEGER']]]], None],
+            value=dict(nodes=[{'AMOUNT': 7} for _ in range(1025)], data=None))]}
+        prepared = prepare('WRITE(route)', decl='route:PATH NODEDATA=node_t', prefix=prefix, context=context)
+        self.assertFalse(prepared['template']['discovery']['complete'])
+        self.assertFalse(by_path(prepared))
+
     def test_existing_root_type_conflicts_are_rejected(self):
         context={'variables':[dict(program='T',path='X',type=['REAL'],value=1.0)]}
         with self.assertRaisesRegex(InputTemplateError,'type differs'):

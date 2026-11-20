@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1120.160323 - 2026-11-20
+
+- Discover editable records for whole PATH and PATH ARRAY transfers during
+  standalone run preparation and refresh when saved topology still applies.
+- Use saved PATH topology to track READ destinations while keeping
+  input-stream requirements and unknown topology explicit.
+
 ## 26.1120.155439 - 2026-11-20
 
 - Discover PATH header, node and range inputs in Pythonic code, including

@@ -3,7 +3,7 @@ from copy import deepcopy
 import re
 
 from . import runtime as rt
-from .input_discovery import discover_inputs
+from .input_discovery import _discover_inputs
 from .storage import tuple_spec
 
 
@@ -102,15 +102,40 @@ def prepare_inputs(python_source, *, filename='<python>', context=None):
     never guessed. Annotations describe preparation, not subsequent edits or
     successful execution; the runtime remains responsible for actual reads.
     """
-    report = discover_inputs(python_source, filename=filename)
-    return _prepare(report, context)
+    config, execution = _context_state(context)
+    report = _discover_with_context(python_source, filename, execution)
+    return _prepare(report, config, execution=execution)
 
 
-def _prepare(report, context, *, materialize=True):
+def _context_state(context):
     try:
         config = deepcopy({} if context is None else context)
         with rt._numeric_scope('pythonic'):
-            execution = rt.ExecutionContext.from_config(config)
+            return config, rt.ExecutionContext.from_config(config)
+    except (rt.KarelRuntimeError, TypeError, ValueError, KeyError, IndexError, AttributeError, RecursionError) as error:
+        raise InputTemplateError('Invalid input template context: '+str(error)) from error
+
+
+def _discover_with_context(python_source, filename, execution):
+    snapshots = {}
+
+    def path_count(program, root, root_type, selectors):
+        key = program, root
+        reference = execution.variables.bindings.get(key)
+        if reference is None or reference.spec != tuple_spec(root_type):
+            return None
+        if key not in snapshots:
+            snapshots[key] = rt.snapshot_value(reference.raw())
+        return len(_selected(reference.spec, snapshots[key], selectors)['nodes'])
+
+    return _discover_inputs(python_source, filename=filename, saved_path_count=path_count)
+
+
+def _prepare(report, context, *, materialize=True, execution=None):
+    try:
+        config = context
+        if execution is None:
+            config, execution = _context_state(context)
         roots = {(row['program'].upper(), row['path'].upper()): index
                  for index, row in enumerate(config.get('variables', []))}
         bindings, requirements, failures = [], [], {}

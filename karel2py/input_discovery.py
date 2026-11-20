@@ -15,6 +15,7 @@ MAX_STEPS = 100000
 MAX_INPUTS = 2048
 MAX_CALL_DEPTH = 32
 MAX_FACTS = 32767
+MAX_PATH_IO_FIELDS = 1024
 MAX_BYTES = 16 * 1024 * 1024
 SCALARS = {'INTEGER', 'BYTE', 'SHORT', 'REAL', 'BOOLEAN', 'STRING', 'NUMERIC'}
 SCALAR_PURE = {'ABS':1,'ROUND':1,'TRUNC':1,'SQRT':1,'SIN':1,'COS':1,'TAN':1,
@@ -97,16 +98,19 @@ class _Flow:
     requested_tasks: set = field(default_factory=set)
     paused_tasks: dict = field(default_factory=dict)
     task_order_unknown: bool = False
+    path_shape_unknown: bool = False
 
     def copy(self):
         return _Flow(self.defined.copy(),self.assigned.copy(),self.maybe.copy(),
                      self.constants.copy(),self.stopped,self.opaque,self.handlers.copy(),
-                     self.requested_tasks.copy(),self.paused_tasks.copy(),self.task_order_unknown)
+                     self.requested_tasks.copy(),self.paused_tasks.copy(),self.task_order_unknown,
+                     self.path_shape_unknown)
 
     def take(self, other):
         self.handlers = other.handlers
         self.requested_tasks, self.paused_tasks = other.requested_tasks, other.paused_tasks
         self.task_order_unknown = other.task_order_unknown
+        self.path_shape_unknown = other.path_shape_unknown
         self.defined,self.assigned,self.maybe,self.constants = other.defined,other.assigned,other.maybe,other.constants
         self.stopped,self.opaque = other.stopped,other.opaque
 
@@ -134,7 +138,7 @@ def _merge(flows):
                  set.union(*(flow.maybe for flow in live)),constants,False,any(flow.opaque for flow in live),
                  {key: tuple(definitions) for key, definitions in handlers.items()},
                  set.union(*(flow.requested_tasks for flow in live)),
-                 pauses,uncertain)
+                 pauses,uncertain,any(flow.path_shape_unknown for flow in live))
 
 
 def _array_dimensions(spec):
@@ -195,8 +199,10 @@ def _merged_value(values,spec=None):
 
 
 class _Analyzer:
-    def __init__(self, plan, *, linked_plans=None, track_handlers=False, track_tasks=False):
+    def __init__(self, plan, *, linked_plans=None, track_handlers=False, track_tasks=False,
+                 saved_path_count=None):
         self.plan = plan
+        self.saved_path_count = saved_path_count
         self.steps = 0
         self.serial = 0
         self.inputs = {}
@@ -325,7 +331,9 @@ class _Analyzer:
         while expr['kind'] == 'group':
             expr = expr['args'][0]
         if expr['kind'] != 'path_io_range':
-            return [self.locate(expr, flow, conditional, path_io=True)]
+            location = self.locate(expr, flow, conditional, path_io=True)
+            records = self.saved_path_records(location, expr, flow, conditional)
+            return [location] if records is None else records
         receiver, first_arg, last_arg = expr['args']
         path = self.locate(receiver, flow, conditional)
         first = self.expr(first_arg, flow, conditional).constant
@@ -339,10 +347,49 @@ class _Analyzer:
             first = 1
         step = 1 if first <= last else -1
         indexes = range(first, last + step, step)
-        if len(indexes) > 1024:
+        if len(indexes) > MAX_PATH_IO_FIELDS:
             self.unresolved_at('selection', 'PATH range exceeds the bounded FILE transfer limit', expr)
             return [None]
         return [self.child(path, 'index', index, expr) for index in indexes]
+
+    def saved_path_records(self, loc, node, flow, conditional):
+        """Expand an exact initial topology while it still applies to this transfer."""
+        if (self.saved_path_count is None or loc is None or loc.kind != 'variable'
+                or flow.opaque or flow.path_shape_unknown or conditional):
+            return None
+        _, terminal = _array_dimensions(loc.spec)
+        if not terminal or terminal[0] != 'PATH':
+            return None
+        records = []
+        remaining = MAX_PATH_IO_FIELDS
+
+        def expand(current):
+            nonlocal remaining
+            self.tick()
+            spec = current.spec
+            if spec[0] == 'ARRAY':
+                size = spec[1][0] if type(spec[1]) is list else spec[1]
+                return type(size) is int and all(
+                    expand(self.child(current, 'index', index, node))
+                    for index in range(1, size + 1)
+                )
+            count = self.saved_path_count(current.owner, current.root, current.root_spec, current.parts)
+            if count is None:
+                return False
+            for index in range(0 if spec[2] is not None else 1, count + 1):
+                if remaining <= 0:
+                    return False
+                record = self.child(current, 'index', index, node)
+                leaves = self.leaves(record) if record is not None else None
+                if leaves is None:
+                    return False
+                remaining -= len(leaves)
+                if remaining < 0:
+                    return False
+                records.append(record)
+            return True
+
+        return records if expand(loc) else None
 
     def locate(self, expr, flow, conditional, *, path_io=False):
         if not isinstance(expr,dict):return None
@@ -403,7 +450,13 @@ class _Analyzer:
             return all(visit(self.child(current,'field',name,{})) for name in fields)
         return leaves if visit(loc) else None
 
-    def read(self, loc, node, flow, conditional, *, partial=False):
+    def read(self, loc, node, flow, conditional, *, partial=False, path_io=False):
+        if path_io:
+            records = self.saved_path_records(loc, node, flow, conditional)
+            if records is not None:
+                for record in records:
+                    self.read(record, node, flow, conditional)
+                return _Value(spec=loc.spec)
         leaves=self.leaves(loc)
         if leaves is None:
             self.unresolved_at('schema','Resource or unsupported value read: '+loc.path,node)
@@ -474,6 +527,7 @@ class _Analyzer:
 
     def write(self, loc, value, flow, node, *, definite=True):
         if loc is None:
+            flow.path_shape_unknown = True
             self.unresolved_at('write-target','Writable target is not statically resolved',node);return
         leaves=self.leaves(loc)
         if leaves is None:
@@ -525,7 +579,7 @@ class _Analyzer:
         if kind=='predefined':return _Value({'ON':True,'OFF':False,'MININT':-2147483648,'MAXINT':2147483647}.get(value,UNKNOWN))
         if kind=='name':
             loc=self.slot(value,node)
-            if loc:return self.read(loc,node,flow,conditional,partial=partial)
+            if loc:return self.read(loc,node,flow,conditional,partial=partial,path_io=path_io)
             constant=self.constant(value)
             if constant is not UNKNOWN:return _Value(constant)
             if value in self.plan['routines']:return self.result_value(self.call(dict(node,kind='call',args=[]),flow,conditional),node,partial)
@@ -536,7 +590,7 @@ class _Analyzer:
             return _Value(complete=False)
         if kind in ('field','index'):
             loc=self.locate(node,flow,conditional,path_io=path_io)
-            if loc:return self.read(loc,node,flow,conditional,partial=partial)
+            if loc:return self.read(loc,node,flow,conditional,partial=partial,path_io=path_io)
             self.unresolved_at('selection','Computed or dynamic data read is unresolved',node);return _Value(complete=False)
         if kind=='group':return self.expr(args[0],flow,conditional,partial=partial,path_io=path_io)
         if kind in ('unary','binary'):
@@ -697,6 +751,7 @@ class _Analyzer:
             else:
                 self.unresolved_at('variable-path','GET_VAR/SET_VAR requires a known own-program static data path',node)
                 if name=='SET_VAR':
+                    flow.path_shape_unknown = True
                     self.lose_task_order(flow)
             for index,target in outputs:self.write(target,_Value(complete=complete if index==3 else True),flow,node,definite=index==4)
             return _Value()
@@ -1318,22 +1373,24 @@ class _Analyzer:
         self.block(node.get('body',[]),flow,True);self.block(node.get('alternate',[]),flow,True)
 
 
-def analyze_plan(plan, target, *, linked_plans=None):
+def analyze_plan(plan, target, *, linked_plans=None, saved_path_count=None):
     track_handlers = track_tasks = linked_plans is not None
     # Restart from the checked entry when control uncertainty could hide
     # callbacks or child bodies that a precise pass had left dormant.
     while True:
         try:
             return _analyze_plan(plan, target, linked_plans=linked_plans,
-                                 track_handlers=track_handlers, track_tasks=track_tasks)
+                                 track_handlers=track_handlers, track_tasks=track_tasks,
+                                 saved_path_count=saved_path_count)
         except _ActivationUnknown:
             track_handlers = False
         except _TaskOrderUnknown:
             track_tasks = False
 
 
-def _analyze_plan(plan, target, *, linked_plans, track_handlers, track_tasks):
-    analyzer = _Analyzer(plan, linked_plans=linked_plans, track_handlers=track_handlers, track_tasks=track_tasks)
+def _analyze_plan(plan, target, *, linked_plans, track_handlers, track_tasks, saved_path_count):
+    analyzer = _Analyzer(plan, linked_plans=linked_plans, track_handlers=track_handlers, track_tasks=track_tasks,
+                         saved_path_count=saved_path_count)
     modules = linked_plans.values() if linked_plans is not None else (plan,)
     for module in modules:
         if module.get('status') != 'available':
@@ -1358,12 +1415,16 @@ def _analyze_plan(plan, target, *, linked_plans, track_handlers, track_tasks):
 
 def discover_inputs(python_source, *, filename='<python>'):
     """Return candidates and explicit gaps; never execute the selected Python."""
+    return _discover_inputs(python_source, filename=filename)
+
+
+def _discover_inputs(python_source, *, filename, saved_path_count=None):
     raw=python_source.encode('utf-8') if type(python_source) is str else python_source
     if type(raw) is not bytes or len(raw)>MAX_BYTES:raise InputDiscoveryError('Python input requires at most 16 MiB')
     try:
         plan=extract(raw.decode('utf-8-sig'))
         target=dict(file=str(filename),sha256=hashlib.sha256(raw).hexdigest(),program=plan['program'])
-        return analyze_plan(plan,target)
+        return analyze_plan(plan,target,saved_path_count=saved_path_count)
     except (InputContractError,UnicodeError,KeyError,IndexError,TypeError,ValueError,AttributeError,RecursionError) as error:
         raise InputDiscoveryError(str(error)) from error
 
