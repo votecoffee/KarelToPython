@@ -392,12 +392,14 @@ Discovery follows reads in the routine and only checks the selected result data
 for completeness. A selected result with unproven data requires review in the
 discovery report.
 
-For PATH ARRAYs with matching cell layouts, discovery tracks each cell's
-node count and known fields through assignments, selected rows and planes,
-private arguments and routine results. This covers local banks created in
-a routine and banks with known saved topology. Whole returned-bank WRITE
-checks the combined scalar field limit. Compatible layout conversions
-between PATH ARRAY types require review in discovery.
+For PATH ARRAYs with known topology, discovery tracks each cell's node count
+and known fields through assignments, selected rows and planes, private
+arguments and routine results. It follows compatible context-free layout
+conversions and retains known checked scalar values and missing markers.
+Whole returned-bank WRITE checks the combined scalar field limit.
+Model-dependent conversions report the robot context requirement when the
+conversion would use a model. Retranslate older targets to include the order
+of static conversions before destination index expressions.
 
 A discovered header in a fresh PATH or fixed PATH ARRAY can be edited directly.
 The template builds an empty node list and the declared header with missing

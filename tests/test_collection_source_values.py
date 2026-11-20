@@ -270,6 +270,19 @@ class ConvertedPathArrayTests(unittest.TestCase):
                                   decl='a:ARRAY[2]OF p1 b:ARRAY[2]OF p2 s:INTEGER')
         self.assertEqual(program.run()['B'][1]['nodes'],[{'VALUE':7.,'TEXT':{'uninitialized':True}}])
 
+    def test_rejected_bank_conversion_precedes_index_effects_and_publication(self):
+        types = ('TYPE n1=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+                 'n2=STRUCTURE amount:BYTE ENDSTRUCTURE p1=PATH NODEDATA=n1 p2=PATH NODEDATA=n2')
+        body = ('visits=0 APPEND_NODE(a[1],s) a[1,1].amount=256 '
+                'APPEND_NODE(b[1,1],s) b[1,1,1].amount=7 b[choose()]=a')
+        p, _ = compile_program(body, prefix=types,
+                               decl='a:ARRAY[1] OF p1 b:ARRAY[2,1] OF p2 s,visits:INTEGER',
+                               routines='ROUTINE choose:INTEGER BEGIN visits=visits+1 RETURN 1 END choose')
+        with self.assertRaisesRegex(rt.KarelRuntimeError, 'BYTE value outside'):
+            p.run()
+        self.assertEqual(p._state.raw('VISITS'), 0)
+        self.assertEqual(p._state.raw('B').values[0].nodes[0].values['AMOUNT'], 7)
+
     def test_generic_receiver_uses_its_concrete_named_layout(self):
         types=self.types+' TYPE joint_bank=ARRAY[2] OF joint_path pose_bank=ARRAY[2] OF pose_path'
         routines='ROUTINE convert(dst:ARRAY OF pose_path; src:ARRAY OF joint_path) BEGIN dst=src END convert'

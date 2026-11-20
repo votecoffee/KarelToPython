@@ -220,6 +220,20 @@ def _path_array_cell_type(spec):
     return None
 
 
+def _path_scalar_layout(target, source):
+    """Test whether converted leaves still correspond by field and logical index."""
+    if target == source or target[0] in SCALARS and source[0] in SCALARS:
+        return True
+    if target[0] == source[0] == 'STRUCTURE':
+        left, right = dict(target[2]), dict(source[2])
+        return left.keys() == right.keys() and all(_path_scalar_layout(spec, right[key]) for key, spec in left.items())
+    if target[0] == source[0] == 'ARRAY':
+        target_shape, target_leaf = _array_dimensions(target)
+        source_shape, source_leaf = _array_dimensions(source)
+        return target_shape == source_shape and _path_scalar_layout(target_leaf, source_leaf)
+    return False
+
+
 def _array_value_schema(declared,source):
     """Retain checked constraints and inherit only known source dimensions."""
     if not source or source[0]!='ARRAY':return declared
@@ -1503,11 +1517,48 @@ class _Analyzer:
 
     def convert_path_array_value(self, target, value, node, flow):
         resolved = _array_value_schema(target, value.spec)
-        if resolved and value.spec and rt.collection_array_source_accepts(tuple_spec(target), tuple_spec(value.spec)):
-            return replace(value, spec=resolved)
-        self.unresolved_at('path-schema', 'PATH ARRAY value requires matching cell layouts and dimensions', node)
+        if resolved and _path_array_cell_type(value.spec):
+            actual = tuple_spec(value.spec)
+            if rt.collection_array_source_accepts(tuple_spec(target), actual):
+                return replace(value, spec=resolved)
+            layout = rt.path_array_conversion_layout(tuple_spec(resolved), actual)
+            if layout is not None and value.facts and all(cell.path_records is not None for cell in value.facts.values()):
+                return self.convert_path_array_cells(resolved, value, layout, node, flow)
+        self.unresolved_at('path-schema', 'PATH ARRAY value requires compatible cell layouts and proven dimensions', node)
         self.opaque(flow)
         return _Value(complete=False, spec=target)
+
+    def convert_path_array_cells(self, target, value, layout, node, flow):
+        cell_type = _path_array_cell_type(target)
+        has_header = cell_type[2] is not None
+        count = sum(len(cell.path_records) - has_header for cell in value.facts.values())
+        node_type = tuple_spec(cell_type[1]) if cell_type[1] else rt.PREDEFINED_STRUCTURES['STD_PTH_NODE']
+        try:
+            units = collection_array_cost(tuple_spec(target))
+        except ValueError as error:
+            self.unresolved_at('path-schema', str(error), node)
+            self.opaque(flow)
+            return _Value(complete=False, spec=target)
+        if units + count * rt.scalar_leaf_count(node_type) > MAX_FACTS:
+            self.unresolved_at('limit', 'PATH ARRAY conversion target exceeds the scalar snapshot limit', node)
+            flow.stopped = True
+            return _Value(complete=False, spec=target)
+        if layout[1] == 'kinematic' or layout[0] == 'kinematic' and count:
+            self.context('robot', None)
+            self.unresolved_at('path-conversion', 'PATH ARRAY conversion requires robot model results', node)
+            self.opaque(flow)
+            return _Value(complete=False, spec=target)
+        if count and cell_type[1] is None and not self.plan.get('default_path_node'):
+            self.unresolved_at('path-schema', 'Retranslate to include default NODEDATA for PATH ARRAY conversion', node)
+            self.opaque(flow)
+            return _Value(complete=False, spec=target)
+        try:
+            cells = {key: self.convert_path_records(cell_type, cell, node) for key, cell in value.facts.items()}
+        except rt.KarelRuntimeError as error:
+            self.unresolved_at('path-conversion', str(error), node)
+            flow.stopped = True
+            return _Value(complete=False, spec=target)
+        return _Value(complete=all(cell.complete for cell in cells.values()), spec=target, facts=cells)
 
     def publish_private_path_array(self, target, value, node, flow):
         if not isinstance(value, _Value) or not value.facts or flow.opaque:
@@ -1519,6 +1570,8 @@ class _Analyzer:
 
     def path_array_assignment(self, target, value, node, flow, conditional):
         value = self.convert_path_array_value(target.spec, value, node, flow)
+        if flow.stopped and not flow.opaque:
+            return
         prepared = []
         if value.facts and self.can_publish_path(target, flow, conditional):
             layout = self.path_array_layout(target, node, flow, conditional)
@@ -1541,6 +1594,46 @@ class _Analyzer:
         self.unresolved_at('path-topology', 'PATH ARRAY assignment source or destination effects require review', node)
         self.opaque(flow)
 
+    def convert_path_record(self, target, value, node):
+        if target == value.spec:
+            return value
+        slot = _Location('local', '@path-value', 'PATH', spec=target)
+        leaves = self.leaves(slot)
+        if leaves is None or not value.facts or not _path_scalar_layout(target, value.spec):
+            return self.stored(slot, value, leaves, node)
+        facts = {}
+        with rt._numeric_scope('pythonic'):
+            for leaf in leaves:
+                source = value.facts.get(leaf.parts, _Value(complete=value.complete))
+                if source.uninitialized:
+                    fact = _Value(complete=False, spec=leaf.spec, uninitialized=True)
+                elif not source.complete or source.constant is UNKNOWN or source.spec is None:
+                    fact = _stored_value(leaf.spec, source)
+                    fact.constant = UNKNOWN
+                else:
+                    spec, actual = tuple_spec(leaf.spec), tuple_spec(source.spec)
+                    constant = rt.checked(actual, source.constant)
+                    if rt.real_integral_kind(spec, actual):
+                        constant = rt.real_integral_value(spec, constant)
+                    constant = rt.checked(spec, constant)
+                    if constant is rt.UNINITIALIZED:
+                        fact = _Value(complete=False, spec=leaf.spec, uninitialized=True)
+                    else:
+                        fact = _Value(constant, spec=leaf.spec)
+                facts[leaf.parts] = fact
+        return _Value(complete=all(fact.complete for fact in facts.values()), spec=target, facts=facts)
+
+    def convert_path_records(self, target, value, node):
+        self.tick(len(value.path_records))
+        if target == value.spec:
+            return value
+        node_type = target[1] or self.plan.get('default_path_node')
+        records = tuple(
+            self.convert_path_record(target[2] if index == 0 and target[2] is not None else node_type, item, node)
+            for index, item in enumerate(value.path_records)
+        )
+        return _Value(complete=all(item.complete for item in records), spec=target, path_records=records)
+
     def convert_path_value(self, target, value, node, flow):
         """Convert a captured private PATH before evaluating later operands."""
         if value.path_records is not None:
@@ -1551,13 +1644,12 @@ class _Analyzer:
             count = len(value.path_records) - int(value.spec[2] is not None)
             node_type = target[1] or self.plan.get('default_path_node')
             if layout and 'kinematic' not in layout and node_type and self.path_snapshot_fits(target_type, count):
-                records = []
-                for index, item in enumerate(value.path_records):
-                    spec = target[2] if index == 0 and target[2] is not None else node_type
-                    slot = _Location('local', '@path-value', 'PATH', spec=spec)
-                    records.append(self.stored(slot, item, self.leaves(slot), node))
-                return _Value(complete=all(item.complete for item in records), spec=target,
-                              path_records=tuple(records))
+                try:
+                    return self.convert_path_records(target, value, node)
+                except rt.KarelRuntimeError as error:
+                    self.unresolved_at('path-conversion', str(error), node)
+                    flow.stopped = True
+                    return _Value(complete=False, spec=target)
         self.unresolved_at('path-topology', 'Private PATH value or conversion requires review', node)
         self.opaque(flow)
         return _Value(complete=False, spec=target)
@@ -2204,6 +2296,10 @@ class _Analyzer:
             value=self.expr(args[1],flow,conditional,partial=True)
             if flow.stopped and not flow.opaque:
                 return
+            if 'path_array_conversion_type' in node:
+                value = self.convert_path_array_value(node['path_array_conversion_type'], value, args[1], flow)
+                if flow.stopped and not flow.opaque:
+                    return
             target = self.locate(args[0], flow, conditional)
             if flow.stopped and not flow.opaque:
                 return
@@ -2338,7 +2434,9 @@ class _Analyzer:
                     value = self.convert_path_value(result, value, node, flow)
                 elif _path_array_cell_type(result):
                     value = self.convert_path_array_value(result, value, node, flow)
-            self.exits.append((flow.copy(),value));flow.stopped=True;return
+            if not flow.stopped or flow.opaque:
+                self.exits.append((flow.copy(),value))
+            flow.stopped=True;return
         if kind=='write_items':
             for argument in args:
                 if flow.stopped and not flow.opaque:

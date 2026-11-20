@@ -1,5 +1,13 @@
 # Changelog
 
+## 26.1120.194415 - 2026-11-20
+
+- Follow compatible context-free PATH ARRAY conversions in input discovery,
+  including assignments, private routine arguments, and returned values.
+- Preserve known checked scalar conversions and missing markers. Check the
+  converted snapshot budget and report conversions that need robot model results.
+- Track failures in static PATH ARRAY conversion before destination selectors run.
+
 ## 26.1120.193158 - 2026-11-20
 
 - Track PATH ARRAY cells through matching-layout assignments, private arguments

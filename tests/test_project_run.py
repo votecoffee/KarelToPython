@@ -416,6 +416,34 @@ class SavedProjectTests(unittest.TestCase):
         self.assertEqual(result['status'], 'completed', result['error'])
         self.assertEqual(result['text_output'], ' 42 41\n')
 
+    def test_linked_path_bank_converts_private_input_at_original_owner(self):
+        types = ('TYPE src_node=STRUCTURE amount:REAL ENDSTRUCTURE '
+                 'dst_node=STRUCTURE amount:INTEGER ENDSTRUCTURE head_t=STRUCTURE total:INTEGER ENDSTRUCTURE '
+                 'src_path=PATH NODEDATA=src_node PATHHEADER=head_t '
+                 'dst_path=PATH NODEDATA=dst_node PATHHEADER=head_t')
+        main = self.module(
+            'MAIN', 'WRITE(forward(build())[2,1..0],CR)', types,
+            'ROUTINE build:ARRAY OF src_path FROM LIB '
+            'ROUTINE forward(v:ARRAY OF dst_path):ARRAY OF dst_path FROM LIB',
+        )
+        lib = self.module(
+            'LIB', declarations=types+' VAR amount_input:REAL',
+            routines='ROUTINE build:ARRAY OF src_path VAR rows:ARRAY[2] OF src_path s:INTEGER '
+                     'BEGIN INSERT_NODE(rows[2],1,s) rows[2].total=41 rows[2,1].amount=amount_input '
+                     'RETURN rows END build '
+                     'ROUTINE forward(v:ARRAY OF dst_path):ARRAY OF dst_path BEGIN RETURN v END forward',
+        )
+        report = self.create(main, lib, discover=True)['inputs']['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        candidate, = report['inputs']
+        self.assertEqual((candidate['program'], candidate['path'], candidate['type']),
+                         ('LIB', 'AMOUNT_INPUT', ['REAL']))
+        runner.save_input_value(self.document, ('variable', 'LIB', 'AMOUNT_INPUT'), 'REAL', '42.75',
+                                expected=self.document.read_bytes())
+        result = runner.run_document(self.document)['results']
+        self.assertEqual(result['status'], 'completed', result['error'])
+        self.assertEqual(result['text_output'], ' 42 41\n')
+
     def test_linked_array_result_probe_preserves_operand_order(self):
         main = self.module(
             'MAIN',

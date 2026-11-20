@@ -190,6 +190,9 @@ def build(program, emitter):
                     schema = emitter.path_assignment_schemas.get(id(value.args[0]))
                     if schema is not None:
                         row['path_assignment_type'] = encode(schema, depth + 1)
+                    schema = emitter.path_array_conversion_schemas.get(id(value.args[0]))
+                    if schema is not None:
+                        row['path_array_conversion_type'] = encode(schema, depth + 1)
                 callback = emitter.callback_input_plans.get(id(value))
                 if callback is not None:
                     row.update(encode(callback, depth + 1))

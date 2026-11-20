@@ -184,7 +184,9 @@ class AssignmentLowering:
         elif capture == 'receiver_conversion':
             self.line(f'{source}={value}',token)
             value=self.path_conversion_value(expected,actual,source,token,'ASSIGNMENT',receiver=f'({reference}).spec')
-        else:value=self.path_conversion_value(expected,actual,value,token,'ASSIGNMENT')
+        else:
+            self.path_array_conversion_schemas[id(target)] = expected
+            value=self.path_conversion_value(expected,actual,value,token,'ASSIGNMENT')
         self.line(f'{source}={value}',token)
         self.line(f'_rt.collection_array_assign({reference},{source},{line})',token)
         self.features.add('logical collection ARRAY source copy')

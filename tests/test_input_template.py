@@ -663,6 +663,76 @@ class InputTemplateTests(unittest.TestCase):
         self.assertTrue(any(row['code'] == 'limit' and 'snapshot limit' in row['message']
                             for row in report['unresolved']))
 
+    def test_path_bank_converts_partial_records_across_source_boundaries(self):
+        source = (
+            'PROGRAM T TYPE source_node=STRUCTURE amount:REAL label:STRING[8] spare:INTEGER ENDSTRUCTURE '
+            'target_node=STRUCTURE amount:INTEGER label:STRING[4] spare:INTEGER ENDSTRUCTURE '
+            'source_head=STRUCTURE marker:INTEGER ENDSTRUCTURE target_head=STRUCTURE marker:SHORT ENDSTRUCTURE '
+            'source_path=PATH NODEDATA=source_node PATHHEADER=source_head '
+            'target_path=PATH NODEDATA=target_node PATHHEADER=target_head '
+            'VAR a:ARRAY[2,2] OF source_path b:ARRAY[2,2] OF target_path s,good,bad:INTEGER '
+            'ROUTINE build:ARRAY OF target_path BEGIN RETURN a[2] END build '
+            'ROUTINE accept(v:ARRAY OF target_path):INTEGER BEGIN RETURN v[2,1].amount END accept '
+            'BEGIN APPEND_NODE(a[2,2],s) a[2,2,1].amount=42.75 a[2,2,1].label=\'abcdEF\' '
+            'a[2,1].marker=1 a[2,2].marker=32767 '
+            'b[1]=a[2] '
+            'IF (b[1,2,1].amount=42) AND (b[1,2,1].label=\'abcd\') AND UNINIT(b[1,2].marker) '
+            'AND (PATH_LEN(build()[2])=1) AND UNINIT(build()[2,1].spare) AND (accept(a[2])=42) '
+            'THEN WRITE(good) ELSE WRITE(bad) ENDIF END T'
+        )
+        prepared = prepare_inputs(translate(source).python_source)
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'GOOD'})
+
+    def test_path_bank_conversion_failure_precedes_destination_or_later_argument(self):
+        source = (
+            'PROGRAM T TYPE source_node=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+            'target_node=STRUCTURE amount:BYTE ENDSTRUCTURE '
+            'source_path=PATH NODEDATA=source_node target_path=PATH NODEDATA=target_node '
+            'VAR a:ARRAY[1] OF source_path b:ARRAY[2,1] OF target_path s,unused:INTEGER '
+            'ROUTINE pick:INTEGER BEGIN WRITE(unused) RETURN 1 END pick '
+            'ROUTINE accept(v:ARRAY OF target_path; which:INTEGER) BEGIN WRITE(unused) END accept '
+            'ROUTINE build:ARRAY OF target_path BEGIN RETURN a END build '
+            'BEGIN APPEND_NODE(a[1],s) a[1,1].amount=256 {} WRITE(unused) END T'
+        )
+        for statement in ('b[pick()]=a', 'accept((a),pick())', 'WRITE(build())'):
+            with self.subTest(statement=statement):
+                prepared = prepare_inputs(translate(source.format(statement)).python_source)
+                report = prepared['template']['discovery']
+                self.assertFalse(report['inputs'])
+                unresolved, = report['unresolved']
+                self.assertEqual(unresolved['code'], 'path-conversion')
+                self.assertIn('BYTE value outside', unresolved['message'])
+
+    def test_path_bank_conversion_checks_combined_target_budget_before_selecting_destination(self):
+        source = (
+            'PROGRAM T TYPE n1=STRUCTURE joints:ARRAY[2048] OF JOINTPOS1 ENDSTRUCTURE '
+            'n2=STRUCTURE joints:ARRAY[2048] OF JOINTPOS9 ENDSTRUCTURE '
+            'p1=PATH NODEDATA=n1 p2=PATH NODEDATA=n2 '
+            'VAR a:ARRAY[2] OF p1 b:ARRAY[2,2] OF p2 s,unused:INTEGER '
+            'ROUTINE pick:INTEGER BEGIN WRITE(unused) RETURN 1 END pick '
+            'BEGIN APPEND_NODE(a[1],s) APPEND_NODE(a[2],s) b[pick()]=a END T'
+        )
+        report = prepare_inputs(translate(source).python_source)['template']['discovery']
+        self.assertFalse(report['inputs'])
+        unresolved, = report['unresolved']
+        self.assertEqual(unresolved['code'], 'limit')
+        self.assertIn('conversion target', unresolved['message'])
+
+    def test_model_backed_bank_conversion_preserves_the_robot_requirement(self):
+        source = (
+            'PROGRAM T TYPE src_node=STRUCTURE point:JOINTPOS1 ENDSTRUCTURE '
+            'dst_node=STRUCTURE point:XYZWPREXT ENDSTRUCTURE '
+            'src_path=PATH NODEDATA=src_node dst_path=PATH NODEDATA=dst_node '
+            'VAR a:ARRAY[1] OF src_path b:ARRAY[1] OF dst_path s:INTEGER '
+            'BEGIN APPEND_NODE(a[1],s) a[1,1].point[1]=42 b=a END T'
+        )
+        report = prepare_inputs(translate(source).python_source)['template']['discovery']
+        self.assertIn({'service': 'robot', 'address': None}, report['context_requirements'])
+        self.assertTrue(any(row['code'] == 'path-conversion' and 'robot model results' in row['message']
+                            for row in report['unresolved']))
+
     def test_partial_private_path_keeps_saved_inputs_at_original_address(self):
         source = (
             'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t '
