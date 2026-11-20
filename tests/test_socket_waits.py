@@ -42,6 +42,28 @@ class SocketReadWaitTests(unittest.TestCase):
         self.assertEqual(len(task._state.read_requests), 1)
         self.assertEqual(bank._pending, {})
 
+    def test_timeout_requires_wait_and_readable_socket_mode(self):
+        for wait, mode in ((False, 'RO'), (True, 'WO'), (True, 'AP')):
+            with self.subTest(wait=wait, mode=mode):
+                bank, ctx = services(dict(wait=wait, input=b'a'))
+                task = build(f"SET_FILE_ATR(f,ATR_TIMEOUT,2) OPEN FILE f('{mode}','S1:')", ctx)
+                with self.assertRaisesRegex(rt.KarelRuntimeError, 'readable waiting socket'):
+                    task.run()
+                self.assertEqual((bank.files['S1:'], bank.handles, bank._pending), (b'a', [], {}))
+
+    def test_finalized_input_produces_eof_on_last_poll_instead_of_timeout(self):
+        bank, ctx = services(dict(wait=True, input=b'\x07'))
+        task = build(
+            "n=99 SET_FILE_ATR(f,ATR_TIMEOUT,3) OPEN FILE f('RB','S1:') READ f(n)",
+            ctx, sleep=lambda _: bank.finish_input('S1:'),
+        )
+        with self.assertRaisesRegex(rt.KarelRuntimeError, 'finalized socket'):
+            task.run()
+        result = task.snapshot()
+        self.assertEqual((result['N'], result['F']['status'], bank.files['S1:']), (99, 1, b'\x07'))
+        self.assertEqual(bank._pending, {})
+        bank.close(task._state.values['F'])
+
     def test_binary_aggregate_wait_consumes_exact_prefix(self):
         bank, ctx = services(dict(wait=True, input=struct.pack('>i', 7)))
         def sleeper(_):

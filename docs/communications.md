@@ -184,8 +184,8 @@ waiting. Complete writes preserve RX and its cursor.
 Retranslate source to use the cooperative typed paths. These paths include
 aggregate operations and [bound predefined FILEs](predefined-files.md).
 Direct `State.file_read` and `State.write_items` calls keep their immediate
-behavior. A blocked generated operation requires an injected standalone
-sleeper or a scheduler. It yields at logical 10 ms intervals and checkpoints.
+behavior. An indefinite wait requires an injected standalone sleeper or a scheduler.
+Waiting operations yield at logical 10 ms intervals and checkpoints.
 Eligible timed conditions in scheduled tasks can run between polls. Handlers can
 perform ready operations. A handler operation that would wait
 fails before yielding.
@@ -204,6 +204,20 @@ omits pending operations and connection identities. See the authored
 examples and the linked [read cancellation](../examples/socket_wait_read_cancel/main.kl)
 and [bound write cancellation](../examples/socket_wait_default_cancel/main.kl)
 projects.
+
+### Socket READ deadlines
+
+Set `SET_FILE_ATR(channel,ATR_TIMEOUT,milliseconds)` before OPEN. A positive
+timeout requires a readable socket endpoint configured with `wait: true`.
+It bounds each typed READ separately, including binary and PASSALL fields.
+Zero uses the configured wait policy without a deadline.
+
+A timed READ shortens its last polling interval to the remaining milliseconds.
+A complete response at that poll succeeds. If the request is still incomplete,
+READ returns with portable IO_STATUS 4 and preserves the destinations, RX cursor
+and receive bytes. Cancellation, connection loss and finalized EOF retain
+their own outcomes. The deadline allows a bounded standalone wait with the
+normal sleeper. A scheduled READ measures elapsed time on its scheduler.
 
 ## Plain PIP files
 

@@ -1,7 +1,7 @@
 """Explicit offline serial byte streams; never open host devices."""
 import re
 from dataclasses import dataclass
-from .communications import StreamRead, data_bytes
+from .communications import StreamRead, StreamReadDeadline, data_bytes
 
 
 MAX_BYTES=64*1024*1024
@@ -262,10 +262,8 @@ class SerialStreams:
         pending=_SerialRead(state,runtime.task_root(state),self._open[id(handle)],start,handle._read_operation,
                             row,self.files[handle.name],row['output'],row['capacity'],self.limit,
                             self._pending,self.ports,self.files,self._open)
+        deadline = StreamReadDeadline(state._scheduler, handle.read_timeout_ms)
         self._pending[id(handle)]=pending
-        scheduler = state._scheduler
-        remaining = handle.read_timeout_ms or None
-        deadline = scheduler.now_us + remaining * 1000 if scheduler is not None and remaining is not None else None
         try:
             while True:
                 row=self.validate_read(handle,state,line,expected=pending)
@@ -293,18 +291,12 @@ class SerialStreams:
                 root=runtime.task_root(state)
                 if state._in_handler or root._in_handler:
                     raise runtime.KarelRuntimeError('Pending serial READ cannot wait inside a handler action',line)
-                if deadline is not None:
-                    remaining = (deadline - scheduler.now_us + 999) // 1000
-                if remaining is None:
-                    if scheduler is None and not getattr(root,'_sleep_injected',False):
-                        raise runtime.KarelRuntimeError('Indefinite standalone serial wait requires an explicit sleeper callback',line)
-                    delay = 10
-                else:
-                    if remaining <= 0:
-                        handle.status = runtime.FILE_READ_TIMEOUT_STATUS
-                        return
-                    delay = min(10, remaining)
-                    remaining -= delay
+                delay = deadline.next_delay()
+                if not delay:
+                    handle.status = runtime.FILE_READ_TIMEOUT_STATUS
+                    return
+                if not deadline.enabled and state._scheduler is None and not getattr(root,'_sleep_injected',False):
+                    raise runtime.KarelRuntimeError('Indefinite standalone serial wait requires an explicit sleeper callback',line)
                 yield from runtime.delay_execution(state, delay, line, scan_handlers=True)
                 yield from runtime.checkpoint(state,line)
         except GeneratorExit:raise

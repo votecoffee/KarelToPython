@@ -4821,31 +4821,36 @@ class State:
     def file_open(self,handle,mode,name,line=None):
         if any(handle is item for item in self.execution._predefined_values.values()):raise KarelRuntimeError('Predefined FILE bindings cannot be reopened; reset with close_predefined_files',line)
         name=ascii_string(name,line)
+        upper_name = name.upper()
+        pipe_file = upper_name.startswith('PIP:')
         pipe_attributes=handle.pipe_wait is not None or handle.pipe_overflow is not None
-        if pipe_attributes and not name.upper().startswith('PIP:'):
+        if pipe_attributes and not pipe_file:
             raise KarelRuntimeError('Pipe FILE attributes require an explicitly configured plain FilePipes endpoint',line)
         from .serial_io import serial_address
         if serial_address(name):return self.execution.require('serial_streams',line).open_for(self,handle,mode,name,line)
-        if name.upper().startswith('KB:') or name.upper().startswith('WD:') and '/' in name:return self.execution.require('keyboard',line).open_for(self,handle,mode,name,line)
-        if handle.read_timeout_ms:
-            raise KarelRuntimeError('ATR_TIMEOUT requires a waiting serial or keyboard FILE', line)
-        if name.upper().startswith('WD:'):return self.execution.require('pendant',line).open_for(self,handle,mode,name,line)
+        if upper_name.startswith('KB:') or upper_name.startswith('WD:') and '/' in name:return self.execution.require('keyboard',line).open_for(self,handle,mode,name,line)
         if message_address(name):return self.execution.require('messaging',line).open_for(self,handle,mode,name,line)
-        if name.upper().startswith('PIP:'):
+        if pipe_file:
             try:key=communication_pipe_name(name)
             except ValueError as exc:raise KarelRuntimeError(str(exc),line) from exc
             banks=[bank for bank in (self.execution.acquisition,self.execution.file_pipes) if bank is not None and key in bank.files]
             if len(banks)!=1:raise KarelRuntimeError('PIP FILE requires one explicitly configured acquisition or file_pipes entry',line)
-            if pipe_attributes and type(banks[0]) is not FilePipes:
-                raise KarelRuntimeError('Pipe FILE attributes require plain FilePipes, not acquisition pipes',line)
             bank=banks[0]
-            if type(bank) is Acquisition and _pythonic():
-                def check():
-                    self.tick(line)
-                    if self.execution.acquisition is not bank:
-                        raise KarelRuntimeError('DAQ service changed during snapshot preparation',line)
-                return bank.open_for(self,handle,mode,key,line,check=check)
+            if type(bank) is Acquisition:
+                if pipe_attributes:
+                    raise KarelRuntimeError('Pipe FILE attributes require plain FilePipes, not acquisition pipes',line)
+                if handle.read_timeout_ms:
+                    raise KarelRuntimeError('ATR_TIMEOUT requires a plain waiting pipe FILE', line)
+                if _pythonic():
+                    def check():
+                        self.tick(line)
+                        if self.execution.acquisition is not bank:
+                            raise KarelRuntimeError('DAQ service changed during snapshot preparation',line)
+                    return bank.open_for(self,handle,mode,key,line,check=check)
             return bank.open_for(self,handle,mode,key,line)
+        if handle.read_timeout_ms:
+            raise KarelRuntimeError('ATR_TIMEOUT requires a waiting stream or keyboard FILE', line)
+        if upper_name.startswith('WD:'):return self.execution.require('pendant',line).open_for(self,handle,mode,name,line)
         files = self.execution.require('files', line)
         if type(files) is DirectoryFiles and _pythonic():
             return files.open(handle, mode, name, line, check=lambda: self.tick(line))

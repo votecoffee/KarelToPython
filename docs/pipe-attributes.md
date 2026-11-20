@@ -56,15 +56,28 @@ values or cursor progress until all fields validate. A completed opted-in READ
 publishes one ordinary read-request record and advances its cursor once. Target
 selectors and format expressions are captured once before the wait.
 
-Standalone Programs can wait only when constructed with an explicit `sleep`
-callback. Each callback invocation receives 0.01 seconds and must return None;
-it may feed scripted data. The default host sleeper is rejected before any wait,
-so an empty standalone pipe never causes an indefinite real-clock sleep. Ordinary
-execution budgets still bound explicit callback loops. This callback provenance
-is retained through linked routines and same-task program calls.
+An indefinite standalone wait requires an explicit `sleep` callback. Each
+callback invocation receives 0.01 seconds and must return None. It may feed
+scripted data. Ordinary execution budgets still bound explicit callback loops.
+The runtime retains this callback through linked routines and same-task program
+calls. A [positive deadline](#read-deadlines) also allows the normal sleeper.
 
 Condition handlers can read ready input. A handler read that would wait
 fails before sleeping, including when it runs in a called routine.
+
+## READ deadlines
+
+A readable pipe FILE can use `SET_FILE_ATR(channel,ATR_TIMEOUT,milliseconds)`
+with ATR_PIPWAIT WAIT_USED. A positive value bounds each typed READ, including
+text, binary and PASSALL. Zero uses the existing wait policy without a
+deadline. Snapshot and immediate pipe modes reject a positive setting at OPEN.
+
+Timed reads can use the normal standalone sleeper. Scheduled reads use the
+scheduler clock. At the final poll, a complete input batch succeeds; an
+incomplete batch returns with portable IO_STATUS 4 and publishes no values or
+READ cursor progress. The current ring history and any cursor movement from
+overwrites remain in effect. Overflow EOF and cancellation retain their own
+outcomes. Retry with another READ or close the FILE.
 
 ## Snapshot mode
 

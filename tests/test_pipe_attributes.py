@@ -131,6 +131,45 @@ class PipePassallBoundaryTests(unittest.TestCase):
                     self.assertEqual(files.files[name], b'prior')
 
 
+class PipeReadDeadlineTests(unittest.TestCase):
+    def test_timeout_requires_wait_used_and_preserves_history_on_invalid_open(self):
+        for wait, mode in ((None, 'RO'), (0, 'RO'), (1, 'WO')):
+            with self.subTest(wait=wait, mode=mode):
+                files = bank(b'prior')
+                descriptor = rt.FileHandle()
+                descriptor.read_timeout_ms = 2
+                descriptor.pipe_wait = wait
+                with self.assertRaisesRegex(rt.KarelRuntimeError, 'readable'):
+                    files.open_for(None, descriptor, mode, 'PIP:LOG')
+                self.assertEqual((files.files['PIP:LOG'], files.handles, descriptor.owner), (b'prior', [], None))
+
+    def test_overflow_eof_wins_over_deadline_on_last_poll(self):
+        files = bank(b'a')
+        task, _ = compile_program(
+            'SET_FILE_ATR(f,ATR_TIMEOUT,3) SET_FILE_ATR(f,ATR_PASSALL) ' + WAIT + " text='old' READ f(text::2)",
+            decl=DECL, context=rt.ExecutionContext(file_pipes=files),
+            sleep=lambda _: files.feed('LOG', b'x' * 1024),
+        )
+        with self.assertRaisesRegex(rt.KarelRuntimeError, 'overflow reached EOF'):
+            task.run()
+        result = task.snapshot()
+        self.assertEqual((result['TEXT'], result['F']['status']), ('old', 1))
+        self.assertEqual(files.files['PIP:LOG'], b'x' * 1024)
+        self.assertEqual(files._reads, {})
+        files.close(task._state.values['F'])
+
+    def test_timeout_does_not_apply_to_acquisition_pipes(self):
+        acquisition = rt.Acquisition()
+        acquisition.register(1, 0, 1, ('INTEGER',), 'log.dat', 0)
+        task, _ = compile_program(
+            "SET_FILE_ATR(f,ATR_TIMEOUT,2) OPEN FILE f('RO','PIP:LOG.DAT')",
+            decl=DECL, context=rt.ExecutionContext(acquisition=acquisition),
+        )
+        with self.assertRaisesRegex(rt.KarelRuntimeError, 'plain waiting pipe'):
+            task.run()
+        self.assertFalse(task.snapshot()['F']['open'])
+
+
 class PipeWaitingTests(unittest.TestCase):
     def test_handler_can_read_ready_data_but_cannot_wait(self):
         routines='ROUTINE collect BEGIN READ f(n,CR) END collect'

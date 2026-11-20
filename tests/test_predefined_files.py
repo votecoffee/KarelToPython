@@ -150,6 +150,23 @@ class PredefinedBackendTests(unittest.TestCase):
                                  cooperative=True, sleep=lambda _: None)
         self.assertEqual((state['N'], state['S'], restored.keyboard.elapsed_ms), (7, 4, 3))
 
+    def test_default_pipe_and_socket_timeouts_from_saved_bindings(self):
+        for name, services, attributes in (
+            ('S1:', {'messaging': rt.Messaging({'S1:': {'wait': True, 'connected': True}})}, {}),
+            ('PIP:LOG', {'file_pipes': pipe_bank()}, {'pipe_wait': 1}),
+        ):
+            with self.subTest(name=name):
+                ctx = rt.ExecutionContext(**services, predefined_files={
+                    'TPDISPLAY': binding(name, read_timeout_ms=3, **attributes),
+                })
+                restored = rt.ExecutionContext.from_config(json.loads(json.dumps(ctx.to_config())))
+                delays = []
+                state, _, _, _ = execute(
+                    'n=7 READ(n,CR) s=IO_STATUS(TPDISPLAY) CLOSE FILE TPDISPLAY',
+                    restored, cooperative=True, sleep=delays.append,
+                )
+                self.assertEqual((state['N'], state['S'], delays), (7, 4, [.003]))
+
     def test_default_serial_append_unlocks_bound_input_after_write(self):
         serial = rt.SerialStreams({2: {'input': b'17\n', 'output': b'old'}})
         ctx = rt.ExecutionContext(serial_streams=serial, predefined_files={

@@ -767,7 +767,7 @@ def add_policies(report, *, expansion, filename, mode):
         source='Unshadowed predefined FILE names supply ordinary borrowed FILE references; declarations and lexical USING fields retain priority; OPEN cannot retarget a predefined binding',
         defaults='Omitted READ/WRITE captures TPDISPLAY, or INPUT/OUTPUT under CRTDEVICE, once before destinations/items/formats; unbound defaults retain existing callbacks and observations',
         transports='Existing text/binary, aggregate, keyboard, serial, socket, pipe and rooted file paths; waiting default input requires cooperative translation or existing handler/task forms',
-        read_timeout='Declarative read_timeout_ms sets ATR_TIMEOUT for waiting serial and keyboard FILEs. The same typed READ deadlines and status 4 apply.',
+        read_timeout='Declarative read_timeout_ms sets ATR_TIMEOUT for keyboard and waiting serial, socket or plain pipe FILEs. The same typed READ deadlines and status 4 apply.',
         cancellation='Bare CANCEL FILE selects the bound default input; explicit aliases and READ_KB use the same exact pending-operation and portable status-6 rules',
         lifetime='One cached handle per configured alias and context; source CLOSE or explicit close_predefined_files releases only owned aliases, retaining pending/foreign identities for recovery',
         persistence='Save declarative bindings and ordinary service data only after alias handles close; loading opens nothing and later use creates fresh handles without restoring cursors/stacks',

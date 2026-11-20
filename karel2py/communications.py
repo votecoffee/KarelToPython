@@ -52,7 +52,30 @@ def access_mode(handle,mode,line,*,append_read=False):
     if handle.owner is not None:fail('FILE is already open',line)
     if type(handle.passall) is not bool or handle.passall and (binary or mode in ('W', 'A')):
         fail('ATR_PASSALL requires a readable text communication FILE', line)
+    timeout = handle.read_timeout_ms
+    if type(timeout) is not int or not 0 <= timeout <= rt().MAX_FILE_TIMEOUT_MS:
+        fail('Malformed communication FILE read timeout', line)
     return mode,binary
+
+
+class StreamReadDeadline:
+    """Poll interval for one waiting READ, measured in logical milliseconds."""
+
+    def __init__(self, scheduler, timeout_ms):
+        self.enabled = timeout_ms > 0
+        self.scheduler = scheduler
+        self.remaining_ms = timeout_ms
+        self.deadline_us = scheduler.now_us + timeout_ms * 1000 if self.enabled and scheduler is not None else None
+
+    def next_delay(self):
+        if not self.enabled:
+            return 10
+        if self.deadline_us is not None:
+            remaining = (self.deadline_us - self.scheduler.now_us + 999) // 1000
+            return min(10, max(0, remaining))
+        delay = min(10, self.remaining_ms)
+        self.remaining_ms -= delay
+        return delay
 
 
 class StreamRead:
@@ -309,6 +332,8 @@ class Messaging(MemoryFiles):
             fail('Socket endpoint already has an open FILE or pending operation', line)
         row=self.ports[key]
         if not all(row[name] for name in ('mounted','available','connected')):fail('Offline socket endpoint is disconnected',line)
+        if handle.read_timeout_ms and (mode in ('W', 'A') or row['wait'] is not True):
+            fail('ATR_TIMEOUT requires a readable waiting socket FILE', line)
         handle.name,handle.mode,handle.owner,handle.binary=key,mode,self,binary
         handle.logical_name=key;handle.position=0;handle.status=0;self.handles.append(handle)
         handle._text_cr=None
@@ -404,14 +429,14 @@ class Messaging(MemoryFiles):
             handle.status = 1
 
     @staticmethod
-    def _wait(state, kind, line):
+    def _wait(state, kind, line, *, delay=10, bounded=False):
         runtime = rt()
         root = runtime.task_root(state)
         if state._in_handler or root._in_handler:
             fail('Pending socket ' + kind + ' cannot wait inside a handler action', line)
-        if state._scheduler is None and not getattr(root, '_sleep_injected', False):
+        if not bounded and state._scheduler is None and not getattr(root, '_sleep_injected', False):
             fail('Indefinite standalone socket ' + kind + ' requires an explicit sleeper callback', line)
-        yield from runtime.delay_execution(state, 10, line, scan_handlers=True)
+        yield from runtime.delay_execution(state, delay, line, scan_handlers=True)
         yield from runtime.checkpoint(state, line)
 
     def read_items(self, state, handle, targets, line=None, *, line_breaks=(), formats=None):
@@ -421,6 +446,7 @@ class Messaging(MemoryFiles):
         if handle.mode in ('W', 'A'):
             fail('Socket FILE is not readable', line)
         request = StreamRead(handle, targets, line_breaks, formats, 'Socket', line, raw_fields=handle.passall)
+        deadline = StreamReadDeadline(state._scheduler, handle.read_timeout_ms)
         record = self._start_operation(state, handle, row, 'READ', line)
         try:
             if record.position + request.minimum_bytes(may_finalize=True) > record.limit:
@@ -446,7 +472,11 @@ class Messaging(MemoryFiles):
                     fail('End of finalized socket input before complete READ', line)
                 if len(record.rx) >= record.limit and not request.can_finalize(handle, raw):
                     fail('Atomic socket READ cannot complete within receive bank limit', line)
-                yield from self._wait(state, 'READ', line)
+                delay = deadline.next_delay()
+                if not delay:
+                    handle.status = rt().FILE_READ_TIMEOUT_STATUS
+                    return
+                yield from self._wait(state, 'READ', line, delay=delay, bounded=deadline.enabled)
         except GeneratorExit:
             raise
         except BaseException:
@@ -559,6 +589,8 @@ class FilePipes(MemoryFiles):
             if advance>capacity:fail('Rounded ATR_PIPOVADV exceeds pipe capacity',line)
         if (wait is not None or overflow is not None) and mode in ('W','A'):
             fail('Pipe read attributes require a readable FILE mode',line)
+        if handle.read_timeout_ms and (wait != 1 or mode in ('W', 'A')):
+            fail('ATR_TIMEOUT requires a readable pipe FILE with ATR_PIPWAIT WAIT_USED', line)
         if mode=='W':
             self.files[key].clear()
             for other in self.handles:
@@ -766,6 +798,7 @@ class FilePipes(MemoryFiles):
             fail('Atomic pipe READ exceeds circular capacity', line)
         reads=self._reads
         if id(handle) in reads:fail('Pipe FILE already has an active READ',line)
+        deadline = StreamReadDeadline(state._scheduler, handle.read_timeout_ms)
         record=_PipeRead(state,handle._read_operation,self._reader_binding(handle),handle.position,
                          handle._pipe_snapshot_end,handle._pipe_overflowed)
         reads[id(handle)]=record
@@ -800,9 +833,13 @@ class FilePipes(MemoryFiles):
                 root=runtime.task_root(state)
                 if state._in_handler or root._in_handler:
                     fail('Pending pipe READ cannot wait inside a handler action',line)
-                if state._scheduler is None and not getattr(root,'_sleep_injected',False):
+                delay = deadline.next_delay()
+                if not delay:
+                    handle.status = runtime.FILE_READ_TIMEOUT_STATUS
+                    return
+                if not deadline.enabled and state._scheduler is None and not getattr(root,'_sleep_injected',False):
                     fail('Indefinite standalone pipe wait requires an explicit sleeper callback',line)
-                yield from runtime.delay_execution(state,10,line,scan_handlers=True)
+                yield from runtime.delay_execution(state, delay, line, scan_handlers=True)
                 yield from runtime.checkpoint(state,line)
         except GeneratorExit:raise
         except BaseException:

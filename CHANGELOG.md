@@ -1,5 +1,11 @@
 # Changelog
 
+## 26.1120.140916 - 2026-11-20
+
+- Extend ATR_TIMEOUT to waiting socket and plain pipe FILE reads. Timed-out
+  reads return IO_STATUS 4 and preserve partial input. Serial, socket and
+  pipe reads share the same deadline calculation.
+
 ## 26.1120.140339 - 2026-11-20
 
 - Extend ATR_PASSALL fixed ASCII reads to offline socket and plain pipe FILEs.

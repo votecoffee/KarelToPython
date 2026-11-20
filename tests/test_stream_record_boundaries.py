@@ -126,6 +126,76 @@ class PassallStreamTests(unittest.TestCase):
                     bank.close(task._state.values['F'])
 
 
+class StreamReadDeadlineTests(unittest.TestCase):
+    def test_raw_timeout_preserves_starting_state_and_can_retry(self):
+        for transport in TRANSPORTS:
+            with self.subTest(transport=transport):
+                delays = []
+                task, bank, name, pending, _, _ = stream(
+                    transport, b'a\n',
+                    'READ f(first::3) status=IO_STATUS(f) n=GET_FILE_POS(f) '
+                    'READ f(second::2) CLOSE FILE f',
+                    attributes='SET_FILE_ATR(f,ATR_PASSALL) SET_FILE_ATR(f,ATR_TIMEOUT,13)',
+                    sleep=delays.append,
+                )
+                values = task.run()
+                self.assertEqual((values['FIRST'], values['STATUS'], values['N']), ('old', 4, 0))
+                self.assertEqual(values['SECOND'], 'a\n')
+                self.assertEqual(delays, [.01, .003])
+                self.assertEqual(len(task.read_requests), 1)
+                self.assertEqual(pending, {})
+                self.assertEqual(bank.files[name], b'a\n' if transport == 'pipe' else b'')
+
+    def test_data_on_final_poll_succeeds_unless_cancellation_also_requested(self):
+        for transport in TRANSPORTS:
+            for cancel in (False, True):
+                with self.subTest(transport=transport, cancel=cancel):
+                    delays = []
+
+                    def sleep(delay):
+                        delays.append(delay)
+                        feed(b'\n')
+                        if cancel:
+                            rt.cancel_file(task._state, task._state.values['F'])
+
+                    task, _, _, pending, feed, _ = stream(
+                        transport, b'17', 'READ f(n,CR) status=IO_STATUS(f) CLOSE FILE f',
+                        attributes='SET_FILE_ATR(f,ATR_TIMEOUT,3)',
+                        sleep=sleep,
+                    )
+                    values = task.run()
+                    self.assertEqual(values['STATUS'], 6 if cancel else 0)
+                    if not cancel:
+                        self.assertEqual(values['N'], 17)
+                    self.assertEqual(len(task.read_requests), 0 if cancel else 1)
+                    self.assertEqual(delays, [.003])
+                    self.assertEqual(pending, {})
+
+    def test_scheduler_deadline_uses_virtual_time_and_releases_handle(self):
+        for transport in ('pipe', 'socket'):
+            with self.subTest(transport=transport):
+                task, _, _, pending, _, _ = stream(
+                    transport, b'1', 'n=77 READ f(n,CR) status=IO_STATUS(f) CLOSE FILE f',
+                    attributes='SET_FILE_ATR(f,ATR_TIMEOUT,13)',
+                    sleep=lambda _: self.fail('Scheduled waits must use the virtual clock'),
+                )
+                scheduler = rt.TaskScheduler()
+                scheduler.bind('T', task)
+                scheduler.start('T')
+                for _ in range(25):
+                    scheduler.step()
+                    if pending:
+                        break
+                else:
+                    self.fail('Timed READ did not wait')
+                wait_started = scheduler.now_us
+                scheduler.run()
+                values = task.snapshot()
+                self.assertEqual((values['N'], values['STATUS'], values['F']['open']), (77, 4, False))
+                self.assertGreaterEqual(scheduler.now_us - wait_started, 12_000)
+                self.assertEqual(pending, {})
+
+
 class StreamRecordBoundaryTests(unittest.TestCase):
     def test_closed_rooted_file_releases_record_continuation(self):
         with tempfile.TemporaryDirectory() as directory:
