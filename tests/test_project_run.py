@@ -366,6 +366,28 @@ class SavedProjectTests(unittest.TestCase):
         self.assertEqual(values['TARGET']['nodes'], [{'AMOUNT': 12}, {'AMOUNT': 21}])
         self.assertEqual(values['SOURCE']['nodes'], [{'AMOUNT': 12.75}])
 
+    def test_linked_path_result_range_discovers_original_input_owner(self):
+        types = ('TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+                 'head_t=STRUCTURE total:INTEGER ENDSTRUCTURE '
+                 'route_t=PATH NODEDATA=row_t PATHHEADER=head_t')
+        main = self.module('MAIN', 'WRITE(make_route()[1..0],CR)', types+' VAR unused:INTEGER',
+                           'ROUTINE make_route:route_t FROM LIB')
+        lib = self.module('LIB', declarations=types+' VAR amount_input:INTEGER',
+                          routines='ROUTINE make_route:route_t VAR p:route_t s:INTEGER '
+                                   'BEGIN INSERT_NODE(p,1,s) INSERT_NODE(p,2,s) p.total=41 '
+                                   'p[1].amount=amount_input RETURN p END make_route')
+        prepared = self.create(main, lib, discover=True)
+        report = prepared['inputs']['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        candidate, = report['inputs']
+        self.assertEqual((candidate['program'], candidate['path']), ('LIB', 'AMOUNT_INPUT'))
+
+        runner.save_input_value(self.document, ('variable', 'LIB', 'AMOUNT_INPUT'), 'INTEGER', '42',
+                                expected=self.document.read_bytes())
+        result = runner.run_document(self.document)['results']
+        self.assertEqual(result['status'], 'completed', result['error'])
+        self.assertEqual(result['text_output'], ' 42 41\n')
+
     def test_linked_header_alias_stays_live_after_copy_and_borrowed_append(self):
         types = ('TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
                  'head_t=STRUCTURE code:INTEGER total:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t PATHHEADER=head_t ')

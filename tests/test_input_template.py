@@ -557,6 +557,35 @@ class InputTemplateTests(unittest.TestCase):
         self.assertTrue(report['complete'], report['unresolved'])
         self.assertEqual([row['path'] for row in report['inputs']], ['WANTED'])
 
+    def test_path_result_discovery_uses_only_selected_records_and_members(self):
+        source = (
+            'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+            'head_t=STRUCTURE total:INTEGER flags:ARRAY[2,2] OF INTEGER ENDSTRUCTURE '
+            'route_t=PATH NODEDATA=row_t PATHHEADER=head_t VAR wanted,unused,bound:INTEGER '
+            'ROUTINE build:route_t VAR p:route_t s:INTEGER '
+            'BEGIN INSERT_NODE(p,1,s) INSERT_NODE(p,2,s) p.total=41 '
+            'p.flags[1,1]=11 p.flags[1,2]=12 p.flags[2,1]=13 p.flags[2,2]=14 '
+            'p[1].amount=42 RETURN p END build '
+            'BEGIN {} END T'
+        )
+        cases = (
+            ('WRITE(build()[1..0],build[0..0],build()[1])', set(), set()),
+            ('IF (build().flags[2,1]=13) AND (build()[1].amount=42) '
+             'THEN WRITE(wanted) ELSE WRITE(unused) ENDIF', {'WANTED'}, set()),
+            ('WRITE(build().flags[bound,wanted])', {'BOUND', 'WANTED'}, {'dynamic-address'}),
+            ('WRITE(build())', set(), {'derived-value'}),
+            ('WRITE(build()[2..2])', set(), {'derived-value'}),
+            ('WRITE(build()[2].amount)', set(), {'derived-value'}),
+            ('WRITE(build()[1..3])', set(), {'path-topology'}),
+            ('WRITE(build()[bound..0])', {'BOUND'}, {'selection'}),
+        )
+        for body, inputs, codes in cases:
+            with self.subTest(body=body):
+                prepared = prepare_inputs(translate(source.format(body)).python_source)
+                report = prepared['template']['discovery']
+                self.assertEqual({row['code'] for row in report['unresolved']}, codes)
+                self.assertEqual(set(by_path(prepared)), inputs)
+
     def test_partial_private_path_keeps_saved_inputs_at_original_address(self):
         source = (
             'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t '
@@ -705,6 +734,18 @@ class InputTemplateTests(unittest.TestCase):
                 report = prepared['template']['discovery']
                 self.assertEqual(report['inputs'], [])
                 self.assertIn('path-topology', {row['code'] for row in report['unresolved']})
+
+    def test_path_range_checks_scalar_width_before_discovering_records(self):
+        prepared = prepare(
+            'INSERT_NODE(route,1,s) INSERT_NODE(route,2,s) WRITE(route[1..2])',
+            decl='route:PATH NODEDATA=row_t s:INTEGER',
+            prefix='TYPE row_t=STRUCTURE fields:ARRAY[513] OF INTEGER ENDSTRUCTURE',
+        )
+        report = prepared['template']['discovery']
+        self.assertFalse(report['inputs'])
+        unresolved, = report['unresolved']
+        self.assertEqual(unresolved['code'], 'selection')
+        self.assertIn('transfer limit', unresolved['message'])
 
     def test_range_outside_an_edited_path_has_no_partial_candidates(self):
         spec = ['PATH', ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]], None]

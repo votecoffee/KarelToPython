@@ -372,9 +372,16 @@ same input address, `ROUTE[0].COUNT`. READ and WRITE can also use a computed
 selector when analysis proves its value. An inclusive range with known bounds
 visits the records in range order, including a declared header at either
 zero endpoint. The known saved or source-created node count validates the
-entire range before discovery lists its inputs. Unknown selectors remain
-explicit in the discovery report. Retranslate older output to add the header-selector
+entire range before discovery lists its inputs. Discovery also checks the
+scalar field limit before listing range inputs. Unknown selectors remain explicit
+in the discovery report. Retranslate older output to add the header-selector
 and default-node metadata.
+
+A selector on a scalar PATH routine result, such as `build_route()[1..0]`
+or `build_route().total`, uses the returned records and their known fields.
+Discovery follows reads in the routine and only checks the selected result data
+for completeness. A selected result with unproven data requires review in the
+discovery report.
 
 A discovered header in a fresh PATH or fixed PATH ARRAY can be edited directly.
 The template builds an empty node list and the declared header with missing

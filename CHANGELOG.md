@@ -1,5 +1,11 @@
 # Changelog
 
+## 26.1120.190633 - 2026-11-20
+
+- Track selected records and fields of scalar PATH routine results during
+  input discovery, including results returned by linked modules.
+- Validate the scalar field budget for PATH ranges before listing editable inputs.
+
 ## 26.1120.190004 - 2026-11-20
 
 - Accept header-only PATH ranges and reverse ranges ending at the header

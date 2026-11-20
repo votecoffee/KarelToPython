@@ -74,6 +74,10 @@ READ fills the selected existing storage and preserves all omitted records.
 The same portable text/binary field rules, budgets and cancellation behavior
 apply to these selections.
 
+WRITE can select records directly from a scalar PATH routine result, as in
+`WRITE route_file(build_route()[2..0])`. The result is evaluated once before
+the bounds. The selected records must be initialized for the transfer.
+
 ## Formats, empty paths and FILEs
 
 One uniform format list is evaluated once and interpreted for each scalar kind.

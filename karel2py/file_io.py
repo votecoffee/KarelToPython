@@ -14,6 +14,7 @@ def fail(message, line=None):
 FILE_TIMEOUT_ATTRIBUTE = 11
 MAX_FILE_TIMEOUT_MS = 86_400_000
 FILE_READ_TIMEOUT_STATUS = 4
+MAX_PATH_IO_FIELDS = 1024
 
 
 class FileHandle:
@@ -161,6 +162,17 @@ def path_io_indexes(length, has_header, bounds, line=None):
     return range(first, last + step, step)
 
 
+def path_io_field_count(node, header, indexes):
+    """Count the scalar fields selected by an ordered PATH transfer."""
+    rt = runtime()
+    include_header = 0 in indexes
+    node_count = len(indexes) - include_header
+    count = node_count * rt.scalar_leaf_count(node, MAX_PATH_IO_FIELDS) if node_count else 0
+    if include_header:
+        count += rt.scalar_leaf_count(header, MAX_PATH_IO_FIELDS)
+    return count
+
+
 def path_io_references(spec, value, line=None, *, check=None, bounds=None):
     """Capture the records selected by one PATH I/O item."""
     rt = runtime()
@@ -173,11 +185,8 @@ def path_io_references(spec, value, line=None, *, check=None, bounds=None):
     nodes, data = value.nodes, value.data
     length = len(nodes)
     indexes = path_io_indexes(length, header is not None, bounds, line)
-    include_header = 0 in indexes
-    count = (len(indexes) - include_header) * rt.scalar_leaf_count(node)
-    if include_header:
-        count += rt.scalar_leaf_count(header)
-    if count > 1024:
+    count = path_io_field_count(node, header, indexes)
+    if count > MAX_PATH_IO_FIELDS:
         fail('PATH I/O is limited to 1024 scalar fields including CR', line)
     if check is not None:
         selected_nodes = tuple((index, nodes[index - 1]) for index in indexes if index)

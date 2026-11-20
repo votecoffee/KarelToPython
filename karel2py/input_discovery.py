@@ -6,7 +6,7 @@ from pathlib import Path
 import re
 
 from .extended import PREDEFINED_FILE_NAMES, ZERO_BASED_PORTS, path_conversion_layout, path_node_size
-from .file_io import path_io_indexes
+from .file_io import MAX_PATH_IO_FIELDS, path_io_field_count, path_io_indexes
 from .input_contract import extract, InputContractError
 from .storage import tuple_spec
 from . import runtime as rt
@@ -18,7 +18,6 @@ MAX_STEPS = 100000
 MAX_INPUTS = 2048
 MAX_CALL_DEPTH = 32
 MAX_FACTS = 32767
-MAX_PATH_IO_FIELDS = 1024
 MAX_BYTES = 16 * 1024 * 1024
 SCALARS = {'INTEGER', 'BYTE', 'SHORT', 'REAL', 'BOOLEAN', 'STRING', 'NUMERIC'}
 SCALAR_PURE = {'ABS':1,'ROUND':1,'TRUNC':1,'SQRT':1,'SIN':1,'COS':1,'TAN':1,
@@ -437,19 +436,12 @@ class _Analyzer:
         path = self.locate(receiver, flow, conditional)
         first = self.expr(first_arg, flow, conditional).constant
         last = self.expr(last_arg, flow, conditional).constant
-        if (path is None or not path.spec or path.spec[0] != 'PATH'
-                or type(first) is not int or type(last) is not int
-                or not 0 <= first <= 32767 or not 0 <= last <= 32767):
-            self.unresolved_at('selection', 'PATH range requires known bounds and a declared PATH receiver', expr)
+        spec = path.spec if path else None
+        if not self.valid_path_range(spec, first, last, expr):
             return [None]
         count = self.known_path_count(path, flow, conditional)
-        try:
-            indexes = path_io_indexes(32767 if count is None else count, path.spec[2] is not None, (first, last))
-        except rt.KarelRuntimeError as error:
-            self.unresolved_at('path-topology', str(error), expr)
-            return [None]
-        if len(indexes) > MAX_PATH_IO_FIELDS:
-            self.unresolved_at('selection', 'PATH range exceeds the bounded FILE transfer limit', expr)
+        indexes = self.path_range_indexes(spec, 32767 if count is None else count, first, last, expr)
+        if indexes is None:
             return [None]
         locations = [self.index_child(path, index, expr, flow) for index in indexes]
         if any(location is None for location in locations):
@@ -457,6 +449,30 @@ class _Analyzer:
         for location in locations:
             self.retain_selected_path_storage(location, flow, conditional)
         return locations
+
+    def valid_path_range(self, spec, first, last, node):
+        if (spec and spec[0] == 'PATH' and type(first) is int and type(last) is int
+                and 0 <= first <= 32767 and 0 <= last <= 32767):
+            return True
+        self.unresolved_at('selection', 'PATH range requires known bounds and a declared PATH receiver', node)
+        return False
+
+    def path_range_indexes(self, spec, count, first, last, node):
+        if count is None:
+            self.unresolved_at('path-topology', 'PATH result has no proven node count', node)
+            return None
+        try:
+            indexes = path_io_indexes(count, spec[2] is not None, (first, last))
+            node_spec = tuple_spec(spec[1]) if spec[1] else rt.PREDEFINED_STRUCTURES['STD_PTH_NODE']
+            header = tuple_spec(spec[2]) if spec[2] is not None else None
+            fields = path_io_field_count(node_spec, header, indexes)
+        except rt.KarelRuntimeError as error:
+            self.unresolved_at('path-topology', str(error), node)
+            return None
+        if fields > MAX_PATH_IO_FIELDS:
+            self.unresolved_at('selection', 'PATH range exceeds the bounded FILE transfer limit', node)
+            return None
+        return indexes
 
     def stable_path_context(self, loc, flow, conditional):
         return (self.saved_path_count is not None and loc is not None and loc.kind == 'variable'
@@ -885,6 +901,103 @@ class _Analyzer:
             self.unresolved_at('derived-value','Aggregate result consumed without proven complete data',node)
         return value
 
+    def selects_path_result(self, receiver):
+        """Recognize selectors on detached results without probing live storage."""
+        while receiver['kind'] in ('group', 'field', 'index'):
+            receiver = receiver['args'][0]
+        kind = receiver['kind']
+        if kind not in ('call', 'name'):
+            return False
+        name = receiver['value']
+        if kind == 'name' and (name in self.plan['types'] or name in self.plan['constants']
+                               or self.frames and (name in self.frames[-1]['slots']
+                                                   or name in self.frames[-1]['constants'])):
+            return False
+        result = self.plan['routines'].get(name, {}).get('result')
+        return bool(result and result[0] == 'PATH')
+
+    def select_result_member(self, value, kind, key, node):
+        if value.spec is None:
+            return _Value(complete=False)
+        location = _Location('local', self.program, 'PATH result', spec=value.spec)
+        member = self.child(location, kind, key, node)
+        if member is None:
+            return _Value(complete=False)
+        facts = value.facts or {}
+        if member.spec[0] in SCALARS:
+            return facts.get(member.parts, _Value(complete=value.complete, spec=member.spec))
+        selected = {path[1:]: fact for path, fact in facts.items() if path[:1] == member.parts}
+        complete = all(fact.complete for fact in selected.values()) if selected else value.complete
+        return _Value(complete=complete, spec=member.spec, facts=selected or None)
+
+    def select_result_record(self, value, index, node):
+        if value.path_records is None:
+            self.unresolved_at('path-topology', 'PATH result has no proven node count', node)
+            return _Value(complete=False)
+        has_header = value.spec[2] is not None
+        count = len(value.path_records) - has_header
+        try:
+            path_io_indexes(count, has_header, (index, None))
+        except rt.KarelRuntimeError as error:
+            self.unresolved_at('path-topology', str(error), node)
+            return _Value(complete=False)
+        return value.path_records[index if has_header else index - 1]
+
+    def path_result_selection(self, node, flow, conditional, *, partial, path_io):
+        kind = node['kind']
+        receiver, *arguments = node['args']
+        value = self.expr(receiver, flow, conditional, partial=True)
+        if flow.stopped and not flow.opaque:
+            return _Value(complete=False)
+        if kind == 'field':
+            if value.spec and value.spec[0] == 'PATH':
+                value = self.select_result_record(value, 0, node)
+            value = self.select_result_member(value, 'field', node['value'], node)
+        else:
+            indexes = []
+            for argument in arguments:
+                indexes.append(self.expr(argument, flow, conditional).constant)
+                if flow.stopped and not flow.opaque:
+                    return _Value(complete=False)
+            for position, index in enumerate(indexes, 1):
+                if type(index) is not int:
+                    self.unresolved_at('dynamic-address', 'PATH result index is not statically known', node)
+                    return _Value(complete=False)
+                if value.spec and value.spec[0] == 'PATH':
+                    header_allowed = position == len(arguments) and (
+                        node.get('static_zero_subscript') or path_io and self.plan.get('path_index_io')
+                    )
+                    if index == 0 and not header_allowed:
+                        self.unresolved_at('selection', 'PATH header requires a statically selected zero subscript', node)
+                        return _Value(complete=False)
+                    value = self.select_result_record(value, index, node)
+                else:
+                    value = self.select_result_member(value, 'index', index, node)
+        if not partial and value.spec and not value.complete:
+            self.unresolved_at('derived-value', 'Selected PATH result has unproven data', node)
+        return value
+
+    def path_result_range(self, node, flow, conditional):
+        receiver, first_arg, last_arg = node['args']
+        value = self.expr(receiver, flow, conditional, partial=True)
+        if flow.stopped and not flow.opaque:
+            return _Value(complete=False)
+        first = self.expr(first_arg, flow, conditional).constant
+        if flow.stopped and not flow.opaque:
+            return _Value(complete=False)
+        last = self.expr(last_arg, flow, conditional).constant
+        if flow.stopped and not flow.opaque or not self.valid_path_range(value.spec, first, last, node):
+            return _Value(complete=False)
+        has_header = value.spec[2] is not None
+        count = len(value.path_records) - has_header if value.path_records is not None else None
+        indexes = self.path_range_indexes(value.spec, count, first, last, node)
+        if indexes is None:
+            return _Value(complete=False)
+        complete = all(value.path_records[index if has_header else index - 1].complete for index in indexes)
+        if not complete:
+            self.unresolved_at('derived-value', 'Selected PATH result range has unproven data', node)
+        return _Value(complete=complete)
+
     def expr(self, node, flow, conditional=False, *, partial=False, path_io=False, statement_call=False):
         self.tick()
         if not isinstance(node,dict):return _Value()
@@ -904,11 +1017,15 @@ class _Analyzer:
                 result = self.call(dict(node, kind='call', args=[]), flow, conditional, statement_call=statement_call)
                 return self.result_value(result, node, partial)
         if kind == 'path_io_range':
+            if self.selects_path_result(args[0]):
+                return self.path_result_range(node, flow, conditional)
             for location in self.path_io_locations(node, flow, conditional):
                 if location is not None:
                     self.read(location, node, flow, conditional)
             return _Value(complete=False)
         if kind in ('field','index'):
+            if self.selects_path_result(args[0]):
+                return self.path_result_selection(node, flow, conditional, partial=partial, path_io=path_io)
             loc=self.locate(node,flow,conditional,path_io=path_io)
             if loc:return self.read(loc,node,flow,conditional,partial=partial,path_io=path_io)
             self.unresolved_at('selection','Computed or dynamic data read is unresolved',node);return _Value(complete=False)

@@ -239,6 +239,35 @@ class PathSelectionTests(unittest.TestCase):
         p.run()
         self.assertEqual(text(p), [' 7abcd'])
 
+    def test_computed_range_captures_result_before_bounds_and_formats(self):
+        prefix = ('TYPE node_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+                  'header_t=STRUCTURE total:INTEGER ENDSTRUCTURE '
+                  'route_t=PATH NODEDATA=node_t PATHHEADER=header_t')
+        routines = (
+            'ROUTINE make_route:route_t VAR p:route_t s:INTEGER '
+            'BEGIN visits=visits*10+1 INSERT_NODE(p,1,s) INSERT_NODE(p,2,s) '
+            'p.total=41 p[1].amount=42 RETURN p END make_route '
+            'ROUTINE first_bound:INTEGER BEGIN visits=visits*10+2 RETURN 1 END first_bound '
+            'ROUTINE last_bound:INTEGER BEGIN visits=visits*10+3 RETURN 0 END last_bound '
+            'ROUTINE width:INTEGER BEGIN visits=visits*10+4 RETURN 3 END width'
+        )
+        from karel2py.input_discovery import discover_inputs
+
+        body = ('visits=0 WRITE(make_route()[first_bound()..last_bound()]::width(),CR) '
+                'IF visits<>1234 THEN WRITE(unused) ENDIF')
+        for cooperative in (False, True):
+            with self.subTest(cooperative=cooperative):
+                program, result = compile_program(body, decl='visits,unused:INTEGER', prefix=prefix,
+                                                  routines=routines, cooperative=cooperative)
+                report = discover_inputs(result.python_source)
+                self.assertTrue(report['complete'], report['unresolved'])
+                self.assertFalse(report['inputs'])
+                self.assertEqual(program.run()['VISITS'], 1234)
+                self.assertEqual(text(program), [' 42 41\n'])
+        with self.assertRaisesRegex(TranslationError, 'E_READ_ITEM'):
+            compile_program('READ(make_route()[0..0])', decl='visits:INTEGER',
+                            prefix=prefix, routines=routines)
+
     def test_out_of_bounds_range_has_no_transport_or_format_effects(self):
         routines = 'ROUTINE width:INTEGER BEGIN visits=visits+1 RETURN 4 END width'
         for operation, bounds in (('READ', '3..0'), ('WRITE', '1..3')):
