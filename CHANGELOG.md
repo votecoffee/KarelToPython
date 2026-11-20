@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1120.181838 - 2026-11-20
+
+- Reuse whole-node PATH references when the same list grows back to a
+  temporarily missing slot, including through linked routine forwarding.
+- Report accesses to missing slots and preserve a missing slot when a list
+  replacement detaches it.
+
 ## 26.1120.181017 - 2026-11-20
 
 - Follow whole-node PATH borrows at their captured slots through checked

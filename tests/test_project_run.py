@@ -367,6 +367,27 @@ class SavedProjectTests(unittest.TestCase):
         self.assertEqual(result['status'], 'completed', result['error'])
         self.assertEqual(result['text_output'], ' 12 29\n 0 29\n 12 29 34\n')
 
+    def test_linked_routine_can_forward_a_missing_slot_and_restore_it(self):
+        types = 'TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t '
+        main = self.module('MAIN', 'edit(routes[2],routes[2,1]) WRITE(routes[2],CR)',
+                           types+'VAR routes FROM LIB:ARRAY[2] OF route_t',
+                           'ROUTINE restore(v:route_t;held:row_t) FROM LIB '
+                           'ROUTINE edit(v:route_t;held:row_t) VAR s:INTEGER '
+                           'BEGIN DELETE_NODE(v,1,s) restore(v,held) END edit')
+        lib = self.module('LIB', declarations=types+'VAR routes:ARRAY[2] OF route_t',
+                          routines='ROUTINE restore(v:route_t;held:row_t) VAR s:INTEGER '
+                                   'BEGIN APPEND_NODE(v,s) held.amount=19 END restore')
+        spec = ['PATH', ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]], None]
+        root = dict(program='LIB', path='ROUTES', type=['ARRAY', 2, spec],
+                    value=[dict(nodes=[], data=None), dict(nodes=[{'AMOUNT': MISSING}], data=None)])
+        prepared = self.create(main, lib, context={'variables': [root]}, discover=True)
+        report = prepared['inputs']['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertFalse(report['inputs'])
+        result = runner.run_document(self.document)['results']
+        self.assertEqual(result['status'], 'completed', result['error'])
+        self.assertEqual(result['text_output'], ' 19\n')
+
     def test_linked_node_borrow_stays_live_when_edits_follow_its_slot(self):
         types = 'TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t '
         main = self.module('MAIN', 'edit(routes[2],routes[2,1]) WRITE(routes[2],CR)',

@@ -939,21 +939,75 @@ class InputTemplateTests(unittest.TestCase):
         self.assertEqual(set(by_path(prepared)), {'ADDRESS'})
         self.assertIn('path-topology', {row['code'] for row in report['unresolved']})
 
-    def test_whole_node_slot_that_goes_out_of_range_remains_unresolved(self):
+    def test_whole_node_slot_recovers_when_same_list_grows(self):
+        source = (
+            'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+            'VAR route:PATH NODEDATA=row_t s,wanted,unused:INTEGER '
+            'ROUTINE restore(held:row_t) BEGIN DELETE_NODE(route,1,s) '
+            'IF (s=0) AND (PATH_LEN(route)=0) THEN APPEND_NODE(route,s) held.amount=11 ENDIF '
+            'END restore '
+            'BEGIN restore(route[1]) IF (PATH_LEN(route)=1) AND (route[1].amount=11) '
+            'THEN WRITE(wanted) ELSE WRITE(unused) ENDIF END T'
+        )
         spec = ['PATH', ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]], None]
         context = {'variables': [dict(program='T', path='ROUTE', type=spec,
-                                      value=dict(nodes=[{'AMOUNT': 7}], data=None))]}
-        program = translate(
+                                      value=dict(nodes=[{'AMOUNT': MISSING}], data=None))]}
+        prepared = prepare_inputs(translate(source).python_source, context=context)
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'WANTED'})
+        self.assertEqual(report['path_storage'][0]['path'], 'ROUTE')
+
+    def test_reading_a_temporarily_missing_whole_node_reports_the_slot(self):
+        source = (
             'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
             'VAR route:PATH NODEDATA=row_t s:INTEGER '
-            'ROUTINE replace(old:row_t) BEGIN DELETE_NODE(route,1,s) APPEND_NODE(route,s) '
-            'old.amount=11 END replace '
-            'BEGIN replace(route[1]) WRITE(route) END T'
+            'ROUTINE attempt(held:row_t) BEGIN DELETE_NODE(route,1,s) WRITE(held.amount) END attempt '
+            'BEGIN attempt(route[1]) END T'
         )
-        report = prepare_inputs(program.python_source, context=context)['template']['discovery']
-        self.assertFalse(report['complete'])
-        self.assertEqual(report['path_storage'][0]['path'], 'ROUTE')
-        self.assertIn('path-topology', {row['code'] for row in report['unresolved']})
+        spec = ['PATH', ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]], None]
+        context = {'variables': [dict(program='T', path='ROUTE', type=spec,
+                                      value=dict(nodes=[{'AMOUNT': MISSING}], data=None))]}
+        report = prepare_inputs(translate(source).python_source, context=context)['template']['discovery']
+        self.assertFalse(report['inputs'])
+        self.assertTrue(any(row['message'] == 'Captured PATH slot is out of bounds: ROUTE[1]'
+                            for row in report['unresolved']))
+
+    def test_append_cannot_make_an_initially_invalid_capture_valid(self):
+        source = (
+            'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+            'VAR route:PATH NODEDATA=row_t s:INTEGER '
+            'ROUTINE attempt(held:row_t) BEGIN APPEND_NODE(route,s) WRITE(held.amount) END attempt '
+            'BEGIN attempt(route[2]) END T'
+        )
+        spec = ['PATH', ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]], None]
+        context = {'variables': [dict(program='T', path='ROUTE', type=spec,
+                                      value=dict(nodes=[{'AMOUNT': MISSING}], data=None))]}
+        report = prepare_inputs(translate(source).python_source, context=context)['template']['discovery']
+        self.assertFalse(report['inputs'])
+        self.assertTrue(any('Captured PATH reference has an unresolved origin' in row['message']
+                            for row in report['unresolved']))
+
+    def test_new_list_does_not_restore_a_retired_missing_slot(self):
+        prefix = (
+            'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+            'VAR route:PATH NODEDATA=row_t s:INTEGER '
+            'ROUTINE attempt(held:row_t) BEGIN DELETE_NODE(route,1,s) '
+            'COPY_PATH(route,0,0,route,s) APPEND_NODE(route,s) route[1].amount=19 '
+            'WRITE(route[1].amount) '
+        )
+        spec = ['PATH', ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]], None]
+        context = {'variables': [dict(program='T', path='ROUTE', type=spec,
+                                      value=dict(nodes=[{'AMOUNT': MISSING}], data=None))]}
+        for use in ('', 'WRITE(held.amount) '):
+            with self.subTest(use=use):
+                source = prefix + use + 'END attempt BEGIN attempt(route[1]) END T'
+                report = prepare_inputs(translate(source).python_source, context=context)['template']['discovery']
+                self.assertFalse(report['inputs'])
+                self.assertEqual(report['complete'], not use, report['unresolved'])
+                if use:
+                    self.assertTrue(any(row['message'] == 'Captured PATH slot is out of bounds: ROUTE[1]'
+                                        for row in report['unresolved']))
 
     def test_whole_path_topology_remains_unresolved_after_unknown_mutation(self):
         prefix = 'TYPE node_t=STRUCTURE amount:INTEGER ENDSTRUCTURE'

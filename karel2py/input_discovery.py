@@ -110,6 +110,13 @@ class _PathOrder:
     detached: frozenset[int] = frozenset()
     generation: int = 0
     retired_slots: dict = field(default_factory=dict)
+    previous_max_size: int = 0
+
+    def retains_slot(self, slot):
+        if slot.generation != self.generation:
+            return slot.key in self.retired_slots
+        # A successfully captured list position can be temporarily vacant.
+        return 1 <= slot.position <= max(len(self.nodes), self.previous_max_size)
 
     def slot_origin(self, slot):
         if slot.generation != self.generation:
@@ -357,10 +364,14 @@ class _Analyzer:
                 return None
         return _Location('variable', owner, root, spec=spec, root_spec=spec)
 
-    def slot(self, name, node, flow):
+    def slot(self, name, node, flow, *, capture_node=False):
         if not self.frames or name not in self.frames[-1]['slots']:
             return self.global_slot(name, node)
         loc = self.frames[-1]['slots'][name]
+        # Forwarding a named reference passes the slot without reading it.
+        return loc if capture_node else self.resolve_node_slot(loc, node, flow)
+
+    def resolve_node_slot(self, loc, node, flow):
         slot = loc.node_slot
         if slot is None:
             return loc
@@ -372,6 +383,10 @@ class _Analyzer:
             if origin is not None:
                 part = ('created-node', -origin) if origin < 0 else ('index', origin)
                 return replace(loc, parts=(*slot.path.parts, part))
+            if order.retains_slot(slot):
+                self.unresolved_at('path-topology',
+                                   f'Captured PATH slot is out of bounds: {slot.path.path}[{slot.position}]', node)
+                return None
         self.unresolved_at('path-topology', 'Captured PATH reference has an unresolved origin: '+loc.path, node)
         return None
 
@@ -467,15 +482,12 @@ class _Analyzer:
         depth = len(path.parts)
         stationary = set(prefix)
         shifted = set(suffix)
-        new_count = len(prefix) + len(suffix) + (removed is None)
         for ref in borrows:
             if ref is None:
                 return False
             slot = ref.node_slot
             if slot is not None:
-                if order.slot_origin(slot) is None:
-                    return False
-                if slot.generation == order.generation and slot.position > new_count:
+                if not order.retains_slot(slot):
                     return False
                 continue
             part = ref.parts[depth]
@@ -508,13 +520,16 @@ class _Analyzer:
             if slot is not None:
                 if slot.key in retired_slots:
                     continue
-                origin = order.slot_origin(slot) if order is not None else slot.position
-                if origin is None:
-                    return None
-                retiring[slot.key] = origin
-                replaced.add(origin)
                 if order is not None:
+                    if not order.retains_slot(slot):
+                        return None
+                    origin = order.slot_origin(slot)
+                    retiring[slot.key] = origin
+                    if origin is not None:
+                        replaced.add(origin)
                     continue
+                origin = slot.position
+                retiring[slot.key] = origin
             else:
                 origin = _path_record_identity(part)
                 if origin in detached:
@@ -658,8 +673,8 @@ class _Analyzer:
     def locate(self, expr, flow, conditional, *, path_io=False, capture_node=False):
         if not isinstance(expr,dict):return None
         kind=expr.get('kind');args=expr.get('args',[])
-        if 'token' in expr:return self.slot(expr['token'],expr,flow)
-        if kind=='name':return self.slot(expr['value'],expr,flow)
+        if 'token' in expr:return self.slot(expr['token'],expr,flow,capture_node=capture_node)
+        if kind=='name':return self.slot(expr['value'],expr,flow,capture_node=capture_node)
         if kind=='group':
             return self.locate(args[0], flow, conditional, path_io=path_io, capture_node=capture_node)
         if kind=='field':
@@ -1131,7 +1146,10 @@ class _Analyzer:
                         record = self.child(path, 'created-node', self.serial, node)
                         value = _Value(complete=False) if seed is None else self.complete_path_record(seed)
                         self.write(record, value, flow, node)
-                    flow.path_orders[path.key] = replace(order, nodes=nodes, detached=detached)
+                    flow.path_orders[path.key] = replace(
+                        order, nodes=nodes, detached=detached,
+                        previous_max_size=max(order.previous_max_size, count),
+                    )
                     self.write(status, _Value(0, spec=['INTEGER']), flow, node)
                     return _Value()
 
@@ -1550,7 +1568,10 @@ class _Analyzer:
             qualified = (routine['external'] or self.program) + '.' + name
             self.unresolved_at('routine', 'External or recursive routine effects are unresolved: '+qualified, node)
             for item in actual:
-                if isinstance(item,_Location):self.read(item,node,flow,True)
+                if isinstance(item, _Location):
+                    location = self.resolve_node_slot(item, node, flow)
+                    if location is not None:
+                        self.read(location, node, flow, True)
             self.opaque(flow);return _Value(complete=False)
         external = bool(routine['external'])
         routine = target_routine

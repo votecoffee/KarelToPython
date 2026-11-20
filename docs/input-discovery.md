@@ -459,7 +459,9 @@ follows the contents of its captured list slot through a proved insertion or
 deletion. A field or nested element borrow stays with its record when that
 record moves or is deleted. Discovery uses the original or source-created
 record identity to find saved inputs and keep writes with the correct record.
-A whole-node borrow whose slot goes out of bounds stays unresolved.
+A captured slot can be forwarded even while it is out of bounds. If the same
+list grows to that slot again, discovery can follow later reads and writes.
+An access while the slot is out of bounds reports the unavailable position.
 
 Whole assignment updates the existing destination header and replaces the
 node list. A whole-header borrow sees the assigned header, and a nested
@@ -467,7 +469,8 @@ header borrow can follow a complete replacement header. A checked COPY_PATH
 replaces the descriptor, leaving proved borrows of its old header and node
 list accessible. In both cases, a whole-node borrow keeps the contents of
 its slot in the old list, including any shifts before replacement. Later
-writes through old references leave the new nodes independent.
+writes through old references leave the new nodes independent. A slot that
+was missing when the list was replaced stays missing when the new list grows.
 
 The status output must use storage disjoint from the edited PATH at the start
 of the service call. A field from a previously deleted or replaced record can
