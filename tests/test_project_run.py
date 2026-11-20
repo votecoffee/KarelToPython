@@ -388,6 +388,34 @@ class SavedProjectTests(unittest.TestCase):
         self.assertEqual(result['status'], 'completed', result['error'])
         self.assertEqual(result['text_output'], ' 42 41\n')
 
+    def test_linked_path_bank_result_passes_through_a_private_argument(self):
+        types = ('TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+                 'head_t=STRUCTURE total:INTEGER ENDSTRUCTURE '
+                 'route_t=PATH NODEDATA=row_t PATHHEADER=head_t')
+        main = self.module(
+            'MAIN', 'WRITE(relay(build())[1,1..0],CR)', types,
+            'ROUTINE build:ARRAY OF route_t FROM LIB '
+            'ROUTINE relay(routes:ARRAY OF route_t):ARRAY OF route_t FROM LIB',
+        )
+        lib = self.module(
+            'LIB', declarations=types+' VAR amount_input:INTEGER',
+            routines='ROUTINE build:ARRAY OF route_t VAR rows:ARRAY[2] OF route_t s:INTEGER '
+                     'BEGIN INSERT_NODE(rows[1],1,s) rows[1].total=41 rows[1,1].amount=amount_input '
+                     'RETURN rows END build '
+                     'ROUTINE relay(routes:ARRAY OF route_t):ARRAY OF route_t '
+                     'BEGIN routes[1,1].amount=routes[1,1].amount+1 RETURN routes END relay',
+        )
+        prepared = self.create(main, lib, discover=True)
+        report = prepared['inputs']['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        candidate, = report['inputs']
+        self.assertEqual((candidate['program'], candidate['path']), ('LIB', 'AMOUNT_INPUT'))
+        runner.save_input_value(self.document, ('variable', 'LIB', 'AMOUNT_INPUT'), 'INTEGER', '41',
+                                expected=self.document.read_bytes())
+        result = runner.run_document(self.document)['results']
+        self.assertEqual(result['status'], 'completed', result['error'])
+        self.assertEqual(result['text_output'], ' 42 41\n')
+
     def test_linked_array_result_probe_preserves_operand_order(self):
         main = self.module(
             'MAIN',

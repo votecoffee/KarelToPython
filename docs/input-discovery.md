@@ -392,6 +392,13 @@ Discovery follows reads in the routine and only checks the selected result data
 for completeness. A selected result with unproven data requires review in the
 discovery report.
 
+For PATH ARRAYs with matching cell layouts, discovery tracks each cell's
+node count and known fields through assignments, selected rows and planes,
+private arguments and routine results. This covers local banks created in
+a routine and banks with known saved topology. Whole returned-bank WRITE
+checks the combined scalar field limit. Compatible layout conversions
+between PATH ARRAY types require review in discovery.
+
 A discovered header in a fresh PATH or fixed PATH ARRAY can be edited directly.
 The template builds an empty node list and the declared header with missing
 field markers. This consumes the shared template allocation budget. To edit

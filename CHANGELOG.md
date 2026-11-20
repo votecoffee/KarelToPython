@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1120.193158 - 2026-11-20
+
+- Track PATH ARRAY cells through matching-layout assignments, private arguments
+  and routine returns. Carry their node counts and known fields into selection,
+  range WRITE and metadata queries.
+- Validate the combined field count for whole returned PATH ARRAY WRITE items.
+
 ## 26.1120.192013 - 2026-11-20
 
 - Follow selected array cells, record fields and joint axes on detached routine

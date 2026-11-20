@@ -589,6 +589,80 @@ class InputTemplateTests(unittest.TestCase):
                 self.assertEqual({row['code'] for row in report['unresolved']}, codes)
                 self.assertEqual(set(by_path(prepared)), inputs)
 
+    def test_returned_path_bank_preserves_selected_cells_and_array_prefixes(self):
+        source = (
+            'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+            'head_t=STRUCTURE total:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t PATHHEADER=head_t '
+            'VAR wanted,unused:INTEGER '
+            'ROUTINE bank:ARRAY OF route_t VAR rows:ARRAY[2,2] OF route_t s:INTEGER '
+            'BEGIN INSERT_NODE(rows[2,1],1,s) INSERT_NODE(rows[2,2],1,s) '
+            'rows[2,1].total=41 rows[2,1,1].amount=42 rows[2,2].total=43 RETURN rows[2] END bank '
+            'BEGIN {} END T'
+        )
+        for body, inputs, codes in (
+            ('WRITE(bank()[1][1..0],bank()[1,1..0])', set(), set()),
+            ('IF (ARRAY_LEN(bank())=2) AND (PATH_LEN(bank()[2])=1) '
+             'AND (bank()[1,1].amount=42) THEN WRITE(wanted) ELSE WRITE(unused) ENDIF', {'WANTED'}, set()),
+            ('WRITE(bank())', set(), {'derived-value'}),
+            ('WRITE(bank()[2,0..0])', set(), set()),
+            ('WRITE(bank()[1,2..0])', set(), {'path-topology'}),
+        ):
+            with self.subTest(body=body):
+                prepared = prepare_inputs(translate(source.format(body)).python_source)
+                report = prepared['template']['discovery']
+                self.assertEqual(set(by_path(prepared)), inputs)
+                self.assertEqual({row['code'] for row in report['unresolved']}, codes)
+
+    def test_path_bank_assignment_keeps_header_alias_and_detaches_old_node(self):
+        source = (
+            'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+            'head_t=STRUCTURE total:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t PATHHEADER=head_t '
+            'VAR target:ARRAY[2] OF route_t matrix:ARRAY[2,2] OF route_t good,bad:INTEGER '
+            'ROUTINE bank:ARRAY OF route_t VAR rows:ARRAY[2] OF route_t s:INTEGER '
+            'BEGIN INSERT_NODE(rows[1],1,s) rows[1].total=41 rows[1,1].amount=42 rows[2].total=43 '
+            'RETURN rows END bank '
+            'ROUTINE replace_bank(old:row_t; h:head_t) BEGIN target=bank() matrix[2]=target '
+            'IF (old.amount=77) AND (h.total=41) AND (matrix[2,1,1].amount=42) '
+            'AND (PATH_LEN(matrix[2,2])=0) THEN WRITE(good) ELSE WRITE(bad) ENDIF END replace_bank '
+            'BEGIN target=bank() target[1,1].amount=77 target[1].total=88 '
+            'replace_bank(target[1,1],target[1][0]) END T'
+        )
+        prepared = prepare_inputs(translate(source).python_source)
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'GOOD'})
+
+    def test_returned_path_bank_checks_combined_write_budget(self):
+        source = (
+            'PROGRAM T TYPE row_t=STRUCTURE scores:ARRAY[513] OF INTEGER ENDSTRUCTURE '
+            'route_t=PATH NODEDATA=row_t VAR unused:INTEGER '
+            'ROUTINE bank:ARRAY OF route_t VAR rows:ARRAY[2] OF route_t s:INTEGER '
+            'BEGIN INSERT_NODE(rows[1],1,s) INSERT_NODE(rows[2],1,s) RETURN rows END bank '
+            'BEGIN WRITE(bank()) END T'
+        )
+        prepared = prepare_inputs(translate(source).python_source)
+        report = prepared['template']['discovery']
+        self.assertFalse(report['inputs'])
+        self.assertIn('selection', {row['code'] for row in report['unresolved']})
+        self.assertTrue(any('transfer limit' in row['message'] for row in report['unresolved']))
+
+    def test_path_bank_prefix_checks_containing_budget_before_capturing_a_cell(self):
+        from karel2py.input_discovery import _discover_inputs
+
+        source = (
+            'PROGRAM T TYPE row_t=STRUCTURE scores:ARRAY[16383] OF INTEGER ENDSTRUCTURE '
+            'route_t=PATH NODEDATA=row_t VAR rows:ARRAY[2,1] OF route_t '
+            'ROUTINE bank:ARRAY OF route_t BEGIN RETURN rows[1] END bank '
+            'BEGIN WRITE(bank()[1,1..1]) END T'
+        )
+        # Each selected row fits, but the two one-node cells and their
+        # descriptors exceed the containing bank's 32767-unit snapshot limit.
+        report = _discover_inputs(translate(source).python_source, filename='authored.py',
+                                  saved_path_count=lambda *_: 1)
+        self.assertFalse(report['inputs'])
+        self.assertTrue(any(row['code'] == 'limit' and 'snapshot limit' in row['message']
+                            for row in report['unresolved']))
+
     def test_partial_private_path_keeps_saved_inputs_at_original_address(self):
         source = (
             'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t '

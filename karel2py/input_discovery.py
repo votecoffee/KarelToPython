@@ -8,7 +8,7 @@ import re
 from .extended import PREDEFINED_FILE_NAMES, ZERO_BASED_PORTS, path_conversion_layout, path_node_size
 from .file_io import MAX_PATH_IO_FIELDS, path_io_field_count, path_io_indexes
 from .input_contract import extract, InputContractError
-from .storage import tuple_spec
+from .storage import collection_array_cost, tuple_spec
 from . import runtime as rt
 
 
@@ -210,6 +210,14 @@ def _array_dimensions(spec):
         dimensions.extend(spec[1] if type(spec[1]) is list else [spec[1]])
         spec=spec[2]
     return dimensions,spec
+
+
+def _path_array_cell_type(spec):
+    if spec and spec[0] == 'ARRAY':
+        _, terminal = _array_dimensions(spec)
+        if terminal and terminal[0] == 'PATH':
+            return terminal
+    return None
 
 
 def _array_value_schema(declared,source):
@@ -616,6 +624,10 @@ class _Analyzer:
         if loc.key in flow.path_orders:
             order = flow.path_orders[loc.key]
             return len(order.nodes) if order is not None else None
+        if loc.kind == 'local' and any(
+            frame['owner'] == loc.owner and loc.root in frame['fresh_path_banks'] for frame in self.frames
+        ):
+            return 0
         if not self.stable_path_context(loc, flow, conditional):
             return None
         count = self.saved_path_count(loc.owner, loc.root, loc.root_spec, loc.parts)
@@ -796,6 +808,8 @@ class _Analyzer:
                                       spec=loc.spec, path_records=tuple(records))
                 else:
                     self.unresolved_at('limit', 'PATH value exceeds the scalar snapshot limit', node)
+        if partial and _path_array_cell_type(loc.spec):
+            return self.capture_path_array(loc, node, flow, conditional)
         if path_io:
             records = self.path_transfer_records(loc, node, flow, conditional)
             if records is not None:
@@ -925,7 +939,9 @@ class _Analyzer:
         complete=left.complete and (taken.stopped or right.complete) if typed else False
         return _Value(constant,complete,spec)
 
-    def result_value(self,value,node,partial):
+    def result_value(self,value,node,partial,*,path_io=False):
+        if path_io:
+            self.check_path_array_output(value, node)
         if not partial and value.spec and value.spec[0] not in SCALARS and not value.complete:
             self.unresolved_at('derived-value','Aggregate result consumed without proven complete data',node)
         return value
@@ -953,6 +969,8 @@ class _Analyzer:
         if member is None:
             return _Value(complete=False)
         facts = value.facts or {}
+        if member.spec[0] == 'PATH':
+            return facts.get(member.parts, _Value(complete=False, spec=member.spec))
         if member.spec[0] in SCALARS:
             return facts.get(member.parts, _Value(complete=value.complete, spec=member.spec))
         selected = {path[1:]: fact for path, fact in facts.items() if path[:1] == member.parts}
@@ -1043,7 +1061,7 @@ class _Analyzer:
             if constant is not UNKNOWN:return _Value(constant)
             if value in self.plan['routines']:
                 result = self.call(dict(node, kind='call', args=[]), flow, conditional, statement_call=statement_call)
-                return self.result_value(result, node, partial)
+                return self.result_value(result, node, partial, path_io=path_io)
         if kind == 'path_io_range':
             if self.selects_routine_result(args[0]):
                 return self.path_result_range(node, flow, conditional)
@@ -1054,6 +1072,8 @@ class _Analyzer:
         if kind in ('field','index'):
             if self.selects_routine_result(args[0]):
                 selected = self.routine_result_selection(node, flow, conditional, path_io=path_io)
+                if path_io:
+                    self.check_path_array_output(selected, node)
                 if selected.spec and not selected.complete and (not partial or selected.spec[0] in SCALARS):
                     self.unresolved_at('derived-value', 'Selected routine result has unproven data', node)
                 return selected
@@ -1103,7 +1123,7 @@ class _Analyzer:
             return _Value(spec=['BOOLEAN'] if kind=='binary' and value in ('=','<>','<','<=','>','>=') else None)
         if kind == 'call':
             result = self.call(node, flow, conditional, statement_call=statement_call)
-            return self.result_value(result, node, partial)
+            return self.result_value(result, node, partial, path_io=path_io)
         if self.linked_plans is not None and kind=='captured':
             name, spec = value
             captured = self.capture_values.get((self.program, name))
@@ -1405,6 +1425,121 @@ class _Analyzer:
         self.opaque(flow)
         self.write(status, _Value(), flow, node)
         return _Value()
+
+    def path_array_cells(self, loc, node):
+        self.tick()
+        if loc.spec[0] == 'PATH':
+            yield loc
+            return
+        size = loc.spec[1][0] if type(loc.spec[1]) is list else loc.spec[1]
+        for index in range(1, size + 1):
+            yield from self.path_array_cells(self.child(loc, 'index', index, node), node)
+
+    def path_array_prefix_owner(self, loc):
+        depth = len(loc.parts)
+        spec = loc.root_spec
+        first = 0
+        while spec and spec[0] == 'ARRAY' and first < depth:
+            rank = len(spec[1]) if type(spec[1]) is list else 1
+            if first < depth < first + rank:
+                return replace(loc, parts=loc.parts[:first], spec=spec)
+            first += rank
+            spec = spec[2]
+        return loc
+
+    def path_array_layout(self, loc, node, flow, conditional):
+        """Check the snapshot budget, including the owner of a row or plane."""
+        owner = self.path_array_prefix_owner(loc)
+        try:
+            units = collection_array_cost(tuple_spec(owner.spec))
+        except ValueError as error:
+            self.unresolved_at('path-schema', 'PATH ARRAY snapshot requires a proven concrete shape: '+str(error), node)
+            return None
+        terminal = tuple_spec(_path_array_cell_type(loc.spec))
+        width = rt.scalar_leaf_count(terminal[1] or rt.PREDEFINED_STRUCTURES['STD_PTH_NODE'])
+        selected = []
+        for cell in self.path_array_cells(owner, node):
+            count = self.known_path_count(cell, flow, conditional)
+            if count is None and owner is not loc:
+                self.unresolved_at('path-topology', 'PATH ARRAY prefix has an unproven containing bank shape', node)
+                return None
+            if count is not None:
+                units += count * width
+                if units > MAX_FACTS:
+                    self.unresolved_at('limit', 'PATH ARRAY value exceeds the scalar snapshot limit', node)
+                    return None
+            if cell.parts[:len(loc.parts)] == loc.parts:
+                selected.append((cell, count))
+        return selected
+
+    def capture_path_array(self, loc, node, flow, conditional):
+        """Capture detached cells only after checking the snapshot budget."""
+        selected = self.path_array_layout(loc, node, flow, conditional)
+        if selected is None:
+            return _Value(complete=False, spec=loc.spec)
+        cells = {}
+        for cell, count in selected:
+            records = self.capture_path_copy(cell, range(1, count + 1), node, flow, conditional) if count is not None else None
+            cells[cell.parts[len(loc.parts):]] = _Value(
+                complete=records is not None and all(record.complete for record in records),
+                spec=cell.spec,
+                path_records=tuple(records) if records is not None else None,
+            )
+        return _Value(complete=all(cell.complete for cell in cells.values()), spec=loc.spec, facts=cells)
+
+    def check_path_array_output(self, value, node):
+        if not _path_array_cell_type(value.spec):
+            return
+        if value.facts is None or any(cell.path_records is None for cell in value.facts.values()):
+            self.unresolved_at('path-topology', 'PATH ARRAY result has unproven cell topology', node)
+            return
+        count = 0
+        for cell in value.facts.values():
+            for record in cell.path_records:
+                count += rt.scalar_leaf_count(tuple_spec(record.spec), MAX_PATH_IO_FIELDS)
+                if count > MAX_PATH_IO_FIELDS:
+                    self.unresolved_at('selection', 'PATH ARRAY result exceeds the bounded FILE transfer limit', node)
+                    return
+
+    def convert_path_array_value(self, target, value, node, flow):
+        resolved = _array_value_schema(target, value.spec)
+        if resolved and value.spec and rt.collection_array_source_accepts(tuple_spec(target), tuple_spec(value.spec)):
+            return replace(value, spec=resolved)
+        self.unresolved_at('path-schema', 'PATH ARRAY value requires matching cell layouts and dimensions', node)
+        self.opaque(flow)
+        return _Value(complete=False, spec=target)
+
+    def publish_private_path_array(self, target, value, node, flow):
+        if not isinstance(value, _Value) or not value.facts or flow.opaque:
+            return
+        for cell in self.path_array_cells(target, node):
+            captured = value.facts.get(cell.parts[len(target.parts):])
+            if captured is not None and captured.path_records is not None:
+                self.publish_path_records(cell, captured.path_records, node, flow)
+
+    def path_array_assignment(self, target, value, node, flow, conditional):
+        value = self.convert_path_array_value(target.spec, value, node, flow)
+        prepared = []
+        if value.facts and self.can_publish_path(target, flow, conditional):
+            layout = self.path_array_layout(target, node, flow, conditional)
+            if layout is not None:
+                for cell, count in layout:
+                    captured = value.facts.get(cell.parts[len(target.parts):])
+                    if count is None or captured is None or captured.path_records is None:
+                        break
+                    records = captured.path_records
+                    complete_header = cell.spec[2] is not None and records[0].complete
+                    history = self.replaced_path_borrows(cell, flow, conditional, keep_header=True,
+                                                         complete_header=complete_header)
+                    if history is None:
+                        break
+                    prepared.append((cell, records, history))
+                else:
+                    for cell, records, history in prepared:
+                        self.publish_path_records(cell, records, node, flow, keep_header=True, history=history)
+                    return
+        self.unresolved_at('path-topology', 'PATH ARRAY assignment source or destination effects require review', node)
+        self.opaque(flow)
 
     def convert_path_value(self, target, value, node, flow):
         """Convert a captured private PATH before evaluating later operands."""
@@ -1737,8 +1872,11 @@ class _Analyzer:
             elif mode=='value':
                 value = self.expr(item,flow,conditional,partial=True)
                 expected = routine['parameters'][index][1]
-                if expected[0] == 'PATH' and not (flow.stopped and not flow.opaque):
-                    value = self.convert_path_value(expected, value, item, flow)
+                if not (flow.stopped and not flow.opaque):
+                    if expected[0] == 'PATH':
+                        value = self.convert_path_value(expected, value, item, flow)
+                    elif _path_array_cell_type(expected):
+                        value = self.convert_path_array_value(expected, value, item, flow)
                 actual.append(value)
             else:
                 self.unresolved_at('argument','Routine passing mode is unresolved: '+name,node)
@@ -1787,6 +1925,9 @@ class _Analyzer:
                             for key,spec in routine['types'].items()},
                      constants=routine['constants'], borrowed_path_edits=direct, references=references)
         formals = {formal for formal, _, _, _ in bindings}
+        frame['fresh_path_banks'] = {
+            key for key, slot in frame['slots'].items() if key not in formals and _path_array_cell_type(slot.spec)
+        }
         for local in frame['slots'].values():
             if local.root not in formals and local.spec[0] == 'PATH':
                 flow.path_orders[local.key] = _PathOrder(())
@@ -1800,6 +1941,8 @@ class _Analyzer:
                         self.publish_path_records(loc, item.path_records, node, flow)
                     else:
                         flow.path_orders[loc.key] = None
+                elif _path_array_cell_type(resolved):
+                    self.publish_private_path_array(loc, item, node, flow)
                 else:
                     self.write(loc,item or _Value(complete=False),flow,node)
         old_exits, self.exits = self.exits, []
@@ -1831,7 +1974,7 @@ class _Analyzer:
         merged.path_orders = {key: order for key, order in merged.path_orders.items() if key is None or key[1] != owner}
         flow.take(merged)
         values=[item[1] for item in exits];result=routine['result']
-        if result and result[0] != 'PATH':
+        if result and result[0] != 'PATH' and not _path_array_cell_type(result):
             converted=[]
             for value in values:
                 schema=_array_value_schema(result,value.spec) if result[0]=='ARRAY' else result
@@ -2059,7 +2202,16 @@ class _Analyzer:
                 self.path_assignment(node, flow, conditional)
                 return
             value=self.expr(args[1],flow,conditional,partial=True)
-            self.write(self.locate(args[0],flow,conditional),value,flow,node);return
+            if flow.stopped and not flow.opaque:
+                return
+            target = self.locate(args[0], flow, conditional)
+            if flow.stopped and not flow.opaque:
+                return
+            if target is not None and _path_array_cell_type(target.spec):
+                self.path_array_assignment(target, value, node, flow, conditional)
+            else:
+                self.write(target, value, flow, node)
+            return
         if kind == 'call':
             self.expr(args[0], flow, conditional, statement_call=True)
             return
@@ -2181,8 +2333,11 @@ class _Analyzer:
         if kind=='return':
             value=self.expr(args[0],flow,conditional,partial=True) if args and args[0] is not None else _Value()
             result = self.frames[-1]['result'] if self.frames else None
-            if result and result[0] == 'PATH' and not (flow.stopped and not flow.opaque):
-                value = self.convert_path_value(result, value, node, flow)
+            if result and not (flow.stopped and not flow.opaque):
+                if result[0] == 'PATH':
+                    value = self.convert_path_value(result, value, node, flow)
+                elif _path_array_cell_type(result):
+                    value = self.convert_path_array_value(result, value, node, flow)
             self.exits.append((flow.copy(),value));flow.stopped=True;return
         if kind=='write_items':
             for argument in args:
