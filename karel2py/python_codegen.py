@@ -17,10 +17,12 @@ from .declarations import DeclarationPasses
 from .syntax import Expr, Statement
 from .select_analysis import check_select
 from .expression_codegen import ExpressionLowering
+from .motion_codegen import MotionLowering
 from .robot_system_codegen import RobotSystemLowering
 from .routine_codegen import RoutineLowering
 from .service_codegen import ServiceCallLowering
 from .statement_io_codegen import StatementIOLowering
+from .task_codegen import TaskControlLowering
 from .type_checking import TypeQueries
 from .control_flow import FlowGraph, counter_text, validate_labels
 from .lexer import Token, TranslationError
@@ -30,7 +32,8 @@ from . import runtime as rt
 
 
 class Emitter(DeclarationPasses, TypeQueries, ExpressionLowering, AssignmentLowering,
-              RoutineLowering, RobotSystemLowering, ServiceCallLowering, StatementIOLowering):
+              RoutineLowering, RobotSystemLowering, ServiceCallLowering, StatementIOLowering,
+              MotionLowering, TaskControlLowering):
     """Emit a Python module from a parsed program and its checked declarations."""
 
     def __init__(self, program, filename, array_shapes=None, mode='strict', cooperative=False):
@@ -502,126 +505,14 @@ class Emitter(DeclarationPasses, TypeQueries, ExpressionLowering, AssignmentLowe
         self.statement_body(stmt,file_code)
         if skippable:self.indent-=1
 
-    def motion_path_arguments(self, operand):
-        """Separate the typed PATH selector from its optional node bounds."""
-        if operand.kind not in ('index','motion_range'):
-            return operand,None,None
-        base,*indexes=operand.args
-        end=indexes.pop() if operand.kind=='motion_range' else None
-        spec=self.access_type(base)
-        if rt.collection_array_node_type(spec,len(indexes)) is not None:
-            return Expr('index',operand.token,args=[base,*indexes[:-1]]),indexes[-1],end
-        if spec[0]=='PATH' and len(indexes)==1:
-            return base,indexes[0],end
-        if end is not None:
-            self.error('E_MOTION_TYPE','MOVE ALONG range requires a PATH and one starting node',operand.token)
-        return operand,None,None
-
-    def motion_position_expression(self, expr, operation):
-        selected=expr
-        while selected.kind=='group':selected=selected.args[0]
-        if selected.kind=='index':
-            receiver=selected.args[0]
-            base=self.access_type(receiver)
-            node=rt.collection_array_node_type(base,len(selected.args)-1)
-            if base[0]=='PATH' or node is not None:
-                code,_=self.expression(receiver,raw=True)
-                if node is None:
-                    if len(selected.args)!=2:
-                        self.error('E_ARRAY_RANK','PATH requires one node index',selected.token)
-                    index=self.require_type(selected.args[1],'INTEGER')
-                    node=base[1] or rt.PREDEFINED_STRUCTURES['STD_PTH_NODE']
-                else:
-                    index,_=self.index_code(selected,base)
-                position=dict(rt.record_fields(node)).get('NODE_POS')
-                if position is None:
-                    self.error('E_MOTION_TYPE',operation+' PATH node requires NODE_POS',expr.token)
-                return f'_rt.motion_path_node_operand({code},{index},{base!r},{expr.token.line})',position
-        return self.expression(expr)
-
     def statement_body(self, stmt, file_code=None):
         token, kind = stmt.token, stmt.kind
         line = token.line
-        if kind=='motion_control':
-            captured=[]
-            for expr in stmt.args[1] or []:
-                code=self.require_type(expr,'INTEGER');temporary=self.fresh()
-                self.line(f'{temporary}=_rt.integer({code},{expr.token.line})',expr.token);captured.append(temporary)
-            groups='None' if stmt.args[1] is None else '['+','.join(captured)+']'
-            self.features.add('offline motion requests')
-            self.motion_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
-                line=line,column=token.column,operation=stmt.args[0],nowait=False,
-                operands_evaluated_once=True,groups='owned at action time' if stmt.args[1] is None else len(captured)))
-            self.line(f'self._state.execution.require("motion",{line}).invoke(self._state,{stmt.args[0]!r},{{"groups":{groups}}},False,{line})',token)
+        if kind == 'motion_control':
+            self.lower_motion_control(stmt)
             return
-        if kind in ('motion','motion_action'):
-            operation=stmt.args[0];captured=[]
-            settings=[]
-            if kind=='motion':
-                for key,group,value in stmt.args[3]:
-                    group_code='None'
-                    if group is not None:
-                        code=self.require_type(group,'INTEGER');group_code=self.fresh()
-                        self.line(f'{group_code}=_rt.integer({code},{group.token.line})',group.token)
-                    expected=rt.MOTION_SETTINGS[key.value]
-                    if expected=='POSE':
-                        code,spec=self.expression(value)
-                        if spec[0] not in ('POSITION','XYZWPR','XYZWPREXT'):
-                            self.error('E_MOTION_SETTING','Motion WITH frame/tool requires a Cartesian pose',value.token)
-                    else:
-                        code=self.require_type(value,expected);spec=(expected,)
-                    temporary=self.fresh()
-                    self.line(f'{temporary}=_rt.motion_setting({key.value!r},{code},{spec!r},{value.token.line})',value.token)
-                    settings.append('{'+f'"name":{key.value!r},"group":{group_code},"value":{temporary}'+'}')
-                arguments=stmt.args[1];nowait=stmt.args[2]
-                if operation=='MOVE ALONG':
-                    arguments=self.motion_path_arguments(arguments[0])
-                names={'MOVE TO':('target','via'),'MOVE NEAR':('target','distance'),
-                    'MOVE AWAY':('distance',),'MOVE ABOUT':('vector','angle'),
-                    'MOVE AXIS':('axis','distance'),'MOVE RELATIVE':('offset',),
-                    'MOVE ALONG':('path','start','end')}[operation]
-            else:
-                arguments=stmt.args[1:];names=('hand',);nowait=False
-            for index,expr in enumerate(arguments):
-                key=names[index]
-                if expr is None:captured.append(repr(key)+':None');continue
-                if key in ('hand','axis','start','end'):
-                    code=self.require_type(expr,'INTEGER');spec=('INTEGER',)
-                elif key in ('distance','angle'):
-                    code=self.require_type(expr,'REAL');spec=('REAL',)
-                else:
-                    if key in ('target','via'):
-                        code,spec=self.motion_position_expression(expr,operation)
-                    else:
-                        code,spec=self.expression(expr)
-                    allowed=('PATH',) if key=='path' else ('VECTOR',) if key=='vector' else ('VECTOR','POSITION','XYZWPR','XYZWPREXT') if key=='offset' else ('POSITION','XYZWPR','XYZWPREXT') if operation=='MOVE NEAR' or key=='via' else ('POSITION','XYZWPR','XYZWPREXT','JOINTPOS')
-                    if spec[0] not in allowed:self.error('E_MOTION_TYPE','Unsupported '+operation+' '+key+' type: '+spec[0],expr.token)
-                temporary=self.fresh()
-                if key=='path':self.line(f'{temporary}=_rt.motion_path_operand(self._state,{code},{spec!r},{line})',expr.token)
-                else:self.line(f'{temporary}=_rt.motion_operand({code},{spec!r},{line})',expr.token)
-                captured.append(repr(key)+':'+temporary)
-            self.features.add('offline motion requests')
-            request_use=dict(body=self.current_routine.name if self.current_routine else self.program.name,
-                line=line,column=token.column,operation=operation,nowait=nowait,operands_evaluated_once=True)
-            self.motion_uses.append(request_use)
-            if settings:request_use['settings']=[dict(name=key.value,line=key.line,column=key.column,group_qualified=group is not None) for key,group,_ in stmt.args[3]]
-            data='{'+','.join(captured)+'}'
-            extra=',settings=['+','.join(settings)+']' if settings else ''
-            if kind=='motion':
-                terms=[];pairs=self.condition_callbacks(stmt.body,motion_terms=terms)
-                callbacks=','.join(f'({clause.token.value!r},{predicate},{action},{clause.token.line})' for clause,(predicate,action) in zip(stmt.body,pairs))
-                if pairs:
-                    extra+=',clauses=['+callbacks+']'
-                    request_use['local_handlers']=[dict(kind=clause.token.value,line=clause.token.line,column=clause.token.column) for clause in stmt.body]
-                    if nowait:
-                        request_use.update(callback_observation='owner_checkpoints',callback_lifetime='defining_frame_or_invocation')
-                        self.features.add('NOWAIT local motion clauses')
-                if terms:
-                    extra+=',conditions=['+','.join(name for name,_ in terms)+']'
-                    request_use['conditions']=[info for _,info in terms]
-                self.line(f'yield from self._state.execution.require("motion",{line}).execute(self._state,{operation!r},{data},{nowait!r},{line}{extra})',token)
-            else:
-                self.line(f'self._state.execution.require("motion",{line}).invoke(self._state,{operation!r},{data},{nowait!r},{line}{extra})',token)
+        if kind in ('motion', 'motion_action'):
+            self.lower_motion_request(stmt)
             return
         if kind=='pulse':
             if 'DOUT' in self.types or 'DOUT' in self.visible_constants(): self.error('E_PULSE','PULSE requires the unshadowed DOUT port bank',token)
@@ -630,27 +521,12 @@ class Emitter(DeclarationPasses, TypeQueries, ExpressionLowering, AssignmentLowe
             self.pulse_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
                 line=line,column=token.column,nowait=stmt.args[2],operands_evaluated_once=True))
             self.line(f'yield from _rt.pulse_execution(self._state,{number},{duration},{stmt.args[2]!r},{line})',token);return
-        if kind=='task_control':
-            action=stmt.args[0]
-            if len(stmt.args)>1:
-                number=self.require_type(stmt.args[1],'INTEGER')
-                self.line(f'yield from _rt.control_task(self._state,{action!r},{number},{line})',token); return
-            if action=='PAUSE': self.line(f'yield from _rt.pause_execution(self._state,{line})',token)
-            elif action=='STOP': self.line('raise _rt.KarelStop("Task stopped")',token)
-            else:
-                self.line('self._state._pause_requested=False',token)
-                if action=='CONTINUE':
-                    self.line("self._state._lifecycle['CONTINUE']+=1",token)
-                    self.line(f'yield from _rt.checkpoint(self._state,{line})',token)
+        if kind == 'task_control':
+            self.lower_task_control(stmt)
             return
-        if kind=='signal_event':
-            number=self.require_type(stmt.args[0],'INTEGER')
-            self.line(f'_rt.signal_event(self._state,{number},{line})',token)
-            self.line(f'yield from _rt.checkpoint(self._state,{line})',token); return
-        if kind=='signal_semaphore':
-            number=self.require_type(stmt.args[0],'INTEGER'); self.features.add('extended services')
-            self.line(f'self._state.extended_call("POST_SEMA",[{number}],{line})',token)
-            self.line(f'yield from _rt.checkpoint(self._state,{line})',token); return
+        if kind in ('signal_event', 'signal_semaphore'):
+            self.lower_task_signal(stmt)
+            return
         if kind=='handler_action':
             self.line(f'_rt.handler_action(self._state,{stmt.args[0]!r},{line})',token); return
         if kind in ('timer_connect','timer_disconnect'):
@@ -722,12 +598,7 @@ class Emitter(DeclarationPasses, TypeQueries, ExpressionLowering, AssignmentLowe
             self.emit_using_entry(stmt)
             self.block(stmt.body)
         elif kind == 'abort':
-            if self.mode == 'strict' and self.active_counters and not self.has_fresh_active_counters():
-                self.error('E_FOR_COUNTER', 'ABORT inside FOR requires fresh routine-local counters; observable counter state on abort is unvalidated', token)
-            self.line(f'yield from _rt.abort_execution(self._state,{line})' if self.cooperative else f'self._state.abort({line})', token)
-            self.features.add('ABORT')
-            self.abort_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
-                                       line=line, column=token.column, scope='current offline execution'))
+            self.lower_task_abort(token)
         elif kind == 'delay':
             duration = self.require_type(stmt.args[0], 'INTEGER')
             if self.cooperative:

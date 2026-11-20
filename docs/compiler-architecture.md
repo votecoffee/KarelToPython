@@ -18,6 +18,8 @@ input-discovery contract to the result.
 | Assignment | `assignment_analysis.py`, `assignment_codegen.py`, `schema_conversion.py` | Checks declared or concrete receiver schemas and emits scalar, ARRAY prefix, and collection writes. Assignments and routines share conversion selection with distinct ARRAY policies. |
 | Robot system access | `robot_system_analysis.py`, `robot_system_codegen.py` | Checks writable pose paths and source schemas. Emits system reads and captures write values before frame/tool selectors. |
 | Statement I/O | `statement_io_analysis.py`, `statement_io_codegen.py` | Checks READ and WRITE source formats. Stages targets, rendered values, and explicit or default FILE bindings before runtime publication. |
+| Motion | `motion_analysis.py`, `motion_codegen.py` | Checks motion operand types and PATH selectors. Captures settings, operands, and local callbacks for the offline runtime. |
+| Task control | `task_codegen.py` | Lowers local and addressed task transitions, ABORT, and event/semaphore signals with the existing scheduler checkpoints. |
 | Service generation | `service_codegen.py` | Lowers storage references, bounded ARRAY operands, and captured values in source order. Checks each typed operand against its service signature. |
 | Reports | `call_reporting.py`, `report_base.py`, `report_services.py`, `report_language.py`, `report_interfaces.py`, `reporting.py` | Call reporting records argument binding and conversions as the call is lowered. Report builders collect this evidence and describe the policies applied to the translation. |
 

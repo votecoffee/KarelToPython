@@ -1,5 +1,13 @@
 # Changelog
 
+## 26.1119.235739 - 2026-11-19
+
+- Separate offline motion operand checks and request generation from the
+  general statement dispatcher. Preserve setting, selector, and callback
+  capture order.
+- Generate task control, event/semaphore signals, and ABORT through a
+  dedicated module while preserving local and addressed task behavior.
+
 ## 26.1119.235207 - 2026-11-19
 
 - Check robot frame, tool, and pose write targets separately from generation.
