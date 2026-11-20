@@ -10,6 +10,7 @@ from .compiler_language import (
     TIME_TEXT_PROCEDURES,
 )
 from .assignment_codegen import AssignmentLowering
+from .constant_analysis import ConstantAnalysis
 from .declarations import DeclarationPasses
 from .flow_codegen import ControlFlowLowering
 from .handler_codegen import HandlerLowering
@@ -36,7 +37,8 @@ from . import runtime as rt
 class Emitter(DeclarationPasses, TypeQueries, ExpressionLowering, AssignmentLowering,
               RoutineLowering, RobotSystemLowering, ServiceCallLowering, StatementIOLowering,
               MotionLowering, TaskControlLowering, HandlerLowering, LoopLowering, UsingLowering,
-              ControlFlowLowering, SelectLowering, SourceNormalization, RoutineEffectAnalysis):
+              ControlFlowLowering, SelectLowering, SourceNormalization, RoutineEffectAnalysis,
+              ConstantAnalysis):
     """Emit a Python module from a parsed program and its checked declarations."""
 
     def __init__(self, program, filename, array_shapes=None, mode='strict', cooperative=False):
@@ -45,12 +47,10 @@ class Emitter(DeclarationPasses, TypeQueries, ExpressionLowering, AssignmentLowe
         self.constants, self.types, self.routines, self.user_types = {}, {}, {}, {}
         self.type_aliases = []
         self.file_prefix_argument_uses=[]
-        self.constant_dependency_uses=[];self.constant_resolution_order=[]
+        self.initialize_constant_analysis()
         self.array_formal_uses=[];self.array_forward_uses=[]
         self.string_formal_uses=[];self.string_forward_uses=[]
         self.short_circuit_expressions=set()
-        self.constant_builtin_uses=[];self._constant_builtin_cache={};self._constant_builtin_depth=0
-        self._constant_declaration=None
         self.type_dependency_uses=[];self.type_resolution_order=[];self._type_schema_costs={}
         self.predefined_structure_uses = []
         self.lines, self.source_map, self.features = [], [], set()

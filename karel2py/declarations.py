@@ -1,15 +1,10 @@
-"""Resolve source constants, types, and declaration scopes."""
+"""Validate declaration scopes and resolve source schemas."""
 from .compiler_language import (
     ARRAY_ELEMENTS,
     ARRAY_SCALARS,
-    BUILTIN_SIGNATURES,
-    CONSTANT_BUILTINS,
     DATA_RECORD_TYPES,
-    MAX_CONSTANT_BUILTIN_CALLS,
-    MAX_CONSTANT_BUILTIN_DEPTH,
     NARROW_TYPES,
     POSITIONAL_VALUE_TYPES,
-    PREDEFINED_CONSTANTS,
     RECORD_TYPES,
     blocked_controller_names,
 )
@@ -21,117 +16,6 @@ from . import runtime as rt
 
 class DeclarationPasses:
     """Declaration passes shared with the checked Python emitter during migration."""
-
-    def visible_constants(self):
-        """Constants have lexical scope; a callee never sees its caller's names."""
-        if self.current_routine:
-            return self.constants | self.current_routine.local_constants
-        return self.constants
-
-    def constant(self, expr):
-        try:
-            if expr.kind == 'literal': return expr.value
-            if expr.kind == 'predefined': return PREDEFINED_CONSTANTS[expr.value]
-            if expr.kind == 'real_literal': return rt.real_literal(expr.value)
-            if expr.kind == 'group': return self.constant(expr.args[0])
-            if expr.kind == 'name' and expr.value in self.visible_constants():
-                return self.visible_constants()[expr.value]
-            if self.mode=='pythonic' and expr.kind=='call' and expr.value in CONSTANT_BUILTINS:
-                return self.constant_builtin(expr)
-            if self.is_minimum_literal(expr):
-                self.error('E_MININT_LITERAL', 'The manual requires MININT instead of the INTEGER literal -2147483648', expr.token)
-            if expr.kind == 'unary': return rt.unary(expr.value, self.constant(expr.args[0]))
-            if expr.kind == 'binary': return rt.binary(expr.value, *(self.constant(x) for x in expr.args))
-        except rt.KarelRuntimeError as exc:
-            self.error('E_CONSTANT', str(exc), expr.token)
-        self.error('E_CONSTANT', 'Expected a literal or previously declared constant expression', expr.token)
-
-    def constant_builtin(self,expr):
-        """Evaluate an explicit bounded pure whitelist, never user/service code."""
-        signature,_=BUILTIN_SIGNATURES[expr.value]
-        if len(expr.args)!=len(signature):
-            self.error('E_CONSTANT',f'{expr.value} requires {len(signature)} constant arguments',expr.token)
-        if self._constant_builtin_depth>=MAX_CONSTANT_BUILTIN_DEPTH:
-            self.error('E_CONSTANT','Compile-time built-in call nesting limit reached',expr.token)
-        self._constant_builtin_depth+=1
-        try:values=[self.constant(argument) for argument in expr.args]
-        finally:self._constant_builtin_depth-=1
-        if any(type(value) not in (bool,int,float,str) for value in values):
-            self.error('E_CONSTANT','Compile-time built-ins require scalar constant arguments',expr.token)
-        routine=self.current_routine.name if self.current_routine else None
-        key=(routine,expr.token.line,expr.token.column,expr.value,tuple((type(value),value) for value in values))
-        if key in self._constant_builtin_cache:return self._constant_builtin_cache[key]
-        if len(self._constant_builtin_cache)>=MAX_CONSTANT_BUILTIN_CALLS:
-            self.error('E_CONSTANT','Compile-time built-in evaluation limit reached',expr.token)
-        value=rt.builtin(expr.value,values,expr.token.line)
-        if type(value) not in (bool,int,float,str):
-            self.error('E_CONSTANT','Compile-time built-ins must return scalar data',expr.token)
-        self._constant_builtin_cache[key]=value
-        types={bool:'BOOLEAN',int:'INTEGER',float:'REAL',str:'STRING'}
-        self.constant_builtin_uses.append(dict(function=expr.value,scope='routine' if routine else 'module',routine=routine,
-            constant=self._constant_declaration,line=expr.token.line,column=expr.token.column,
-            argument_types=[types[type(argument)] for argument in values],result_type=types[type(value)],
-            evaluated_at_translation=True,runtime_call=False))
-        self.features.update(('pure scalar compile-time built-in calls',expr.value))
-        return value
-
-    def resolve_constants(self,declarations,target,routine=None):
-        """Resolve pure scalar declarations without recursive dependency chasing."""
-        definitions={token.value:(token,expr) for token,expr in declarations}
-        references={}
-        for name,(_,expr) in definitions.items():
-            pending=[expr];references[name]=[]
-            while pending:
-                node=pending.pop()
-                if node.kind=='name':references[name].append(node)
-                elif node.kind in ('group','unary','binary') or node.kind=='call' and node.value in CONSTANT_BUILTINS:
-                    pending.extend(reversed(node.args))
-                elif node.kind not in ('literal','real_literal','predefined'):
-                    self.error('E_CONSTANT','CONST permits only scalar operators and whitelisted pure built-ins over visible constants',node.token)
-        marks={};active=[];positions={}
-        global_tokens={token.value:token for token,_ in self.program.constants}
-        scope='routine' if routine else 'module'
-        for start in definitions:
-            if marks.get(start)==2:continue
-            marks[start]=1;positions[start]=len(active);active.append(start)
-            pending=[(start,iter(references[start]))]
-            while pending:
-                name,children=pending[-1];reference=next(children,None)
-                if reference is None:
-                    token,expr=definitions[name];previous=self._constant_declaration;self._constant_declaration=name
-                    try:value=self.constant(expr)
-                    finally:self._constant_declaration=previous
-                    if type(value) is int:
-                        try:rt.integer(value)
-                        except rt.KarelRuntimeError as exc:self.error('E_CONSTANT',str(exc),token)
-                    target[name]=value
-                    self.constant_resolution_order.append(dict(scope=scope,routine=routine,name=name))
-                    marks[name]=2;pending.pop();positions.pop(name);active.pop();continue
-                dependency=reference.value
-                if dependency not in definitions and dependency not in self.constants:
-                    self.error('E_CONSTANT',dependency+' is not a visible declared constant',reference.token)
-                local=dependency in definitions
-                dependency_token=definitions[dependency][0] if local else global_tokens[dependency]
-                forward=(dependency_token.line,dependency_token.column)>(reference.token.line,reference.token.column)
-                self.constant_dependency_uses.append(dict(scope=scope,routine=routine,name=name,dependency=dependency,
-                    dependency_scope=scope if local else 'module',line=reference.token.line,column=reference.token.column,forward=forward))
-                if not local:continue
-                if marks.get(dependency)==1:
-                    cycle=active[positions[dependency]:]+[dependency]
-                    shown=cycle if len(cycle)<=32 else cycle[:31]+['...',dependency]
-                    self.error('E_CONSTANT','Cyclic CONST dependency: '+' -> '.join(shown),reference.token)
-                if marks.get(dependency)==2:continue
-                marks[dependency]=1;positions[dependency]=len(active);active.append(dependency)
-                pending.append((dependency,iter(references[dependency])))
-        ordered={name:target[name] for name in definitions};target.clear();target.update(ordered)
-        if any(row['forward'] for row in self.constant_dependency_uses):self.features.add('forward CONST dependency resolution')
-
-    @staticmethod
-    def is_minimum_literal(expr):
-        if expr.kind != 'unary' or expr.value != '-': return False
-        child = expr.args[0]
-        while child.kind == 'group': child = child.args[0]
-        return child.kind == 'literal' and type(child.value) is int and child.value == 2147483648
 
     def resolve_spec(self, spec):
         if spec[0] in rt.ASSOCIATION_TYPES and self.mode!='pythonic':
@@ -429,11 +313,7 @@ class DeclarationPasses:
             if token.value in names: self.error('E_DUPLICATE', 'Duplicate declaration', token)
             names.add(token.value)
             if self.mode!='pythonic':
-                value = self.constant(expr)
-                if type(value) is int:
-                    try: rt.integer(value)
-                    except rt.KarelRuntimeError as exc: self.error('E_CONSTANT', str(exc), token)
-                self.constants[token.value] = value
+                self.constants[token.value] = self.checked_constant_declaration(token, expr)
         if self.mode=='pythonic':self.resolve_constants(self.program.constants,self.constants)
         self.resolve_type_definitions(names)
         for token, spec in self.program.declarations:
@@ -533,11 +413,7 @@ class DeclarationPasses:
                 if kind == 'CONST':
                     if token.value in names or token.value == self.program.name:
                         self.error('E_LOCAL_CONST_SHADOW', 'Local constants that shadow global declarations need namespace evidence', token)
-                    value = self.constant(definition)
-                    if type(value) is int:
-                        try: rt.integer(value)
-                        except rt.KarelRuntimeError as exc: self.error('E_CONSTANT', str(exc), token)
-                    routine.local_constants[token.value] = value
+                    routine.local_constants[token.value] = self.checked_constant_declaration(token, definition)
                     self.features.add('routine-local CONST')
                 else:
                     resolved = self.resolve_spec(definition)

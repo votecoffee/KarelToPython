@@ -1,5 +1,11 @@
 # Changelog
 
+## 26.1120.004338 - 2026-11-20
+
+- Separate scalar constant evaluation, bounded built-in calls, and CONST
+  dependency ordering from declaration validation. Preserve lexical scope,
+  fold order, and diagnostic locations.
+
 ## 26.1120.003902 - 2026-11-20
 
 - Separate source reference normalization from declaration resolution.
