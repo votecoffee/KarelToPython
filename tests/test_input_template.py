@@ -659,6 +659,52 @@ class InputTemplateTests(unittest.TestCase):
         self.assertEqual(set(by_path(prepared)), {'WANTED'})
         self.assertEqual([row['path'] for row in report['path_storage']], ['SOURCE'])
 
+    def test_borrowed_header_remains_live_during_in_place_node_edit(self):
+        source = (
+            'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+            'head_t=STRUCTURE code:INTEGER total:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t PATHHEADER=head_t '
+            'VAR route:route_t unused:INTEGER '
+            'ROUTINE grow(v:route_t;head:head_t) VAR s:INTEGER '
+            'BEGIN INSERT_NODE(v,1,s) v[1].amount=17 head.code=s head.total=PATH_LEN(v) END grow '
+            'BEGIN grow(route,route[0]) IF (route.code=0) AND (route.total=2) '
+            'THEN WRITE(route[2].amount) ELSE WRITE(unused) ENDIF END T'
+        )
+        spec = ['PATH', ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]],
+                ['STRUCTURE', 'HEAD_T', [['CODE', ['INTEGER']], ['TOTAL', ['INTEGER']]]]]
+        context = {'variables': [dict(program='T', path='ROUTE', type=spec,
+                                      value=dict(nodes=[{'AMOUNT': MISSING}],
+                                                 data={'CODE': MISSING, 'TOTAL': MISSING}))]}
+        prepared = prepare_inputs(translate(source).python_source, context=context)
+        self.assertTrue(prepared['template']['discovery']['complete'], prepared['template']['discovery']['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'ROUTE[1].AMOUNT'})
+
+    def test_overlapping_service_status_does_not_establish_an_edit(self):
+        spec = ['PATH', ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]], None]
+        context = {'variables': [dict(program='T', path='ROUTE', type=spec,
+                                      value=dict(nodes=[{'AMOUNT': 7}], data=None))]}
+        prepared = prepare('DELETE_NODE(route,1,route[1].amount) WRITE(route[1])',
+                           decl='route:PATH NODEDATA=row_t',
+                           prefix='TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE', context=context)
+        report = prepared['template']['discovery']
+        self.assertFalse(report['inputs'])
+        self.assertIn('path-topology', {row['code'] for row in report['unresolved']})
+
+    def test_rejected_node_edit_preserves_a_live_node_alias(self):
+        source = (
+            'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t '
+            'VAR route:route_t wanted,unused:INTEGER '
+            'ROUTINE attempt(v:route_t; old:row_t) VAR s:INTEGER BEGIN DELETE_NODE(v,99,s) old.amount=s END attempt '
+            'BEGIN attempt(route,route[1]) IF (PATH_LEN(route)=1) AND (route[1].amount=2) '
+            'THEN WRITE(wanted) ELSE WRITE(unused) ENDIF END T'
+        )
+        spec = ['PATH', ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]], None]
+        context = {'variables': [dict(program='T', path='ROUTE', type=spec,
+                                      value=dict(nodes=[{'AMOUNT': MISSING}], data=None))]}
+        prepared = prepare_inputs(translate(source).python_source, context=context)
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'WANTED'})
+
     def test_descendant_borrow_in_ancestor_frame_blocks_a_nested_edit(self):
         source = (
             'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t '

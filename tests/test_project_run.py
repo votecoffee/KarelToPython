@@ -292,6 +292,33 @@ class SavedProjectTests(unittest.TestCase):
         self.assertEqual(values['TARGET']['nodes'], [{'AMOUNT': 12}, {'AMOUNT': 21}])
         self.assertEqual(values['SOURCE']['nodes'], [{'AMOUNT': 12.75}])
 
+    def test_linked_header_alias_stays_live_after_copy_and_borrowed_append(self):
+        types = ('TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+                 'head_t=STRUCTURE code:INTEGER total:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t PATHHEADER=head_t ')
+        main = self.module('MAIN',
+                           'source[1].amount=12 source.code=99 source.total=1 COPY_PATH(source,0,0,target,s) '
+                           'grow(target,target[0]) WRITE(target,CR)',
+                           types+'VAR source:route_t target FROM LIB:route_t s:INTEGER',
+                           'ROUTINE grow(v:route_t;head:head_t) FROM LIB')
+        lib = self.module('LIB', declarations=types+'VAR target:route_t',
+                          routines='ROUTINE grow(v:route_t;head:head_t) VAR s:INTEGER '
+                                   'BEGIN APPEND_NODE(v,s) v[2].amount=21 head.code=s head.total=PATH_LEN(v) END grow')
+        spec = ['PATH', ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]],
+                ['STRUCTURE', 'HEAD_T', [['CODE', ['INTEGER']], ['TOTAL', ['INTEGER']]]]]
+        source = dict(program='MAIN', path='SOURCE', type=spec,
+                      value=dict(nodes=[{'AMOUNT': MISSING}], data={'CODE': MISSING, 'TOTAL': MISSING}))
+        self.create(main, lib, context={'variables': [source]})
+        revised = self.folder/'revised.run.json'
+        prepared = runner.refresh_project_document(self.document, revised, [main, lib])
+        report = prepared['inputs']['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertFalse(report['inputs'])
+        self.assertEqual(prepared['inputs']['context']['variables'], [source])
+        result = runner.run_document(revised)['results']
+        self.assertEqual(result['status'], 'completed', result['error'])
+        self.assertEqual(result['text_output'], ' 0 2 12 21\n')
+        self.assertEqual(result['programs']['LIB']['values']['TARGET']['data'], {'CODE': 0, 'TOTAL': 2})
+
     def test_linked_direct_procedure_copies_into_and_extends_borrowed_path(self):
         types = 'TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t '
         main = self.module('MAIN', 'source[1].amount=12 fill(target,source) WRITE(target,CR)',

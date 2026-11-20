@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1120.171137 - 2026-11-20
+
+- Preserve borrowed PATH header references across in-place node edits in
+  Pythonic discovery.
+- Model known rejected edits with disjoint status outputs while keeping
+  the original shape and live references intact.
+
 ## 26.1120.170522 - 2026-11-20
 
 - Follow edits and replacements of borrowed PATHs through checked direct

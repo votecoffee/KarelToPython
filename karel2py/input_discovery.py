@@ -394,7 +394,7 @@ class _Analyzer:
         return (self.saved_path_count is not None and loc is not None and loc.kind == 'variable'
                 and not (flow.opaque or flow.path_shape_unknown or conditional))
 
-    def can_publish_path(self, loc, flow, conditional):
+    def can_publish_path(self, loc, flow, conditional, *, replaces_header=True):
         if loc is None or flow.opaque or flow.path_shape_unknown or conditional or self.repeat_depth:
             return False
         if not self.frames:
@@ -404,10 +404,16 @@ class _Analyzer:
             return True
         if not current['borrowed_path_edits']:
             return False
-        return not any(
-            ref is None or len(ref.parts) > len(loc.parts) and self.path_contains_reference(loc, ref)
-            for frame in self.frames for ref in frame['references']
-        )
+        def may_retarget(ref):
+            if ref is None:
+                return True
+            if not self.path_contains_reference(loc, ref) or len(ref.parts) <= len(loc.parts):
+                return False
+            kind, index = ref.parts[len(loc.parts)]
+            header = kind == 'created-header' or (kind, index) == ('index', 0)
+            return replaces_header or not header
+
+        return not any(may_retarget(ref) for frame in self.frames for ref in frame['references'])
 
     def lost_path_reference(self, loc, flow):
         if not flow.path_orders or not loc.parts:
@@ -936,38 +942,37 @@ class _Analyzer:
             return _Value(complete=False)
 
         count = self.known_path_count(path, flow, conditional) if path is not None and path.spec[0] == 'PATH' else None
-        # A routine may retain a node reference captured before this edit.
-        # Repeated bodies can also reach the edit with a different shape.
-        if count is not None and status is not None and self.can_publish_path(path, flow, conditional):
-            aliases_path = self.path_contains_reference(path, status)
+        if (count is not None and status is not None and not self.repeat_depth
+                and not self.path_contains_reference(path, status)):
             removing = name == 'DELETE_NODE'
             last = count if removing else count + 1
             if name == 'APPEND_NODE':
                 index = last
             compatible = self.path_seed_compatible(path, seed, convert)
-            if not aliases_path and compatible is False:
+            if compatible is False:
                 self.write(status, _Value(3, spec=['INTEGER']), flow, node)
                 return _Value()
-            if not aliases_path and compatible is True and type(index) is int and (removing or count < 32767):
+            if compatible is True and type(index) is int and (removing or count < 32767):
                 if not 1 <= index <= last:
                     self.write(status, _Value(2, spec=['INTEGER']), flow, node)
                     return _Value()
-                self.tick(count + 1)
-                order = flow.path_orders.get(path.key)
-                if order is None:
-                    order = _PathOrder(tuple(range(1, count + 1)))
-                offset = index - 1
-                if removing:
-                    nodes = order.nodes[:offset] + order.nodes[index:]
-                else:
-                    self.serial += 1
-                    nodes = order.nodes[:offset] + (-self.serial,) + order.nodes[offset:]
-                    record = self.child(path, 'created-node', self.serial, node)
-                    value = _Value(complete=False) if seed is None else self.complete_path_record(seed)
-                    self.write(record, value, flow, node)
-                flow.path_orders[path.key] = _PathOrder(nodes, order.header)
-                self.write(status, _Value(0, spec=['INTEGER']), flow, node)
-                return _Value()
+                if self.can_publish_path(path, flow, conditional, replaces_header=False):
+                    self.tick(count + 1)
+                    order = flow.path_orders.get(path.key)
+                    if order is None:
+                        order = _PathOrder(tuple(range(1, count + 1)))
+                    offset = index - 1
+                    if removing:
+                        nodes = order.nodes[:offset] + order.nodes[index:]
+                    else:
+                        self.serial += 1
+                        nodes = order.nodes[:offset] + (-self.serial,) + order.nodes[offset:]
+                        record = self.child(path, 'created-node', self.serial, node)
+                        value = _Value(complete=False) if seed is None else self.complete_path_record(seed)
+                        self.write(record, value, flow, node)
+                    flow.path_orders[path.key] = _PathOrder(nodes, order.header)
+                    self.write(status, _Value(0, spec=['INTEGER']), flow, node)
+                    return _Value()
 
         flow.path_orders[path.key if path is not None else None] = None
         self.unresolved_at('path-topology', name+' may change PATH topology or captured node references', node)

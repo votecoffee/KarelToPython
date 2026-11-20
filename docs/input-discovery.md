@@ -449,16 +449,21 @@ assign that result or use its node count in `PATH_LEN`. These rules also apply
 across pinned linked routines with matching interfaces.
 
 A direct synchronous procedure can edit, copy into, or replace a borrowed
-PATH when all active argument references are resolved and none addresses a
-record or field inside that PATH. The updated shape belongs to the caller's
-storage, so later queries and transfers use the moved records' original
+PATH when all active argument references are resolved and the operation
+preserves any references into its storage. The updated shape belongs to
+the caller, so later queries and transfers use the moved records' original
 saved addresses. These calls can be nested or linked.
 
-An overlapping node or header reference leaves the structural effect
-unresolved. A routine invoked to evaluate another operand can run while the
-caller still holds earlier captured references, so its borrowed structural
-edits also remain unresolved. Discovery reports the lost origin before
-reading or writing an affected captured record.
+In-place node edits preserve borrowed header references. The edit's status
+output must use storage disjoint from the edited PATH. Known rejections
+update that status and leave the shape and live references intact.
+
+A sibling node reference can leave an in-place edit unresolved. Whole
+replacements also require proof that header references stay valid. A
+routine invoked to evaluate another operand can run while the caller
+still holds earlier captured references, so its borrowed structural edits
+remain unresolved. Discovery reports the lost origin before reading or
+writing an affected captured record.
 
 ### Boolean and INTEGER operators
 
