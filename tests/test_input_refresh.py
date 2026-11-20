@@ -71,6 +71,23 @@ class InputRefreshTests(unittest.TestCase):
         self.assertEqual(migration['source_pointer'],'/inputs/context/variables/0/value')
         self.assertEqual(len(result['template']['requirements']),1)
 
+    def test_incompatible_path_header_prepares_a_new_shape_and_leaves_old_data_in_previous_run(self):
+        prefix = ('TYPE node_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+                  'header_t=STRUCTURE total:{kind} ENDSTRUCTURE '
+                  'route_t=PATH NODEDATA=node_t PATHHEADER=header_t')
+        old = code('WRITE(route.total)', decl='route:route_t', prefix=prefix.format(kind='INTEGER'))
+        previous = prepare_inputs(old)
+        rows(previous)['ROUTE']['value'] = {'nodes': [{'AMOUNT': 7}], 'data': {'TOTAL': 12}}
+        original = deepcopy(previous)
+        new = code('WRITE(route.total)', decl='route:route_t', prefix=prefix.format(kind='REAL'))
+        refreshed = refresh_inputs(new, previous)
+        self.assertEqual(previous, original)
+        self.assertEqual(rows(refreshed)['ROUTE']['value'], {'nodes': [], 'data': {'TOTAL': MISSING}})
+        migration, = refreshed['template']['refresh']['variables']
+        self.assertEqual((migration['status'], migration['preserved_leaves'], migration['missing_leaves']),
+                         ('reset', 0, 1))
+        self.assertEqual(migration['source_pointer'], '/inputs/context/variables/0/value')
+
     def test_nominal_record_name_change_does_not_implicitly_transfer_fields(self):
         previous=prepare_inputs(code('n=p.a',decl='p:old_t n:INTEGER',prefix='TYPE old_t=STRUCTURE a:INTEGER ENDSTRUCTURE'))
         rows(previous)['P']['value']={'A':7}

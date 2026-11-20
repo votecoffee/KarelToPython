@@ -236,6 +236,9 @@ Changed roots receive a checked new shape, then copy compatible data:
 | STRING capacity | An existing string that fits the new capacity; no truncation during migration. |
 | Other scalar/kind/name changes | Missing markers, with the old value retained in the original document. |
 
+Incompatible PATH layouts can receive fresh, empty header templates for
+discovered header inputs. The earlier document retains the old header and nodes.
+
 New fields/cells remain missing. Removed inputs and unrelated context bindings,
 services, bank capacities, values and comments are retained. A changed root's new
 row carries its new schema; prior creation metadata remains in the original
@@ -364,10 +367,12 @@ visits its selected records in source order. Unknown selectors remain explicit
 in the discovery report. Retranslate older output to add the header-selector
 and default-node metadata.
 
-Provide the exact typed PATH root in `inputs.context.variables` to edit its
-selected scalar or structure. The template can bind to a supplied header,
-node or field, keeping the remaining PATH values and node count intact.
-An input without editable storage is reported as a `path-storage` requirement.
+A discovered header in a fresh PATH or fixed PATH ARRAY can be edited directly.
+The template builds an empty node list and the declared header with missing
+field markers. This consumes the shared template allocation budget. To edit
+an existing node, provide the exact typed PATH root in `inputs.context.variables`.
+The template preserves supplied records and node counts. An input with no
+editable node storage is reported as a `path-storage` requirement.
 Standalone and linked saved-run discovery can use the offline runtime's
 empty initial node list for a declared PATH or PATH ARRAY cell with no
 context override. An exact saved root supplies its own initial node count.

@@ -195,6 +195,32 @@ class SavedProjectTests(unittest.TestCase):
         values = result['programs']['LIB']['values']['ROUTES']
         self.assertEqual([cell['nodes'] for cell in values], [[], [{'VALUE': 31}]])
 
+    def test_linked_fresh_path_bank_prepares_and_preserves_edited_header(self):
+        types = ('TYPE row_t=STRUCTURE value:INTEGER ENDSTRUCTURE '
+                 'header_t=STRUCTURE total:INTEGER ENDSTRUCTURE '
+                 'route_t=PATH NODEDATA=row_t PATHHEADER=header_t ')
+        main = self.module('MAIN', 'grow(routes[2]) WRITE(routes[2],CR)',
+                           types+'VAR routes FROM LIB:ARRAY[2] OF route_t',
+                           'ROUTINE grow(v:route_t) FROM LIB')
+        lib = self.module('LIB', declarations=types+'VAR routes:ARRAY[2] OF route_t',
+                          routines='ROUTINE grow(v:route_t) VAR s:INTEGER '
+                                   'BEGIN APPEND_NODE(v,s) v[1].value=v.total+1 END grow')
+        prepared = self.create(main, lib, discover=True)['inputs']
+        root, = prepared['context']['variables']
+        self.assertEqual((root['program'], root['path']), ('LIB', 'ROUTES'))
+        self.assertEqual([cell['nodes'] for cell in root['value']], [[], []])
+        row = next(row for row in prepared['template']['bindings'] if row['path'] == 'ROUTES[2][0]')
+        self.assertEqual(row['status'], 'missing')
+        _, revision = runner.save_input_structure(self.document, ('variable', 'LIB', row['path']),
+                                                  {'TOTAL': 31}, expected=self.document.read_bytes())
+        revised = self.folder/'revised.run.json'
+        refreshed = runner.refresh_project_document(self.document, revised, [main, lib], expected=revision)
+        self.assertEqual(refreshed['inputs']['context']['variables'][0]['value'],
+                         [{'data': {'TOTAL': MISSING}, 'nodes': []}, {'data': {'TOTAL': 31}, 'nodes': []}])
+        result = runner.run_document(revised)['results']
+        self.assertEqual(result['status'], 'completed', result['error'])
+        self.assertEqual(result['text_output'], ' 31 32\n')
+
     def test_linked_tail_edit_refresh_retains_seed_and_resolves_updated_count(self):
         types = 'TYPE row_t=STRUCTURE value:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t '
         main = self.module('MAIN',

@@ -4,7 +4,7 @@ import re
 
 from . import runtime as rt
 from .input_discovery import DEFAULT_EMPTY_PATH, _discover_inputs
-from .storage import tuple_spec
+from .storage import collection_array_cost, collection_data_spec, tuple_spec
 
 
 SCHEMA = 'karel2py.input-template.v1'
@@ -26,11 +26,28 @@ def _missing(spec):
             return [shape(dimensions[1:]) if len(dimensions) > 1 else _missing(spec[2])
                     for _ in range(dimensions[0])]
         return shape(rt.array_shape(spec))
+    if kind == 'PATH':
+        return {'nodes': [], 'data': _missing(spec[2]) if spec[2] is not None else None}
     if kind == 'JOINTPOS':
         return {'axes': [{'uninitialized': True} for _ in range(rt.joint_width(spec))]}
     if kind in rt.RECORD_TYPES:
         return {name: _missing(member) for name, member in rt.record_fields(spec)}
     return {'unknown_byte': True} if kind == 'BYTE' else {'uninitialized': True}
+
+
+def _path_header_template_cost(spec, selectors):
+    """Count an empty PATH root only when the selected input is in its header."""
+    path = rt.array_leaf_spec(spec)
+    header = path[2]
+    depth = len(rt.array_dimensions(spec))
+    if header is None or len(selectors) <= depth or tuple(selectors[depth]) != ('index', 0):
+        return None
+    if spec[0] == 'ARRAY':
+        return collection_array_cost(spec)
+    if path[1] is not None:
+        collection_data_spec(path[1])
+    collection_data_spec(header)
+    return 1 + rt._validate_data_schema(header)
 
 
 def _supplied(value):
@@ -146,6 +163,7 @@ def _prepare(report, context, *, materialize=True, execution=None):
         roots = {(row['program'].upper(), row['path'].upper()): index
                  for index, row in enumerate(config.get('variables', []))}
         bindings, requirements, failures = [], [], {}
+        missing_path_roots = set()
         snapshots, bank_values = {}, {}
         allocated = 0
 
@@ -162,16 +180,20 @@ def _prepare(report, context, *, materialize=True, execution=None):
                 try:
                     spec = tuple_spec(candidate['root_type'])
                     path_storage = spec[0] == 'PATH' or rt.path_array_io_type(spec)
-                    count = 0 if path_storage else rt._validate_data_schema(spec)
+                    if path_storage:
+                        count = _path_header_template_cost(spec, candidate['selectors']) if key not in roots else None
+                    else:
+                        count = rt._validate_data_schema(spec)
                 except (rt.KarelRuntimeError, TypeError, ValueError, IndexError) as error:
                     if key not in failures:
                         failures[key] = str(error)
                         require('schema', 'Cannot construct root '+key[1]+': '+str(error), program=key[0], path=key[1])
                     continue
-                if path_storage and key not in roots:
-                    if key not in failures:
-                        failures[key] = 'Supply the typed PATH root with its existing records'
-                        require('path-storage', failures[key], program=key[0], path=key[1])
+                if path_storage and key not in roots and count is None:
+                    if key not in missing_path_roots:
+                        missing_path_roots.add(key)
+                        require('path-storage', 'Supply the typed PATH root with its existing records',
+                                program=key[0], path=key[1])
                     continue
                 if key in roots:
                     reference = execution.variables.bindings.get(key)

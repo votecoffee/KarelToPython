@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1120.183153 - 2026-11-20
+
+- Prepare bounded empty PATH and PATH ARRAY roots so discovered headers can
+  be edited without supplying nodes in the run context.
+- Preserve exact saved roots through refresh and report fresh header
+  templates as resets when the old PATH layout is incompatible.
+
 ## 26.1120.182511 - 2026-11-20
 
 - Model empty initial PATH lists for unseeded globals and PATH ARRAY cells

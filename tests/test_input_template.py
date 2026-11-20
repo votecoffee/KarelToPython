@@ -117,6 +117,50 @@ class InputTemplateTests(unittest.TestCase):
                          {'nodes': [{'AMOUNT': 17}, {'AMOUNT': 9}], 'data': {'TOTAL': 12}})
         self.assertEqual(context['variables'][0]['value']['data'], {'TOTAL': 7})
 
+    def test_fresh_path_header_has_an_editable_shape_without_nodes(self):
+        from karel2py.structured_inputs import structured_slot
+
+        prefix = ('TYPE node_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+                  'header_t=STRUCTURE total:INTEGER name:STRING[8] ENDSTRUCTURE')
+        prepared = prepare('WRITE(route)', decl='route:PATH NODEDATA=node_t PATHHEADER=header_t', prefix=prefix)
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        candidate, = report['inputs']
+        binding, = prepared['template']['bindings']
+        self.assertEqual((candidate['path'], binding['status']), ('ROUTE[0]', 'missing'))
+        root, = prepared['context']['variables']
+        self.assertEqual(root['value'], {'nodes': [], 'data': {'TOTAL': MISSING, 'NAME': MISSING}})
+        structured_slot(prepared['context'], candidate, binding).replace({'TOTAL': 12, 'NAME': 'Run A'})
+        self.assertEqual(root['value'], {'nodes': [], 'data': {'TOTAL': 12, 'NAME': 'Run A'}})
+
+    def test_missing_path_bank_header_can_be_edited_with_unmapped_node_input(self):
+        from karel2py.runner_values import scalar_slot
+
+        prefix = ('TYPE node_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+                  'header_t=STRUCTURE total:INTEGER ENDSTRUCTURE '
+                  'route_t=PATH NODEDATA=node_t PATHHEADER=header_t')
+        prepared = prepare('WRITE(routes[1,1,2].amount,routes[2,2,0].total)',
+                           decl='routes:ARRAY[2,2] OF route_t', prefix=prefix)
+        bindings = by_path(prepared)
+        node, header = prepared['template']['discovery']['inputs']
+        self.assertEqual(bindings[node['path']]['status'], 'unmapped')
+        self.assertEqual(bindings[header['path']]['status'], 'missing')
+        self.assertIn('path-storage', {row['code'] for row in prepared['template']['requirements']})
+        scalar_slot(prepared['context'], header, bindings[header['path']]).set_text('INTEGER', '17')
+        bank = prepared['context']['variables'][0]['value']
+        self.assertEqual([item['nodes'] for row in bank for item in row], [[], [], [], []])
+        self.assertEqual([item['data']['TOTAL'] for row in bank for item in row], [MISSING, MISSING, MISSING, 17])
+
+    def test_fresh_path_bank_header_shape_counts_against_template_limit(self):
+        prefix = ('TYPE node_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+                  'header_t=STRUCTURE total:INTEGER ENDSTRUCTURE '
+                  'route_t=PATH NODEDATA=node_t PATHHEADER=header_t')
+        with mock.patch('karel2py.input_template.MAX_LEAVES', 7):
+            result = prepare('WRITE(routes[2,2,0].total)', decl='routes:ARRAY[2,2] OF route_t', prefix=prefix)
+        self.assertNotIn('variables', result['context'])
+        self.assertEqual(by_path(result)['ROUTES[2][2][0].TOTAL']['status'], 'unmapped')
+        self.assertEqual([row['code'] for row in result['template']['requirements']], ['limit'])
+
     def test_missing_path_root_or_node_is_explicit_and_never_allocated(self):
         args = dict(decl='route:PATH NODEDATA=node_t',
                     prefix='TYPE node_t=STRUCTURE amount:INTEGER ENDSTRUCTURE')

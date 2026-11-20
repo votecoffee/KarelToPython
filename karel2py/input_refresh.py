@@ -1,5 +1,6 @@
 """Preserve compatible edited inputs while rediscovering a selected target."""
 from copy import deepcopy
+from math import prod
 import re
 
 from . import runtime as rt
@@ -175,8 +176,15 @@ def _refresh_report(report, context, previous, previous_target, *, linked=False,
             if new_index is None:
                 continue
             target = prepared['context']['variables'][new_index]
-            spec = tuple_spec(target['type']); count = rt._validate_data_schema(spec)
+            spec = tuple_spec(target['type'])
             migration['context_pointer'] = '/variables/'+str(new_index)+'/value'
+            if spec[0] == 'PATH' or rt.path_array_io_type(spec):
+                # Only exact saved PATH roots carry nodes into a refreshed run.
+                header = rt.array_leaf_spec(spec)[2]
+                count = prod(rt.array_dimensions(spec)) * rt.scalar_leaf_count(header)
+                migration.update(missing_leaves=count, status='reset')
+                continue
+            count = rt._validate_data_schema(spec)
             try:
                 rt._validate_data_schema(reference.spec)
             except rt.KarelRuntimeError:
