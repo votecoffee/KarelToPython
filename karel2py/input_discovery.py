@@ -61,7 +61,7 @@ class _Location:
         for kind, value in self.parts:
             text += ('.' + value if kind == 'field' else
                      '[group=' + (str(value) if value is not None else 'caller-default') + ']' if kind=='group'
-                     else '[' + str(value) + ']')
+                     else '[source-created node]' if kind == 'created-node' else '[' + str(value) + ']')
         return text
 
 
@@ -100,19 +100,21 @@ class _Flow:
     paused_tasks: dict = field(default_factory=dict)
     task_order_unknown: bool = False
     path_shape_unknown: bool = False
-    path_counts: dict = field(default_factory=dict)
+    # Edited PATH positions map to original saved indexes or negative identities
+    # for source-created records. None marks a receiver with uncertain order.
+    path_orders: dict = field(default_factory=dict)
 
     def copy(self):
         return _Flow(self.defined.copy(),self.assigned.copy(),self.maybe.copy(),
                      self.constants.copy(),self.stopped,self.opaque,self.handlers.copy(),
                      self.requested_tasks.copy(),self.paused_tasks.copy(),self.task_order_unknown,
-                     self.path_shape_unknown,self.path_counts.copy())
+                     self.path_shape_unknown,self.path_orders.copy())
 
     def take(self, other):
         self.handlers = other.handlers
         self.requested_tasks, self.paused_tasks = other.requested_tasks, other.paused_tasks
         self.task_order_unknown = other.task_order_unknown
-        self.path_shape_unknown, self.path_counts = other.path_shape_unknown, other.path_counts
+        self.path_shape_unknown, self.path_orders = other.path_shape_unknown, other.path_orders
         self.defined,self.assigned,self.maybe,self.constants = other.defined,other.assigned,other.maybe,other.constants
         self.stopped,self.opaque = other.stopped,other.opaque
 
@@ -135,14 +137,16 @@ def _merge(flows):
             if cursor is not None and any(branch.paused_tasks.get(name) is not cursor for branch in live):
                 uncertain = True
             pauses[name] = cursor
-    path_shape_unknown = any(flow.path_shape_unknown or flow.path_counts != first.path_counts for flow in live)
-    path_counts = {} if path_shape_unknown else first.path_counts.copy()
+    path_orders = {}
+    for key in set().union(*(flow.path_orders for flow in live)):
+        order = first.path_orders.get(key)
+        path_orders[key] = order if all(flow.path_orders.get(key) == order for flow in live) else None
     return _Flow(set.intersection(*(flow.defined for flow in live)),
                  set.intersection(*(flow.assigned for flow in live)),
                  set.union(*(flow.maybe for flow in live)),constants,False,any(flow.opaque for flow in live),
                  {key: tuple(definitions) for key, definitions in handlers.items()},
                  set.union(*(flow.requested_tasks for flow in live)),
-                 pauses,uncertain,path_shape_unknown,path_counts)
+                 pauses,uncertain,any(flow.path_shape_unknown for flow in live),path_orders)
 
 
 def _array_dimensions(spec):
@@ -239,8 +243,8 @@ class _Analyzer:
     def program(self):
         return self.plan['program']
 
-    def tick(self):
-        self.steps+=1
+    def tick(self, steps=1):
+        self.steps += steps
         if self.steps>MAX_STEPS:raise _Limit('Analysis step limit reached')
 
     def lose_activation_order(self):
@@ -260,7 +264,7 @@ class _Analyzer:
         if task_order:
             self.lose_task_order(flow)
         flow.opaque=True;flow.defined.clear();flow.assigned.clear();flow.constants.clear()
-        flow.path_counts.clear()
+        flow.path_orders = dict.fromkeys(flow.path_orders)
 
     def context(self, service, address):
         self.contexts.setdefault((service,str(address)),dict(service=service,address=address))
@@ -319,7 +323,11 @@ class _Analyzer:
             if kind == 'field':
                 header = self.child(loc, 'index', 0, node)
                 return self.child(header, kind, value, node) if header else None
-            selected = spec[2] if value == 0 else (spec[1] or self.plan.get('default_path_node')) if 1 <= value <= 32767 else None
+            if value == 0:
+                selected = spec[2]
+            else:
+                node_type = spec[1] or self.plan.get('default_path_node')
+                selected = node_type if kind == 'created-node' or 1 <= value <= 32767 else None
         elif kind=='field':
             fields=dict(spec[2]) if spec and spec[0]=='STRUCTURE' else self.plan.get('record_fields',{}).get(spec[0],{}) if spec else {}
             selected=fields.get(value)
@@ -363,6 +371,8 @@ class _Analyzer:
             self.unresolved_at('selection', 'PATH range exceeds the bounded FILE transfer limit', expr)
             return [None]
         locations = [self.index_child(path, index, expr, flow) for index in indexes]
+        if any(location is None for location in locations):
+            return [None]
         for location in locations:
             self.retain_selected_path_storage(location, flow, conditional)
         return locations
@@ -374,16 +384,26 @@ class _Analyzer:
     def known_path_count(self, loc, flow, conditional):
         if not self.stable_path_context(loc, flow, conditional):
             return None
-        if loc.key in flow.path_counts:
-            return flow.path_counts[loc.key]
+        if loc.key in flow.path_orders:
+            order = flow.path_orders[loc.key]
+            return len(order) if order is not None else None
         return self.saved_path_count(loc.owner, loc.root, loc.root_spec, loc.parts)
 
     def index_child(self, loc, index, node, flow):
-        if loc.spec[0] == 'PATH' and not (flow.opaque or flow.path_shape_unknown):
-            count = flow.path_counts.get(loc.key)
-            if count is not None and index > count:
-                self.unresolved_at('path-topology', f'PATH node {index} is outside the modeled shape of {loc.path}', node)
-                return None
+        if loc.spec[0] == 'PATH' and index > 0:
+            key = loc.key
+            if None in flow.path_orders or key in flow.path_orders:
+                order = flow.path_orders.get(key)
+                if order is None or flow.opaque or flow.path_shape_unknown:
+                    self.unresolved_at('path-topology', f'Saved origin of {loc.path}[{index}] is unresolved', node)
+                    return None
+                if index > len(order):
+                    self.unresolved_at('path-topology', f'PATH node {index} is outside the modeled shape of {loc.path}', node)
+                    return None
+                origin = order[index-1]
+                if origin < 0:
+                    return self.child(loc, 'created-node', -origin, node)
+                index = origin
         return self.child(loc, 'index', index, node)
 
     def retain_selected_path_storage(self, loc, flow, conditional):
@@ -393,7 +413,9 @@ class _Analyzer:
         if not root or root[0] != 'PATH' or len(loc.parts) <= len(dimensions):
             return
         prefix = loc.parts[:len(dimensions)]
-        _, index = loc.parts[len(dimensions)]
+        kind, index = loc.parts[len(dimensions)]
+        if kind != 'index':
+            return
         count = self.saved_path_count(loc.owner, loc.root, loc.root_spec, prefix)
         if count is not None and 0 <= index <= count:
             self.path_storage[loc.owner, loc.root] = loc.root_spec
@@ -424,7 +446,7 @@ class _Analyzer:
             for index in range(0 if spec[2] is not None else 1, count + 1):
                 if remaining <= 0:
                     return False
-                record = self.child(current, 'index', index, node)
+                record = self.index_child(current, index, node, flow)
                 leaves = self.leaves(record) if record is not None else None
                 if leaves is None:
                     return False
@@ -515,7 +537,10 @@ class _Analyzer:
         partial_copy=partial and loc.spec and loc.spec[0] not in SCALARS
         if missing:
             initial=missing-flow.assigned
-            if not initial:
+            if any(kind == 'created-node' for kind, _ in loc.parts):
+                if not partial_copy:
+                    self.unresolved_at('derived-value', 'Source-created PATH data may be uninitialized: '+loc.path, node)
+            elif not initial:
                 if not partial_copy:self.unresolved_at('derived-value','Read follows a write whose complete value is not proven: '+loc.path,node)
             elif loc.kind=='local':
                 if not partial_copy:self.unresolved_at('local-value','Fresh routine-local value is read before initialization: '+loc.path,node)
@@ -781,6 +806,8 @@ class _Analyzer:
             return _Value(complete=False)
 
         count = self.known_path_count(path, flow, conditional) if path is not None and path.spec[0] == 'PATH' else None
+        if count is not None:
+            self.path_storage[path.owner, path.root] = path.root_spec
         # A routine may retain a node reference captured before this edit.
         # Repeated bodies can also reach the edit with a different shape.
         if count is not None and status is not None and not self.frames and not self.repeat_depth:
@@ -792,20 +819,24 @@ class _Analyzer:
                 index = last
             if not aliases_path and type(index) is int and (removing or count < 32767):
                 if not 1 <= index <= last:
-                    self.path_storage[path.owner, path.root] = path.root_spec
                     self.write(status, _Value(2, spec=['INTEGER']), flow, node)
                     return _Value()
-                if index == last:
-                    record = self.child(path, 'index', last, node)
-                    if record is not None:
-                        self.path_storage[path.owner, path.root] = path.root_spec
-                        flow.path_counts[path.key] = count - 1 if removing else count + 1
-                        # A newly allocated record and a removed record cannot
-                        # use saved or previously written values at this index.
-                        self.write(record, _Value(complete=False), flow, node)
-                        self.write(status, _Value(0, spec=['INTEGER']), flow, node)
-                        return _Value()
+                self.tick(count + 1)
+                order = flow.path_orders.get(path.key)
+                if order is None:
+                    order = tuple(range(1, count + 1))
+                offset = index - 1
+                if removing:
+                    flow.path_orders[path.key] = order[:offset] + order[index:]
+                else:
+                    self.serial += 1
+                    flow.path_orders[path.key] = order[:offset] + (-self.serial,) + order[offset:]
+                    record = self.child(path, 'created-node', self.serial, node)
+                    self.write(record, _Value(complete=False), flow, node)
+                self.write(status, _Value(0, spec=['INTEGER']), flow, node)
+                return _Value()
 
+        flow.path_orders[path.key if path is not None else None] = None
         self.unresolved_at('path-topology', name+' may change PATH topology or captured node references', node)
         self.opaque(flow)
         self.write(status, _Value(), flow, node)
@@ -908,6 +939,9 @@ class _Analyzer:
                 else:self.write(bank,_Value(),flow,node)
             else:self.unresolved_at('dynamic-address','Register address requires an explicit runtime mapping',node)
         else:
+            if name in ('APPEND_NODE', 'INSERT_NODE'):
+                path = outputs[0][1] if outputs and outputs[0][0] == 0 else None
+                flow.path_orders[path.key if path is not None else None] = None
             self.unresolved_at('service','Service or external input effects require explicit review: '+name,node)
             self.opaque(flow)
         for index,loc in outputs:
@@ -1020,10 +1054,10 @@ class _Analyzer:
             # longer establishes which portion may run.
             raise _TaskOrderUnknown()
         self.opaque(flow)
-        self.scheduled_body(plan)
+        self.scheduled_body(plan, path_orders=flow.path_orders)
         return False
 
-    def scheduled_body(self, plan, *, segment=False, suspension=None):
+    def scheduled_body(self, plan, *, segment=False, suspension=None, path_orders=None):
         depth = self.suspended_depth + len(self.frames) + 1
         caller_plan, caller_roots, caller_depth = self.plan, self.task_roots, self.suspended_depth
         caller_frames, caller_exits, caller_values = self.frames, self.exits, self.capture_values
@@ -1031,7 +1065,7 @@ class _Analyzer:
         self.frames, self.exits, self.capture_values = [], [], {}
         try:
             if not segment:
-                self.block(plan['body'], _Flow(task_order_unknown=True), True)
+                self.block(plan['body'], _Flow(task_order_unknown=True, path_orders=dict.fromkeys(path_orders or ())), True)
                 return None
             child = suspension.flow.copy() if suspension is not None else _Flow()
             start = suspension.next_statement if suspension is not None else 0
@@ -1212,7 +1246,7 @@ class _Analyzer:
         captures = self.capture_callbacks(clauses, flow, conditional)
         if not self.track_handlers:
             self.unresolved_at('condition-scan', 'Condition activation order and scan effects require review', node)
-            self.scan_callbacks(clauses, captures, _Flow())
+            self.scan_callbacks(clauses, captures, _Flow(path_orders=dict.fromkeys(flow.path_orders)))
             return
         if (self.activation_unknown or self.scanning_handler or type(identifier) is not int
                 or not 1 <= identifier <= 1000 or identifier in flow.handlers):
@@ -1243,7 +1277,8 @@ class _Analyzer:
             for definition in flow.handlers[identifier]:
                 self.tick()
                 self.plan, self.frames = definition.plan, list(definition.frames)
-                scan = _Flow(defined=flow.defined.copy(), assigned=flow.assigned.copy())
+                scan = _Flow(defined=flow.defined.copy(), assigned=flow.assigned.copy(),
+                             path_orders=dict.fromkeys(flow.path_orders))
                 self.scan_callbacks(definition.clauses, definition.captures, scan)
         finally:
             self.scanning_handler = False
@@ -1271,7 +1306,8 @@ class _Analyzer:
             if node['body']:
                 clauses = node['body']
                 captures = self.capture_callbacks(clauses, flow, conditional, motion=True)
-                scan = _Flow(defined=flow.defined.copy(), assigned=flow.assigned.copy())
+                scan = _Flow(defined=flow.defined.copy(), assigned=flow.assigned.copy(),
+                             path_orders=dict.fromkeys(flow.path_orders))
                 self.scan_callbacks(clauses, captures, scan, motion=True)
             self.unresolved_at('motion-progress',
                                'Motion admission, progress and local callback effects require review: '+operation, node)

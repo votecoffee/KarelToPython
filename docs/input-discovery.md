@@ -390,19 +390,23 @@ count or values. Subscript expressions still contribute their own inputs
 and effects. Retranslate older Python to attach the schema when an unresolved
 subscript prevents finding it through the selected location.
 
-For a matching saved shape, discovery tracks unseeded `APPEND_NODE`, an
-`INSERT_NODE` at the end, and `DELETE_NODE` of the last node in definite
-program-body flow. Known invalid indexes report the runtime's status 2 and
-preserve the shape. Successful edits set status 0 and update later
-`PATH_LEN` and FILE destinations. New records begin with missing data
-owned by the source, so their fields must be written or read from a stream
-before use. A deleted index loses its prior facts, including when a later
-append reuses that index.
+For a matching saved shape, discovery follows unseeded `APPEND_NODE`,
+`INSERT_NODE` and `DELETE_NODE` with known indexes in definite program-body
+flow. Known invalid indexes report status 2 and preserve the shape.
+Successful edits set status 0 and update later `PATH_LEN`, named data selectors
+and FILE transfers. Earlier write facts stay with the records as they move.
+If a source statement reads `ROUTE[1]` after deleting the first node, its
+candidate can be `ROUTE[2]`, the location to edit in the saved context.
 
-Middle edits, seeded inserts, aliases into the edited PATH, edits inside
-routine frames, and uncertain or potentially repeated edits leave the
-topology unresolved. A following query then needs an explicit review of the
-changed topology.
+New records begin with missing data owned by the source, so their fields
+must be written or read from a stream before use. A deleted record's
+values do not become facts for the record now at that index. A range
+outside the edited shape reports a gap for the transfer.
+
+Seeded inserts, aliases into the edited PATH, edits inside routine frames,
+and uncertain or potentially repeated edits leave the topology unresolved.
+When discovery loses the order of a tracked PATH, it reports unknown
+saved origins for its node selectors.
 
 ### Boolean and INTEGER operators
 

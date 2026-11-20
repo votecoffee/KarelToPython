@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1120.163156 - 2026-11-20
+
+- Track Pythonic PATH inserts and deletions that shift nodes. Preserve each
+  surviving record's saved input address and its earlier source writes.
+- Keep source-created nodes separate from saved inputs, and report unknown
+  node origins after uncertain edits or scheduling effects.
+
 ## 26.1120.162350 - 2026-11-20
 
 - Track provable Pythonic PATH appends, end inserts, tail deletions and

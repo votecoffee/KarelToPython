@@ -193,9 +193,9 @@ class SavedProjectTests(unittest.TestCase):
         self.assertEqual(result['status'], 'completed', result['error'])
         self.assertEqual(result['text_output'], ' 2 5 31')
 
-    def test_linked_binary_read_uses_source_appended_path_storage(self):
+    def test_linked_binary_read_uses_source_inserted_path_storage(self):
         types = 'TYPE row_t=STRUCTURE value:INTEGER ENDSTRUCTURE '
-        main = self.module('MAIN', 'APPEND_NODE(route,s) READ INPUT(route) CLOSE FILE INPUT',
+        main = self.module('MAIN', 'INSERT_NODE(route,1,s) READ INPUT(route) CLOSE FILE INPUT',
                            types+'VAR route:PATH NODEDATA=row_t s:INTEGER')
         spec = ['PATH', ['STRUCTURE', 'ROW_T', [['VALUE', ['INTEGER']]]], None]
         seed = dict(program='MAIN', path='ROUTE', type=spec, value=dict(nodes=[{'VALUE': MISSING}], data=None))
@@ -213,6 +213,21 @@ class SavedProjectTests(unittest.TestCase):
         self.assertEqual(result['status'], 'completed', result['error'])
         route = result['programs']['MAIN']['values']['ROUTE']
         self.assertEqual(route['nodes'], [{'VALUE': 31}, {'VALUE': 41}])
+
+    def test_linked_child_after_a_shift_does_not_guess_a_saved_node_origin(self):
+        decl = 'TYPE row_t=STRUCTURE value:INTEGER ENDSTRUCTURE '
+        main = self.module('MAIN', "DELETE_NODE(route,1,s) RUN_TASK('CHILD',0,FALSE,FALSE,0,s)",
+                           decl+'VAR route:PATH NODEDATA=row_t s:INTEGER')
+        child = self.module('CHILD', 'WRITE(route[1].value)', decl+'VAR route FROM MAIN:PATH NODEDATA=row_t')
+        spec = ['PATH', ['STRUCTURE', 'ROW_T', [['VALUE', ['INTEGER']]]], None]
+        context = {'variables': [dict(program='MAIN', path='ROUTE', type=spec,
+                                      value=dict(nodes=[{'VALUE': 1}, {'VALUE': 2}], data=None))]}
+        prepared = self.create(main, child, context=context, discover=True)
+        report = prepared['inputs']['template']['discovery']
+        self.assertFalse(report['inputs'])
+        self.assertEqual(report['path_storage'], [dict(program='MAIN', path='ROUTE', type=spec)])
+        self.assertTrue(any('Saved origin of ROUTE[1] is unresolved' in row['message']
+                            and row['location']['program'] == 'CHILD' for row in report['unresolved']), report)
 
     def test_linked_selected_path_read_retains_storage_even_without_field_inputs(self):
         decl = 'TYPE row_t=STRUCTURE value:INTEGER ENDSTRUCTURE VAR route:PATH NODEDATA=row_t'
