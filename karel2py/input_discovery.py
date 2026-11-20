@@ -5,7 +5,7 @@ import math
 from pathlib import Path
 import re
 
-from .extended import PREDEFINED_FILE_NAMES, ZERO_BASED_PORTS, path_node_size
+from .extended import PREDEFINED_FILE_NAMES, ZERO_BASED_PORTS, path_conversion_layout, path_node_size
 from .input_contract import extract, InputContractError
 from .storage import tuple_spec
 from . import runtime as rt
@@ -61,7 +61,8 @@ class _Location:
         for kind, value in self.parts:
             text += ('.' + value if kind == 'field' else
                      '[group=' + (str(value) if value is not None else 'caller-default') + ']' if kind=='group'
-                     else '[source-created node]' if kind == 'created-node' else '[' + str(value) + ']')
+                     else '[' + kind.replace('created-', 'source-created ') + ']' if kind in ('created-node', 'created-header')
+                     else '[' + str(value) + ']')
         return text
 
 
@@ -87,6 +88,14 @@ class _Suspension:
     flow: '_Flow'
 
 
+@dataclass(frozen=True)
+class _PathOrder:
+    """Logical order of nodes and the optional identity of a copied header."""
+
+    nodes: tuple
+    header: int | None = None
+
+
 @dataclass
 class _Flow:
     defined: set = field(default_factory=set)
@@ -100,8 +109,8 @@ class _Flow:
     paused_tasks: dict = field(default_factory=dict)
     task_order_unknown: bool = False
     path_shape_unknown: bool = False
-    # Edited PATH positions map to original saved indexes or negative identities
-    # for source-created records. None marks a receiver with uncertain order.
+    # Original node indexes are positive; source-created nodes use negative
+    # identities. None marks a receiver with uncertain order.
     path_orders: dict = field(default_factory=dict)
 
     def copy(self):
@@ -320,10 +329,7 @@ class _Analyzer:
     def child(self, loc, kind, value, node):
         spec=loc.spec
         if spec and spec[0] == 'PATH':
-            if kind == 'field':
-                header = self.child(loc, 'index', 0, node)
-                return self.child(header, kind, value, node) if header else None
-            if value == 0:
+            if value == 0 or kind == 'created-header':
                 selected = spec[2]
             else:
                 node_type = spec[1] or self.plan.get('default_path_node')
@@ -386,25 +392,37 @@ class _Analyzer:
             return None
         if loc.key in flow.path_orders:
             order = flow.path_orders[loc.key]
-            return len(order) if order is not None else None
-        return self.saved_path_count(loc.owner, loc.root, loc.root_spec, loc.parts)
+            return len(order.nodes) if order is not None else None
+        count = self.saved_path_count(loc.owner, loc.root, loc.root_spec, loc.parts)
+        if count is not None:
+            self.path_storage[loc.owner, loc.root] = loc.root_spec
+        return count
 
     def index_child(self, loc, index, node, flow):
-        if loc.spec[0] == 'PATH' and index > 0:
+        if loc.spec[0] == 'PATH' and index >= 0:
             key = loc.key
             if None in flow.path_orders or key in flow.path_orders:
                 order = flow.path_orders.get(key)
                 if order is None or flow.opaque or flow.path_shape_unknown:
                     self.unresolved_at('path-topology', f'Saved origin of {loc.path}[{index}] is unresolved', node)
                     return None
-                if index > len(order):
+                if index > len(order.nodes):
                     self.unresolved_at('path-topology', f'PATH node {index} is outside the modeled shape of {loc.path}', node)
                     return None
-                origin = order[index-1]
-                if origin < 0:
-                    return self.child(loc, 'created-node', -origin, node)
-                index = origin
+                if index == 0:
+                    if order.header is not None:
+                        return self.child(loc, 'created-header', order.header, node)
+                else:
+                    origin = order.nodes[index-1]
+                    if origin < 0:
+                        return self.child(loc, 'created-node', -origin, node)
+                    index = origin
         return self.child(loc, 'index', index, node)
+
+    def field_child(self, loc, field, node, flow):
+        if loc.spec[0] == 'PATH':
+            loc = self.index_child(loc, 0, node, flow)
+        return self.child(loc, 'field', field, node) if loc is not None else None
 
     def retain_selected_path_storage(self, loc, flow, conditional):
         if not self.stable_path_context(loc, flow, conditional):
@@ -458,7 +476,6 @@ class _Analyzer:
 
         if not expand(loc):
             return None
-        self.path_storage[loc.owner, loc.root] = loc.root_spec
         return records
 
     def locate(self, expr, flow, conditional, *, path_io=False):
@@ -469,7 +486,7 @@ class _Analyzer:
         if kind=='group':return self.locate(args[0],flow,conditional,path_io=path_io)
         if kind=='field':
             base=self.locate(args[0],flow,conditional)
-            return self.child(base,'field',expr['value'],expr) if base else None
+            return self.field_child(base, expr['value'], expr, flow) if base else None
         if kind=='index':
             base=args[0]
             if base.get('kind')=='name' and base['value'] in self.plan.get('port_types',{}):
@@ -537,7 +554,7 @@ class _Analyzer:
         partial_copy=partial and loc.spec and loc.spec[0] not in SCALARS
         if missing:
             initial=missing-flow.assigned
-            if any(kind == 'created-node' for kind, _ in loc.parts):
+            if any(kind in ('created-node', 'created-header') for kind, _ in loc.parts):
                 if not partial_copy:
                     self.unresolved_at('derived-value', 'Source-created PATH data may be uninitialized: '+loc.path, node)
             elif not initial:
@@ -791,10 +808,20 @@ class _Analyzer:
             if loc is not None and spec and spec[0] == 'PATH':
                 count = self.known_path_count(loc, flow, conditional)
                 if count is not None:
-                    self.path_storage[loc.owner, loc.root] = loc.root_spec
                     return _Value(count, spec=['INTEGER'])
             self.unresolved_at('path-topology', 'PATH_LEN requires a matching saved PATH with a known current node count', node)
         return _Value(spec=['INTEGER'])
+
+    def complete_path_record(self, value):
+        """A successful capture has complete leaves, including supplied inputs."""
+        facts = (
+            {key: _Value(fact.constant, spec=fact.spec) for key, fact in value.facts.items()}
+            if value.facts is not None else None
+        )
+        return _Value(spec=value.spec, facts=facts)
+
+    def path_status_overlaps(self, path, status):
+        return status.key[:3] == path.key[:3] and status.parts[:len(path.parts)] == path.parts
 
     def path_seed_compatible(self, path, seed, convert):
         """Return True for a modeled copy, False for status 3, or None."""
@@ -844,13 +871,10 @@ class _Analyzer:
             return _Value(complete=False)
 
         count = self.known_path_count(path, flow, conditional) if path is not None and path.spec[0] == 'PATH' else None
-        if count is not None:
-            self.path_storage[path.owner, path.root] = path.root_spec
         # A routine may retain a node reference captured before this edit.
         # Repeated bodies can also reach the edit with a different shape.
         if count is not None and status is not None and not self.frames and not self.repeat_depth:
-            aliases_path = (status.key[:3] == path.key[:3]
-                            and status.parts[:len(path.parts)] == path.parts)
+            aliases_path = self.path_status_overlaps(path, status)
             removing = name == 'DELETE_NODE'
             last = count if removing else count + 1
             if name == 'APPEND_NODE':
@@ -866,25 +890,17 @@ class _Analyzer:
                 self.tick(count + 1)
                 order = flow.path_orders.get(path.key)
                 if order is None:
-                    order = tuple(range(1, count + 1))
+                    order = _PathOrder(tuple(range(1, count + 1)))
                 offset = index - 1
                 if removing:
-                    flow.path_orders[path.key] = order[:offset] + order[index:]
+                    nodes = order.nodes[:offset] + order.nodes[index:]
                 else:
                     self.serial += 1
-                    flow.path_orders[path.key] = order[:offset] + (-self.serial,) + order[offset:]
+                    nodes = order.nodes[:offset] + (-self.serial,) + order.nodes[offset:]
                     record = self.child(path, 'created-node', self.serial, node)
-                    if seed is None:
-                        value = _Value(complete=False)
-                    else:
-                        # The runtime captures complete data before evaluating
-                        # the status selector or conversion flag. On success,
-                        # user-supplied seed leaves are initialized as well.
-                        facts = None if seed.facts is None else {
-                            key: _Value(fact.constant, spec=fact.spec) for key, fact in seed.facts.items()
-                        }
-                        value = _Value(spec=seed.spec, facts=facts)
+                    value = _Value(complete=False) if seed is None else self.complete_path_record(seed)
                     self.write(record, value, flow, node)
+                flow.path_orders[path.key] = _PathOrder(nodes, order.header)
                 self.write(status, _Value(0, spec=['INTEGER']), flow, node)
                 return _Value()
 
@@ -894,6 +910,82 @@ class _Analyzer:
         self.write(status, _Value(), flow, node)
         return _Value()
 
+    def path_copy(self, node, flow, conditional):
+        operands = []
+        for index, argument in enumerate(node['args']):
+            if flow.stopped and not flow.opaque:
+                return _Value(complete=False)
+            if index in (0, 3, 4):
+                operands.append(self.locate(argument, flow, conditional))
+            else:
+                operands.append(self.expr(argument, flow, conditional).constant)
+        if flow.stopped and not flow.opaque:
+            return _Value(complete=False)
+        source, first, last, target, status, *flags = operands
+        convert = flags[0] if flags else False
+        if (source is not None and source.spec[0] == 'PATH' and target is not None and target.spec[0] == 'PATH'
+                and status is not None and not self.frames and not self.repeat_depth
+                and self.stable_path_context(target, flow, conditional) and not self.path_status_overlaps(target, status)):
+            source_type, target_type = tuple_spec(source.spec), tuple_spec(target.spec)
+            if source_type == target_type:
+                layout = ('exact', 'exact')
+            elif type(convert) is bool:
+                layout = path_conversion_layout(target_type, source_type, model=True) if convert else None
+            else:
+                layout = ()
+            if layout is None:
+                self.write(status, _Value(3, spec=['INTEGER']), flow, node)
+                return _Value()
+
+            count = self.known_path_count(source, flow, conditional)
+            if layout and count is not None and type(first) is int and type(last) is int:
+                if first == last == 0:
+                    indexes = range(1, count + 1)
+                elif 1 <= first <= count and 1 <= last <= count:
+                    step = 1 if first <= last else -1
+                    indexes = range(first, last + step, step)
+                else:
+                    self.write(status, _Value(2, spec=['INTEGER']), flow, node)
+                    return _Value()
+                captured = self.capture_path_copy(source, indexes, node, flow, conditional)
+                if captured is not None and 'kinematic' not in layout:
+                    self.publish_path_copy(target, captured, node, flow)
+                    self.write(status, _Value(0, spec=['INTEGER']), flow, node)
+                    return _Value()
+
+        flow.path_orders[target.key if target is not None else None] = None
+        self.unresolved_at('path-topology', 'COPY_PATH layout, bounds or destination effects require review', node)
+        self.opaque(flow)
+        self.write(status, _Value(), flow, node)
+        return _Value()
+
+    def capture_path_copy(self, source, indexes, node, flow, conditional):
+        """Read the selected records and header before publishing any copy."""
+        selected = (0, *indexes) if source.spec[2] is not None else indexes
+        self.tick(len(selected))
+        values = []
+        for index in selected:
+            loc = self.index_child(source, index, node, flow)
+            if loc is None:
+                return None
+            values.append(self.read(loc, node, flow, conditional, partial=True))
+        return values
+
+    def publish_path_copy(self, target, values, node, flow):
+        """Publish detached identities for the destination header and nodes."""
+        header = None
+        nodes = []
+        for index, value in enumerate(values):
+            self.serial += 1
+            if index == 0 and target.spec[2] is not None:
+                header = self.serial
+                record = self.child(target, 'created-header', header, node)
+            else:
+                nodes.append(-self.serial)
+                record = self.child(target, 'created-node', self.serial, node)
+            self.write(record, value, flow, node)
+        flow.path_orders[target.key] = _PathOrder(tuple(nodes), header)
+
     def call(self, node, flow, conditional):
         name=node['value'];args=node['args']
         if name in self.plan['routines']:return self.routine(name,args,node,flow,conditional)
@@ -901,6 +993,8 @@ class _Analyzer:
             return self.path_metadata_call(node, flow, conditional)
         if name in ('APPEND_NODE', 'INSERT_NODE', 'DELETE_NODE'):
             return self.path_edit(node, flow, conditional)
+        if name == 'COPY_PATH':
+            return self.path_copy(node, flow, conditional)
         if name in ('UNINIT','ARRAY_LEN'):
             target=args[0] if args else {};spec=None
             while target.get('kind')=='group':target=target['args'][0]
@@ -949,7 +1043,7 @@ class _Analyzer:
                     while rest and loc:
                         field=re.match(r'\.([A-Za-z_][A-Za-z_0-9]*)',rest)
                         index=re.match(r'\[([0-9]+(?:,[0-9]+)*)\]',rest)
-                        if field:loc=self.child(loc,'field',field[1].upper(),node);rest=rest[field.end():]
+                        if field:loc=self.field_child(loc,field[1].upper(),node,flow);rest=rest[field.end():]
                         elif index:
                             for item in index[1].split(','):
                                 if loc:loc=self.index_child(loc,int(item),node,flow)

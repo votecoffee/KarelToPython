@@ -276,6 +276,82 @@ class InputTemplateTests(unittest.TestCase):
                          [{'AMOUNT': 1}, {'AMOUNT': 2}, {'AMOUNT': MISSING}, {'AMOUNT': 44}])
         self.assertEqual(seed['value']['nodes'][-1], {'AMOUNT': MISSING})
 
+    def test_copy_path_selects_shifted_saved_inputs_and_creates_destination_shape(self):
+        types = ('TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+                 'head_t=STRUCTURE total:INTEGER ENDSTRUCTURE')
+        spec = ['PATH', ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]],
+                ['STRUCTURE', 'HEAD_T', [['TOTAL', ['INTEGER']]]]]
+        source = dict(program='T', path='SOURCE', type=spec,
+                      value=dict(nodes=[{'AMOUNT': MISSING} for _ in range(4)], data={'TOTAL': MISSING}))
+        prepared = prepare(
+            'source.total=7 source[4].amount=19 DELETE_NODE(source,1,s) '
+            'COPY_PATH(source,3,2,target,s) IF (s=0) AND (PATH_LEN(target)=2) '
+            'THEN WRITE(target[1],target.total) ELSE WRITE(unused) ENDIF',
+            decl='source,target:PATH NODEDATA=row_t PATHHEADER=head_t s,unused:INTEGER',
+            prefix=types, context={'variables': [source]},
+        )
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'SOURCE[3]'})
+        self.assertEqual(report['path_storage'], [dict(program='T', path='SOURCE', type=spec)])
+        self.assertEqual(prepared['context']['variables'], [source])
+
+    def test_self_copy_captures_source_after_status_selector_effects(self):
+        source = (
+            'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+            'head_t=STRUCTURE total:INTEGER ENDSTRUCTURE '
+            'VAR route:PATH NODEDATA=row_t PATHHEADER=head_t codes:ARRAY[1] OF INTEGER wanted,unused:INTEGER '
+            'ROUTINE slot:INTEGER BEGIN route[2].amount=19 route.total=7 RETURN 1 END slot '
+            'BEGIN route[1].amount=5 route[2].amount=9 route.total=2 '
+            'COPY_PATH(route,2,1,route,codes[slot()]) '
+            'IF (route[1].amount=19) AND (route[2].amount=5) AND (route[0].total=7) AND (codes[1]=0) '
+            'THEN WRITE(wanted) ELSE WRITE(unused) ENDIF END T'
+        )
+        spec = ['PATH', ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]],
+                ['STRUCTURE', 'HEAD_T', [['TOTAL', ['INTEGER']]]]]
+        context = {'variables': [dict(program='T', path='ROUTE', type=spec,
+                                      value=dict(nodes=[{'AMOUNT': MISSING} for _ in range(2)], data={'TOTAL': MISSING}))]}
+        prepared = prepare_inputs(translate(source).python_source, context=context)
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'WANTED'})
+
+    def test_copy_path_preserves_incomplete_data_without_guessing_destination_inputs(self):
+        spec = ['PATH', ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]], None]
+        context = {'variables': [dict(program='T', path='SOURCE', type=spec,
+                                      value=dict(nodes=[{'AMOUNT': MISSING}], data=None))]}
+        prepared = prepare('COPY_PATH(source,0,0,target,s) WRITE(target[1])',
+                           decl='source,target:PATH NODEDATA=row_t s:INTEGER',
+                           prefix='TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE', context=context)
+        report = prepared['template']['discovery']
+        self.assertEqual(set(by_path(prepared)), {'SOURCE[1]'})
+        self.assertIn('derived-value', {row['code'] for row in report['unresolved']})
+
+    def test_copy_path_rejects_invalid_bounds_before_reading_saved_records(self):
+        spec = ['PATH', ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]], None]
+        context = {'variables': [dict(program='T', path='SOURCE', type=spec,
+                                      value=dict(nodes=[{'AMOUNT': MISSING}], data=None))]}
+        prepared = prepare(
+            'COPY_PATH(source,2,1,target,s) IF s=2 THEN WRITE(wanted) ELSE WRITE(unused) ENDIF',
+            decl='source,target:PATH NODEDATA=row_t s,wanted,unused:INTEGER',
+            prefix='TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE', context=context,
+        )
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'WANTED'})
+
+    def test_unknown_copy_bounds_leave_destination_origin_unresolved(self):
+        spec = ['PATH', ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]], None]
+        context = {'variables': [dict(program='T', path='SOURCE', type=spec,
+                                      value=dict(nodes=[{'AMOUNT': MISSING}], data=None))]}
+        prepared = prepare('COPY_PATH(source,first,1,target,s) WRITE(target[1])',
+                           decl='source,target:PATH NODEDATA=row_t first,s:INTEGER',
+                           prefix='TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE', context=context)
+        report = prepared['template']['discovery']
+        self.assertEqual(set(by_path(prepared)), {'FIRST'})
+        self.assertTrue(any('Saved origin of TARGET[1] is unresolved' in row['message']
+                            for row in report['unresolved']))
+
     def test_seeded_insert_reads_the_existing_seed_before_nodes_shift(self):
         from karel2py.structured_inputs import structured_slot
 

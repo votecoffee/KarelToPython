@@ -416,6 +416,20 @@ uncertain or potentially repeated edits leave the topology unresolved.
 When discovery loses the order of a tracked PATH, it reports unknown saved
 origins for its node selectors.
 
+`COPY_PATH` follows a checked whole copy `(0,0)` or an inclusive forward or
+reverse range. Discovery reads the selected source nodes and declared
+header after evaluating the call operands. It preserves their saved
+addresses after prior node edits. A proved copy, including a self-copy or
+a context-free layout conversion, replaces the destination shape with
+independent records. Later `PATH_LEN`, data accesses and FILE transfers
+use that shape. The destination can be a declared PATH with no saved seed.
+
+A copy preserves missing leaves. Reading an incompletely proven copied
+value later can report a `derived-value` gap. Known rejected layouts or
+bounds produce status 3 or 2 before reading the source records. Unknown
+bounds, retained destination aliases, and model-dependent results leave
+the destination effect unresolved.
+
 ### Boolean and INTEGER operators
 
 WAIT FOR entry captures are read before the live predicate. Their inputs can

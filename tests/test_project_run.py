@@ -214,6 +214,32 @@ class SavedProjectTests(unittest.TestCase):
         route = result['programs']['MAIN']['values']['ROUTE']
         self.assertEqual(route['nodes'], [{'VALUE': 31}, {'VALUE': 41}])
 
+    def test_linked_copy_path_converts_selected_data_without_retaining_old_destination(self):
+        types = ('TYPE source_t=STRUCTURE amount:REAL ENDSTRUCTURE '
+                 'row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+                 'path_t=PATH NODEDATA=source_t ')
+        main = self.module('MAIN',
+                           'source[2].amount=12.75 COPY_PATH(source,2,2,target,s,TRUE) WRITE(target,CR)',
+                           types+'VAR source FROM LIB:path_t target:PATH NODEDATA=row_t s:INTEGER')
+        lib = self.module('LIB', declarations=types+'VAR source:path_t')
+        source_type = ['PATH', ['STRUCTURE', 'SOURCE_T', [['AMOUNT', ['REAL']]]], None]
+        target_type = ['PATH', ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]], None]
+        source = dict(program='LIB', path='SOURCE', type=source_type,
+                      value=dict(nodes=[{'AMOUNT': MISSING}, {'AMOUNT': MISSING}], data=None))
+        target = dict(program='MAIN', path='TARGET', type=target_type,
+                      value=dict(nodes=[{'AMOUNT': 99}], data=None))
+        self.create(main, lib, context={'variables': [source, target]})
+        revised = self.folder/'revised.run.json'
+        prepared = runner.refresh_project_document(self.document, revised, [main, lib])
+        report = prepared['inputs']['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertFalse(report['inputs'])
+        self.assertEqual(prepared['inputs']['context']['variables'], [source])
+        result = runner.run_document(revised)['results']
+        self.assertEqual(result['status'], 'completed', result['error'])
+        self.assertEqual(result['text_output'], ' 12\n')
+        self.assertEqual(result['programs']['MAIN']['values']['TARGET']['nodes'], [{'AMOUNT': 12}])
+
     def test_linked_seed_conversion_keeps_input_owner_and_completes_inserted_record(self):
         types = ('TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
                  'source_t=STRUCTURE amount:REAL ENDSTRUCTURE ')

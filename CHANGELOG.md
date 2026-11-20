@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1120.164516 - 2026-11-20
+
+- Discover Pythonic COPY_PATH inputs from the selected saved records and
+  header, including reverse ranges and previously shifted nodes.
+- Track detached destination shapes for exact and context-free copies,
+  preserving partial data and allowing destinations without saved seeds.
+
 ## 26.1120.163804 - 2026-11-20
 
 - Discover seeded Pythonic PATH appends and inserts in capture order.
