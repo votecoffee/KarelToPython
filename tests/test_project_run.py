@@ -478,6 +478,116 @@ class SavedProjectTests(unittest.TestCase):
         self.assertIn('condition-capture', [row['code'] for row in report['unresolved']])
         self.assertFalse(report['complete'])
 
+    def test_linked_motion_discovery_prepares_temporal_selectors_and_callback_inputs(self):
+        main = self.module('MAIN', 'ATTACH work()', 'VAR payload:INTEGER', 'ROUTINE work FROM LIB')
+        lib = self.module('LIB', declarations=(
+            'VAR g,accel,offset,node_id,frozen,mark:INTEGER distance:REAL payload FROM MAIN:INTEGER'),
+            routines="""ROUTINE work
+            VAR boost:INTEGER
+            BEGIN
+                boost=5
+                WITH $ACCEL_OVRD[g]=accel
+                MOVE AWAY distance,
+                    WHEN FALSE DO WRITE(EVAL(frozen))
+                    WHEN TRUE DO WRITE(mark,CR)
+                    WHEN TIME offset BEFORE NODE[node_id] DO WRITE(EVAL(frozen)+payload+boost,CR)
+                    WHEN AT NODE[node_id] DO WRITE(EVAL(frozen),CR)
+                ENDMOVE
+            END work""")
+        variables = [dict(program='LIB', path=name, type='INTEGER', value=value) for name, value in (
+            ('G', 1), ('ACCEL', 100), ('OFFSET', 2), ('NODE_ID', 1), ('FROZEN', 11), ('MARK', 7))]
+        variables.extend([dict(program='LIB', path='DISTANCE', type='REAL', value=3.0),
+                          dict(program='MAIN', path='PAYLOAD', type='INTEGER', value=20)])
+        context = {
+            'motion': {'groups': {'1': 2}, 'responses': [
+                {'operation': 'MOVE AWAY', 'completed': True, 'delay_ms': 7, 'node_times': {'0': 0, '1': 7}}]},
+            'group_locks': {'groups': [1]},
+            'variables': variables,
+        }
+        with patch('builtins.exec', side_effect=AssertionError('module executed during motion discovery')):
+            saved = self.create(main, lib, discover=True, context=context)
+        report = saved['inputs']['template']['discovery']
+        self.assertEqual({(row['program'], row['path']): row['certainty'] for row in report['inputs']},
+                         {**{('LIB', name): 'required' for name in ('G', 'ACCEL', 'DISTANCE', 'OFFSET',
+                                                                    'NODE_ID', 'FROZEN')},
+                          ('LIB', 'MARK'): 'conditional', ('MAIN', 'PAYLOAD'): 'conditional'})
+        self.assertEqual({row['code'] for row in report['unresolved']}, {'motion-control', 'motion-progress'})
+        self.assertEqual(saved['inputs']['template']['requirements'], [])
+        payload = next(row for row in report['inputs'] if row['path'] == 'PAYLOAD')
+        self.assertEqual(payload['locations'][0]['program'], 'LIB')
+        self.assertEqual(payload['locations'][0]['routine'], 'WORK')
+
+        result = runner.run_document(self.document)['results']
+        self.assertEqual(result['status'], 'completed', result['error'])
+        self.assertEqual(result['text_output'].split(), ['7', '36', '11'])
+
+    def test_motion_discovery_keeps_capture_order_and_prunes_only_after_cancelling_until(self):
+        main = self.module('MAIN', """
+            ATTACH
+            WITH $ACCEL_OVRD[group_arg()]=setting
+            MOVE AWAY distance_arg(),
+                WHEN FALSE DO WRITE(EVAL(frozen))
+                WHEN TRUE DO WRITE(first,CR)
+                UNTIL TRUE THEN result=last
+                WHEN TRUE DO WRITE(unreached)
+            ENDMOVE
+            WRITE(result,CR)
+        """, 'VAR setting,frozen,first,last,result,unreached:INTEGER', """
+            ROUTINE group_arg:INTEGER BEGIN setting=100 RETURN 1 END group_arg
+            ROUTINE distance_arg:REAL BEGIN frozen=20 RETURN 1.0 END distance_arg
+        """)
+        saved = self.create(main, discover=True)
+        report = saved['inputs']['template']['discovery']
+        self.assertEqual({row['path']: row['certainty'] for row in report['inputs']},
+                         {'FIRST': 'conditional', 'LAST': 'conditional', 'RESULT': 'conditional'})
+        services = {row['service'] for row in saved['inputs']['template']['requirements']
+                    if row['code'] == 'service'}
+        self.assertEqual(services, {'motion', 'group_locks'})
+
+        _, revision = runner.prepare_project_document(self.document, context={
+            'motion': {'groups': {'1': 2}, 'capture_only': True},
+            'group_locks': {'groups': [1]},
+            'variables': [dict(program='MAIN', path=name, type='INTEGER', value=value)
+                          for name, value in [('FIRST', 8), ('LAST', 26)]],
+        })
+        replay = runner.run_document(self.document, expected=revision)['results']
+        self.assertEqual(replay['status'], 'completed', replay['error'])
+        self.assertEqual(replay['text_output'].split(), ['8', '26'])
+
+    def test_motion_discovery_keeps_path_selectors_and_nowait_action_reads(self):
+        main = self.module('MAIN', """
+            MOVE ALONG route[first..last] NOWAIT,
+                WHEN AT NODE[node_id] DO WRITE(extra)
+            ENDMOVE
+        """, 'VAR route:PATH first,last,node_id,extra:INTEGER')
+        self.create(main)
+        report = discover_project_document(self.document)
+        self.assertEqual({row['path']: row['certainty'] for row in report['inputs']},
+                         {'FIRST': 'required', 'LAST': 'required', 'NODE_ID': 'required', 'EXTRA': 'conditional'})
+        self.assertEqual({row['code'] for row in report['unresolved']}, {'schema', 'motion-progress'})
+
+    def test_discovery_reads_legacy_motion_actions_with_explicit_capture_gaps(self):
+        from karel2py.input_contract import attach, extract
+
+        main = self.module('MAIN', """
+            MOVE AWAY 1, WHEN FALSE AND AT NODE[node_id] DO WRITE(EVAL(captured), unseen)
+                WHEN TRUE DO WRITE(live)
+            ENDMOVE
+        """, 'VAR node_id,captured,unseen,live:INTEGER')
+        source = main.read_text(encoding='utf-8')
+        plan = extract(source)
+        for clause in plan['body'][0]['body']:
+            for key in ('trigger', 'captures', 'selectors'):
+                del clause[key]
+        lines = [line.partition(' = ')[0]+' = None' if line.startswith(
+                 ('    input_analysis = ', '    input_analysis_sha256 = ')) else line for line in source.splitlines()]
+        main.write_bytes(attach('\n'.join(lines)+'\n', plan).encode())
+        self.create(main)
+        report = discover_project_document(self.document)
+        self.assertEqual([row['path'] for row in report['inputs']], ['LIVE'])
+        self.assertEqual({row['code'] for row in report['unresolved']},
+                         {'condition-capture', 'motion-selector', 'motion-progress'})
+
     def test_discovery_keeps_caller_root_schema_for_reference_reads_in_linked_branches(self):
         main = self.module('MAIN', 'update(values[2]) WRITE(values[2])', 'VAR values:ARRAY[2] OF INTEGER',
                            'ROUTINE update(x:INTEGER) FROM LIB')

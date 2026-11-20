@@ -65,6 +65,8 @@ def _service_address(context, service, address):
     bank = getattr(context, service, None)
     if bank is None:
         return False
+    if service in ('motion', 'group_locks'):
+        return address is None
     if service in ('numeric', 'strings'):
         return bool(re.fullmatch(r'[1-9][0-9]*', str(address)) and 1 <= int(address) <= bank.count)
     if service == 'ports':
@@ -185,7 +187,9 @@ def _prepare(report, context, *, materialize=True):
                         context_pointer=binding['context_pointer'])
         for item in report['context_requirements']:
             if not _service_address(execution, item['service'], item['address']):
-                require('service', 'Configure the service and address explicitly', **item)
+                message = ('Configure this offline service explicitly' if item['address'] is None else
+                           'Configure the service and address explicitly')
+                require('service', message, **item)
         # Validate generated shapes with the real context consumer, without
         # normalizing or replacing any caller-supplied values/configuration.
         with rt._numeric_scope('pythonic'):

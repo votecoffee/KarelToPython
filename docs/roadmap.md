@@ -58,18 +58,18 @@ order. Both prepare owner-qualified input templates, and the desktop edits
 discovered scalar and structured inputs and shows each saved program snapshot.
 Input saves check the document revision and module pins and keep prior results.
 Discovery follows synchronous linked calls, known child task bodies, and
-condition predicates and actions. Child and scan-time reads are conditional.
-Refreshing a module set carries compatible
-owner-qualified values into a new document and reports changed, omitted and
-unresolved inputs.
+global and motion-local condition callbacks. Child and scan-time reads are
+conditional. Motion capture operands follow emitted evaluation order.
+Refreshing a module set carries compatible owner-qualified values into a new
+document and reports changed, omitted and unresolved inputs.
 [Linked input discovery](input-discovery.md#linked-project-discovery)
 
 ### Remaining linked-run work
 
 1. **Expand linked discovery.** Resolve more task continuations, synchronization
-   and handler activation where order and targets can be determined. Extend
-   callback analysis to local motion handlers and keep dynamic selections and
-   external effects visible in the report.
+   and handler activation where order and targets can be determined. Track
+   effects between motion callbacks when ordering can be established, and
+   keep dynamic selections and external effects visible in the report.
 2. **Export linked sources from the desktop.** Reuse linked-project validation
    and cooperative Python export so the desktop workflow can begin with KAREL
    source files. Keep the existing output and source-file protections.

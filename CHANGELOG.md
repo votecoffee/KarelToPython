@@ -1,5 +1,13 @@
 # Changelog
 
+## 26.1120.112330 - 2026-11-20
+
+- Discover linked motion settings, operands, path bounds, and local handler
+  captures in their generated evaluation order. Report possible `WHEN` and
+  `UNTIL` reads in blocking and `NOWAIT` motion.
+- Report missing motion and group-lock services during linked preparation.
+  Keep motion timing, control effects and legacy capture gaps explicit.
+
 ## 26.1120.111236 - 2026-11-20
 
 - Discover possible inputs in pinned child bodies reached by a known `RUN_TASK`

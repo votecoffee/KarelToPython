@@ -162,7 +162,7 @@ class _Analyzer:
         self.linked_plans = linked_plans
         self.task_roots = (plan['program'],)
         self.suspended_depth = 0
-        self.condition_values = {}
+        self.capture_values = {}
         plans = linked_plans if linked_plans is not None else {plan['program']: plan}
         self.imports = {
             name: {local: (owner.upper(), foreign) for local, owner, foreign in item.get('imports', [])}
@@ -464,11 +464,13 @@ class _Analyzer:
         if kind=='call':return self.result_value(self.call(node,flow,conditional),node,partial)
         if self.linked_plans is not None and kind=='captured':
             name, spec = value
-            captured = self.condition_values.get((self.program, name))
+            captured = self.capture_values.get((self.program, name))
             if captured is not None:
                 return _Value(captured.constant, captured.complete, spec, captured.facts)
             self.unresolved_at('condition-capture', 'EVAL source is unavailable; re-translate for capture discovery', node)
             return _Value(complete=False, spec=spec)
+        if self.linked_plans is not None and kind=='motion_event':
+            return _Value(spec=['BOOLEAN'])
         if self.linked_plans is not None and kind in ('event', 'semaphore', 'edge', 'error_condition', 'task_event'):
             for item in args:
                 self.expr(item, flow, conditional)
@@ -623,14 +625,14 @@ class _Analyzer:
             return
         self.unresolved_at('task-scheduling', 'RUN_TASK timing, admission and shared effects require review: '+name, node)
         caller_plan, caller_roots, caller_depth = self.plan, self.task_roots, self.suspended_depth
-        caller_frames, caller_exits, caller_values = self.frames, self.exits, self.condition_values
+        caller_frames, caller_exits, caller_values = self.frames, self.exits, self.capture_values
         self.plan, self.task_roots, self.suspended_depth = plan, (*caller_roots, name), suspended_depth
-        self.frames, self.exits, self.condition_values = [], [], {}
+        self.frames, self.exits, self.capture_values = [], [], {}
         try:
             self.block(plan['body'], _Flow(), True)
         finally:
             self.plan, self.task_roots, self.suspended_depth = caller_plan, caller_roots, caller_depth
-            self.frames, self.exits, self.condition_values = caller_frames, caller_exits, caller_values
+            self.frames, self.exits, self.capture_values = caller_frames, caller_exits, caller_values
 
     def routine_target(self, name, interface):
         owner = interface['external']
@@ -719,20 +721,59 @@ class _Analyzer:
             values=converted
         return _merged_value(values,result)
 
-    def legacy_capture(self, value):
+    def legacy_capture(self, value, kind):
         self.tick()
         if isinstance(value, dict):
-            kind = value.get('kind')
-            if kind == 'captured':
+            if value.get('kind') == kind:
                 return value
-            if kind != 'motion':
-                return self.legacy_capture(list(value.values()))
+            if value.get('kind') != 'motion':
+                return self.legacy_capture(list(value.values()), kind)
         if isinstance(value, list):
             for item in value:
-                captured = self.legacy_capture(item)
+                captured = self.legacy_capture(item, kind)
                 if captured is not None:
                     return captured
         return None
+
+    def capture_gap(self, clause, flow, kind, code, message):
+        missing = self.legacy_capture(clause, kind)
+        if missing is not None:
+            self.unresolved_at(code, message, missing)
+            self.opaque(flow)
+
+    def callbacks(self, clauses, flow, conditional, *, motion=False):
+        previous, self.capture_values = self.capture_values, {}
+        try:
+            for clause in clauses:
+                if 'captures' in clause:
+                    for name, operand in clause['captures']:
+                        self.capture_values[self.program, name] = self.expr(operand, flow, conditional)
+                else:
+                    self.capture_gap(clause, flow, 'captured', 'condition-capture',
+                                     'EVAL source is unavailable; re-translate for capture discovery')
+                if motion:
+                    if 'selectors' in clause:
+                        for operand in clause['selectors']:
+                            self.expr(operand, flow, conditional)
+                    else:
+                        self.capture_gap(clause, flow, 'motion_event', 'motion-selector',
+                                         'Motion selector operands are unavailable; re-translate for capture discovery')
+            # A motion can scan each WHEN once. Later scans may see changes
+            # from other clauses, so do not carry mutable constants between them.
+            scan = _Flow(defined=flow.defined.copy(), assigned=flow.assigned.copy()) if motion else _Flow()
+            for clause in clauses:
+                active = scan.copy() if motion else scan
+                matched = self.expr(clause['args'][0], active, True).constant
+                if active.stopped:
+                    if motion:
+                        continue
+                    break
+                if matched is not False:
+                    self.block(clause['body'], active.copy(), True)
+                if matched is True and (not motion or clause.get('trigger') == 'UNTIL'):
+                    break
+        finally:
+            self.capture_values = previous
 
     def condition(self, node, flow, conditional):
         number, options = node['args']
@@ -740,28 +781,34 @@ class _Analyzer:
         for _, option in options:
             self.expr(option, flow, conditional)
         self.unresolved_at('condition-scan', 'Condition enablement, scan timing and shared effects require review', node)
-        previous, self.condition_values = self.condition_values, {}
-        try:
-            for clause in node['body']:
-                if 'captures' in clause:
-                    for name, operand in clause['captures']:
-                        self.condition_values[self.program, name] = self.expr(operand, flow, conditional)
+        self.callbacks(node['body'], flow, conditional)
+
+    def motion(self, node, flow, conditional):
+        args = node['args']
+        self.context('motion', None)
+        self.context('group_locks', None)
+        if node['kind'] == 'motion':
+            operation, operands, _, settings = args
+            for _, group, value in settings:
+                if group is not None:
+                    self.expr(group, flow, conditional)
+                self.expr(value, flow, conditional)
+            for operand in operands:
+                if operand['kind'] == 'motion_range':
+                    for part in operand['args']:
+                        self.expr(part, flow, conditional)
                 else:
-                    missing = self.legacy_capture(clause)
-                    if missing is not None:
-                        self.unresolved_at('condition-capture', 'EVAL source is unavailable; re-translate for capture discovery', missing)
-                        self.opaque(flow)
-            scan = _Flow()
-            for clause in node['body']:
-                matched = self.expr(clause['args'][0], scan, True).constant
-                if scan.stopped:
-                    break
-                if matched is not False:
-                    self.block(clause['body'], scan.copy(), True)
-                if matched is True:
-                    break
-        finally:
-            self.condition_values = previous
+                    self.expr(operand, flow, conditional)
+            if node['body']:
+                self.callbacks(node['body'], flow, conditional, motion=True)
+            self.unresolved_at('motion-progress',
+                               'Motion admission, progress and local callback effects require review: '+operation, node)
+            self.opaque(flow)
+        else:
+            operands = (args[1] or ()) if node['kind'] == 'motion_control' else args[1:]
+            for operand in operands:
+                self.expr(operand, flow, conditional)
+            self.unresolved_at('motion-control', 'Motion control depends on offline group state: '+args[0], node)
 
     def block(self, body, flow, conditional=False):
         for node in body:
@@ -775,6 +822,9 @@ class _Analyzer:
             self.write(self.locate(args[0],flow,conditional),value,flow,node);return
         if kind=='call':self.expr(args[0],flow,conditional);return
         if self.linked_plans is not None:
+            if kind in ('motion', 'motion_action', 'motion_control'):
+                self.motion(node, flow, conditional)
+                return
             if kind == 'condition':
                 self.condition(node, flow, conditional)
                 return

@@ -29,6 +29,7 @@ class HandlerLowering(HandlerAnalysis):
         return temporary
 
     def _capture_motion_selectors(self, clause, motion_terms):
+        operands = []
         for item in list(self.walk_nodes(clause.args)):
             if not isinstance(item, Expr) or item.kind != 'motion_condition':
                 continue
@@ -37,6 +38,7 @@ class HandlerLowering(HandlerAnalysis):
             if len(motion_terms) >= 64:
                 self.error('E_MOTION_CONDITION', 'MOVE supports at most 64 temporal selectors', item.token)
             offset, node = item.args
+            operands.extend(expr for expr in (offset, node) if expr is not None)
             offset_code = '0' if offset is None else self._capture_handler_integer(offset)
             node_code = repr('*') if node is None else self._capture_handler_integer(node)
             temporary = self.fresh()
@@ -48,14 +50,17 @@ class HandlerLowering(HandlerAnalysis):
             item.kind = 'motion_event'
             item.value = temporary
             item.args = []
+        return operands
 
     def condition_callbacks(self, clauses, *, motion_terms=None):
         pairs = []
         for clause in clauses:
             captures = self._capture_handler_evaluations(clause)
-            if clause.kind == 'condition_clause':
-                self.condition_input_captures[id(clause)] = captures
-            self._capture_motion_selectors(clause, motion_terms)
+            selectors = self._capture_motion_selectors(clause, motion_terms)
+            plan = dict(captures=captures)
+            if motion_terms is not None:
+                plan.update(trigger=clause.token.value, selectors=selectors)
+            self.callback_input_plans[id(clause)] = plan
             check_handler_actions(self.walk_nodes(clause.body), error=self.error)
             predicate, action = self.fresh(), self.fresh()
             condition = self.require_type(clause.args[0], 'BOOLEAN')

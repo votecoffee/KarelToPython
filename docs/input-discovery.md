@@ -55,8 +55,16 @@ Discovery evaluates condition numbers, options and captured `EVAL` operands
 when it reaches a definition. It follows predicates in source order and
 reports possible action reads as conditional. A handler may stay disabled
 or never fire, and its writes do not establish values in the enclosing flow.
-Earlier generated plans can lack the original `EVAL` operand and report a
-capture gap. Re-translate those modules to include it.
+Linked motion discovery reads group-qualified `WITH` settings, movement
+operands and PATH bounds before callback capture. Each local clause evaluates
+its `EVAL` operands and then its `AT NODE` or `TIME` selector operands before
+submission. Predicate and action reads for blocking and `NOWAIT` moves are
+conditional. Multiple `WHEN` actions can run. A proven true `UNTIL` ends the scan,
+so later clauses contribute no action reads. Timing, motion admission, PATH
+contents, and effects across callbacks remain unresolved.
+
+Earlier generated plans can lack original `EVAL` or temporal selector operands
+and report a capture gap. Re-translate those modules to include the operands.
 
 Missing or invalid analysis contracts, mismatched routine interfaces and
 unmodeled effects remain visible in the report. Changed pinned Python bytes
@@ -98,6 +106,12 @@ The optional input-template preparation below constructs those whole-root
 shapes with missing markers. The [desktop runner](desktop.md#discover-inputs-and-run-python)
 lists the candidates and provides scalar and structured field editors alongside
 the JSON context editor.
+
+Linked motion reports include the `motion` and `group_locks` offline services.
+Preparation lists each absent service as a requirement. Configure execution
+groups and motion responses explicitly in the context. The presence of these
+services alone cannot establish that any request will succeed.
+[Offline motion services](offline-services.md)
 
 Port and register candidates retain known indexes and position groups. Numeric
 register reads list INTEGER/REAL alternatives without guessing the stored kind.
