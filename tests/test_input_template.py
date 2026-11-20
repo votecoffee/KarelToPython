@@ -724,6 +724,40 @@ class InputTemplateTests(unittest.TestCase):
         self.assertTrue(report['complete'], report['unresolved'])
         self.assertEqual(set(by_path(prepared)), {'ROUTE[2].AMOUNT'})
 
+    def test_forwarded_field_alias_keeps_its_record_when_a_node_shifts(self):
+        source = (
+            'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t '
+            'VAR route:route_t unused:INTEGER '
+            'ROUTINE shift(v:route_t;held:INTEGER) VAR s:INTEGER '
+            'BEGIN DELETE_NODE(v,1,s) WRITE(held) held=17 END shift '
+            'ROUTINE forward(held:INTEGER) BEGIN shift(route,held) END forward '
+            'BEGIN forward(route[3].amount) IF (PATH_LEN(route)=2) AND (route[2].amount=17) '
+            'THEN WRITE(route[1].amount) ELSE WRITE(unused) ENDIF END T'
+        )
+        spec = ['PATH', ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]], None]
+        saved = dict(nodes=[{'AMOUNT': MISSING} for _ in range(3)], data=None)
+        context = {'variables': [dict(program='T', path='ROUTE', type=spec, value=saved)]}
+        prepared = prepare_inputs(translate(source).python_source, context=context)
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'ROUTE[2].AMOUNT', 'ROUTE[3].AMOUNT'})
+
+    def test_deleting_borrowed_field_record_stays_unresolved(self):
+        source = (
+            'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t '
+            'VAR route:route_t '
+            'ROUTINE edit(v:route_t;held:INTEGER) VAR s:INTEGER '
+            'BEGIN DELETE_NODE(v,1,s) WRITE(held) END edit '
+            'BEGIN edit(route,route[1].amount) END T'
+        )
+        spec = ['PATH', ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]], None]
+        saved = dict(nodes=[{'AMOUNT': MISSING}, {'AMOUNT': MISSING}], data=None)
+        context = {'variables': [dict(program='T', path='ROUTE', type=spec, value=saved)]}
+        report = prepare_inputs(translate(source).python_source, context=context)['template']['discovery']
+        self.assertFalse(report['inputs'])
+        self.assertTrue(any('Captured PATH reference has an unresolved origin' in row['message']
+                            for row in report['unresolved']))
+
     def test_saved_node_origin_does_not_override_current_slot_in_alias_guard(self):
         source = (
             'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t '

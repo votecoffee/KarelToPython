@@ -454,12 +454,13 @@ preserves any references into its storage. The updated shape belongs to
 the caller, so later queries and transfers use the moved records' original
 saved addresses. These calls can be nested or linked.
 
-In-place node edits preserve borrowed header references and borrowed nodes
-that occupy the same slot after the edit. Discovery checks each borrowed node
-in the current order, using its original or source-created identity. Appending
-after existing nodes keeps their slots. Inserting or deleting at or before a
-borrowed node can leave the edit unresolved. Whole replacements also require
-proof that header references stay valid.
+In-place node edits preserve borrowed header references. A whole-node borrow
+requires the record to keep its slot. A field or nested element borrow stays
+with its record when insertion or deletion shifts it to another slot.
+Discovery uses the original or source-created record identity, so a borrowed
+field read still identifies the original saved input. Deleting a borrowed
+record or replacing a whole PATH with borrowed records can leave discovery
+unresolved.
 
 The status output must use storage disjoint from the edited PATH. A known
 rejection of a node edit or COPY_PATH updates that status and preserves the

@@ -1,5 +1,11 @@
 # Changelog
 
+## 26.1120.175032 - 2026-11-20
+
+- Follow borrowed PATH node fields and nested elements through insertions and
+  deletions that move the underlying record.
+- Retain original saved input addresses through nested and linked routine calls.
+
 ## 26.1120.173646 - 2026-11-20
 
 - Discover PATH node edits that preserve the slots of live borrowed nodes.

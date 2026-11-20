@@ -397,7 +397,7 @@ class _Analyzer:
     def definite_path_effect(self, flow, conditional):
         return not (flow.opaque or flow.path_shape_unknown or conditional or self.repeat_depth)
 
-    def can_publish_path(self, loc, flow, conditional, *, unchanged_nodes=None):
+    def can_publish_path(self, loc, flow, conditional, *, unchanged_nodes=None, shifted_nodes=()):
         if loc is None or not self.definite_path_effect(flow, conditional):
             return False
         if not self.frames:
@@ -407,21 +407,30 @@ class _Analyzer:
             return True
         if not current['borrowed_path_edits']:
             return False
+
+        record_depth = len(loc.parts) + 1
+        stationary = set(unchanged_nodes or ())
+        shifted = set(shifted_nodes)
+
         def may_retarget(ref):
             if ref is None:
                 return True
-            if not self.path_contains_reference(loc, ref) or len(ref.parts) <= len(loc.parts):
+            if not self.path_contains_reference(loc, ref) or len(ref.parts) < record_depth:
                 return False
-            kind, index = ref.parts[len(loc.parts)]
             if unchanged_nodes is None:
                 return True
+            kind, index = ref.parts[record_depth - 1]
             if kind == 'created-header' or (kind, index) == ('index', 0):
                 return False
-            # Whole-node references are positional. Compare their identities
-            # against the prefix of the current order that keeps its slots.
             if kind == 'created-node':
-                return -index not in unchanged_nodes
-            return kind != 'index' or index not in unchanged_nodes
+                index = -index
+            elif kind != 'index':
+                return True
+            if index in stationary:
+                return False
+            # Whole nodes borrow a list slot. A descendant borrows storage in
+            # the record itself and survives a shift if that record still exists.
+            return len(ref.parts) == record_depth or index not in shifted
 
         return not any(may_retarget(ref) for frame in self.frames for ref in frame['references'])
 
@@ -972,12 +981,13 @@ class _Analyzer:
                     order = _PathOrder(tuple(range(1, count + 1)))
                 offset = index - 1
                 prefix = order.nodes[:offset]
-                if self.can_publish_path(path, flow, conditional, unchanged_nodes=set(prefix)):
+                shifted = order.nodes[index if removing else offset:]
+                if self.can_publish_path(path, flow, conditional, unchanged_nodes=prefix, shifted_nodes=shifted):
                     if removing:
-                        nodes = prefix + order.nodes[index:]
+                        nodes = prefix + shifted
                     else:
                         self.serial += 1
-                        nodes = prefix + (-self.serial,) + order.nodes[offset:]
+                        nodes = prefix + (-self.serial,) + shifted
                         record = self.child(path, 'created-node', self.serial, node)
                         value = _Value(complete=False) if seed is None else self.complete_path_record(seed)
                         self.write(record, value, flow, node)
