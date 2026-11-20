@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1120.160947 - 2026-11-20
+
+- Discover whole PATH and PATH ARRAY inputs in pinned linked runs, using the
+  exact storage owner through imported variables and reference arguments.
+- Preserve saved PATH roots needed by linked FILE transfers on refresh,
+  including READ destinations with no initial field inputs.
+
 ## 26.1120.160323 - 2026-11-20
 
 - Discover editable records for whole PATH and PATH ARRAY transfers during

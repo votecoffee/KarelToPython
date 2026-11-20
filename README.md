@@ -3,7 +3,7 @@
 ![KarelToPython icon](karel2py/assets/icons/karel_to_python_icon_64x64.png)
 
 KarelToPython translates a supported subset of FANUC KAREL into Python for
-offline inspection and execution. The current build is **26.1120.160323**.
+offline inspection and execution. The current build is **26.1120.160947**.
 
 ## Table of Contents
 

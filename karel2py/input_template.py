@@ -116,7 +116,8 @@ def _context_state(context):
         raise InputTemplateError('Invalid input template context: '+str(error)) from error
 
 
-def _discover_with_context(python_source, filename, execution):
+def _saved_path_count(execution):
+    """Build a lazy topology lookup over validated, exact context roots."""
     snapshots = {}
 
     def path_count(program, root, root_type, selectors):
@@ -128,7 +129,11 @@ def _discover_with_context(python_source, filename, execution):
             snapshots[key] = rt.snapshot_value(reference.raw())
         return len(_selected(reference.spec, snapshots[key], selectors)['nodes'])
 
-    return _discover_inputs(python_source, filename=filename, saved_path_count=path_count)
+    return path_count
+
+
+def _discover_with_context(python_source, filename, execution):
+    return _discover_inputs(python_source, filename=filename, saved_path_count=_saved_path_count(execution))
 
 
 def _prepare(report, context, *, materialize=True, execution=None):

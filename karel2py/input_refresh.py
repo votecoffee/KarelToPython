@@ -99,10 +99,10 @@ def refresh_inputs(python_source, inputs, *, filename='<python>'):
     return _refresh_report(report, original, previous, old_target, execution=execution)
 
 
-def refresh_linked_inputs(report, inputs, previous_target):
+def refresh_linked_inputs(report, inputs, previous_target, execution=None):
     """Carry saved variable values with proved storage in the new linked input catalog."""
     previous = _previous_template(inputs, linked_target=previous_target)
-    return _refresh_report(report, inputs['context'], previous, previous_target, linked=True)
+    return _refresh_report(report, inputs['context'], previous, previous_target, linked=True, execution=execution)
 
 
 def _compare_catalogs(previous, report):
@@ -142,6 +142,11 @@ def _refresh_report(report, context, previous, previous_target, *, linked=False,
             original, execution = _context_state(context)
         new_roots = {(row['program'], row['root_path']): row['root_type']
                      for row in report['inputs'] if row['kind'] == 'variable'}
+        if linked:
+            # Whole transfers can depend on an exact saved shape without
+            # reading any initial field value, for example READ of a PATH.
+            new_roots.update({(row['program'], row['path']): row['type']
+                              for row in report.get('path_storage', ())})
         config = deepcopy(original)
         changed, rows, migrations = {}, [], []
         for index, row in enumerate(original.get('variables', [])):

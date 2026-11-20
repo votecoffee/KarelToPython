@@ -117,7 +117,9 @@ The `karel2py.inputs.v1` report contains target byte identity, `inputs`,
 `context_requirements`, `unresolved` and `complete`. Each input identifies its
 logical kind, owner, selected path, type when known, certainty and source
 locations. Include locations retain their physical file/line; `python_lines`
-points into the generated module.
+points into the generated module. When FILE analysis uses existing PATH
+storage, `path_storage` lists the exact owner, root path and type of each
+saved root used. A shape dependency can exist without a field input.
 
 - `required`: a modeled unconditional read has no proven prior source write.
 - `conditional`: the read depends on a branch, a potentially empty loop, a
@@ -262,8 +264,10 @@ unavailable. The new module pins are checked before publication.
 [Refresh a linked module set](run-documents.md#refresh-a-linked-module-set)
 
 Linked refresh uses the same schema compatibility rules and keys storage by
-the owning program and root path. A context variable without a matching
-discovered root is omitted from the new context. The `refresh.variables` row
+the owning program and root path. Exact saved PATH roots needed by a whole or
+selected FILE transfer carry forward, including READ destinations with no
+initial fields to edit. A context variable without a matching discovered root
+or PATH storage dependency is omitted from the new context. The `refresh.variables` row
 points to its original value and marks it `not-discovered` if discovery finished,
 or `unresolved` if discovery was incomplete. Even an omitted variable may be
 needed by a path that analysis cannot model. Use the discovery report and
@@ -363,15 +367,18 @@ Provide the exact typed PATH root in `inputs.context.variables` to edit its
 selected scalar or structure. The template can bind to a supplied header,
 node or field, keeping the remaining PATH values and node count intact.
 A missing root or unavailable node is reported as a `path-storage` requirement.
-For standalone run preparation and refresh, a matching saved root also lets
-discovery expand a whole PATH, a selected whole PATH ARRAY cell, or a whole
-bank into existing header and node records. READ uses this shape to identify
-its destinations and still requires explicit input-stream data. WRITE
-adds editable records only when their fields are read before a definite
-source write. Each transfer item is limited to 1,024 scalar fields.
+During standalone preparation or refresh and linked discovery, preparation,
+or refresh, a matching saved root lets discovery expand a whole PATH, a
+selected whole PATH ARRAY cell, or a whole bank into existing header and node
+records. Linked references use the storage owner, including when a pinned
+routine reads an imported PATH passed by reference. READ uses the shape to
+identify its destinations and still requires explicit input-stream data.
+WRITE adds editable records when their fields are read before a definite
+source write. Each whole transfer item is limited to 1,024 scalar fields.
 A conditionally reached transfer, a possible topology change, a missing
-saved shape, or discovery without a saved context leaves the whole
-transfer unresolved.
+saved shape, or analysis without a saved context leaves the whole transfer
+unresolved. Linked discovery also leaves it unresolved when task or handler
+ordering requires a conservative second pass.
 
 ### Boolean and INTEGER operators
 

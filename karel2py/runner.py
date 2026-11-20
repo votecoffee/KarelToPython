@@ -373,6 +373,7 @@ def refresh_project_document(source, destination, modules, *, entry=None, expect
                              expected_modules=None, protected=()):
     """Prepare a new linked run from saved inputs and an ordered replacement module set."""
     from .input_refresh import refresh_linked_inputs
+    from .input_template import _context_state
     from .project_input_discovery import _analyze_pins
     from .project_run import _project_target, check_project_pin_bytes, project_document_fields
 
@@ -381,9 +382,10 @@ def refresh_project_document(source, destination, modules, *, entry=None, expect
     old_target, inputs = project_document_fields(previous)
     target, module_paths = _project_target(
         modules, destination, old_target['program'] if entry is None else entry, expected_modules)
-    report = _analyze_pins(target, module_paths)
     try:
-        prepared = refresh_linked_inputs(report, inputs, old_target)
+        _, execution = _context_state(inputs['context'])
+        report = _analyze_pins(target, module_paths, execution=execution)
+        prepared = refresh_linked_inputs(report, inputs, old_target, execution)
     except ValueError as error:
         raise RunDocumentError('Input refresh: '+str(error)) from error
     document = dict(schema=PROJECT_SCHEMA, target=target, limits=previous['limits'], inputs=prepared, results=None)

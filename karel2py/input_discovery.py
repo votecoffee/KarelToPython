@@ -202,7 +202,10 @@ class _Analyzer:
     def __init__(self, plan, *, linked_plans=None, track_handlers=False, track_tasks=False,
                  saved_path_count=None):
         self.plan = plan
-        self.saved_path_count = saved_path_count
+        # A linked fallback pass has lost handler or task ordering. Its flow
+        # still supplies approximate candidates, but cannot prove seed topology.
+        self.saved_path_count = saved_path_count if linked_plans is None or track_handlers and track_tasks else None
+        self.path_storage = {}
         self.steps = 0
         self.serial = 0
         self.inputs = {}
@@ -333,7 +336,10 @@ class _Analyzer:
         if expr['kind'] != 'path_io_range':
             location = self.locate(expr, flow, conditional, path_io=True)
             records = self.saved_path_records(location, expr, flow, conditional)
-            return [location] if records is None else records
+            if records is not None:
+                return records
+            self.retain_selected_path_storage(location, flow, conditional)
+            return [location]
         receiver, first_arg, last_arg = expr['args']
         path = self.locate(receiver, flow, conditional)
         first = self.expr(first_arg, flow, conditional).constant
@@ -350,12 +356,30 @@ class _Analyzer:
         if len(indexes) > MAX_PATH_IO_FIELDS:
             self.unresolved_at('selection', 'PATH range exceeds the bounded FILE transfer limit', expr)
             return [None]
-        return [self.child(path, 'index', index, expr) for index in indexes]
+        locations = [self.child(path, 'index', index, expr) for index in indexes]
+        for location in locations:
+            self.retain_selected_path_storage(location, flow, conditional)
+        return locations
+
+    def stable_path_context(self, loc, flow, conditional):
+        return (self.saved_path_count is not None and loc is not None and loc.kind == 'variable'
+                and not (flow.opaque or flow.path_shape_unknown or conditional))
+
+    def retain_selected_path_storage(self, loc, flow, conditional):
+        if not self.stable_path_context(loc, flow, conditional):
+            return
+        dimensions, root = _array_dimensions(loc.root_spec)
+        if not root or root[0] != 'PATH' or len(loc.parts) <= len(dimensions):
+            return
+        prefix = loc.parts[:len(dimensions)]
+        _, index = loc.parts[len(dimensions)]
+        count = self.saved_path_count(loc.owner, loc.root, loc.root_spec, prefix)
+        if count is not None and 0 <= index <= count:
+            self.path_storage[loc.owner, loc.root] = loc.root_spec
 
     def saved_path_records(self, loc, node, flow, conditional):
         """Expand an exact initial topology while it still applies to this transfer."""
-        if (self.saved_path_count is None or loc is None or loc.kind != 'variable'
-                or flow.opaque or flow.path_shape_unknown or conditional):
+        if not self.stable_path_context(loc, flow, conditional):
             return None
         _, terminal = _array_dimensions(loc.spec)
         if not terminal or terminal[0] != 'PATH':
@@ -389,7 +413,10 @@ class _Analyzer:
                 records.append(record)
             return True
 
-        return records if expand(loc) else None
+        if not expand(loc):
+            return None
+        self.path_storage[loc.owner, loc.root] = loc.root_spec
+        return records
 
     def locate(self, expr, flow, conditional, *, path_io=False):
         if not isinstance(expr,dict):return None
@@ -457,6 +484,7 @@ class _Analyzer:
                 for record in records:
                     self.read(record, node, flow, conditional)
                 return _Value(spec=loc.spec)
+            self.retain_selected_path_storage(loc, flow, conditional)
         leaves=self.leaves(loc)
         if leaves is None:
             self.unresolved_at('schema','Resource or unsupported value read: '+loc.path,node)
@@ -1406,11 +1434,15 @@ def _analyze_plan(plan, target, *, linked_plans, track_handlers, track_tasks, sa
         except _Limit as error:
             analyzer.unresolved_at('limit', str(error), {})
     rows = sorted(analyzer.inputs.values(), key=lambda row: (row['kind'], row['program'] or '', row['path']))
-    return dict(schema='karel2py.inputs.v1', target=target, complete=not analyzer.unresolved,
-                inputs=rows, unresolved=list(analyzer.unresolved.values()),
-                context_requirements=list(analyzer.contexts.values()),
-                boundary=('Source-flow candidates from a checked generated contract only; '
-                          'no target imports/execution, invented values, host callback guarantees or controller proof.'))
+    report = dict(schema='karel2py.inputs.v1', target=target, complete=not analyzer.unresolved,
+                  inputs=rows, unresolved=list(analyzer.unresolved.values()),
+                  context_requirements=list(analyzer.contexts.values()),
+                  boundary=('Source-flow candidates from a checked generated contract only; '
+                            'no target imports/execution, invented values, host callback guarantees or controller proof.'))
+    if analyzer.path_storage:
+        report['path_storage'] = [dict(program=owner, path=root, type=spec)
+                                  for (owner, root), spec in sorted(analyzer.path_storage.items())]
+    return report
 
 
 def discover_inputs(python_source, *, filename='<python>'):

@@ -92,6 +92,101 @@ class SavedProjectTests(unittest.TestCase):
         self.assertEqual(saved['results'], run['results'])
         self.assertEqual(saved['inputs']['template']['target'], run['target'])
 
+    def test_linked_whole_path_discover_edit_and_refresh_resolve_imported_owner(self):
+        types = ('TYPE node_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+                 'header_t=STRUCTURE total:INTEGER ENDSTRUCTURE '
+                 'route_t=PATH NODEDATA=node_t PATHHEADER=header_t')
+        main = self.module('MAIN', 'route[1].amount=18 show_route(route)',
+                           types+' VAR route FROM LIB:route_t',
+                           'ROUTINE show_route(value:route_t) FROM LIB')
+        lib = self.module('LIB', declarations=types+' VAR route:route_t',
+                          routines='ROUTINE show_route(value:route_t) BEGIN WRITE(value,CR) END show_route')
+        schema = ['PATH', ['STRUCTURE', 'NODE_T', [['AMOUNT', ['INTEGER']]]],
+                  ['STRUCTURE', 'HEADER_T', [['TOTAL', ['INTEGER']]]]]
+        seed = dict(program='lib', path='route', type=schema,
+                    value=dict(nodes=[{'AMOUNT': MISSING}], data={'TOTAL': MISSING}))
+        with patch('builtins.exec', side_effect=AssertionError('discovery executed pinned Python')):
+            prepared = self.create(main, lib, context={'variables': [seed]}, discover=True)
+            inspected = discover_project_document(self.document)
+
+        report = prepared['inputs']['template']['discovery']
+        self.assertEqual(inspected['inputs'], report['inputs'])
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(report['path_storage'], [dict(program='LIB', path='ROUTE', type=schema)])
+        candidate, = inspected['inputs']
+        self.assertEqual((candidate['program'], candidate['path']), ('LIB', 'ROUTE[0]'))
+        self.assertEqual(candidate['locations'][0]['routine'], 'SHOW_ROUTE')
+
+        _, revision = runner.save_input_structure(self.document, ('variable', 'LIB', 'ROUTE[0]'),
+                                                  {'TOTAL': 12}, expected=self.document.read_bytes())
+        revised = self.folder/'revised.run.json'
+        refreshed = runner.refresh_project_document(self.document, revised, [main, lib], expected=revision)
+        binding, = refreshed['inputs']['template']['bindings']
+        self.assertEqual(binding['status'], 'supplied')
+        self.assertEqual(self.document.read_bytes(), revision)
+        result = runner.run_document(revised)['results']
+        self.assertEqual(result['status'], 'completed', result['error'])
+        self.assertEqual(result['text_output'], ' 12 18\n')
+
+    def test_linked_whole_path_bank_read_preserves_shape_without_value_candidates(self):
+        main = self.module('MAIN', 'READ INPUT(routes) CLOSE FILE INPUT',
+                           'TYPE row_t=STRUCTURE value:INTEGER ENDSTRUCTURE '
+                           'VAR routes:ARRAY[2] OF PATH NODEDATA=row_t')
+        spec = ['ARRAY', 2, ['PATH', ['STRUCTURE', 'ROW_T', [['VALUE', ['INTEGER']]]], None]]
+        seed = dict(program='MAIN', path='ROUTES', type=spec,
+                    value=[dict(nodes=[{'VALUE': MISSING}], data=None), dict(nodes=[], data=None)])
+        context = dict(variables=[seed, dict(program='MAIN', path='UNUSED', type='INTEGER', value=9)],
+                       files={'data': {'hex': '1f000000'}}, predefined_files={'INPUT': dict(name='data', mode='RB')})
+        prepared = self.create(main, context=context, discover=True)
+        report = prepared['inputs']['template']['discovery']
+        self.assertEqual(report['inputs'], [])
+        self.assertEqual(report['path_storage'], [dict(program='MAIN', path='ROUTES', type=spec)])
+        self.assertEqual({row['code'] for row in report['unresolved']},
+                         {'input-stream', 'file-state', 'file-transport'})
+
+        revised = self.folder/'revised.run.json'
+        refreshed = runner.refresh_project_document(self.document, revised, [main])
+        self.assertEqual(refreshed['inputs']['context']['variables'], [seed])
+        self.assertEqual([row['path'] for row in refreshed['inputs']['template']['refresh']['variables']], ['UNUSED'])
+        outputs = runner.run_document(revised)['results']
+        self.assertEqual(outputs['status'], 'completed', outputs['error'])
+        values = outputs['programs']['MAIN']['values']['ROUTES']
+        self.assertEqual(values, [dict(nodes=[{'VALUE': 31}], data=None), dict(nodes=[], data=None)])
+
+    def test_linked_selected_path_read_retains_storage_even_without_field_inputs(self):
+        decl = 'TYPE row_t=STRUCTURE value:INTEGER ENDSTRUCTURE VAR route:PATH NODEDATA=row_t'
+        main = self.module('MAIN', 'READ INPUT(route[2])', decl)
+        spec = ['PATH', ['STRUCTURE', 'ROW_T', [['VALUE', ['INTEGER']]]], None]
+        seed = dict(program='MAIN', path='ROUTE', type=spec,
+                    value=dict(nodes=[{'VALUE': 1}, {'VALUE': MISSING}], data=None))
+        context = dict(variables=[seed], files={'data': ' 25'},
+                       predefined_files={'INPUT': dict(name='data', mode='RO')})
+        self.create(main, context=context)
+        revised = self.folder/'revised.run.json'
+        refreshed = runner.refresh_project_document(self.document, revised, [main])
+        self.assertEqual(refreshed['inputs']['context']['variables'], [seed])
+        self.assertFalse(refreshed['inputs']['template']['bindings'])
+        result = runner.run_document(revised)['results']
+        self.assertEqual(result['status'], 'completed', result['error'])
+        route = result['programs']['MAIN']['values']['ROUTE']
+        self.assertEqual(route['nodes'], [{'VALUE': 1}, {'VALUE': 25}])
+
+    def test_linked_whole_path_shape_stays_unproven_after_concurrent_effects(self):
+        decl = 'TYPE row_t=STRUCTURE value:INTEGER ENDSTRUCTURE VAR route:PATH NODEDATA=row_t s:INTEGER'
+        schema = ['PATH', ['STRUCTURE', 'ROW_T', [['VALUE', ['INTEGER']]]], None]
+        context = {'variables': [dict(program='MAIN', path='ROUTE', type=schema,
+                                      value=dict(nodes=[{'VALUE': 7}], data=None))]}
+        main = self.module('MAIN', "RUN_TASK('CHILD',0,FALSE,FALSE,0,s) WRITE(route)", decl)
+        child = self.module('CHILD', 'DELETE_NODE(route,1,s)',
+                            'TYPE row_t=STRUCTURE value:INTEGER ENDSTRUCTURE '
+                            'VAR route FROM MAIN:PATH NODEDATA=row_t s:INTEGER')
+        prepared = self.create(main, child, context=context, discover=True)
+        report = prepared['inputs']['template']['discovery']
+        self.assertNotIn('path_storage', report)
+        self.assertFalse(report['inputs'])
+        self.assertTrue(any(row['code'] == 'schema' and row['message'].endswith('ROUTE')
+                            for row in report['unresolved']), report)
+
     def test_prepare_existing_linked_document_preserves_results_and_checks_revision(self):
         main = self.module('MAIN', 'WRITE(n)', 'VAR n FROM LIB:INTEGER')
         lib = self.module('LIB')
