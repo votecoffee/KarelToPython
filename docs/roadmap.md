@@ -2,8 +2,8 @@
 
 Functional Pythonic conversion remains the implementation priority. The
 compiler now separates parsing, schema validation, control-flow analysis, and
-Python generation. The next priority is expanding linked input discovery
-to scheduled tasks, handlers and callbacks. Strict compatibility follows functional coverage.
+Python generation. The next priority is resolving more linked scheduling and
+callback dependencies. Strict compatibility follows functional coverage.
 Current behavior and restrictions are documented in the [support guide](language-support.md)
 and [desktop guide](desktop.md).
 
@@ -57,17 +57,19 @@ The desktop and CLI create pinned linked runs with an explicit entry and module
 order. Both prepare owner-qualified input templates, and the desktop edits
 discovered scalar and structured inputs and shows each saved program snapshot.
 Input saves check the document revision and module pins and keep prior results.
-Discovery follows synchronous calls with matching signatures, reference
-arguments, and imported variables. Refreshing a module set carries compatible
+Discovery follows synchronous linked calls, known child task bodies, and
+condition predicates and actions. Child and scan-time reads are conditional.
+Refreshing a module set carries compatible
 owner-qualified values into a new document and reports changed, omitted and
 unresolved inputs.
 [Linked input discovery](input-discovery.md#linked-project-discovery)
 
 ### Remaining linked-run work
 
-1. **Expand linked discovery.** Analyze scheduled child tasks, handler actions,
-   and callbacks where their targets and effects can be resolved. Keep dynamic
-   selections and unknown timing or external effects visible in the report.
+1. **Expand linked discovery.** Resolve more task continuations, synchronization
+   and handler activation where order and targets can be determined. Extend
+   callback analysis to local motion handlers and keep dynamic selections and
+   external effects visible in the report.
 2. **Export linked sources from the desktop.** Reuse linked-project validation
    and cooperative Python export so the desktop workflow can begin with KAREL
    source files. Keep the existing output and source-file protections.

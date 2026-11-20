@@ -147,6 +147,9 @@ def build(program, emitter):
                             pass
             else:
                 row.update(body=encode(value.body, depth + 1), alternate=encode(value.alternate, depth + 1), has_else=value.has_else)
+                captures = emitter.condition_input_captures.get(id(value))
+                if captures is not None:
+                    row['captures'] = encode(captures, depth + 1)
             return row
         return dict(unsupported_type=kind)
 

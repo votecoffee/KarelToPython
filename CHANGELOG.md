@@ -1,5 +1,13 @@
 # Changelog
 
+## 26.1120.111236 - 2026-11-20
+
+- Discover possible inputs in pinned child bodies reached by a known `RUN_TASK`
+  target and in condition predicates and actions. Keep scheduler and scan
+  effects unresolved where execution order is unknown.
+- Record handler `EVAL` operands in the generated analysis plan and discover
+  their reads at definition time, in emitted capture order.
+
 ## 26.1120.015327 - 2026-11-20
 
 - Add `runner refresh-project` and **Revise linked** to carry compatible

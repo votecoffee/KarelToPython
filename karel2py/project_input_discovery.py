@@ -1,4 +1,4 @@
-"""Discover synchronous input flows across a saved run's pinned modules."""
+"""Discover input flows across a saved run's pinned modules."""
 from copy import deepcopy
 from hashlib import sha256
 

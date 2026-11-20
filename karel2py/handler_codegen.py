@@ -8,15 +8,19 @@ class HandlerLowering(HandlerAnalysis):
     """Emit checked callback captures in their source evaluation order."""
 
     def _capture_handler_evaluations(self, clause):
+        captures = []
         for item in reversed(list(self.walk_nodes([*clause.args, *clause.body]))):
             if not isinstance(item, Expr) or item.kind != 'eval':
                 continue
-            code, spec = self.expression(item.args[0])
+            operand = item.args[0]
+            code, spec = self.expression(operand)
             temporary = self.fresh()
+            captures.append((temporary, operand))
             self.line(f'{temporary}=_rt.assignment_value({code},{item.token.line})', item.token)
             item.kind = 'captured'
             item.value = (temporary, spec)
             item.args = []
+        return captures
 
     def _capture_handler_integer(self, expr):
         code = self.require_type(expr, 'INTEGER')
@@ -48,7 +52,9 @@ class HandlerLowering(HandlerAnalysis):
     def condition_callbacks(self, clauses, *, motion_terms=None):
         pairs = []
         for clause in clauses:
-            self._capture_handler_evaluations(clause)
+            captures = self._capture_handler_evaluations(clause)
+            if clause.kind == 'condition_clause':
+                self.condition_input_captures[id(clause)] = captures
             self._capture_motion_selectors(clause, motion_terms)
             check_handler_actions(self.walk_nodes(clause.body), error=self.error)
             predicate, action = self.fresh(), self.fresh()

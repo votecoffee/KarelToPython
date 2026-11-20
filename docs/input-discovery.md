@@ -40,20 +40,29 @@ python -m karel2py.runner discover-project .local/linked.run.json
 ```
 
 The report identifies the saved run revision and ordered module pins. Discovery
-follows the entry body and synchronous calls with matching linked signatures.
-It tracks reference arguments and resolves chains of imported globals to the
-program that owns their storage. A definite write through any recognized alias
-counts as a write to the owner's variable. A candidate's `program` is that
-owner. Each source location's `program` identifies the module containing the
-read. The entry alone starts the analysis, so a library's top-level body is
-included only if that program is selected as entry.
+starts at the entry and follows synchronous calls with matching linked
+signatures. It tracks reference arguments and resolves imported globals to the
+program that owns their storage. A candidate's `program` gives that owner.
+Each source location's `program` identifies the module containing the read.
 
-Missing or invalid analysis contracts, mismatched routine interfaces, recursion,
-scheduled tasks and unmodeled service effects produce gaps. Changed pinned
-Python bytes prevent discovery. The report describes inputs for the modeled
-paths and leaves the saved inputs and results intact. Enter values in
-`inputs.context` using the reported owner and root schema. Add `--output`
-to save the report to a new private JSON file.
+A known `RUN_TASK` target with a checked pinned body contributes conditional
+candidates. Discovery follows nested launches within its analysis budget.
+Dynamic or missing targets, recursion, live continuation and scheduler timing
+remain explicit gaps. A child's writes do not establish that a parent read is
+initialized.
+
+Discovery evaluates condition numbers, options and captured `EVAL` operands
+when it reaches a definition. It follows predicates in source order and
+reports possible action reads as conditional. A handler may stay disabled
+or never fire, and its writes do not establish values in the enclosing flow.
+Earlier generated plans can lack the original `EVAL` operand and report a
+capture gap. Re-translate those modules to include it.
+
+Missing or invalid analysis contracts, mismatched routine interfaces and
+unmodeled effects remain visible in the report. Changed pinned Python bytes
+prevent discovery. The report leaves saved inputs and results intact. Enter
+values in `inputs.context` using the reported owner and root schema. Add
+`--output` to save the report to a new private JSON file.
 
 **New linked** and `runner create-project --discover` save an editable template
 as part of the run document. Use **Prepare inputs** or `runner prepare-project`

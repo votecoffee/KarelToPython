@@ -12,6 +12,7 @@ from . import runtime as rt
 UNKNOWN = object()
 MAX_STEPS = 100000
 MAX_INPUTS = 2048
+MAX_CALL_DEPTH = 32
 MAX_FACTS = 32767
 MAX_BYTES = 16 * 1024 * 1024
 SCALARS = {'INTEGER', 'BYTE', 'SHORT', 'REAL', 'BOOLEAN', 'STRING', 'NUMERIC'}
@@ -159,6 +160,9 @@ class _Analyzer:
         self.exits = []
         self.contexts = {}
         self.linked_plans = linked_plans
+        self.task_roots = (plan['program'],)
+        self.suspended_depth = 0
+        self.condition_values = {}
         plans = linked_plans if linked_plans is not None else {plan['program']: plan}
         self.imports = {
             name: {local: (owner.upper(), foreign) for local, owner, foreign in item.get('imports', [])}
@@ -458,6 +462,18 @@ class _Analyzer:
                 except (ArithmeticError,TypeError,ValueError):pass
             return _Value(spec=['BOOLEAN'] if kind=='binary' and value in ('=','<>','<','<=','>','>=') else None)
         if kind=='call':return self.result_value(self.call(node,flow,conditional),node,partial)
+        if self.linked_plans is not None and kind=='captured':
+            name, spec = value
+            captured = self.condition_values.get((self.program, name))
+            if captured is not None:
+                return _Value(captured.constant, captured.complete, spec, captured.facts)
+            self.unresolved_at('condition-capture', 'EVAL source is unavailable; re-translate for capture discovery', node)
+            return _Value(complete=False, spec=spec)
+        if self.linked_plans is not None and kind in ('event', 'semaphore', 'edge', 'error_condition', 'task_event'):
+            for item in args:
+                self.expr(item, flow, conditional)
+            self.unresolved_at('condition-source', 'Runtime condition state requires review: '+kind, node)
+            return _Value(spec=['BOOLEAN'])
         if kind in ('write_item','read_item','eval'):
             values=[self.expr(item,flow,conditional) for item in args]
             return values[0] if values else _Value()
@@ -526,6 +542,15 @@ class _Analyzer:
                 values.append(self.read(loc,item,flow,conditional) if loc else self.expr(item,flow,conditional));outputs.append((index,loc))
             else:values.append(self.expr(item,flow,conditional))
         known=[value.constant for value in values]
+        if self.linked_plans is not None and name in ('RUN_TASK', 'CONT_TASK'):
+            if name == 'RUN_TASK':
+                self.scheduled_task(known[0], node)
+            else:
+                self.unresolved_at('task-continuation', 'Task continuation depends on a live suspended frame', node)
+            self.opaque(flow)
+            for _, loc in outputs:
+                self.write(loc, _Value(), flow, node, definite=False)
+            return _Value()
         if name in ('GET_VAR','SET_VAR'):
             owner,path=known[1:3]
             loc=None
@@ -583,6 +608,30 @@ class _Analyzer:
             self.write(loc,_Value(),flow,node,definite=status)
         return _Value(complete=reading or not signature)
 
+    def scheduled_task(self, target, node):
+        if type(target) is not str:
+            self.unresolved_at('task-target', 'RUN_TASK target is dynamic', node)
+            return
+        name = target.upper()
+        plan = self.linked_plans.get(name) if target.isascii() else None
+        if plan is None or plan.get('status') != 'available':
+            self.unresolved_at('task-target', 'RUN_TASK target has no checked pinned body: '+name, node)
+            return
+        suspended_depth = self.suspended_depth + len(self.frames) + 1
+        if name in self.task_roots or suspended_depth >= MAX_CALL_DEPTH:
+            self.unresolved_at('task-target', 'Recursive or deeply nested RUN_TASK target: '+name, node)
+            return
+        self.unresolved_at('task-scheduling', 'RUN_TASK timing, admission and shared effects require review: '+name, node)
+        caller_plan, caller_roots, caller_depth = self.plan, self.task_roots, self.suspended_depth
+        caller_frames, caller_exits, caller_values = self.frames, self.exits, self.condition_values
+        self.plan, self.task_roots, self.suspended_depth = plan, (*caller_roots, name), suspended_depth
+        self.frames, self.exits, self.condition_values = [], [], {}
+        try:
+            self.block(plan['body'], _Flow(), True)
+        finally:
+            self.plan, self.task_roots, self.suspended_depth = caller_plan, caller_roots, caller_depth
+            self.frames, self.exits, self.condition_values = caller_frames, caller_exits, caller_values
+
     def routine_target(self, name, interface):
         owner = interface['external']
         if not owner:
@@ -609,7 +658,8 @@ class _Analyzer:
                 actual.append(self.expr(item,flow,conditional))
         target_plan, target_routine = self.routine_target(name, routine)
         routine_key = (target_plan['program'], name) if target_plan else None
-        if target_routine is None or any(frame['key'] == routine_key for frame in self.frames) or len(self.frames) >= 32:
+        if (target_routine is None or any(frame['key'] == routine_key for frame in self.frames)
+                or self.suspended_depth + len(self.frames) >= MAX_CALL_DEPTH):
             qualified = (routine['external'] or self.program) + '.' + name
             self.unresolved_at('routine', 'External or recursive routine effects are unresolved: '+qualified, node)
             for item in actual:
@@ -669,6 +719,50 @@ class _Analyzer:
             values=converted
         return _merged_value(values,result)
 
+    def legacy_capture(self, value):
+        self.tick()
+        if isinstance(value, dict):
+            kind = value.get('kind')
+            if kind == 'captured':
+                return value
+            if kind != 'motion':
+                return self.legacy_capture(list(value.values()))
+        if isinstance(value, list):
+            for item in value:
+                captured = self.legacy_capture(item)
+                if captured is not None:
+                    return captured
+        return None
+
+    def condition(self, node, flow, conditional):
+        number, options = node['args']
+        self.expr(number, flow, conditional)
+        for _, option in options:
+            self.expr(option, flow, conditional)
+        self.unresolved_at('condition-scan', 'Condition enablement, scan timing and shared effects require review', node)
+        previous, self.condition_values = self.condition_values, {}
+        try:
+            for clause in node['body']:
+                if 'captures' in clause:
+                    for name, operand in clause['captures']:
+                        self.condition_values[self.program, name] = self.expr(operand, flow, conditional)
+                else:
+                    missing = self.legacy_capture(clause)
+                    if missing is not None:
+                        self.unresolved_at('condition-capture', 'EVAL source is unavailable; re-translate for capture discovery', missing)
+                        self.opaque(flow)
+            scan = _Flow()
+            for clause in node['body']:
+                matched = self.expr(clause['args'][0], scan, True).constant
+                if scan.stopped:
+                    break
+                if matched is not False:
+                    self.block(clause['body'], scan.copy(), True)
+                if matched is True:
+                    break
+        finally:
+            self.condition_values = previous
+
     def block(self, body, flow, conditional=False):
         for node in body:
             if flow.stopped and not flow.opaque:break
@@ -680,6 +774,21 @@ class _Analyzer:
             value=self.expr(args[1],flow,conditional,partial=True)
             self.write(self.locate(args[0],flow,conditional),value,flow,node);return
         if kind=='call':self.expr(args[0],flow,conditional);return
+        if self.linked_plans is not None:
+            if kind == 'condition':
+                self.condition(node, flow, conditional)
+                return
+            if kind == 'condition_control':
+                self.expr(args[1], flow, conditional)
+                if args[0] == 'ENABLE':
+                    self.unresolved_at('condition-scan', 'Enabling a condition may run its callbacks at later checkpoints', node)
+                    self.opaque(flow)
+                return
+            if kind in ('wait', 'delay'):
+                self.expr(args[0], flow, conditional)
+                self.unresolved_at('task-wait', 'Waiting and possible task effects require an execution order', node)
+                self.opaque(flow)
+                return
         if kind=='if':
             condition=self.expr(args[0],flow,conditional).constant
             if type(condition) is bool:

@@ -78,6 +78,7 @@ class Emitter(DeclarationPasses, TypeQueries, ExpressionLowering, AssignmentLowe
         self.reference_for_uses=[]
         self.connected_timer_uses=[]
         self.handler_uses=[]
+        self.condition_input_captures = {}
         self.system_pose_uses=[]
         self.system_pose_writes=[]
         self.system_selection_uses=[]

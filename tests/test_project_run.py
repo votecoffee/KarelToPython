@@ -371,6 +371,113 @@ class SavedProjectTests(unittest.TestCase):
         self.assertEqual((origin['program'], origin['routine']), ('BRIDGE', 'FILL'))
         self.assertEqual(runner.run_document(self.document)['results']['programs']['MAIN']['values']['CELL'], 3)
 
+    def test_linked_discovery_follows_scheduled_body_and_imported_storage(self):
+        main = self.module('MAIN',
+                           "target='child' RUN_TASK(target,0,FALSE,FALSE,0,s) WAIT FOR EVENT[1]",
+                           'VAR target:STRING[8] s:INTEGER')
+        child = self.module('CHILD', 'n=4 WRITE(n+seed,CR) SIGNAL EVENT[1]',
+                            'VAR n:INTEGER seed FROM DATA:INTEGER')
+        data = self.module('DATA', 'WRITE(untouched)', 'VAR seed,untouched:INTEGER')
+        context = {'variables': [dict(program='DATA', path='SEED', type='INTEGER', value=17)]}
+        with patch('builtins.exec', side_effect=AssertionError('module executed while discovering tasks')):
+            saved = self.create(main, child, data, discover=True, context=context)
+            report = discover_project_document(self.document)
+        self.assertEqual([(row['program'], row['path'], row['certainty']) for row in report['inputs']],
+                         [('DATA', 'SEED', 'conditional')])
+        self.assertEqual(report['inputs'][0]['locations'][0]['program'], 'CHILD')
+        self.assertEqual([row['status'] for row in saved['inputs']['template']['bindings']], ['supplied'])
+        self.assertIn('task-scheduling', [row['code'] for row in report['unresolved']])
+        self.assertFalse(report['complete'])
+        result = runner.run_document(self.document)['results']
+        self.assertEqual(result['status'], 'completed')
+        self.assertEqual(result['text_output'].split(), ['21'])
+
+    def test_linked_discovery_bounds_cyclic_dynamic_and_missing_task_targets(self):
+        main = self.module('MAIN', "RUN_TASK('CHILD',0,FALSE,FALSE,0,s) RUN_TASK(varname,0,FALSE,FALSE,0,s)",
+                           'VAR varname:STRING[8] s:INTEGER')
+        child = self.module('CHILD',
+                            "WRITE(n) RUN_TASK('MAIN',0,FALSE,FALSE,0,s) RUN_TASK('MISSING',0,FALSE,FALSE,0,s)")
+        self.create(main, child)
+        report = discover_project_document(self.document)
+        self.assertEqual([(row['program'], row['path']) for row in report['inputs']],
+                         [('CHILD', 'N'), ('MAIN', 'VARNAME')])
+        targets = [row for row in report['unresolved'] if row['code'] == 'task-target']
+        self.assertEqual([row['location']['program'] for row in targets], ['CHILD', 'CHILD', 'MAIN'])
+        self.assertIn('Recursive', targets[0]['message'])
+        self.assertIn('MISSING', targets[1]['message'])
+        self.assertIn('dynamic', targets[2]['message'])
+
+    def test_linked_discovery_finds_handler_callbacks_and_eager_captures(self):
+        main = self.module('MAIN', 'install(seed)', 'VAR seed:INTEGER', 'ROUTINE install(x:INTEGER) FROM LIB')
+        lib = self.module('LIB', declarations='VAR rate,captured_value,never,fallback,shadowed,out:INTEGER ready:BOOLEAN',
+                          routines="""ROUTINE install(value:INTEGER)
+                          BEGIN
+                            CONDITION[1]: WITH $SCAN_TIME=rate
+                              WHEN FALSE DO out=EVAL(captured_value)+never
+                              WHEN ready DO out=value WRITE(out,CR)
+                              WHEN TRUE DO WRITE(fallback,CR)
+                              WHEN TRUE DO WRITE(shadowed,CR)
+                            ENDCONDITION
+                            ENABLE CONDITION[1]
+                            never=0
+                          END install""")
+        entries = [('LIB', 'RATE', 'INTEGER', 0), ('LIB', 'CAPTURED_VALUE', 'INTEGER', 5),
+                   ('LIB', 'READY', 'BOOLEAN', True), ('MAIN', 'SEED', 'INTEGER', 42)]
+        context = {'variables': [dict(program=owner, path=path, type=spec, value=value)
+                                 for owner, path, spec, value in entries]}
+        self.create(main, lib, context=context, discover=True)
+        report = discover_project_document(self.document)
+        self.assertEqual({(row['program'], row['path']): row['certainty'] for row in report['inputs']},
+                         {('LIB', 'RATE'): 'required', ('LIB', 'CAPTURED_VALUE'): 'required',
+                          ('LIB', 'READY'): 'conditional', ('LIB', 'FALLBACK'): 'conditional',
+                          ('MAIN', 'SEED'): 'conditional'})
+        reference = next(row for row in report['inputs'] if row['path'] == 'SEED')
+        self.assertEqual(reference['locations'][0]['program'], 'LIB')
+        self.assertEqual(reference['locations'][0]['routine'], 'INSTALL')
+        self.assertTrue(all(row['code'] == 'condition-scan' for row in report['unresolved']))
+        result = runner.run_document(self.document)['results']
+        self.assertEqual(result['status'], 'completed')
+        self.assertEqual(result['text_output'].split(), ['42'])
+
+    def test_linked_discovery_keeps_async_writes_out_of_caller_flow(self):
+        main = self.module('MAIN', """
+            CONDITION[1]: WHEN TRUE DO from_handler=1 ENDCONDITION
+            WRITE(from_handler)
+            RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+            WRITE(from_child)
+        """, 'VAR from_handler,from_child,s:INTEGER')
+        child = self.module('CHILD', 'from_child=2', 'VAR from_child FROM MAIN:INTEGER')
+        self.create(main, child)
+        report = discover_project_document(self.document)
+        self.assertEqual({row['path']: row['certainty'] for row in report['inputs']},
+                         {'FROM_HANDLER': 'required', 'FROM_CHILD': 'conditional'})
+
+    def test_linked_discovery_preserves_capture_order_and_accepts_legacy_plans(self):
+        from karel2py.input_contract import attach, extract
+
+        main = self.module('MAIN', """
+            CONDITION[1]:
+              WHEN EVAL(increment())>EVAL(n) DO WRITE(selected)
+            ENDCONDITION
+        """, 'VAR n,selected:INTEGER',
+                           'ROUTINE increment:INTEGER BEGIN n=7 RETURN n END increment')
+        self.create(main)
+        report = discover_project_document(self.document)
+        self.assertEqual({row['path']: row['certainty'] for row in report['inputs']},
+                         {'N': 'required', 'SELECTED': 'conditional'})
+        source = main.read_text(encoding='utf-8')
+        plan = extract(source)
+        clauses = plan['body'][0]['body']
+        self.assertEqual(len(clauses[0].pop('captures')), 2)
+        lines = [line.partition(' = ')[0]+' = None' if line.startswith(
+                 ('    input_analysis = ', '    input_analysis_sha256 = ')) else line for line in source.splitlines()]
+        main.write_bytes(attach('\n'.join(lines)+'\n', plan).encode())
+        legacy = self.folder / 'legacy.run.json'
+        create_project_document([main], legacy, entry='MAIN')
+        report = discover_project_document(legacy)
+        self.assertIn('condition-capture', [row['code'] for row in report['unresolved']])
+        self.assertFalse(report['complete'])
+
     def test_discovery_keeps_caller_root_schema_for_reference_reads_in_linked_branches(self):
         main = self.module('MAIN', 'update(values[2]) WRITE(values[2])', 'VAR values:ARRAY[2] OF INTEGER',
                            'ROUTINE update(x:INTEGER) FROM LIB')
