@@ -459,6 +459,7 @@ class SavedProjectTests(unittest.TestCase):
             CONDITION[1]:
               WHEN EVAL(increment())>EVAL(n) DO WRITE(selected)
             ENDCONDITION
+            ENABLE CONDITION[1]
         """, 'VAR n,selected:INTEGER',
                            'ROUTINE increment:INTEGER BEGIN n=7 RETURN n END increment')
         self.create(main)
@@ -477,6 +478,100 @@ class SavedProjectTests(unittest.TestCase):
         report = discover_project_document(legacy)
         self.assertIn('condition-capture', [row['code'] for row in report['unresolved']])
         self.assertFalse(report['complete'])
+
+    def test_linked_handlers_distinguish_dormant_purged_and_replaced_definitions(self):
+        main = self.module('MAIN', """
+            ENABLE CONDITION[1]
+            CONDITION[1]: WHEN TRUE DO WRITE(dormant) ENDCONDITION
+            CONDITION[2]: WHEN TRUE DO WRITE(purged,EVAL(capture)) ENDCONDITION
+            PURGE CONDITION[2]
+            CONDITION[2]: WHEN TRUE DO WRITE(active,CR) ENDCONDITION
+            DISABLE CONDITION[2]
+            ENABLE CONDITION[2]
+            result=0
+        """, 'VAR dormant,purged,capture,active,result:INTEGER')
+        context = {'variables': [dict(program='MAIN', path=name, type='INTEGER', value=value)
+                                 for name, value in [('CAPTURE', 3), ('ACTIVE', 8)]]}
+        saved = self.create(main, context=context, discover=True)
+        report = saved['inputs']['template']['discovery']
+        self.assertEqual({row['path']: row['certainty'] for row in report['inputs']},
+                         {'CAPTURE': 'required', 'ACTIVE': 'conditional'})
+        self.assertEqual([row['code'] for row in report['unresolved']], ['condition-scan'])
+        result = runner.run_document(self.document)['results']
+        self.assertEqual(result['status'], 'completed', result['error'])
+        self.assertEqual(result['text_output'].split(), ['8'])
+
+    def test_linked_handler_merge_keeps_same_number_alternatives(self):
+        main = self.module('MAIN', """
+            IF choose THEN
+              CONDITION[3]: WHEN TRUE DO WRITE(left_value,CR) ENDCONDITION
+            ELSE
+              CONDITION[3]: WHEN TRUE DO WRITE(right_value,CR) ENDCONDITION
+            ENDIF
+            ENABLE CONDITION[3]
+            done=TRUE
+        """, 'VAR choose,done:BOOLEAN left_value,right_value:INTEGER')
+        context = {'variables': [
+            dict(program='MAIN', path='CHOOSE', type='BOOLEAN', value=False),
+            dict(program='MAIN', path='RIGHT_VALUE', type='INTEGER', value=42)]}
+        saved = self.create(main, context=context, discover=True)
+        report = saved['inputs']['template']['discovery']
+        self.assertEqual({row['path']: row['certainty'] for row in report['inputs']},
+                         {'CHOOSE': 'required', 'LEFT_VALUE': 'conditional', 'RIGHT_VALUE': 'conditional'})
+        replay = runner.run_document(self.document)['results']
+        self.assertEqual(replay['status'], 'completed', replay['error'])
+        self.assertEqual(replay['text_output'].split(), ['42'])
+
+    def test_linked_handler_activation_uses_invocation_scope_and_definition_captures(self):
+        main = self.module('MAIN', """
+            CONDITION[1]: WHEN TRUE DO WRITE(other) ENDCONDITION
+            install()
+            arm()
+        """, 'VAR other:INTEGER', 'ROUTINE install FROM LIB ROUTINE arm FROM LIB')
+        lib = self.module('LIB', declarations='VAR initialized,seed,output_value,expired:INTEGER', routines="""
+            ROUTINE install
+            BEGIN
+                CONDITION[1]: WHEN TRUE DO WRITE(expired,CR) ENDCONDITION
+            END install
+            ROUTINE configure
+            BEGIN
+                CONDITION[1]: WHEN TRUE DO WRITE(initialized+EVAL(seed),CR) ENDCONDITION
+            END configure
+            ROUTINE arm
+            BEGIN
+                ENABLE CONDITION[1]
+                configure()
+                initialized=10
+                seed=100
+                ENABLE CONDITION[1]
+                output_value=0
+            END arm
+        """)
+        context = {'variables': [dict(program='LIB', path='SEED', type='INTEGER', value=17)]}
+        saved = self.create(main, lib, context=context, discover=True)
+        report = saved['inputs']['template']['discovery']
+        self.assertEqual([(row['program'], row['path'], row['certainty']) for row in report['inputs']],
+                         [('LIB', 'SEED', 'required')])
+        self.assertEqual(report['inputs'][0]['locations'][0]['routine'], 'CONFIGURE')
+        replay = runner.run_document(self.document)['results']
+        self.assertEqual(replay['status'], 'completed', replay['error'])
+        self.assertEqual(replay['text_output'].split(), ['27'])
+
+    def test_linked_handler_dynamic_or_nested_activation_keeps_conditional_reads(self):
+        for control, expected in [
+            ('ENABLE CONDITION[selection]', {'SELECTION': 'required', 'PAYLOAD': 'conditional'}),
+            ('ENABLE CONDITION[2]', {'PAYLOAD': 'conditional'}),
+        ]:
+            with self.subTest(control=control):
+                main = self.module('MAIN', """
+                    CONDITION[1]: WHEN TRUE DO WRITE(payload) ENDCONDITION
+                    CONDITION[2]: WHEN TRUE DO ENABLE CONDITION[1] ENDCONDITION
+                    """ + control, 'VAR selection,payload:INTEGER')
+                path = self.folder / ('dynamic.run.json' if 'selection' in control else 'nested.run.json')
+                saved = create_project_document([main], path, entry='MAIN', discover=True)
+                report = saved['inputs']['template']['discovery']
+                self.assertEqual({row['path']: row['certainty'] for row in report['inputs']}, expected)
+                self.assertIn('condition-scan', {row['code'] for row in report['unresolved']})
 
     def test_linked_motion_discovery_prepares_temporal_selectors_and_callback_inputs(self):
         main = self.module('MAIN', 'ATTACH work()', 'VAR payload:INTEGER', 'ROUTINE work FROM LIB')

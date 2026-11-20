@@ -31,6 +31,10 @@ class _Limit(Exception):
     pass
 
 
+class _ActivationUnknown(Exception):
+    pass
+
+
 @dataclass(frozen=True)
 class _Location:
     kind: str
@@ -62,6 +66,14 @@ class _Value:
     facts: object = None
 
 
+@dataclass(eq=False, frozen=True)
+class _Handler:
+    plan: dict
+    frames: tuple
+    clauses: list
+    captures: dict
+
+
 @dataclass
 class _Flow:
     defined: set = field(default_factory=set)
@@ -70,12 +82,14 @@ class _Flow:
     constants: dict = field(default_factory=dict)
     stopped: bool = False
     opaque: bool = False
+    handlers: dict = field(default_factory=dict)
 
     def copy(self):
         return _Flow(self.defined.copy(),self.assigned.copy(),self.maybe.copy(),
-                     self.constants.copy(),self.stopped,self.opaque)
+                     self.constants.copy(),self.stopped,self.opaque,self.handlers.copy())
 
     def take(self, other):
+        self.handlers = other.handlers
         self.defined,self.assigned,self.maybe,self.constants = other.defined,other.assigned,other.maybe,other.constants
         self.stopped,self.opaque = other.stopped,other.opaque
 
@@ -87,9 +101,14 @@ def _merge(flows):
     first=live[0]
     constants={key:value for key,value in first.constants.items()
                if all(key in other.constants and type(value) is type(other.constants[key]) and value==other.constants[key] for other in live[1:])}
+    handlers = {}
+    for flow in live:
+        for key, definitions in flow.handlers.items():
+            handlers.setdefault(key, {}).update(dict.fromkeys(definitions))
     return _Flow(set.intersection(*(flow.defined for flow in live)),
                  set.intersection(*(flow.assigned for flow in live)),
-                 set.union(*(flow.maybe for flow in live)),constants,False,any(flow.opaque for flow in live))
+                 set.union(*(flow.maybe for flow in live)),constants,False,any(flow.opaque for flow in live),
+                 {key: tuple(definitions) for key, definitions in handlers.items()})
 
 
 def _array_dimensions(spec):
@@ -150,7 +169,7 @@ def _merged_value(values,spec=None):
 
 
 class _Analyzer:
-    def __init__(self, plan, *, linked_plans=None):
+    def __init__(self, plan, *, linked_plans=None, track_handlers=False):
         self.plan = plan
         self.steps = 0
         self.serial = 0
@@ -163,6 +182,10 @@ class _Analyzer:
         self.task_roots = (plan['program'],)
         self.suspended_depth = 0
         self.capture_values = {}
+        self.track_handlers = track_handlers
+        self.saw_handler = False
+        self.activation_unknown = False
+        self.scanning_handler = False
         plans = linked_plans if linked_plans is not None else {plan['program']: plan}
         self.imports = {
             name: {local: (owner.upper(), foreign) for local, owner, foreign in item.get('imports', [])}
@@ -177,7 +200,15 @@ class _Analyzer:
         self.steps+=1
         if self.steps>MAX_STEPS:raise _Limit('Analysis step limit reached')
 
-    def opaque(self, flow):
+    def lose_activation_order(self):
+        if self.track_handlers:
+            if self.saw_handler:
+                raise _ActivationUnknown()
+            self.activation_unknown = True
+
+    def opaque(self, flow, *, activation=True):
+        if activation:
+            self.lose_activation_order()
         flow.opaque=True;flow.defined.clear();flow.assigned.clear();flow.constants.clear()
 
     def context(self, service, address):
@@ -667,6 +698,7 @@ class _Analyzer:
             for item in actual:
                 if isinstance(item,_Location):self.read(item,node,flow,True)
             self.opaque(flow);return _Value(complete=False)
+        external = bool(routine['external'])
         routine = target_routine
         self.serial+=1;owner='@'+name+':'+str(self.serial)
         bindings=[]
@@ -691,6 +723,11 @@ class _Analyzer:
                 self.write(loc,item or _Value(complete=False),flow,node)
         old_exits, self.exits = self.exits, []
         caller_plan, self.plan = self.plan, target_plan
+        caller_handlers = flow.handlers if external else None
+        if external:
+            # A linked invocation borrows module globals, but gets a new
+            # runtime state and its own condition registrations.
+            flow.handlers = {}
         self.frames.append(frame)
         try:
             self.block(routine['body'],flow,conditional)
@@ -700,9 +737,13 @@ class _Analyzer:
             self.frames.pop()
             self.exits = old_exits
             self.plan = caller_plan
+            if caller_handlers is not None:
+                flow.handlers = caller_handlers
         if not exits:
             flow.stopped=True;return _Value(complete=False)
         merged=_merge([item[0] for item in exits])
+        if caller_handlers is not None:
+            merged.handlers = caller_handlers
         for field_name in ('defined','assigned','maybe'):
             setattr(merged,field_name,{key for key in getattr(merged,field_name) if key[1]!=owner})
         merged.constants={key:value for key,value in merged.constants.items() if key[1]!=owner}
@@ -741,7 +782,7 @@ class _Analyzer:
             self.unresolved_at(code, message, missing)
             self.opaque(flow)
 
-    def callbacks(self, clauses, flow, conditional, *, motion=False):
+    def capture_callbacks(self, clauses, flow, conditional, *, motion=False):
         previous, self.capture_values = self.capture_values, {}
         try:
             for clause in clauses:
@@ -758,9 +799,15 @@ class _Analyzer:
                     else:
                         self.capture_gap(clause, flow, 'motion_event', 'motion-selector',
                                          'Motion selector operands are unavailable; re-translate for capture discovery')
-            # A motion can scan each WHEN once. Later scans may see changes
-            # from other clauses, so do not carry mutable constants between them.
-            scan = _Flow(defined=flow.defined.copy(), assigned=flow.assigned.copy()) if motion else _Flow()
+            return self.capture_values
+        finally:
+            self.capture_values = previous
+
+    def scan_callbacks(self, clauses, captures, scan, *, motion=False):
+        previous, self.capture_values = self.capture_values, captures
+        try:
+            # Later motion scans may see changes from other clauses. Analyze
+            # each clause independently without borrowing mutable constants.
             for clause in clauses:
                 active = scan.copy() if motion else scan
                 matched = self.expr(clause['args'][0], active, True).constant
@@ -777,11 +824,52 @@ class _Analyzer:
 
     def condition(self, node, flow, conditional):
         number, options = node['args']
-        self.expr(number, flow, conditional)
+        identifier = self.expr(number, flow, conditional).constant
         for _, option in options:
             self.expr(option, flow, conditional)
-        self.unresolved_at('condition-scan', 'Condition enablement, scan timing and shared effects require review', node)
-        self.callbacks(node['body'], flow, conditional)
+        clauses = node['body']
+        captures = self.capture_callbacks(clauses, flow, conditional)
+        if not self.track_handlers:
+            self.unresolved_at('condition-scan', 'Condition activation order and scan effects require review', node)
+            self.scan_callbacks(clauses, captures, _Flow())
+            return
+        if (self.activation_unknown or self.scanning_handler or type(identifier) is not int
+                or not 1 <= identifier <= 1000 or identifier in flow.handlers):
+            raise _ActivationUnknown()
+        self.saw_handler = True
+        flow.handlers[identifier] = (_Handler(self.plan, tuple(self.frames), clauses, captures),)
+
+    def condition_control(self, node, flow, conditional):
+        action, number = node['args']
+        identifier = self.expr(number, flow, conditional).constant
+        if not self.track_handlers:
+            if action == 'ENABLE':
+                self.unresolved_at('condition-scan', 'Enabling a condition may run its callbacks at later checkpoints', node)
+                self.opaque(flow)
+            return
+        if self.scanning_handler or type(identifier) is not int:
+            self.lose_activation_order()
+            return
+        if action == 'PURGE':
+            flow.handlers.pop(identifier, None)
+            return
+        if action != 'ENABLE' or identifier not in flow.handlers:
+            return
+        self.unresolved_at('condition-scan', 'Enabled condition may run at later checkpoints: '+str(identifier), node)
+        caller_plan, caller_frames = self.plan, self.frames
+        self.scanning_handler = True
+        try:
+            for definition in flow.handlers[identifier]:
+                self.tick()
+                self.plan, self.frames = definition.plan, list(definition.frames)
+                scan = _Flow(defined=flow.defined.copy(), assigned=flow.assigned.copy())
+                self.scan_callbacks(definition.clauses, definition.captures, scan)
+        finally:
+            self.scanning_handler = False
+            self.plan, self.frames = caller_plan, caller_frames
+        # The checkpoint may run later, so a handler write cannot become
+        # a definite write in its caller's continuing flow.
+        self.opaque(flow, activation=False)
 
     def motion(self, node, flow, conditional):
         args = node['args']
@@ -800,7 +888,10 @@ class _Analyzer:
                 else:
                     self.expr(operand, flow, conditional)
             if node['body']:
-                self.callbacks(node['body'], flow, conditional, motion=True)
+                clauses = node['body']
+                captures = self.capture_callbacks(clauses, flow, conditional, motion=True)
+                scan = _Flow(defined=flow.defined.copy(), assigned=flow.assigned.copy())
+                self.scan_callbacks(clauses, captures, scan, motion=True)
             self.unresolved_at('motion-progress',
                                'Motion admission, progress and local callback effects require review: '+operation, node)
             self.opaque(flow)
@@ -829,15 +920,12 @@ class _Analyzer:
                 self.condition(node, flow, conditional)
                 return
             if kind == 'condition_control':
-                self.expr(args[1], flow, conditional)
-                if args[0] == 'ENABLE':
-                    self.unresolved_at('condition-scan', 'Enabling a condition may run its callbacks at later checkpoints', node)
-                    self.opaque(flow)
+                self.condition_control(node, flow, conditional)
                 return
             if kind in ('wait', 'delay'):
                 self.expr(args[0], flow, conditional)
                 self.unresolved_at('task-wait', 'Waiting and possible task effects require an execution order', node)
-                self.opaque(flow)
+                self.opaque(flow, activation=False)
                 return
         if kind=='if':
             condition=self.expr(args[0],flow,conditional).constant
@@ -849,11 +937,13 @@ class _Analyzer:
         if kind=='while':
             condition=self.expr(args[0],flow,conditional).constant
             if condition is False:return
+            self.lose_activation_order()
             before=flow.copy();body=flow.copy();body.constants.clear()
             self.block(node['body'],body,True)
             if not body.stopped:self.expr(args[0],body,True)
             flow.take(_merge([before,body]));return
         if kind=='repeat':
+            self.lose_activation_order()
             flow.constants.clear();self.block(node['body'],flow,conditional)
             if not flow.stopped:self.expr(args[0],flow,conditional)
             return
@@ -892,6 +982,7 @@ class _Analyzer:
                     self.write(loc,_Value(start+step*index),flow,node)
                     self.block(node['body'],flow,conditional)
             else:
+                self.lose_activation_order()
                 before=flow.copy();body=flow.copy();body.constants.clear()
                 self.block(node['body'],body,True);flow.take(_merge([before,body]))
             if loc:
@@ -924,7 +1015,16 @@ class _Analyzer:
 
 
 def analyze_plan(plan, target, *, linked_plans=None):
-    analyzer = _Analyzer(plan, linked_plans=linked_plans)
+    try:
+        return _analyze_plan(plan, target, linked_plans=linked_plans, track_handlers=linked_plans is not None)
+    except _ActivationUnknown:
+        # Re-run from the checked entry so uncertainty cannot hide callbacks
+        # that the activation pass had left dormant.
+        return _analyze_plan(plan, target, linked_plans=linked_plans, track_handlers=False)
+
+
+def _analyze_plan(plan, target, *, linked_plans, track_handlers):
+    analyzer = _Analyzer(plan, linked_plans=linked_plans, track_handlers=track_handlers)
     modules = linked_plans.values() if linked_plans is not None else (plan,)
     for module in modules:
         if module.get('status') != 'available':

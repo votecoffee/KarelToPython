@@ -59,7 +59,9 @@ discovered scalar and structured inputs and shows each saved program snapshot.
 Input saves check the document revision and module pins and keep prior results.
 Discovery follows synchronous linked calls, known child task bodies, and
 global and motion-local condition callbacks. Child and scan-time reads are
-conditional. Motion capture operands follow emitted evaluation order.
+conditional. Linked discovery follows known numbered handler activation
+through structured flow within each invocation. Motion capture
+operands follow emitted evaluation order.
 Refreshing a module set carries compatible owner-qualified values into a new
 document and reports changed, omitted and unresolved inputs.
 [Linked input discovery](input-discovery.md#linked-project-discovery)
@@ -67,7 +69,7 @@ document and reports changed, omitted and unresolved inputs.
 ### Remaining linked-run work
 
 1. **Expand linked discovery.** Resolve more task continuations, synchronization
-   and handler activation where order and targets can be determined. Track
+   and handler rearming where order and targets can be determined. Track
    effects between motion callbacks when ordering can be established, and
    keep dynamic selections and external effects visible in the report.
 2. **Export linked sources from the desktop.** Reuse linked-project validation

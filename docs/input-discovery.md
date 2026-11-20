@@ -52,9 +52,20 @@ remain explicit gaps. A child's writes do not establish that a parent read is
 initialized.
 
 Discovery evaluates condition numbers, options and captured `EVAL` operands
-when it reaches a definition. It follows predicates in source order and
-reports possible action reads as conditional. A handler may stay disabled
-or never fire, and its writes do not establish values in the enclosing flow.
+when it reaches a definition. In modeled structured linked flow, a known
+`ENABLE CONDITION[n]` selects the possible definitions in its invocation. A
+`PURGE` removes the matching definition. `DISABLE` preserves its definition for
+a later enable. Branches can contribute different definitions under the same
+number. Local routines share the current registry, and each external routine
+call gets a separate registry. A dormant definition contributes its eager
+reads at registration.
+
+Predicates follow source order, and possible predicate and action reads stay
+conditional. A handler write cannot establish a definite write in the caller
+because the checkpoint may run later. If dynamic numbers, callback rearming,
+unbounded loops, or other unmodeled effects prevent tracking activation, the
+report includes possible reads from reachable definitions and flags the gap.
+
 Linked motion discovery reads group-qualified `WITH` settings, movement
 operands and PATH bounds before callback capture. Each local clause evaluates
 its `EVAL` operands and then its `AT NODE` or `TIME` selector operands before

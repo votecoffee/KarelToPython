@@ -1,5 +1,14 @@
 # Changelog
 
+## 26.1120.113144 - 2026-11-20
+
+- Track known numbered conditions from registration through enable and purge
+  in linked input discovery. Preserve possible definitions across branches
+  and captures across local calls within a linked invocation.
+- Evaluate definition operands eagerly. Discover possible callback reads
+  at modeled enables and keep conservative candidates when activation order
+  depends on a dynamic selection or unmodeled effect.
+
 ## 26.1120.112330 - 2026-11-20
 
 - Discover linked motion settings, operands, path bounds, and local handler
