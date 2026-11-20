@@ -8,6 +8,7 @@ from .assignment_analysis import (
     collection_array_capture,
 )
 from .compiler_language import DATA_RECORD_TYPES
+from .conversion_codegen import direct_schema_value
 
 
 class AssignmentLowering:
@@ -97,18 +98,18 @@ class AssignmentLowering:
                     source_type_spec=value_type,target_type_spec=target_type,conversion_kind='record_array',
                     evaluated_once=True,independent_value=True,actual_receiver_schema=True))
         elif plan.conversion == 'real_integral':
-            value=f'_rt.real_integral_value({target_type!r},{value},{line})'
+            value = direct_schema_value(plan.conversion, target_type, value, line)
             self.features.add('checked REAL to integral assignment')
         elif plan.conversion == 'config_word':
             value=self.config_word_conversion(target_type,value_type,value,token,'ASSIGNMENT')
         elif plan.conversion == 'numeric_array':
-            value=f'_rt.convert_numeric_array({target_type!r},{value},{line})'
+            value = direct_schema_value(plan.conversion, target_type, value, line)
             self.features.add('numeric ARRAY conversion')
             self.numeric_array_uses.append(dict(operation='ASSIGNMENT',body=self.current_routine.name if self.current_routine else self.program.name,
                 line=line,column=token.column,source_type_spec=value_type,target_type_spec=target_type,
                 evaluated_once=True,independent_value=True))
         elif plan.conversion == 'positional_array':
-            value=f'_rt.convert_positional_array({target_type!r},{value},{line})'
+            value = direct_schema_value(plan.conversion, target_type, value, line)
             self.features.add('positional ARRAY conversion')
             self.positional_array_uses.append(dict(operation='ASSIGNMENT',body=self.current_routine.name if self.current_routine else self.program.name,
                 line=line,column=token.column,source_type_spec=value_type,target_type_spec=target_type,
@@ -134,13 +135,13 @@ class AssignmentLowering:
                 line=line,column=token.column,source_type_spec=value_type,target_type_spec=target_type,
                 conversion_kind=rt.record_schema_kind(target_type,value_type),evaluated_once=True,independent_value=True))
         elif plan.conversion == 'array_schema':
-            value=f'_rt.convert_array_schema({target_type!r},{value},{line})'
+            value = direct_schema_value(plan.conversion, target_type, value, line)
             self.features.add('source ARRAY schema conversion')
             self.array_schema_uses.append(dict(operation='ASSIGNMENT',body=self.current_routine.name if self.current_routine else self.program.name,
                 line=line,column=token.column,source_type_spec=value_type,target_type_spec=target_type,
                 schema_change_kind=rt.array_schema_kind(target_type,value_type),evaluated_once=True,independent_value=True))
         elif plan.conversion == 'joint_width':
-            value=f'_rt.convert_joint_width({target_type!r},{value},{line})'
+            value = direct_schema_value(plan.conversion, target_type, value, line)
             self.features.add('checked joint width conversion')
             self.joint_width_uses.append(dict(operation='ASSIGNMENT',body=self.current_routine.name if self.current_routine else self.program.name,
                 line=line,column=token.column,source_type_spec=value_type,target_type_spec=target_type,

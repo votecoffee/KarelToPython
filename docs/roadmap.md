@@ -1,8 +1,9 @@
 # Roadmap
 
-Functional Pythonic conversion remains the implementation priority. Within that
-work, continue the incremental compiler decomposition first, then complete the
-Python runner workflow. Strict compatibility follows functional coverage.
+Functional Pythonic conversion remains the implementation priority. The
+compiler now separates parsing, schema validation, control-flow analysis, and
+Python generation. The next priority is preparing and editing linked-run
+inputs. Strict compatibility follows functional coverage.
 Current behavior and restrictions are documented in the [support guide](language-support.md)
 and [desktop guide](desktop.md).
 
@@ -36,10 +37,11 @@ and standalone CLI bindings have dedicated generators. Procedure dispatch,
 FILE operations, and timing statements are owned by their generators.
 Built-in function and typed output procedure generation are also separate.
 Storage references, subscript checks, and ARRAY prefix lowering have a
-dedicated generator, as do unary, binary, and relative pose operators. Next,
-extract function-call dispatch and shared schema-conversion emission from the
-expression driver. The runtime and extended services can be split by ownership
-after their boundaries are covered with regressions. See
+dedicated generator, as do unary, binary, and relative pose operators.
+Function-call dispatch and shared schema conversions have dedicated modules.
+Further decomposition remains for `runtime.py` and `extended.py`. Extract
+service families behind their existing runtime interfaces with focused
+regressions. See
 [compiler architecture](compiler-architecture.md).
 
 ## Python runner and parameter editor

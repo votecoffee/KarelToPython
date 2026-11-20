@@ -30,7 +30,8 @@ input-discovery contract to the result.
 | Statement timing | `timing_codegen.py` | Checks and emits DELAY, WAIT, and PULSE using the existing scheduler and polling calls. |
 | Built-in functions | `builtin_codegen.py` | Emits checked scalar and geometry operands, initialization queries, ARRAY lengths, and microsecond timer calls. |
 | Typed output procedures | `output_procedure_codegen.py` | Checks writable outputs and emits conversion, register, joint, and UNPOS procedures with their existing reference and capture rules. |
-| Procedure dispatch | `procedure_codegen.py` | Selects procedure lowering using the source mode and routine namespace before emitting the call. |
+| Call dispatch | `function_codegen.py`, `procedure_codegen.py` | Selects function and procedure lowering using the active source mode and routine namespace. |
+| Schema conversion generation | `conversion_codegen.py` | Shares direct conversion calls and emits CONFIG word, PATH layout, and routine interface conversions from checked schemas. |
 | Motion | `motion_analysis.py`, `motion_codegen.py` | Checks motion operand types and PATH selectors. Captures settings, operands, and local callbacks for the offline runtime. |
 | Task control | `task_codegen.py` | Lowers local and addressed task transitions, ABORT, and event/semaphore signals with the existing scheduler checkpoints. |
 | Conditions and timers | `handler_analysis.py`, `handler_codegen.py` | Validates handler actions and timer storage, checks asynchronous FOR counter writes, and emits EVAL and USING captures for condition and motion callbacks. |

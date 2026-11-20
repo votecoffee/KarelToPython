@@ -1,46 +1,10 @@
 """Type-check expressions and dispatch value lowering."""
-from .compiler_language import (
-    BUILTINS,
-    BUILTIN_PROCEDURES,
-    CONFIG_TEXT_PROCEDURES,
-    CONTROLLER_NAMES,
-    INTEGRAL_TYPES,
-    MULTI_OUTPUT_PROCEDURES,
-    NARROW_TYPES,
-    PREDEFINED_CONSTANTS,
-    PYTHONIC_CONSTRUCTORS,
-    REGISTER_PROCEDURES,
-    TIMER_FUNCTIONS,
-    TIME_TEXT_PROCEDURES,
-)
-from . import extended as ex
+from .compiler_language import INTEGRAL_TYPES, NARROW_TYPES, PREDEFINED_CONSTANTS
 from . import runtime as rt
 
 
 class ExpressionLowering:
     """Lower expressions against the current checked program and emitter scope."""
-
-    def path_conversion_value(self,expected,actual,value,token,operation,*,receiver=None):
-        array=expected[0]=='ARRAY'
-        layout=rt.path_array_conversion_layout(expected,actual) if array else ex.path_conversion_layout(expected,actual,model=True)
-        if layout is None:self.error('E_TYPE','Logical collection values require compatible PATH layouts and matching shapes',token)
-        if 'kinematic' in layout:
-            self.features.add('extended services')
-            if self.current_routine:self.current_routine.may_services=True
-        self.features.add('source PATH schema conversion')
-        self.path_schema_uses.append(dict(operation=operation,body=self.current_routine.name if self.current_routine else self.program.name,
-            line=token.line,column=token.column,source_type_spec=actual,target_type_spec=expected,
-            model_backed='kinematic' in layout,evaluated_once=True,independent_value=True))
-        method='path_array_source_value' if array else 'path_source_value'
-        receiver=repr(expected) if receiver is None else receiver
-        return f'self._state.{method}({receiver},{value},{token.line},source_spec={actual!r})'
-
-    def config_word_conversion(self,target,source,value,token,operation):
-        self.features.add('portable CONFIG word conversion')
-        self.config_word_uses.append(dict(operation=operation,body=self.current_routine.name if self.current_routine else self.program.name,
-            line=token.line,column=token.column,source_type_spec=source,target_type_spec=target,
-            conversion_kind=rt.config_word_kind(target,source),evaluated_once=True,independent_value=True))
-        return f'_rt.config_word_value({target!r},{value},{token.line})'
 
     def expression(self, expr, raw=False, *, allow_array_result=False, collection_io=False):
         if expr.kind == 'system_selection':
@@ -97,32 +61,7 @@ class ExpressionLowering:
         if expr.kind == 'binary':
             return self.lower_binary(expr)
         if expr.kind == 'call':
-            if self.mode=='pythonic' and expr.value in ex.FUNCTIONS and expr.value not in self.routines:
-                return self.service_call(expr),ex.FUNCTIONS[expr.value][1]
-            if self.mode=='pythonic' and expr.value in ex.PROCEDURES and expr.value not in self.routines:
-                self.error('E_PROCEDURE_RESULT','Service procedures have no expression result',expr.token)
-            if self.active_counters and expr.value in self.routines:
-                self.check_for_call(expr.token, self.routines[expr.value])
-            if self.mode == 'pythonic' and expr.value in TIMER_FUNCTIONS and expr.value not in self.routines:
-                return self.microsecond_timer(expr), ('INTEGER',)
-            if (expr.value in BUILTIN_PROCEDURES or expr.value in MULTI_OUTPUT_PROCEDURES
-                    or self.mode == 'pythonic' and expr.value in CONFIG_TEXT_PROCEDURES | TIME_TEXT_PROCEDURES | REGISTER_PROCEDURES and expr.value not in self.routines):
-                self.error('E_PROCEDURE_RESULT', 'Conversion procedures have an output argument, not an expression result', expr.token)
-            if expr.value in BUILTINS or (self.mode == 'pythonic' and expr.value in PYTHONIC_CONSTRUCTORS and expr.value not in self.routines):
-                return self.builtin_call(expr)
-            if expr.value not in self.routines:
-                code = 'E_CONTROLLER' if expr.value in CONTROLLER_NAMES else 'E_CALL'
-                self.error(code, f'Unknown or unsupported call {expr.value}', expr.token)
-            routine = self.routines[expr.value]
-            if not routine.return_type: self.error('E_TYPE', 'Procedure cannot be used as an expression', expr.token)
-            if self.mode == 'strict' and routine.return_type[0] == 'ARRAY' and not allow_array_result:
-                self.error('E_ARRAY_RESULT_CONTEXT', 'An ARRAY-valued function call is supported only as the complete value of a direct assignment', expr.token)
-            if routine.return_type[0] == 'ARRAY':
-                self.array_function_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
-                                                     routine=expr.value, line=line, column=expr.token.column,
-                                                     result_spec=routine.return_type, evaluated_once=True, independent_copy=True))
-            self.features.add('routine function call')
-            return self.routine_call(expr), routine.return_type
+            return self.lower_function_call(expr, allow_array_result=allow_array_result)
         self.error('E_INTERNAL', 'Unexpected expression node', expr.token)
 
     def require_type(self, expr, expected):

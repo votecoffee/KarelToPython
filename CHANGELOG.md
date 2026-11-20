@@ -1,5 +1,11 @@
 # Changelog
 
+## 26.1120.013431 - 2026-11-20
+
+- Separate function-call lookup and shared schema conversion emission from the
+  expression driver. Share direct conversion calls across assignments,
+  arguments, and returns while preserving their capture and binding rules.
+
 ## 26.1120.012844 - 2026-11-20
 
 - Move unary, binary, and relative pose operator emission into its own

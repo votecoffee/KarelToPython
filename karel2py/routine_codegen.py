@@ -20,15 +20,6 @@ from .call_reporting import (
 from .compiler_language import INTEGRAL_TYPES, NARROW_TYPES, POSITIONAL_VALUE_TYPES
 
 
-_DIRECT_CONVERSIONS = {
-    'real_integral': 'real_integral_value',
-    'numeric_array': 'convert_numeric_array',
-    'positional_array': 'convert_positional_array',
-    'array_schema': 'convert_array_schema',
-    'joint_width': 'convert_joint_width',
-}
-
-
 class RoutineLowering:
     """Emit routine operations using the current expression and type scope."""
 
@@ -139,7 +130,7 @@ class RoutineLowering:
             conversion = plan.conversion
             if conversion:
                 value, _ = self.expression(argument)
-                value = self._lower_interface_conversion('ARGUMENT', conversion, expected, actual, value, argument.token)
+                value = self.lower_interface_conversion('ARGUMENT', conversion, expected, actual, value, argument.token)
                 if conversion in ('narrow_promotion', 'integer_to_real'):
                     code = f'_rt.value_argument({expected!r}, {value}, {line})'
                 else:
@@ -157,26 +148,6 @@ class RoutineLowering:
             arguments.append(code)
         result=f'self._routine_{expr.value}({", ".join(arguments)})'
         return f'(yield from {result})' if self.cooperative else result
-
-    def _lower_interface_conversion(self, operation, conversion, target, source, value, token):
-        line = token.line
-        helper = _DIRECT_CONVERSIONS.get(conversion)
-        if helper:
-            return f'_rt.{helper}({target!r},{value},{line})'
-        if conversion == 'config_word':
-            return self.config_word_conversion(target, source, value, token, operation)
-        if conversion == 'kinematic_array':
-            return f'self._state.kinematic_array({target!r},{value},{line},kind="{operation}")'
-        if conversion == 'kinematic_record':
-            return f'self._state.kinematic_record({target!r},{value},{line},kind="{operation}",source_spec={source!r})'
-        if conversion == 'record_schema':
-            return f'_rt.convert_record_schema({target!r},{value},{line},source_spec={source!r})'
-        if conversion == 'kinematic':
-            result = ',result=True' if operation == 'RETURN' else ''
-            return f'self._state.kinematic_interface({target!r},{value},{line}{result})'
-        if conversion == 'cartesian' and operation == 'RETURN':
-            return f'_rt.convert_position({target!r},{value},{line})'
-        return value
 
     def routine_return(self, operand, token):
         if self.current_routine is None:
@@ -202,7 +173,7 @@ class RoutineLowering:
         if plan.collection is not None:
             self._lower_collection_return(value, plan, operand, token)
             return
-        value = self._lower_interface_conversion('RETURN', plan.conversion, spec, source, value, token)
+        value = self.lower_interface_conversion('RETURN', plan.conversion, spec, source, value, token)
         if plan.conversion in ('kinematic_array', 'kinematic_record', 'kinematic'):
             self.current_routine.may_services = True
         record_result_conversion(self, token, plan)

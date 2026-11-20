@@ -6,8 +6,10 @@ from .array_schema_analysis import ArraySchemaAnalysis
 from .assignment_codegen import AssignmentLowering
 from .builtin_codegen import BuiltinFunctionLowering
 from .constant_analysis import ConstantAnalysis
+from .conversion_codegen import SchemaConversionLowering
 from .declarations import DeclarationPasses
 from .flow_codegen import ControlFlowLowering
+from .function_codegen import FunctionCallLowering
 from .handler_codegen import HandlerLowering
 from .loop_codegen import LoopLowering
 from .syntax import Expr, Statement
@@ -43,7 +45,8 @@ class Emitter(DeclarationPasses, TypeQueries, ExpressionLowering, AssignmentLowe
               ControlFlowLowering, SelectLowering, SourceNormalization, RoutineEffectAnalysis,
               ConstantAnalysis, NamedTypeAnalysis, ArraySchemaAnalysis, RoutineDeclarations,
               ProgramLowering, ProgramCLILowering, ProcedureLowering, TimingLowering,
-              BuiltinFunctionLowering, OutputProcedureLowering, ReferenceLowering, OperatorLowering):
+              BuiltinFunctionLowering, OutputProcedureLowering, ReferenceLowering, OperatorLowering,
+              FunctionCallLowering, SchemaConversionLowering):
     """Emit a Python module from a parsed program and its checked declarations."""
 
     def __init__(self, program, filename, array_shapes=None, mode='strict', cooperative=False):
