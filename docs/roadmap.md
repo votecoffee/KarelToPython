@@ -29,10 +29,10 @@ and retained-alias analysis run after source normalization. ARRAY subscript,
 bare routine call, and USING reference normalization have dedicated modules.
 Constant evaluation and dependency ordering have their own compiler module.
 Named TYPE resolution checks expanded schema size and depth and shares the
-dependency walk with CONST. Next, extract ARRAY storage, parameter, and result
-schema resolution from declaration validation. The runtime and extended
-services can be split by ownership after their boundaries are covered with
-regressions. See
+dependency walk with CONST. ARRAY storage, parameter, and result schemas
+have a dedicated resolver. Next, separate routine interface and local scope
+validation from module declarations. The runtime and extended services can
+be split by ownership after their boundaries are covered with regressions. See
 [compiler architecture](compiler-architecture.md).
 
 ## Python runner and parameter editor

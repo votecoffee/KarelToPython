@@ -10,6 +10,7 @@ input-discovery contract to the result.
 | Declaration analysis | `declarations.py`, `compiler_language.py` | `DeclarationPasses` checks declaration names and resolves type schemas. |
 | Constant analysis | `constant_analysis.py` | Evaluates scoped scalar expressions and bounded built-ins. An iterative dependency walk folds constants before their values enter schemas and generated code. |
 | Named TYPE analysis | `named_type_analysis.py`, `declaration_dependencies.py` | Resolves named schemas, preserves ARRAY and STRUCTURE identity, and checks expanded leaf count and depth. TYPE and CONST share the iterative dependency walk. |
+| ARRAY schemas | `array_schema_analysis.py` | Resolves storage, formal parameters, and results with their own dimension and capacity rules. Applies explicit wildcard sizes to direct global VAR declarations. |
 | Source normalization | `source_normalization.py`, `using_analysis.py` | Joins adjacent ARRAY subscript groups, resolves lexical USING fields, and rewrites bare function values into calls. |
 | Routine effects | `routine_effects.py`, `retained_aliases.py` | Collects direct effects and propagates them through routine calls. Records retained writable aliases used by the FOR storage checks. |
 | Type queries | `type_checking.py` | `TypeQueries` inspects schemas, resolves scoped references and FILE prefixes, and checks storage for BYNAME and service operands. Declaration analysis and lowering share these queries. |
@@ -58,6 +59,10 @@ are recorded separately. Both declaration checks and schema expressions use
 the same scalar evaluator. Named TYPE declarations use the same dependency
 walk, with separate checks for predefined structures, missing types, and
 recursive schema limits.
+ARRAY storage resolution applies explicit context only to direct global
+wildcards. Parameter schemas retain the fixed dimensions and defer unknown
+dimensions to caller storage. Routine results preserve declared named ARRAY
+identity and check anonymous shape constraints separately.
 ARRAY subscript normalization runs before receiver typing. After declarations
 are resolved, USING normalization binds the enclosing fields and checks selector
 schemas, including selectors that are bare function values. The general bare

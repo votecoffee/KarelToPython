@@ -1,5 +1,11 @@
 # Changelog
 
+## 26.1120.005405 - 2026-11-20
+
+- Separate ARRAY schema resolution for declared storage, routine parameters,
+  and results. Preserve named identity, fixed and wildcard dimensions, and
+  capacity checks for nested and resource arrays.
+
 ## 26.1120.004815 - 2026-11-20
 
 - Separate named TYPE resolution and expanded schema checks from declaration

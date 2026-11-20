@@ -9,6 +9,7 @@ from .compiler_language import (
     SKIPPABLE_STATEMENTS,
     TIME_TEXT_PROCEDURES,
 )
+from .array_schema_analysis import ArraySchemaAnalysis
 from .assignment_codegen import AssignmentLowering
 from .constant_analysis import ConstantAnalysis
 from .declarations import DeclarationPasses
@@ -39,7 +40,7 @@ class Emitter(DeclarationPasses, TypeQueries, ExpressionLowering, AssignmentLowe
               RoutineLowering, RobotSystemLowering, ServiceCallLowering, StatementIOLowering,
               MotionLowering, TaskControlLowering, HandlerLowering, LoopLowering, UsingLowering,
               ControlFlowLowering, SelectLowering, SourceNormalization, RoutineEffectAnalysis,
-              ConstantAnalysis, NamedTypeAnalysis):
+              ConstantAnalysis, NamedTypeAnalysis, ArraySchemaAnalysis):
     """Emit a Python module from a parsed program and its checked declarations."""
 
     def __init__(self, program, filename, array_shapes=None, mode='strict', cooperative=False):
