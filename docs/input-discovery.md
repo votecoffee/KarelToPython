@@ -333,6 +333,22 @@ Contract construction has a separate 50000-node/100-depth budget; an oversized
 contract is marked unavailable without rejecting an otherwise valid translation.
 Limit exhaustion returns an explicit partial report.
 
+### FILE operands
+
+Explicit FILE statements expose the inputs used to select a FILE, evaluate
+OPEN mode and endpoint strings, select PATH bounds and READ destinations, and
+format or supply WRITE values. Discovery follows those operands in source order.
+It finishes capturing a READ's destinations and formats before recording
+possible writes from that READ.
+
+An explicit predefined name such as `READ INPUT(n)` or `WRITE OUTPUT(n)`
+reports the matching alias under `predefined_files`. Context preparation checks
+whether that alias is bound. A declared FILE with the same name uses its normal
+scope. FILE transfers can invalidate prior value facts. Linked analysis also
+retains uncertainty about task and handler effects across FILE lifecycle
+operations. Configure the endpoint and supply any PATH storage and input
+stream data through the run context.
+
 ### Boolean and INTEGER operators
 
 WAIT FOR entry captures are read before the live predicate. Their inputs can

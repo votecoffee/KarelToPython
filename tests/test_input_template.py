@@ -78,6 +78,20 @@ class InputTemplateTests(unittest.TestCase):
         result['context']['variables'][0]['value']['x']=99
         self.assertEqual(context,original)
 
+    def test_predefined_file_requirement_uses_explicit_context_bindings(self):
+        missing = prepare('WRITE OUTPUT(x) CLOSE FILE OUTPUT')
+        self.assertNotIn('predefined_files', missing['context'])
+        requirements = [row for row in missing['template']['requirements'] if row['code'] == 'service']
+        self.assertEqual([(row['service'], row['address']) for row in requirements],
+                         [('predefined_files', 'OUTPUT')])
+        context = {'predefined_files': {'OUTPUT': {'name': 'out', 'mode': 'WO'}}}
+        bound = prepare('WRITE OUTPUT(x) CLOSE FILE OUTPUT', context=context)
+        self.assertEqual(bound['context']['predefined_files'], context['predefined_files'])
+        self.assertFalse(any(row['code'] == 'service' for row in bound['template']['requirements']))
+        self.assertIn('file-transport', {
+            row['code'] for row in bound['template']['discovery']['unresolved']
+        })
+
     def test_existing_root_type_conflicts_are_rejected(self):
         context={'variables':[dict(program='T',path='X',type=['REAL'],value=1.0)]}
         with self.assertRaisesRegex(InputTemplateError,'type differs'):

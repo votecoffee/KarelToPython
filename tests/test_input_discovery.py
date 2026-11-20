@@ -250,6 +250,57 @@ class InputDiscoveryTests(unittest.TestCase):
         self.assertEqual(report['inputs'],[])
         self.assertTrue(any(row['code']=='input-stream' for row in report['unresolved']))
 
+    def test_explicit_file_open_and_write_discover_source_operands(self):
+        report, _ = scan(
+            'i=2 OPEN FILE channel[which](mode,endpoint) '
+            'WRITE channel[which](samples[i]::width,CR) CLOSE FILE channel[which]',
+            decl='channel:ARRAY[2] OF FILE i,which,width:INTEGER '
+                 'samples:ARRAY[3] OF INTEGER mode,endpoint:STRING[32]',
+        )
+        self.assertEqual(names(report), {
+            ('variable', 'WHICH'): 'required',
+            ('variable', 'MODE'): 'required',
+            ('variable', 'ENDPOINT'): 'required',
+            ('variable', 'SAMPLES[2]'): 'required',
+            ('variable', 'WIDTH'): 'required',
+        })
+        self.assertEqual(
+            {row['code'] for row in report['unresolved']},
+            {'dynamic-address', 'file-state', 'file-transport'},
+        )
+
+    def test_explicit_file_read_discovers_path_bounds_and_format_controls(self):
+        report, _ = scan(
+            'READ channel[which](route[first..last]::width)',
+            decl='channel:ARRAY[2] OF FILE route:PATH NODEDATA=node_t first,last,which,width:INTEGER',
+            prefix='TYPE node_t=STRUCTURE amount:INTEGER ENDSTRUCTURE',
+        )
+        self.assertEqual(names(report), {
+            ('variable', name): 'required' for name in ('WHICH', 'FIRST', 'LAST', 'WIDTH')
+        })
+        self.assertIn('input-stream', {row['code'] for row in report['unresolved']})
+        self.assertIn('selection', {row['code'] for row in report['unresolved']})
+
+    def test_read_captures_later_destination_using_pre_read_index(self):
+        report, _ = scan(
+            'n=2 READ(n,samples[n]::width) x=samples[2]',
+            decl='n,x,width:INTEGER samples:ARRAY[3] OF INTEGER',
+        )
+        self.assertEqual(names(report), {
+            ('variable', 'WIDTH'): 'required', ('variable', 'SAMPLES[2]'): 'conditional',
+        })
+        self.assertEqual({row['code'] for row in report['unresolved']}, {'input-stream'})
+
+    def test_explicit_predefined_file_is_a_requirement_unless_shadowed(self):
+        report, _ = scan('WRITE OUTPUT(x) CLOSE FILE OUTPUT')
+        self.assertEqual(names(report), {('variable', 'X'): 'required'})
+        self.assertEqual(report['context_requirements'], [
+            {'service': 'predefined_files', 'address': 'OUTPUT'},
+        ])
+        shadowed, _ = scan('READ INPUT(n) CLOSE FILE INPUT', decl='input:FILE n:INTEGER')
+        self.assertEqual(shadowed['context_requirements'], [])
+        self.assertEqual(shadowed['inputs'], [])
+
     def test_unknown_control_cannot_hide_reads_after_skipped_writes(self):
         report,_=scan('GOTO chosen x=1 chosen:: n=x')
         self.assertIn(('variable','X'),names(report))

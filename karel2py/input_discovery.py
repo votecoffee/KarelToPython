@@ -5,7 +5,7 @@ import math
 from pathlib import Path
 import re
 
-from .extended import ZERO_BASED_PORTS
+from .extended import PREDEFINED_FILE_NAMES, ZERO_BASED_PORTS
 from .input_contract import extract, InputContractError
 from . import runtime as rt
 
@@ -1091,6 +1091,36 @@ class _Analyzer:
             value = _Value(spec=['BOOLEAN'])
         return dict(node, kind='wait_sample', value=value, args=[])
 
+    def file_statement(self, node, flow, conditional):
+        """Follow source operands without attempting to open or drive a FILE."""
+        kind = node['kind']
+        selector, *operands = node['args']
+        if selector is not None:
+            location = self.locate(selector, flow, conditional)
+            if location is None and selector['kind'] == 'name':
+                alias = selector['value']
+                if alias in PREDEFINED_FILE_NAMES and alias not in self.plan['types']:
+                    self.context('predefined_files', alias)
+        if flow.stopped and not flow.opaque:
+            return
+
+        if kind in ('file_read', 'file_write'):
+            self.statement(operands[0], flow, conditional)
+            if flow.stopped and not flow.opaque:
+                return
+            self.unresolved_at('file-transport', 'FILE transfer depends on its open endpoint and transport', node)
+            self.opaque(flow)
+            return
+
+        if kind == 'file_open':
+            for operand in operands:
+                self.expr(operand, flow, conditional)
+                if flow.stopped and not flow.opaque:
+                    return
+        self.unresolved_at('file-state', 'FILE operation depends on its configured endpoint and runtime state', node)
+        if self.linked_plans is not None:
+            self.opaque(flow)
+
     def statement(self, node, flow, conditional):
         self.tick();kind=node['kind'];args=node['args']
         if flow.task_order_unknown and flow.paused_tasks:
@@ -1099,6 +1129,9 @@ class _Analyzer:
             value=self.expr(args[1],flow,conditional,partial=True)
             self.write(self.locate(args[0],flow,conditional),value,flow,node);return
         if kind=='call':self.expr(args[0],flow,conditional);return
+        if kind in ('file_read', 'file_write', 'file_open', 'file_close', 'file_cancel'):
+            self.file_statement(node, flow, conditional)
+            return
         if kind == 'wait':
             captured = self.sample_condition_inputs(args[0], flow, conditional, ('wait_eval',))
             predicate = self.sample_condition_inputs(captured, flow, conditional,
@@ -1210,17 +1243,31 @@ class _Analyzer:
             value=self.expr(args[0],flow,conditional,partial=True) if args and args[0] is not None else _Value()
             self.exits.append((flow.copy(),value));flow.stopped=True;return
         if kind=='write_items':
-            for argument in args:self.expr(argument,flow,conditional)
+            for argument in args:
+                if flow.stopped and not flow.opaque:
+                    return
+                self.expr(argument,flow,conditional)
             return
         if kind=='read':
-            self.unresolved_at('input-stream','READ requires explicitly supplied input data',node)
+            destinations = []
             for argument in args:
-                if argument.get('kind')=='read_cr':continue
-                target=argument['args'][0] if argument.get('kind')=='read_item' else argument
-                loc=self.locate(target,flow,conditional)
-                if argument.get('kind')=='read_item':
-                    for control in argument['args'][1:]:self.expr(control,flow,conditional)
-                self.write(loc,_Value(),flow,node,definite=False)
+                if flow.stopped and not flow.opaque:
+                    return
+                if argument['kind'] == 'read_cr':
+                    continue
+                formatted = argument['kind'] == 'read_item'
+                target = argument['args'][0] if formatted else argument
+                destinations.append(self.locate(target, flow, conditional))
+                if formatted:
+                    for control in argument['args'][1:]:
+                        if flow.stopped and not flow.opaque:
+                            return
+                        self.expr(control, flow, conditional)
+            if flow.stopped and not flow.opaque:
+                return
+            self.unresolved_at('input-stream','READ requires explicitly supplied input data',node)
+            for location in destinations:
+                self.write(location, _Value(), flow, node, definite=False)
             return
         if kind=='abort' or kind=='task_control' and args[0] in ('ABORT','STOP') and len(args)==1:
             flow.stopped=True;return

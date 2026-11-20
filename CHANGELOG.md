@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1120.154356 - 2026-11-20
+
+- Discover source inputs in explicit FILE transfers, including handle
+  selection, OPEN operands, PATH bounds, formats and WRITE data.
+- Report required predefined FILE bindings and retain READ destination
+  capture order when identifying inputs.
+
 ## 26.1120.153141 - 2026-11-20
 
 - Select a declared PATH header with index zero in typed source expressions,
