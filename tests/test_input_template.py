@@ -418,6 +418,74 @@ class InputTemplateTests(unittest.TestCase):
         self.assertEqual(set(by_path(prepared)), {'SOURCE[1]'})
         self.assertIn('path-topology', {row['code'] for row in prepared['template']['discovery']['unresolved']})
 
+    def test_private_path_argument_is_captured_before_later_argument_effects(self):
+        source = (
+            'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+            'head_t=STRUCTURE total:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t PATHHEADER=head_t '
+            'VAR source,target:route_t wanted,unused:INTEGER '
+            'ROUTINE change_source:INTEGER BEGIN source[1].amount=99 source.total=31 RETURN 0 END change_source '
+            'ROUTINE build(v:route_t;ignored:INTEGER):route_t VAR local:route_t s:INTEGER '
+            'BEGIN APPEND_NODE(v,s) v[2].amount=21 local=v RETURN local END build '
+            'BEGIN source[1].amount=7 source.total=11 target=build((source),change_source()) '
+            'IF (PATH_LEN(target)=2) AND (target[1].amount=7) AND (target[2].amount=21) '
+            'AND (target.total=11) AND (source.total=31) '
+            'THEN WRITE(wanted) ELSE WRITE(unused) ENDIF END T'
+        )
+        spec = ['PATH', ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]],
+                ['STRUCTURE', 'HEAD_T', [['TOTAL', ['INTEGER']]]]]
+        context = {'variables': [dict(program='T', path='SOURCE', type=spec,
+                                      value=dict(nodes=[{'AMOUNT': MISSING}], data={'TOTAL': MISSING}))]}
+        prepared = prepare_inputs(translate(source).python_source, context=context)
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'WANTED'})
+
+    def test_borrowed_path_keeps_caller_writes_and_return_is_independent(self):
+        source = (
+            'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t '
+            'VAR source,target:route_t wanted,unused:INTEGER '
+            'ROUTINE update(v:route_t):route_t BEGIN v[1].amount=8 RETURN v END update '
+            'BEGIN target=update(source) source[1].amount=9 '
+            'IF (PATH_LEN(target)=1) AND (target[1].amount=8) AND (source[1].amount=9) '
+            'THEN WRITE(wanted) ELSE WRITE(unused) ENDIF END T'
+        )
+        spec = ['PATH', ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]], None]
+        context = {'variables': [dict(program='T', path='SOURCE', type=spec,
+                                      value=dict(nodes=[{'AMOUNT': MISSING}], data=None))]}
+        prepared = prepare_inputs(translate(source).python_source, context=context)
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'WANTED'})
+
+    def test_computed_path_count_works_with_fresh_routine_local_storage(self):
+        from karel2py.input_discovery import discover_inputs
+
+        source = (
+            'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t '
+            'VAR wanted,unused:INTEGER '
+            'ROUTINE build:route_t VAR p:route_t s:INTEGER '
+            'BEGIN APPEND_NODE(p,s) p[1].amount=17 RETURN p END build '
+            'BEGIN IF PATH_LEN(build())=1 THEN WRITE(wanted) ELSE WRITE(unused) ENDIF END T'
+        )
+        report = discover_inputs(translate(source).python_source)
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual([row['path'] for row in report['inputs']], ['WANTED'])
+
+    def test_partial_private_path_keeps_saved_inputs_at_original_address(self):
+        source = (
+            'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t '
+            'VAR source,target:route_t '
+            'ROUTINE copy(v:route_t):route_t BEGIN RETURN v END copy '
+            'BEGIN target=copy((source)) WRITE(target[1]) END T'
+        )
+        spec = ['PATH', ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]], None]
+        context = {'variables': [dict(program='T', path='SOURCE', type=spec,
+                                      value=dict(nodes=[{'AMOUNT': MISSING}], data=None))]}
+        prepared = prepare_inputs(translate(source).python_source, context=context)
+        report = prepared['template']['discovery']
+        self.assertEqual(set(by_path(prepared)), {'SOURCE[1]'})
+        self.assertEqual({row['code'] for row in report['unresolved']}, {'derived-value'})
+
     def test_seeded_insert_reads_the_existing_seed_before_nodes_shift(self):
         from karel2py.structured_inputs import structured_slot
 

@@ -411,8 +411,8 @@ status 3 before the index check. A shifted PATH record used as a seed
 retains its original saved input address.
 
 Model-dependent seed conversions, unknown conversion choices for different
-layouts, aliases into the edited PATH, edits inside routine frames, and
-uncertain or potentially repeated edits leave the topology unresolved.
+layouts, edits through retained aliases, and uncertain or potentially
+repeated edits leave the topology unresolved.
 When discovery loses the order of a tracked PATH, it reports unknown saved
 origins for its node selectors.
 
@@ -436,9 +436,18 @@ It captures the source header and nodes before evaluating the destination
 selector. Later writes to the source leave the copied values independent.
 Exact and context-free conversions preserve partial data, and the destination
 can start without a saved seed. Retranslate older Python to include the
-checked assignment schema. Computed PATH results, uncertain receiver
-selection, retained routine aliases, and model-dependent assignments still
-produce a discovery gap.
+checked assignment schema. Uncertain receiver selection, replacement of
+borrowed or nonlocal PATHs inside routines, and model-dependent assignments
+still produce a discovery gap.
+
+Grouped scalar PATH arguments capture private values before later arguments
+are evaluated. Bare reference arguments retain the caller's storage and
+ordinary field writes. Fresh routine-local PATHs begin empty. Definite
+assignments and node edits on the routine's own local or private PATHs can
+establish their shape. Returning an exact or context-free PATH snapshot
+preserves partial data and detaches it from the routine frame. The caller can
+assign that result or use its node count in `PATH_LEN`. These rules also apply
+across pinned linked routines with matching interfaces.
 
 ### Boolean and INTEGER operators
 

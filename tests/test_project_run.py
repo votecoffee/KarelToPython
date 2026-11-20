@@ -265,6 +265,33 @@ class SavedProjectTests(unittest.TestCase):
         self.assertEqual(result['text_output'], ' 12\n')
         self.assertEqual(result['programs']['MAIN']['values']['TARGETS'][1]['nodes'], [{'AMOUNT': 12}])
 
+    def test_linked_private_path_argument_and_converted_return_replay(self):
+        types = ('TYPE source_t=STRUCTURE amount:REAL ENDSTRUCTURE '
+                 'row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+                 'real_path=PATH NODEDATA=source_t int_path=PATH NODEDATA=row_t ')
+        main = self.module('MAIN', 'source[1].amount=12.75 target=build((source)) WRITE(target,CR)',
+                           types+'VAR source:real_path target:int_path',
+                           'ROUTINE build(v:real_path):int_path FROM LIB')
+        lib = self.module('LIB', declarations=types,
+                          routines='ROUTINE build(v:real_path):int_path VAR s:INTEGER '
+                                   'BEGIN APPEND_NODE(v,s) v[2].amount=21.75 RETURN v END build')
+        source_type = ['PATH', ['STRUCTURE', 'SOURCE_T', [['AMOUNT', ['REAL']]]], None]
+        source = dict(program='MAIN', path='SOURCE', type=source_type,
+                      value=dict(nodes=[{'AMOUNT': MISSING}], data=None))
+        self.create(main, lib, context={'variables': [source]})
+        revised = self.folder/'revised.run.json'
+        prepared = runner.refresh_project_document(self.document, revised, [main, lib])
+        report = prepared['inputs']['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertFalse(report['inputs'])
+        self.assertEqual(prepared['inputs']['context']['variables'], [source])
+        result = runner.run_document(revised)['results']
+        self.assertEqual(result['status'], 'completed', result['error'])
+        self.assertEqual(result['text_output'], ' 12 21\n')
+        values = result['programs']['MAIN']['values']
+        self.assertEqual(values['TARGET']['nodes'], [{'AMOUNT': 12}, {'AMOUNT': 21}])
+        self.assertEqual(values['SOURCE']['nodes'], [{'AMOUNT': 12.75}])
+
     def test_linked_seed_conversion_keeps_input_owner_and_completes_inserted_record(self):
         types = ('TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
                  'source_t=STRUCTURE amount:REAL ENDSTRUCTURE ')

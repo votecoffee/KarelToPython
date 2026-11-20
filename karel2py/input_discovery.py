@@ -72,6 +72,7 @@ class _Value:
     complete: bool = True
     spec: object = None
     facts: object = None
+    path_records: tuple | None = None
 
 
 @dataclass(eq=False, frozen=True)
@@ -212,7 +213,13 @@ def _merged_value(values,spec=None):
     facts=None
     if first.facts is not None and all(item.facts is not None and item.spec==first.spec for item in values):
         facts={key:_merged_value([item.facts.get(key,_Value(complete=False)) for item in values]) for key in first.facts}
-    return _Value(constant,all(item.complete for item in values),schema,facts)
+    path_records = None
+    if first.path_records is not None and all(
+        item.spec == first.spec and item.path_records is not None
+        and len(item.path_records) == len(first.path_records) for item in values
+    ):
+        path_records = tuple(_merged_value(records) for records in zip(*(item.path_records for item in values)))
+    return _Value(constant,all(item.complete for item in values),schema,facts,path_records)
 
 
 class _Analyzer:
@@ -387,12 +394,21 @@ class _Analyzer:
         return (self.saved_path_count is not None and loc is not None and loc.kind == 'variable'
                 and not (flow.opaque or flow.path_shape_unknown or conditional))
 
+    def can_publish_path(self, loc, flow, conditional):
+        if loc is None or flow.opaque or flow.path_shape_unknown or conditional or self.repeat_depth:
+            return False
+        if self.frames:
+            return loc.kind == 'local' and loc.owner == self.frames[-1]['owner']
+        return loc.kind == 'variable'
+
     def known_path_count(self, loc, flow, conditional):
-        if not self.stable_path_context(loc, flow, conditional):
+        if loc is None or flow.opaque or flow.path_shape_unknown or conditional or None in flow.path_orders:
             return None
         if loc.key in flow.path_orders:
             order = flow.path_orders[loc.key]
             return len(order.nodes) if order is not None else None
+        if not self.stable_path_context(loc, flow, conditional):
+            return None
         count = self.saved_path_count(loc.owner, loc.root, loc.root_spec, loc.parts)
         if count is not None:
             self.path_storage[loc.owner, loc.root] = loc.root_spec
@@ -440,7 +456,7 @@ class _Analyzer:
 
     def saved_path_records(self, loc, node, flow, conditional):
         """Expand an exact initial topology while it still applies to this transfer."""
-        if not self.stable_path_context(loc, flow, conditional):
+        if loc is None or flow.opaque or flow.path_shape_unknown or conditional:
             return None
         _, terminal = _array_dimensions(loc.spec)
         if not terminal or terminal[0] != 'PATH':
@@ -538,6 +554,16 @@ class _Analyzer:
         return leaves if visit(loc) else None
 
     def read(self, loc, node, flow, conditional, *, partial=False, path_io=False):
+        if partial and loc.spec and loc.spec[0] == 'PATH':
+            count = self.known_path_count(loc, flow, conditional)
+            if count is not None:
+                if self.path_snapshot_fits(tuple_spec(loc.spec), count):
+                    records = self.capture_path_copy(loc, range(1, count + 1), node, flow, conditional)
+                    if records is not None:
+                        return _Value(complete=all(record.complete for record in records),
+                                      spec=loc.spec, path_records=tuple(records))
+                else:
+                    self.unresolved_at('limit', 'PATH value exceeds the scalar snapshot limit', node)
         if path_io:
             records = self.saved_path_records(loc, node, flow, conditional)
             if records is not None:
@@ -784,13 +810,14 @@ class _Analyzer:
         while target['kind'] == 'group':
             target = target['args'][0]
         loc = None
+        value = None
         if target['kind'] in ('name', 'field', 'index'):
             loc = self.locate(target, flow, conditional)
-            spec = loc.spec if loc is not None else None
             if loc is None and target['kind'] == 'name' and target['value'] in self.plan['routines']:
-                spec = self.expr(target, flow, conditional, partial=True).spec
+                value = self.expr(target, flow, conditional, partial=True)
         else:
-            spec = self.expr(target, flow, conditional, partial=True).spec
+            value = self.expr(target, flow, conditional, partial=True)
+        spec = loc.spec if loc is not None else value.spec if value is not None else None
         if flow.stopped and not flow.opaque:
             return _Value(complete=False, spec=['INTEGER'])
         if name == 'NODE_SIZE':
@@ -807,6 +834,9 @@ class _Analyzer:
             else:
                 self.unresolved_at('path-schema', 'NODE_SIZE requires a known NODEDATA schema', node)
         else:
+            if value is not None and value.path_records is not None:
+                count = len(value.path_records) - int(value.spec[2] is not None)
+                return _Value(count, spec=['INTEGER'])
             if loc is not None and spec and spec[0] == 'PATH':
                 count = self.known_path_count(loc, flow, conditional)
                 if count is not None:
@@ -875,7 +905,7 @@ class _Analyzer:
         count = self.known_path_count(path, flow, conditional) if path is not None and path.spec[0] == 'PATH' else None
         # A routine may retain a node reference captured before this edit.
         # Repeated bodies can also reach the edit with a different shape.
-        if count is not None and status is not None and not self.frames and not self.repeat_depth:
+        if count is not None and status is not None and self.can_publish_path(path, flow, conditional):
             aliases_path = self.path_status_overlaps(path, status)
             removing = name == 'DELETE_NODE'
             last = count if removing else count + 1
@@ -926,8 +956,8 @@ class _Analyzer:
         source, first, last, target, status, *flags = operands
         convert = flags[0] if flags else False
         if (source is not None and source.spec[0] == 'PATH' and target is not None and target.spec[0] == 'PATH'
-                and status is not None and not self.frames and not self.repeat_depth
-                and self.stable_path_context(target, flow, conditional) and not self.path_status_overlaps(target, status)):
+                and status is not None and self.can_publish_path(target, flow, conditional)
+                and not self.path_status_overlaps(target, status)):
             source_type, target_type = tuple_spec(source.spec), tuple_spec(target.spec)
             if source_type == target_type:
                 layout = ('exact', 'exact')
@@ -961,34 +991,40 @@ class _Analyzer:
         self.write(status, _Value(), flow, node)
         return _Value()
 
+    def convert_path_value(self, target, value, node, flow):
+        """Convert a captured private PATH before evaluating later operands."""
+        if value.path_records is not None:
+            if target == value.spec:
+                return value
+            target_type = tuple_spec(target)
+            layout = path_conversion_layout(target_type, tuple_spec(value.spec), model=True)
+            count = len(value.path_records) - int(value.spec[2] is not None)
+            node_type = target[1] or self.plan.get('default_path_node')
+            if layout and 'kinematic' not in layout and node_type and self.path_snapshot_fits(target_type, count):
+                records = []
+                for index, item in enumerate(value.path_records):
+                    spec = target[2] if index == 0 and target[2] is not None else node_type
+                    slot = _Location('local', '@path-value', 'PATH', spec=spec)
+                    records.append(self.stored(slot, item, self.leaves(slot), node))
+                return _Value(complete=all(item.complete for item in records), spec=target,
+                              path_records=tuple(records))
+        self.unresolved_at('path-topology', 'Private PATH value or conversion requires review', node)
+        self.opaque(flow)
+        return _Value(complete=False, spec=target)
+
     def path_assignment(self, node, flow, conditional):
         target_arg, source_arg = node['args']
-        source = self.locate(source_arg, flow, conditional)
+        value = self.expr(source_arg, flow, conditional, partial=True)
         if flow.stopped and not flow.opaque:
             return
-        target_type = tuple_spec(node['path_assignment_type'])
-        layout = None
-        captured = None
-        if source is not None and source.spec[0] == 'PATH':
-            source_type = tuple_spec(source.spec)
-            layout = path_conversion_layout(target_type, source_type, model=True)
-            count = self.known_path_count(source, flow, conditional)
-            if layout is not None and count is not None:
-                if all(self.path_snapshot_fits(spec, count) for spec in (source_type, target_type)):
-                    captured = self.capture_path_copy(source, range(1, count + 1), source_arg, flow, conditional)
-                else:
-                    self.unresolved_at('limit', 'PATH assignment exceeds the scalar snapshot limit', node)
-        # Model callbacks can execute before the destination selector.
-        if layout is None or 'kinematic' in layout:
-            self.opaque(flow)
-
+        target_type = node['path_assignment_type']
+        value = self.convert_path_value(target_type, value, source_arg, flow)
         target = self.locate(target_arg, flow, conditional)
         if flow.stopped and not flow.opaque:
             return
-        if (captured is not None and not self.frames and not self.repeat_depth
-                and self.stable_path_context(target, flow, conditional)
-                and tuple_spec(target.spec) == target_type):
-            self.publish_path_copy(target, captured, node, flow)
+        if (value.path_records is not None and self.can_publish_path(target, flow, conditional)
+                and target.spec == target_type):
+            self.publish_path_copy(target, value.path_records, node, flow)
             return
 
         flow.path_orders[target.key if target is not None else None] = None
@@ -1281,12 +1317,21 @@ class _Analyzer:
         routine=self.plan['routines'][name]
         modes=node.get('passing',[]);actual=[]
         for index,item in enumerate(args):
+            if flow.stopped and not flow.opaque:
+                return _Value(complete=False)
             mode=modes[index] if index<len(modes) else 'unknown'
             if mode=='reference':actual.append(self.locate(item,flow,conditional))
-            elif mode=='value':actual.append(self.expr(item,flow,conditional,partial=True))
+            elif mode=='value':
+                value = self.expr(item,flow,conditional,partial=True)
+                expected = routine['parameters'][index][1]
+                if expected[0] == 'PATH' and not (flow.stopped and not flow.opaque):
+                    value = self.convert_path_value(expected, value, item, flow)
+                actual.append(value)
             else:
                 self.unresolved_at('argument','Routine passing mode is unresolved: '+name,node)
                 actual.append(self.expr(item,flow,conditional))
+        if flow.stopped and not flow.opaque:
+            return _Value(complete=False)
         target_plan, target_routine = self.routine_target(name, routine)
         routine_key = (target_plan['program'], name) if target_plan else None
         if (target_routine is None or any(frame['key'] == routine_key for frame in self.frames)
@@ -1311,14 +1356,25 @@ class _Analyzer:
                 self.unresolved_at('parameter-shape','Concrete ARRAY shape conflicts with routine constraint: '+name+'.'+formal,node)
                 self.opaque(flow);return _Value(complete=False)
             bindings.append((formal,spec,item,resolved))
-        frame=dict(name=name,key=routine_key,slots={key:_Location('local',owner,key,spec=spec) for key,spec in routine['types'].items()},
+        frame=dict(name=name,key=routine_key,owner=owner,result=routine['result'],
+                   slots={key:_Location('local',owner,key,spec=spec) for key,spec in routine['types'].items()},
                    constants=routine['constants'])
+        formals = {formal for formal, _, _, _ in bindings}
+        for local in frame['slots'].values():
+            if local.root not in formals and local.spec[0] == 'PATH':
+                flow.path_orders[local.key] = _PathOrder(())
         for formal,spec,item,resolved in bindings:
             if isinstance(item,_Location):frame['slots'][formal]=item
             else:
                 if spec==['STRING',None]:resolved=['STRING',254]
                 loc=_Location('local',owner,formal,spec=resolved);frame['slots'][formal]=loc
-                self.write(loc,item or _Value(complete=False),flow,node)
+                if resolved[0] == 'PATH':
+                    if isinstance(item, _Value) and item.path_records is not None and not flow.opaque:
+                        self.publish_path_copy(loc, item.path_records, node, flow)
+                    else:
+                        flow.path_orders[loc.key] = None
+                else:
+                    self.write(loc,item or _Value(complete=False),flow,node)
         old_exits, self.exits = self.exits, []
         caller_plan, self.plan = self.plan, target_plan
         caller_handlers = flow.handlers if external else None
@@ -1345,9 +1401,10 @@ class _Analyzer:
         for field_name in ('defined','assigned','maybe'):
             setattr(merged,field_name,{key for key in getattr(merged,field_name) if key[1]!=owner})
         merged.constants={key:value for key,value in merged.constants.items() if key[1]!=owner}
+        merged.path_orders = {key: order for key, order in merged.path_orders.items() if key is None or key[1] != owner}
         flow.take(merged)
         values=[item[1] for item in exits];result=routine['result']
-        if result:
+        if result and result[0] != 'PATH':
             converted=[]
             for value in values:
                 schema=_array_value_schema(result,value.spec) if result[0]=='ARRAY' else result
@@ -1692,6 +1749,9 @@ class _Analyzer:
             return
         if kind=='return':
             value=self.expr(args[0],flow,conditional,partial=True) if args and args[0] is not None else _Value()
+            result = self.frames[-1]['result'] if self.frames else None
+            if result and result[0] == 'PATH' and not (flow.stopped and not flow.opaque):
+                value = self.convert_path_value(result, value, node, flow)
             self.exits.append((flow.copy(),value));flow.stopped=True;return
         if kind=='write_items':
             for argument in args:

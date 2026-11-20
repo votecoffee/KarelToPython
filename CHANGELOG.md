@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1120.165829 - 2026-11-20
+
+- Discover private scalar PATH arguments, locally owned edits and detached
+  results in standalone and linked routines.
+- Preserve borrowed field writes and partial record facts, and use proved
+  routine results in PATH assignments and PATH_LEN.
+
 ## 26.1120.165140 - 2026-11-20
 
 - Discover whole scalar PATH assignments and selected PATH ARRAY cells,
