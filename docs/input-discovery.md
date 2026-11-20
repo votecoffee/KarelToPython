@@ -430,6 +430,16 @@ bounds produce status 3 or 2 before reading the source records. Unknown
 bounds, retained destination aliases, and model-dependent results leave
 the destination effect unresolved.
 
+Discovery also follows whole scalar PATH assignments between declared
+variables or selected PATH ARRAY cells in definite program-body flow.
+It captures the source header and nodes before evaluating the destination
+selector. Later writes to the source leave the copied values independent.
+Exact and context-free conversions preserve partial data, and the destination
+can start without a saved seed. Retranslate older Python to include the
+checked assignment schema. Computed PATH results, uncertain receiver
+selection, retained routine aliases, and model-dependent assignments still
+produce a discovery gap.
+
 ### Boolean and INTEGER operators
 
 WAIT FOR entry captures are read before the live predicate. Their inputs can

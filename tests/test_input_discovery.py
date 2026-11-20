@@ -358,10 +358,10 @@ class InputDiscoveryTests(unittest.TestCase):
             prefix='TYPE node_t=STRUCTURE amount:INTEGER ENDSTRUCTURE',
         )
         self.assertEqual(names(report), {
-            ('variable', 'ROUTE[1].AMOUNT'): 'conditional',
             ('variable', 'X'): 'conditional',
             ('variable', 'Y'): 'conditional',
         })
+        self.assertIn('path-topology', {row['code'] for row in report['unresolved']})
 
     def test_computed_ordinary_zero_keeps_its_unresolved_node_selection(self):
         report, _ = scan(

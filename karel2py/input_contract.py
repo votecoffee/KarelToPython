@@ -186,6 +186,10 @@ def build(program, emitter):
                             pass
             else:
                 row.update(body=encode(value.body, depth + 1), alternate=encode(value.alternate, depth + 1), has_else=value.has_else)
+                if value.kind == 'assign':
+                    schema = emitter.path_assignment_schemas.get(id(value.args[0]))
+                    if schema is not None:
+                        row['path_assignment_type'] = encode(schema, depth + 1)
                 callback = emitter.callback_input_plans.get(id(value))
                 if callback is not None:
                     row.update(encode(callback, depth + 1))

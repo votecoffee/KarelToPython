@@ -625,6 +625,8 @@ class _Analyzer:
             self.unresolved_at('schema','Resource or unsupported write: '+loc.path,node)
             _, terminal = _array_dimensions(loc.spec)
             if terminal and terminal[0] == 'PATH':
+                if loc.spec[0] == 'PATH':
+                    flow.path_orders[loc.key] = None
                 self.opaque(flow)
             return
         stored=self.stored(loc,value,leaves,node)
@@ -958,6 +960,45 @@ class _Analyzer:
         self.opaque(flow)
         self.write(status, _Value(), flow, node)
         return _Value()
+
+    def path_assignment(self, node, flow, conditional):
+        target_arg, source_arg = node['args']
+        source = self.locate(source_arg, flow, conditional)
+        if flow.stopped and not flow.opaque:
+            return
+        target_type = tuple_spec(node['path_assignment_type'])
+        layout = None
+        captured = None
+        if source is not None and source.spec[0] == 'PATH':
+            source_type = tuple_spec(source.spec)
+            layout = path_conversion_layout(target_type, source_type, model=True)
+            count = self.known_path_count(source, flow, conditional)
+            if layout is not None and count is not None:
+                if all(self.path_snapshot_fits(spec, count) for spec in (source_type, target_type)):
+                    captured = self.capture_path_copy(source, range(1, count + 1), source_arg, flow, conditional)
+                else:
+                    self.unresolved_at('limit', 'PATH assignment exceeds the scalar snapshot limit', node)
+        # Model callbacks can execute before the destination selector.
+        if layout is None or 'kinematic' in layout:
+            self.opaque(flow)
+
+        target = self.locate(target_arg, flow, conditional)
+        if flow.stopped and not flow.opaque:
+            return
+        if (captured is not None and not self.frames and not self.repeat_depth
+                and self.stable_path_context(target, flow, conditional)
+                and tuple_spec(target.spec) == target_type):
+            self.publish_path_copy(target, captured, node, flow)
+            return
+
+        flow.path_orders[target.key if target is not None else None] = None
+        self.unresolved_at('path-topology', 'PATH assignment source or destination effects require review', node)
+        self.opaque(flow)
+
+    def path_snapshot_fits(self, spec, count):
+        node = spec[1] or rt.PREDEFINED_STRUCTURES['STD_PTH_NODE']
+        header = rt.scalar_leaf_count(spec[2]) if spec[2] is not None else 0
+        return header + count * rt.scalar_leaf_count(node) <= MAX_FACTS
 
     def capture_path_copy(self, source, indexes, node, flow, conditional):
         """Read the selected records and header before publishing any copy."""
@@ -1528,6 +1569,9 @@ class _Analyzer:
         if flow.task_order_unknown and flow.paused_tasks:
             self.lose_task_order(flow)
         if kind=='assign':
+            if 'path_assignment_type' in node:
+                self.path_assignment(node, flow, conditional)
+                return
             value=self.expr(args[1],flow,conditional,partial=True)
             self.write(self.locate(args[0],flow,conditional),value,flow,node);return
         if kind=='call':self.expr(args[0],flow,conditional);return

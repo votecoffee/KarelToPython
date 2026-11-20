@@ -60,6 +60,7 @@ class Emitter(DeclarationPasses, TypeQueries, ExpressionLowering, AssignmentLowe
         self.string_formal_uses=[];self.string_forward_uses=[]
         self.short_circuit_expressions=set()
         self.node_size_schemas = {}
+        self.path_assignment_schemas = {}
         self.predefined_structure_uses = []
         self.lines, self.source_map, self.features = [], [], set()
         self.source_checkpoints=set()

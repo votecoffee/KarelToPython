@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1120.165140 - 2026-11-20
+
+- Discover whole scalar PATH assignments and selected PATH ARRAY cells,
+  preserving source capture before destination selector effects.
+- Track independent destination shapes for exact and context-free
+  assignments, including destinations without saved seeds.
+
 ## 26.1120.164516 - 2026-11-20
 
 - Discover Pythonic COPY_PATH inputs from the selected saved records and

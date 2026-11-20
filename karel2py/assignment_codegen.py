@@ -164,6 +164,8 @@ class AssignmentLowering:
     def collection_assignment(self,target,expression,token):
         reference,expected=self.reference(target)
         value,actual=self.expression(expression)
+        if expected[0] == 'PATH':
+            self.path_assignment_schemas[id(target)] = expected
         source=self.fresh();line=token.line
         if expected==actual:
             value=f'_rt.collection_source_value({actual!r},{value},{line},source_spec={actual!r})'

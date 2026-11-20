@@ -352,6 +352,72 @@ class InputTemplateTests(unittest.TestCase):
         self.assertTrue(any('Saved origin of TARGET[1] is unresolved' in row['message']
                             for row in report['unresolved']))
 
+    def test_path_assignment_retains_distinct_records_after_shift_and_self_copy(self):
+        spec = ['PATH', ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]],
+                ['STRUCTURE', 'HEAD_T', [['TOTAL', ['INTEGER']]]]]
+        source = dict(program='T', path='SOURCE', type=spec,
+                      value=dict(nodes=[{'AMOUNT': MISSING} for _ in range(3)], data={'TOTAL': MISSING}))
+        prepared = prepare(
+            'source.total=7 source[3].amount=19 DELETE_NODE(source,1,s) '
+            'source=source target=(source) source[2].amount=33 '
+            'IF (PATH_LEN(target)=2) AND (target[2].amount=19) AND (target.total=7) '
+            'THEN WRITE(wanted) ELSE WRITE(unused) ENDIF',
+            decl='source,target:PATH NODEDATA=row_t PATHHEADER=head_t s,wanted,unused:INTEGER',
+            prefix=('TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+                    'head_t=STRUCTURE total:INTEGER ENDSTRUCTURE'),
+            context={'variables': [source]},
+        )
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'SOURCE[2]', 'WANTED'})
+        self.assertEqual(report['path_storage'], [dict(program='T', path='SOURCE', type=spec)])
+
+    def test_path_assignment_captures_before_a_destination_selector(self):
+        source = (
+            'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+            'head_t=STRUCTURE total:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t PATHHEADER=head_t '
+            'VAR source:route_t targets:ARRAY[2] OF route_t wanted,unused:INTEGER '
+            'ROUTINE slot:INTEGER BEGIN source[1].amount=19 source.total=31 RETURN 2 END slot '
+            'BEGIN source[1].amount=7 source.total=11 targets[slot()]=(source) '
+            'IF (targets[2,1].amount=7) AND (targets[2].total=11) AND (source.total=31) '
+            'THEN WRITE(wanted) ELSE WRITE(unused) ENDIF END T'
+        )
+        spec = ['PATH', ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]],
+                ['STRUCTURE', 'HEAD_T', [['TOTAL', ['INTEGER']]]]]
+        context = {'variables': [dict(program='T', path='SOURCE', type=spec,
+                                      value=dict(nodes=[{'AMOUNT': MISSING}], data={'TOTAL': MISSING}))]}
+        prepared = prepare_inputs(translate(source).python_source, context=context)
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'WANTED'})
+
+    def test_path_assignment_preserves_missing_leaves_and_reports_dynamic_destination(self):
+        spec = ['PATH', ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]], None]
+        context = {'variables': [dict(program='T', path='SOURCE', type=spec,
+                                      value=dict(nodes=[{'AMOUNT': MISSING}], data=None))]}
+        decl = 'source:PATH NODEDATA=row_t targets:ARRAY[2] OF PATH NODEDATA=row_t i:INTEGER'
+        prefix = 'TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE'
+        exact = prepare('targets[1]=source WRITE(targets[1,1])', decl=decl, prefix=prefix, context=context)
+        self.assertEqual(set(by_path(exact)), {'SOURCE[1]'})
+        self.assertIn('derived-value', {row['code'] for row in exact['template']['discovery']['unresolved']})
+        dynamic = prepare('targets[i]=source WRITE(targets[1,1])', decl=decl, prefix=prefix, context=context)
+        self.assertEqual(set(by_path(dynamic)), {'I', 'SOURCE[1]'})
+        self.assertIn('path-topology', {row['code'] for row in dynamic['template']['discovery']['unresolved']})
+
+    def test_path_assignment_with_model_dependency_keeps_source_input_visible(self):
+        source = dict(program='T', path='SOURCE',
+                      type=['PATH', ['STRUCTURE', 'SOURCE_T', [['POINT', ['JOINTPOS', 2]]]], None],
+                      value=dict(nodes=[{'POINT': {'axes': [MISSING, MISSING]}}], data=None))
+        prepared = prepare(
+            'target=source WRITE(PATH_LEN(target))',
+            decl='source:PATH NODEDATA=source_t target:PATH NODEDATA=row_t',
+            prefix=('TYPE source_t=STRUCTURE point:JOINTPOS2 ENDSTRUCTURE '
+                    'row_t=STRUCTURE point:XYZWPR ENDSTRUCTURE'),
+            context={'variables': [source]},
+        )
+        self.assertEqual(set(by_path(prepared)), {'SOURCE[1]'})
+        self.assertIn('path-topology', {row['code'] for row in prepared['template']['discovery']['unresolved']})
+
     def test_seeded_insert_reads_the_existing_seed_before_nodes_shift(self):
         from karel2py.structured_inputs import structured_slot
 
