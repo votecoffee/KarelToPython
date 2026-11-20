@@ -46,10 +46,23 @@ program that owns their storage. A candidate's `program` gives that owner.
 Each source location's `program` identifies the module containing the read.
 
 A known `RUN_TASK` target with a checked pinned body contributes conditional
-candidates. Discovery follows nested launches within its analysis budget.
-Dynamic or missing targets, recursion, live continuation and scheduler timing
-remain explicit gaps. A child's writes do not establish that a parent read is
-initialized.
+candidates. Discovery follows nested launches within its analysis budget. A
+known first launch with the pause flag set can leave the child at entry if
+its generated Python has a checkpoint before the first source action. In
+that case, discovery examines the body when a known `CONT_TASK`, later
+`RUN_TASK`, or numbered `CONTINUE`, `RESUME`, or `UNPAUSE` can release it.
+Task numbers refer to the saved module order. A task parked at entry
+contributes no body reads until a possible continuation. Potential reads remain
+visible if discovery cannot verify a leading checkpoint, including entries
+that use a label dispatcher.
+
+Discovery evaluates signal and wait selectors and can track parked entries
+across a delay or simple event wait. A signal or delay alone leaves a paused
+entry parked. Delivery, admission, and timing remain unresolved. Dynamic or
+missing targets, recursion, live in-body continuations, and possible effects
+from concurrent tasks remain explicit gaps. When ordering is unknown, a
+potentially runnable child still contributes conditional reads. A child's
+writes do not establish that a parent read is initialized.
 
 Discovery evaluates condition numbers, options and captured `EVAL` operands
 when it reaches a definition. In modeled structured linked flow, a known

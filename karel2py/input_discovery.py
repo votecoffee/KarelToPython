@@ -35,6 +35,10 @@ class _ActivationUnknown(Exception):
     pass
 
 
+class _TaskOrderUnknown(Exception):
+    pass
+
+
 @dataclass(frozen=True)
 class _Location:
     kind: str
@@ -83,13 +87,19 @@ class _Flow:
     stopped: bool = False
     opaque: bool = False
     handlers: dict = field(default_factory=dict)
+    requested_tasks: set = field(default_factory=set)
+    paused_entries: set = field(default_factory=set)
+    task_order_unknown: bool = False
 
     def copy(self):
         return _Flow(self.defined.copy(),self.assigned.copy(),self.maybe.copy(),
-                     self.constants.copy(),self.stopped,self.opaque,self.handlers.copy())
+                     self.constants.copy(),self.stopped,self.opaque,self.handlers.copy(),
+                     self.requested_tasks.copy(),self.paused_entries.copy(),self.task_order_unknown)
 
     def take(self, other):
         self.handlers = other.handlers
+        self.requested_tasks, self.paused_entries = other.requested_tasks, other.paused_entries
+        self.task_order_unknown = other.task_order_unknown
         self.defined,self.assigned,self.maybe,self.constants = other.defined,other.assigned,other.maybe,other.constants
         self.stopped,self.opaque = other.stopped,other.opaque
 
@@ -108,7 +118,9 @@ def _merge(flows):
     return _Flow(set.intersection(*(flow.defined for flow in live)),
                  set.intersection(*(flow.assigned for flow in live)),
                  set.union(*(flow.maybe for flow in live)),constants,False,any(flow.opaque for flow in live),
-                 {key: tuple(definitions) for key, definitions in handlers.items()})
+                 {key: tuple(definitions) for key, definitions in handlers.items()},
+                 set.union(*(flow.requested_tasks for flow in live)),
+                 set.union(*(flow.paused_entries for flow in live)),any(flow.task_order_unknown for flow in live))
 
 
 def _array_dimensions(spec):
@@ -169,7 +181,7 @@ def _merged_value(values,spec=None):
 
 
 class _Analyzer:
-    def __init__(self, plan, *, linked_plans=None, track_handlers=False):
+    def __init__(self, plan, *, linked_plans=None, track_handlers=False, track_entries=False):
         self.plan = plan
         self.steps = 0
         self.serial = 0
@@ -186,6 +198,8 @@ class _Analyzer:
         self.saw_handler = False
         self.activation_unknown = False
         self.scanning_handler = False
+        self.track_entries = track_entries
+        self.task_numbers = tuple(linked_plans) if linked_plans is not None else ()
         plans = linked_plans if linked_plans is not None else {plan['program']: plan}
         self.imports = {
             name: {local: (owner.upper(), foreign) for local, owner, foreign in item.get('imports', [])}
@@ -206,9 +220,16 @@ class _Analyzer:
                 raise _ActivationUnknown()
             self.activation_unknown = True
 
-    def opaque(self, flow, *, activation=True):
+    def lose_task_order(self, flow):
+        if self.track_entries and flow.paused_entries:
+            raise _TaskOrderUnknown()
+        flow.task_order_unknown = True
+
+    def opaque(self, flow, *, activation=True, task_order=True):
         if activation:
             self.lose_activation_order()
+        if task_order:
+            self.lose_task_order(flow)
         flow.opaque=True;flow.defined.clear();flow.assigned.clear();flow.constants.clear()
 
     def context(self, service, address):
@@ -576,13 +597,9 @@ class _Analyzer:
             else:values.append(self.expr(item,flow,conditional))
         known=[value.constant for value in values]
         if self.linked_plans is not None and name in ('RUN_TASK', 'CONT_TASK'):
-            if name == 'RUN_TASK':
-                self.scheduled_task(known[0], node)
-            else:
-                self.unresolved_at('task-continuation', 'Task continuation depends on a live suspended frame', node)
-            self.opaque(flow)
+            parked = self.task_request(name, known, node, flow)
             for _, loc in outputs:
-                self.write(loc, _Value(), flow, node, definite=False)
+                self.write(loc, _Value(), flow, node, definite=parked)
             return _Value()
         if name in ('GET_VAR','SET_VAR'):
             owner,path=known[1:3]
@@ -641,26 +658,66 @@ class _Analyzer:
             self.write(loc,_Value(),flow,node,definite=status)
         return _Value(complete=reading or not signature)
 
-    def scheduled_task(self, target, node):
+    def task_target(self, operation, target, node):
         if type(target) is not str:
-            self.unresolved_at('task-target', 'RUN_TASK target is dynamic', node)
-            return
+            self.unresolved_at('task-target', operation+' target is dynamic', node)
+            return None
         name = target.upper()
         plan = self.linked_plans.get(name) if target.isascii() else None
         if plan is None or plan.get('status') != 'available':
-            self.unresolved_at('task-target', 'RUN_TASK target has no checked pinned body: '+name, node)
-            return
-        suspended_depth = self.suspended_depth + len(self.frames) + 1
-        if name in self.task_roots or suspended_depth >= MAX_CALL_DEPTH:
-            self.unresolved_at('task-target', 'Recursive or deeply nested RUN_TASK target: '+name, node)
-            return
-        self.unresolved_at('task-scheduling', 'RUN_TASK timing, admission and shared effects require review: '+name, node)
+            self.unresolved_at('task-target', operation+' target has no checked pinned body: '+name, node)
+            return None
+        if name in self.task_roots or self.suspended_depth + len(self.frames) + 1 >= MAX_CALL_DEPTH:
+            self.unresolved_at('task-target', 'Recursive or deeply nested '+operation+' target: '+name, node)
+            return None
+        return plan
+
+    def task_request(self, operation, values, node, flow):
+        plan = self.task_target(operation, values[0], node)
+        if plan is None:
+            self.opaque(flow)
+            return False
+        name = plan['program']
+        if operation == 'RUN_TASK':
+            hint, pause, motion, mask = values[1:5]
+            parked = (self.track_entries and not flow.task_order_unknown and name not in flow.requested_tasks
+                      and plan.get('entry_checkpoint') is True and type(hint) is int and hint >= 0
+                      and pause is True and motion is False and type(mask) is int and mask == 0)
+            flow.requested_tasks.add(name)
+            if parked:
+                flow.paused_entries.add(name)
+                self.unresolved_at('task-scheduling', 'Paused entry for '+name+' depends on scheduler admission', node)
+                return True
+            if name in flow.paused_entries:
+                self.continue_task_entry(operation, plan, node, flow)
+            else:
+                self.unresolved_at('task-scheduling', 'RUN_TASK timing, admission and shared effects require review: '+name, node)
+                self.opaque(flow)
+                self.scheduled_body(plan)
+        else:
+            self.continue_task_entry(operation, plan, node, flow)
+        return False
+
+    def continue_task_entry(self, operation, plan, node, flow):
+        name = plan['program']
+        if name in flow.paused_entries and not flow.task_order_unknown:
+            flow.paused_entries.remove(name)
+            self.unresolved_at('task-continuation',
+                               operation+' may release a paused entry after scheduler admission: '+name, node)
+            self.opaque(flow)
+            self.scheduled_body(plan)
+        else:
+            self.unresolved_at('task-continuation', operation+' depends on a live suspended frame: '+name, node)
+            self.opaque(flow)
+
+    def scheduled_body(self, plan):
+        depth = self.suspended_depth + len(self.frames) + 1
         caller_plan, caller_roots, caller_depth = self.plan, self.task_roots, self.suspended_depth
         caller_frames, caller_exits, caller_values = self.frames, self.exits, self.capture_values
-        self.plan, self.task_roots, self.suspended_depth = plan, (*caller_roots, name), suspended_depth
+        self.plan, self.task_roots, self.suspended_depth = plan, (*caller_roots, plan['program']), depth
         self.frames, self.exits, self.capture_values = [], [], {}
         try:
-            self.block(plan['body'], _Flow(), True)
+            self.block(plan['body'], _Flow(task_order_unknown=True), True)
         finally:
             self.plan, self.task_roots, self.suspended_depth = caller_plan, caller_roots, caller_depth
             self.frames, self.exits, self.capture_values = caller_frames, caller_exits, caller_values
@@ -908,6 +965,8 @@ class _Analyzer:
 
     def statement(self, node, flow, conditional):
         self.tick();kind=node['kind'];args=node['args']
+        if flow.task_order_unknown and flow.paused_entries:
+            self.lose_task_order(flow)
         if kind=='assign':
             value=self.expr(args[1],flow,conditional,partial=True)
             self.write(self.locate(args[0],flow,conditional),value,flow,node);return
@@ -922,10 +981,23 @@ class _Analyzer:
             if kind == 'condition_control':
                 self.condition_control(node, flow, conditional)
                 return
+            if kind == 'task_control' and len(args) > 1 and args[0] in ('CONTINUE', 'RESUME', 'UNPAUSE'):
+                number = self.expr(args[1], flow, conditional).constant
+                static = not flow.task_order_unknown and type(number) is int and 1 <= number <= len(self.task_numbers)
+                target = self.task_numbers[number - 1] if static else None
+                self.task_request(args[0]+' PROGRAM', [target], node, flow)
+                return
+            if kind in ('signal_event', 'signal_semaphore'):
+                self.expr(args[0], flow, conditional)
+                self.unresolved_at('task-signal', 'Signal delivery and consuming tasks require execution order', node)
+                return
             if kind in ('wait', 'delay'):
                 self.expr(args[0], flow, conditional)
                 self.unresolved_at('task-wait', 'Waiting and possible task effects require an execution order', node)
-                self.opaque(flow, activation=False)
+                independent = kind == 'delay' or (args[0]['kind'] == 'event'
+                               and args[0]['args'][0]['kind'] in ('literal', 'name'))
+                if not (independent and flow.paused_entries and not flow.task_order_unknown):
+                    self.opaque(flow, activation=False, task_order=not independent)
                 return
         if kind=='if':
             condition=self.expr(args[0],flow,conditional).constant
@@ -938,12 +1010,14 @@ class _Analyzer:
             condition=self.expr(args[0],flow,conditional).constant
             if condition is False:return
             self.lose_activation_order()
+            self.lose_task_order(flow)
             before=flow.copy();body=flow.copy();body.constants.clear()
             self.block(node['body'],body,True)
             if not body.stopped:self.expr(args[0],body,True)
             flow.take(_merge([before,body]));return
         if kind=='repeat':
             self.lose_activation_order()
+            self.lose_task_order(flow)
             flow.constants.clear();self.block(node['body'],flow,conditional)
             if not flow.stopped:self.expr(args[0],flow,conditional)
             return
@@ -983,6 +1057,7 @@ class _Analyzer:
                     self.block(node['body'],flow,conditional)
             else:
                 self.lose_activation_order()
+                self.lose_task_order(flow)
                 before=flow.copy();body=flow.copy();body.constants.clear()
                 self.block(node['body'],body,True);flow.take(_merge([before,body]))
             if loc:
@@ -1015,16 +1090,21 @@ class _Analyzer:
 
 
 def analyze_plan(plan, target, *, linked_plans=None):
-    try:
-        return _analyze_plan(plan, target, linked_plans=linked_plans, track_handlers=linked_plans is not None)
-    except _ActivationUnknown:
-        # Re-run from the checked entry so uncertainty cannot hide callbacks
-        # that the activation pass had left dormant.
-        return _analyze_plan(plan, target, linked_plans=linked_plans, track_handlers=False)
+    track_handlers = track_entries = linked_plans is not None
+    # Restart from the checked entry when control uncertainty could hide
+    # callbacks or child bodies that a precise pass had left dormant.
+    while True:
+        try:
+            return _analyze_plan(plan, target, linked_plans=linked_plans,
+                                 track_handlers=track_handlers, track_entries=track_entries)
+        except _ActivationUnknown:
+            track_handlers = False
+        except _TaskOrderUnknown:
+            track_entries = False
 
 
-def _analyze_plan(plan, target, *, linked_plans, track_handlers):
-    analyzer = _Analyzer(plan, linked_plans=linked_plans, track_handlers=track_handlers)
+def _analyze_plan(plan, target, *, linked_plans, track_handlers, track_entries):
+    analyzer = _Analyzer(plan, linked_plans=linked_plans, track_handlers=track_handlers, track_entries=track_entries)
     modules = linked_plans.values() if linked_plans is not None else (plan,)
     for module in modules:
         if module.get('status') != 'available':
@@ -1033,7 +1113,10 @@ def _analyze_plan(plan, target, *, linked_plans, track_handlers):
     analyzer.plan = plan
     if plan.get('status') == 'available':
         try:
-            analyzer.block(plan['body'], _Flow())
+            flow = _Flow()
+            analyzer.block(plan['body'], flow)
+            if flow.task_order_unknown and flow.paused_entries:
+                analyzer.lose_task_order(flow)
         except _Limit as error:
             analyzer.unresolved_at('limit', str(error), {})
     rows = sorted(analyzer.inputs.values(), key=lambda row: (row['kind'], row['program'] or '', row['path']))

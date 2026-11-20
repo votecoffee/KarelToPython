@@ -1,5 +1,14 @@
 # Changelog
 
+## 26.1120.120029 - 2026-11-20
+
+- Defer linked paused-on-entry child discovery when generated Python has
+  a verified checkpoint before its first source action. Follow named and
+  numbered continuations to the parked entry as possible reads.
+- Track task entry requests through structured branches and simple waits.
+  Keep dynamic targets, in-body suspension, and unknown synchronization
+  effects explicit.
+
 ## 26.1120.113144 - 2026-11-20
 
 - Track known numbered conditions from registration through enable and purge

@@ -407,6 +407,104 @@ class SavedProjectTests(unittest.TestCase):
         self.assertIn('MISSING', targets[1]['message'])
         self.assertIn('dynamic', targets[2]['message'])
 
+    def test_linked_paused_entry_does_not_require_dormant_body_inputs(self):
+        main = self.module('MAIN', "target='CHILD' RUN_TASK(target,0,TRUE,FALSE,0,s) WRITE(s,CR)",
+                           'VAR target:STRING[12] s:INTEGER')
+        child = self.module('CHILD', 'WRITE(n,CR)')
+        with patch('builtins.exec', side_effect=AssertionError('module executed during parked entry discovery')):
+            saved = self.create(main, child, discover=True)
+        report = saved['inputs']['template']['discovery']
+        self.assertEqual(report['inputs'], [])
+        self.assertEqual([row['code'] for row in report['unresolved']], ['task-scheduling'])
+        result = runner.run_document(self.document)['results']
+        self.assertEqual(result['status'], 'paused')
+        self.assertEqual(result['programs']['CHILD'], {'state': 'paused', 'values': {'N': MISSING, 'S': MISSING}})
+        self.assertEqual(result['text_output'].split(), ['0'])
+
+    def test_linked_continuations_discover_the_parked_entry_after_a_signal(self):
+        child = self.module('CHILD', 'WRITE(n,CR)')
+        context = {'variables': [
+            dict(program='MAIN', path='EVENT_NO', type='INTEGER', value=2),
+            dict(program='CHILD', path='N', type='INTEGER', value=21),
+        ]}
+        for index, continuation in enumerate(('CONT_TASK(target,s)', 'RUN_TASK(target,9,TRUE,FALSE,0,s)',
+                                               'RESUME PROGRAM[1]')):
+            with self.subTest(continuation=continuation):
+                main = self.module('MAIN', """
+                    target='CHILD' RUN_TASK(target,0,TRUE,FALSE,0,s)
+                    SIGNAL EVENT[event_no] WAIT FOR EVENT[event_no] DELAY 1
+                    """ + continuation, 'VAR target:STRING[12] s,event_no:INTEGER')
+                document = self.folder / f'resume-{index}.run.json'
+                saved = create_project_document([child, main], document, entry='MAIN', context=context, discover=True)
+                report = saved['inputs']['template']['discovery']
+                self.assertEqual({(row['program'], row['path']): row['certainty'] for row in report['inputs']},
+                                 {('CHILD', 'N'): 'conditional', ('MAIN', 'EVENT_NO'): 'required'})
+                gaps = [row for row in report['unresolved'] if row['code'] == 'task-continuation']
+                self.assertEqual(len(gaps), 1)
+                self.assertIn('paused entry', gaps[0]['message'])
+                replay = runner.run_document(document)['results']
+                self.assertEqual(replay['status'], 'completed', replay['error'])
+                self.assertEqual(replay['text_output'].split(), ['21'])
+
+    def test_linked_first_direct_checkpoint_parks_before_for_bound_reads(self):
+        main = self.module('MAIN', "RUN_TASK('CHILD',0,TRUE,FALSE,0,s) DELAY 1")
+        child = self.module('CHILD', 'FOR i=first TO 2 DO WRITE(i) ENDFOR', 'VAR i,first:INTEGER')
+        self.create(main, child)
+        self.assertEqual(discover_project_document(self.document)['inputs'], [])
+        replay = runner.run_document(self.document)['results']
+        self.assertEqual(replay['status'], 'paused', replay['error'])
+        self.assertEqual(replay['programs']['CHILD']['values']['I'], MISSING)
+
+    def test_linked_unproven_dispatch_entry_keeps_potential_body_reads(self):
+        main = self.module('MAIN', "RUN_TASK('CHILD',0,TRUE,FALSE,0,s) DELAY 1")
+        child = self.module('CHILD', 'start:: WRITE(first) GOTO done done::', 'VAR first:INTEGER')
+        self.create(main, child)
+        report = discover_project_document(self.document)
+        self.assertEqual([(row['program'], row['path'], row['certainty']) for row in report['inputs']],
+                         [('CHILD', 'FIRST', 'conditional')])
+        self.assertIn('statement', {row['code'] for row in report['unresolved']})
+
+    def test_linked_paused_entry_survives_structured_merge_and_wakes_on_a_known_target(self):
+        main = self.module('MAIN', """
+            IF choice THEN
+              RUN_TASK('CHILD',0,TRUE,FALSE,0,s)
+            ELSE
+              RUN_TASK('CHILD',0,TRUE,FALSE,0,s)
+            ENDIF
+            DELAY 1 CONT_TASK('CHILD',s)
+        """, 'VAR choice:BOOLEAN s:INTEGER')
+        child = self.module('CHILD', 'WRITE(n,CR)')
+        self.create(main, child)
+        report = discover_project_document(self.document)
+        self.assertEqual({(row['program'], row['path']): row['certainty'] for row in report['inputs']},
+                         {('CHILD', 'N'): 'conditional', ('MAIN', 'CHOICE'): 'required'})
+        self.assertIn('paused entry', next(row for row in report['unresolved']
+                                          if row['code'] == 'task-continuation')['message'])
+
+    def test_linked_dynamic_continuation_falls_back_to_potential_child_reads(self):
+        main = self.module('MAIN', "RUN_TASK('CHILD',0,TRUE,FALSE,0,s) CONT_TASK(target,s)",
+                           'VAR target:STRING[12] s:INTEGER')
+        child = self.module('CHILD', 'WRITE(n,CR)')
+        self.create(main, child)
+        report = discover_project_document(self.document)
+        self.assertEqual({(row['program'], row['path']): row['certainty'] for row in report['inputs']},
+                         {('CHILD', 'N'): 'conditional', ('MAIN', 'TARGET'): 'conditional'})
+        self.assertIn('task-target', {row['code'] for row in report['unresolved']})
+
+    def test_linked_in_body_continuation_keeps_the_suspended_frame_unresolved(self):
+        main = self.module('MAIN', "RUN_TASK('CHILD',0,FALSE,FALSE,0,s) WAIT FOR EVENT[1] DELAY 1 CONT_TASK('CHILD',s)")
+        child = self.module('CHILD', 'SIGNAL EVENT[1] PAUSE WRITE(n,CR)')
+        context = {'variables': [dict(program='CHILD', path='N', type='INTEGER', value=19)]}
+        self.create(main, child, context=context)
+        report = discover_project_document(self.document)
+        self.assertEqual([(row['program'], row['path'], row['certainty']) for row in report['inputs']],
+                         [('CHILD', 'N', 'conditional')])
+        self.assertIn('live suspended frame', next(row for row in report['unresolved']
+                                                   if row['code'] == 'task-continuation')['message'])
+        replay = runner.run_document(self.document)['results']
+        self.assertEqual(replay['status'], 'completed', replay['error'])
+        self.assertEqual(replay['text_output'].split(), ['19'])
+
     def test_linked_discovery_finds_handler_callbacks_and_eager_captures(self):
         main = self.module('MAIN', 'install(seed)', 'VAR seed:INTEGER', 'ROUTINE install(x:INTEGER) FROM LIB')
         lib = self.module('LIB', declarations='VAR rate,captured_value,never,fallback,shadowed,out:INTEGER ready:BOOLEAN',

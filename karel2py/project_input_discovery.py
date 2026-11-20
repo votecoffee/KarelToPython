@@ -14,7 +14,7 @@ def _read_plan(program, path, expected):
     if sha256(raw).hexdigest() != expected:
         raise RunDocumentError('A linked Python module changed during input discovery.')
     try:
-        plan = extract(raw.decode('utf-8-sig'))
+        plan = extract(raw.decode('utf-8-sig'), inspect_entry=True)
         if plan.get('program') != program:
             raise InputContractError('Analysis contract does not match the declared Program')
         return plan

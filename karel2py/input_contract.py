@@ -79,7 +79,42 @@ def attach(source, plan):
     return '\n'.join(lines) + '\n'
 
 
-def extract(source):
+def _entry_checkpoint(tree):
+    """Recognize the emitted source checkpoint before the first body action."""
+    methods = [node for node in _class(tree).body if isinstance(node, ast.FunctionDef) and node.name == '_execute']
+    if len(methods) != 1 or len(methods[0].body) < 2:
+        return False
+    sentinel, guard = methods[0].body[:2]
+    if (not isinstance(sentinel, ast.If) or not isinstance(sentinel.test, ast.Constant)
+            or sentinel.test.value is not False or sentinel.orelse or not isinstance(guard, ast.Try)
+            or not guard.body):
+        return False
+    first = guard.body[0]
+    if isinstance(first, ast.Expr):
+        checkpoint = first.value
+        allowed = (set(), {'_source'})
+    elif isinstance(first, ast.If) and isinstance(first.test, ast.UnaryOp) and isinstance(first.test.op, ast.Not):
+        checkpoint = first.test.operand
+        allowed = ({'_source', '_skippable'},)
+    else:
+        return False
+    if not isinstance(checkpoint, ast.YieldFrom):
+        return False
+    call = checkpoint.value
+    if (not isinstance(call, ast.Call) or not isinstance(call.func, ast.Attribute)
+            or not isinstance(call.func.value, ast.Name) or call.func.value.id != '_rt'
+            or call.func.attr != 'checkpoint' or len(call.args) != 2):
+        return False
+    state, line = call.args
+    flags = {keyword.arg for keyword in call.keywords}
+    return (isinstance(state, ast.Attribute) and state.attr == '_state'
+            and isinstance(state.value, ast.Name) and state.value.id == 'self'
+            and isinstance(line, ast.Constant) and type(line.value) is int
+            and len(flags) == len(call.keywords) and flags in allowed
+            and all(isinstance(keyword.value, ast.Constant) and keyword.value.value is True for keyword in call.keywords))
+
+
+def extract(source, *, inspect_entry=False):
     try:
         tree = ast.parse(source, feature_version=(3, 11))
         fields = {}
@@ -96,7 +131,7 @@ def extract(source):
             raise InputContractError('Input-analysis payload changed; re-translate the target')
         if module_digest(tree) != payload['module_sha256']:
             raise InputContractError('Python execution syntax changed; re-translate before discovery')
-        return plan
+        return dict(plan, entry_checkpoint=_entry_checkpoint(tree)) if inspect_entry else plan
     except (SyntaxError, TypeError, RecursionError) as error:
         raise InputContractError('Invalid generated analysis contract: ' + str(error)) from error
 
