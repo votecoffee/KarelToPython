@@ -25,7 +25,9 @@ input-discovery contract to the result.
 | Routine generation | `routine_codegen.py` | Emits routine frames, captures arguments in source order, and emits calls and checked RETURN values. |
 | Assignment | `assignment_analysis.py`, `assignment_codegen.py`, `schema_conversion.py` | Checks declared or concrete receiver schemas and emits scalar, ARRAY prefix, and collection writes. Assignments and routines share conversion selection with distinct ARRAY policies. |
 | Robot system access | `robot_system_analysis.py`, `robot_system_codegen.py` | Checks writable pose paths and source schemas. Emits system reads and captures write values before frame/tool selectors. |
-| Statement I/O | `statement_io_analysis.py`, `statement_io_codegen.py` | Checks READ and WRITE source formats. Stages targets, rendered values, and explicit or default FILE bindings before runtime publication. |
+| Statement I/O | `statement_io_analysis.py`, `statement_io_codegen.py` | Checks READ and WRITE formats, stages operands and FILE bindings, and emits FILE open, close, and cancellation. |
+| Statement timing | `timing_codegen.py` | Checks and emits DELAY, WAIT, and PULSE using the existing scheduler and polling calls. |
+| Procedure dispatch | `procedure_codegen.py` | Selects procedure lowering using the source mode and routine namespace before emitting the call. |
 | Motion | `motion_analysis.py`, `motion_codegen.py` | Checks motion operand types and PATH selectors. Captures settings, operands, and local callbacks for the offline runtime. |
 | Task control | `task_codegen.py` | Lowers local and addressed task transitions, ABORT, and event/semaphore signals with the existing scheduler checkpoints. |
 | Conditions and timers | `handler_analysis.py`, `handler_codegen.py` | Validates handler actions and timer storage, checks asynchronous FOR counter writes, and emits EVAL and USING captures for condition and motion callbacks. |

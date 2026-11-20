@@ -1,5 +1,11 @@
 # Changelog
 
+## 26.1120.011128 - 2026-11-20
+
+- Move procedure dispatch, FILE operations, and DELAY, WAIT, and PULSE
+  generation out of the statement driver. Preserve source checkpoints,
+  one-time operand capture, and procedure lookup order.
+
 ## 26.1120.010454 - 2026-11-20
 
 - Separate generated Program setup, execution entry points, and standalone

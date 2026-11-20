@@ -7,6 +7,39 @@ from .statement_io_analysis import check_read_format, check_write_format, format
 class StatementIOLowering:
     """Capture operands before the runtime publishes input or output."""
 
+    def lower_explicit_file_io(self, stmt):
+        selector, operation = stmt.args
+        file_value = self.require_type(selector, 'FILE')
+        captured = self.fresh()
+        self.line(f'{captured}={file_value}', stmt.token)
+        self.features.add('memory files')
+        self.statement(operation, file_code=captured)
+
+    def lower_file_cancel(self, stmt):
+        token = stmt.token
+        selector = stmt.args[0]
+        if selector is None:
+            file_value = f'self._state.default_file("READ",{token.line},required=True)'
+        else:
+            file_value = self.require_type(selector, 'FILE')
+        self.features.add('cooperative FILE cancellation')
+        self.line(f'_rt.cancel_file(self._state,{file_value},{token.line})', token)
+
+    def lower_file_lifecycle(self, stmt):
+        token = stmt.token
+        selector = stmt.args[0]
+        opening = stmt.kind == 'file_open'
+        if opening and self.is_predefined_file(selector):
+            self.error('E_PREDEFINED_FILE_OPEN', 'Configure predefined FILE endpoints through ExecutionContext bindings', token)
+        file_value = self.require_type(selector, 'FILE')
+        self.features.add('memory files')
+        if opening:
+            mode = self.require_type(stmt.args[1], 'STRING')
+            name = self.require_type(stmt.args[2], 'STRING')
+            self.line(f'self._state.file_open({file_value},{mode},{name},{token.line})', token)
+        else:
+            self.line(f'self._state.file_close({file_value},{token.line})', token)
+
     def _bind_statement_file(self, operation, token, file_code):
         if self.mode != 'pythonic' or file_code is not None:
             return file_code, False

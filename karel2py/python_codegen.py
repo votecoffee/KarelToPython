@@ -1,14 +1,7 @@
 """Generate Python statements, routine bodies, dispatch and module scaffolding."""
 import ast
 import re
-from .compiler_language import (
-    BUILTIN_PROCEDURES,
-    CONFIG_TEXT_PROCEDURES,
-    JOINT_PROCEDURES,
-    REGISTER_PROCEDURES,
-    SKIPPABLE_STATEMENTS,
-    TIME_TEXT_PROCEDURES,
-)
+from .compiler_language import SKIPPABLE_STATEMENTS
 from .array_schema_analysis import ArraySchemaAnalysis
 from .assignment_codegen import AssignmentLowering
 from .constant_analysis import ConstantAnalysis
@@ -21,6 +14,7 @@ from .select_codegen import SelectLowering
 from .expression_codegen import ExpressionLowering
 from .motion_codegen import MotionLowering
 from .named_type_analysis import NamedTypeAnalysis
+from .procedure_codegen import ProcedureLowering
 from .program_cli_codegen import ProgramCLILowering
 from .program_codegen import ProgramLowering
 from .robot_system_codegen import RobotSystemLowering
@@ -31,6 +25,7 @@ from .service_codegen import ServiceCallLowering
 from .source_normalization import SourceNormalization
 from .statement_io_codegen import StatementIOLowering
 from .task_codegen import TaskControlLowering
+from .timing_codegen import TimingLowering
 from .type_checking import TypeQueries
 from .using_codegen import UsingLowering
 from .lexer import Token, TranslationError
@@ -43,7 +38,7 @@ class Emitter(DeclarationPasses, TypeQueries, ExpressionLowering, AssignmentLowe
               MotionLowering, TaskControlLowering, HandlerLowering, LoopLowering, UsingLowering,
               ControlFlowLowering, SelectLowering, SourceNormalization, RoutineEffectAnalysis,
               ConstantAnalysis, NamedTypeAnalysis, ArraySchemaAnalysis, RoutineDeclarations,
-              ProgramLowering, ProgramCLILowering):
+              ProgramLowering, ProgramCLILowering, ProcedureLowering, TimingLowering):
     """Emit a Python module from a parsed program and its checked declarations."""
 
     def __init__(self, program, filename, array_shapes=None, mode='strict', cooperative=False):
@@ -200,63 +195,37 @@ class Emitter(DeclarationPasses, TypeQueries, ExpressionLowering, AssignmentLowe
 
     def statement_body(self, stmt, file_code=None):
         token, kind = stmt.token, stmt.kind
-        line = token.line
         if kind == 'motion_control':
             self.lower_motion_control(stmt)
-            return
-        if kind in ('motion', 'motion_action'):
+        elif kind in ('motion', 'motion_action'):
             self.lower_motion_request(stmt)
-            return
-        if kind=='pulse':
-            if 'DOUT' in self.types or 'DOUT' in self.visible_constants(): self.error('E_PULSE','PULSE requires the unshadowed DOUT port bank',token)
-            number=self.require_type(stmt.args[0],'INTEGER');duration=self.require_type(stmt.args[1],'INTEGER')
-            self.features.update(('ports','extended services'))
-            self.pulse_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
-                line=line,column=token.column,nowait=stmt.args[2],operands_evaluated_once=True))
-            self.line(f'yield from _rt.pulse_execution(self._state,{number},{duration},{stmt.args[2]!r},{line})',token);return
-        if kind == 'task_control':
+        elif kind == 'pulse':
+            self.lower_pulse(stmt)
+        elif kind == 'task_control':
             self.lower_task_control(stmt)
-            return
-        if kind in ('signal_event', 'signal_semaphore'):
+        elif kind in ('signal_event', 'signal_semaphore'):
             self.lower_task_signal(stmt)
-            return
-        if kind == 'handler_action':
+        elif kind == 'handler_action':
             self.lower_handler_action(stmt)
-            return
-        if kind in ('timer_connect', 'timer_disconnect'):
+        elif kind in ('timer_connect', 'timer_disconnect'):
             self.lower_connected_timer(stmt)
-            return
-        if kind == 'condition_control':
+        elif kind == 'condition_control':
             self.lower_condition_control(stmt)
-            return
-        if kind == 'condition':
+        elif kind == 'condition':
             self.lower_condition(stmt)
-            return
-        if kind in ('file_read','file_write'):
-            file_value=self.require_type(stmt.args[0],'FILE'); captured_file=self.fresh()
-            self.line(f'{captured_file}={file_value}',token); self.features.add('memory files')
-            self.statement(stmt.args[1],file_code=captured_file); return
-        if kind=='file_cancel':
-            file_value=self.require_type(stmt.args[0],'FILE') if stmt.args[0] is not None else f'self._state.default_file("READ",{line},required=True)'
-            self.features.add('cooperative FILE cancellation')
-            self.line(f'_rt.cancel_file(self._state,{file_value},{line})',token);return
-        if kind in ('file_open','file_close'):
-            if kind=='file_open' and self.is_predefined_file(stmt.args[0]):self.error('E_PREDEFINED_FILE_OPEN','Configure predefined FILE endpoints through ExecutionContext bindings',token)
-            file_value=self.require_type(stmt.args[0],'FILE'); self.features.add('memory files')
-            if kind=='file_open':
-                mode=self.require_type(stmt.args[1],'STRING'); name=self.require_type(stmt.args[2],'STRING')
-                self.line(f'self._state.file_open({file_value},{mode},{name},{line})',token)
-            else: self.line(f'self._state.file_close({file_value},{line})',token)
-            return
-        if kind == 'system_selection_assign':
+        elif kind in ('file_read', 'file_write'):
+            self.lower_explicit_file_io(stmt)
+        elif kind == 'file_cancel':
+            self.lower_file_cancel(stmt)
+        elif kind in ('file_open', 'file_close'):
+            self.lower_file_lifecycle(stmt)
+        elif kind == 'system_selection_assign':
             target, value = stmt.args
             self.lower_system_selection_write(target, value, token)
-            return
-        if kind == 'system_pose_assign':
+        elif kind == 'system_pose_assign':
             target, value = stmt.args
             self.lower_system_pose_write(target, value, token)
-            return
-        if kind == 'assign':
+        elif kind == 'assign':
             target, value = stmt.args
             self.lower_assignment(target, value, token)
         elif kind == 'using':
@@ -265,26 +234,9 @@ class Emitter(DeclarationPasses, TypeQueries, ExpressionLowering, AssignmentLowe
         elif kind == 'abort':
             self.lower_task_abort(token)
         elif kind == 'delay':
-            duration = self.require_type(stmt.args[0], 'INTEGER')
-            if self.cooperative:
-                self.line(f'yield from _rt.delay_execution(self._state,{duration},{line},scan_handlers={self.mode=="pythonic"!r})',token)
-            else:
-                self.line(f'self._state.delay({duration}, {line})',token)
-            self.features.add('DELAY')
-            self.delay_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
-                                        line=token.line, column=token.column, duration_type='INTEGER',
-                                        evaluated='once; runtime range check'))
+            self.lower_delay(stmt)
         elif kind == 'wait':
-            condition = self.require_type(stmt.args[0], 'BOOLEAN')
-            self.line(f'while not {self.test_code(condition,line)}:', token)
-            self.indent += 1
-            self.line(f'self._state.wait_poll({line})', token)
-            self.indent -= 1
-            self.features.add('WAIT FOR')
-            self.wait_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
-                                      line=line, column=token.column, condition_kind=stmt.args[0].kind,
-                                      condition_type='BOOLEAN', evaluation='once per check until true',
-                                      yield_seconds=0.0, step_budgeted=True))
+            self.lower_wait(stmt)
         elif kind == 'write_items':
             self.lower_write_items(stmt, file_code)
         elif kind == 'write':
@@ -300,36 +252,11 @@ class Emitter(DeclarationPasses, TypeQueries, ExpressionLowering, AssignmentLowe
         elif kind == 'select':
             self.emit_structured_select(stmt)
         elif kind == 'call':
-            expr = stmt.args[0]
-            if self.mode=='pythonic' and expr.value in ex.PROCEDURES and expr.value not in self.routines:
-                self.line(self.service_call(expr),token); return
-            if self.mode == 'pythonic' and expr.value in REGISTER_PROCEDURES and expr.value not in self.routines:
-                self.line(self.numeric_register(expr), token)
-                return
-            if self.mode == 'pythonic' and expr.value in TIME_TEXT_PROCEDURES and expr.value not in self.routines:
-                self.line(self.time_text_conversion(expr), token)
-                return
-            if self.mode == 'pythonic' and expr.value in CONFIG_TEXT_PROCEDURES and expr.value not in self.routines:
-                self.line(self.config_text_conversion(expr), token)
-                return
-            if expr.value in JOINT_PROCEDURES:
-                self.line(self.joint_conversion(expr), token)
-                return
-            if expr.value == 'UNPOS':
-                self.line(self.unpos_procedure(expr), token)
-                return
-            if expr.value in BUILTIN_PROCEDURES:
-                self.line(self.conversion_procedure(expr), token)
-                return
-            if expr.value not in self.routines:
-                self.error('E_CALL', f'Unknown or unsupported procedure {expr.value}', token)
-            if self.routines[expr.value].return_type:
-                self.error('E_CALL', 'Statement calls require procedures', token)
-            self.check_for_call(token, self.routines[expr.value])
-            self.line(self.routine_call(expr), token)
+            self.lower_procedure_statement(stmt)
         elif kind == 'return':
             self.routine_return(stmt.args[0], token)
-        else: self.error('E_INTERNAL', f'Unexpected statement {kind}', token)
+        else:
+            self.error('E_INTERNAL', f'Unexpected statement {kind}', token)
 
     def emit(self):
         if self.mode=='pythonic':self.normalize_array_chains()

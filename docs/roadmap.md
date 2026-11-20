@@ -32,10 +32,11 @@ Named TYPE resolution checks expanded schema size and depth and shares the
 dependency walk with CONST. ARRAY storage, parameter, and result schemas
 have a dedicated resolver. Routine interface and local scope validation run
 after module declarations. Program initialization, execution entry points,
-and standalone CLI bindings have dedicated generators. Next, separate
-procedure dispatch and remaining FILE, DELAY, and WAIT emission from the
-statement driver. The runtime and extended services can be split by ownership
-after their boundaries are covered with regressions. See
+and standalone CLI bindings have dedicated generators. Procedure dispatch,
+FILE operations, and timing statements are owned by their generators. Next,
+extract built-in functions and typed output procedures from the expression
+generator. The runtime and extended services can be split by ownership after
+their boundaries are covered with regressions. See
 [compiler architecture](compiler-architecture.md).
 
 ## Python runner and parameter editor
