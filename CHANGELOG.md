@@ -1,5 +1,11 @@
 # Changelog
 
+## 26.1120.012328 - 2026-11-20
+
+- Separate storage loads, writable references, and ARRAY index generation
+  from expression lowering. Preserve selector order, named subarray identity,
+  and separate handling for captured prefixes and borrowed FILE storage.
+
 ## 26.1120.011741 - 2026-11-20
 
 - Give built-in functions and typed output procedures dedicated generators.

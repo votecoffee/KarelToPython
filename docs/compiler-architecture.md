@@ -20,7 +20,8 @@ input-discovery contract to the result.
 | SELECT | `select_analysis.py`, `select_codegen.py` | `check_select()` returns a checked selector and typed CASE rows in source order. The shared generator emits the match and uses the control-flow engine to emit each branch. |
 | Control flow | `control_flow.py`, `flow_codegen.py` | `validate_labels()` checks scope entry and `FlowGraph` builds dispatch nodes. `ControlFlowLowering.emit_body()` emits the validated body, its source checkpoints, and FOR scope cleanup. |
 | Loop and USING generation | `loop_analysis.py`, `loop_codegen.py`, `using_codegen.py` | Checks FOR counter ownership and schema. Both control-flow engines share counter initialization, inclusive range generation, and USING entry capture. |
-| Generation | `expression_codegen.py`, `python_codegen.py` | `ExpressionLowering` lowers expressions and access paths. `Emitter.emit()` drives validation and emits Python. |
+| Expression generation | `expression_codegen.py`, `python_codegen.py` | `ExpressionLowering` lowers expression values. `Emitter.emit()` drives validation and emits Python. |
+| Storage and subscripts | `reference_codegen.py` | Emits storage loads, writable references, checked subscripts, and borrowed FILE prefixes. Keeps copied ARRAY prefixes and captured targets distinct. |
 | Program generation | `program_codegen.py`, `program_cli_codegen.py` | Emits class metadata, runtime state construction, synchronous and cooperative entry points, and the standalone CLI for supplied adapters. |
 | Routine generation | `routine_codegen.py` | Emits routine frames, captures arguments in source order, and emits calls and checked RETURN values. |
 | Assignment | `assignment_analysis.py`, `assignment_codegen.py`, `schema_conversion.py` | Checks declared or concrete receiver schemas and emits scalar, ARRAY prefix, and collection writes. Assignments and routines share conversion selection with distinct ARRAY policies. |

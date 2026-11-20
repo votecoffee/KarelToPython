@@ -35,9 +35,10 @@ after module declarations. Program initialization, execution entry points,
 and standalone CLI bindings have dedicated generators. Procedure dispatch,
 FILE operations, and timing statements are owned by their generators.
 Built-in function and typed output procedure generation are also separate.
-Next, extract storage references and ARRAY index lowering from expression
-generation. The runtime and extended services can be split by ownership after
-their boundaries are covered with regressions. See
+Storage references, subscript checks, and ARRAY prefix lowering have a
+dedicated generator. Next, separate unary, binary, and relative pose operator
+emission from the expression driver. The runtime and extended services can be
+split by ownership after their boundaries are covered with regressions. See
 [compiler architecture](compiler-architecture.md).
 
 ## Python runner and parameter editor

@@ -59,11 +59,6 @@ class RoutineLowering:
             self.indent = 1
         self.current_routine = None
 
-    def file_prefix_reference_code(self,argument):
-        base,container=self.expression(argument.args[0],raw=True)
-        codes=[self.require_type(index,'INTEGER') for index in argument.args[1:]]
-        return f'_rt.resource_array_prefix_reference({base},({", ".join(codes)},),{container!r},{argument.token.line})',container
-
     def file_prefix_argument(self, argument, routine, formal, selected):
         code, container = self.file_prefix_reference_code(argument)
         record_file_prefix(self, routine, formal, argument, container, selected)

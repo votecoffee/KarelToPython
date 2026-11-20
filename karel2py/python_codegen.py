@@ -19,6 +19,7 @@ from .output_procedure_codegen import OutputProcedureLowering
 from .procedure_codegen import ProcedureLowering
 from .program_cli_codegen import ProgramCLILowering
 from .program_codegen import ProgramLowering
+from .reference_codegen import ReferenceLowering
 from .robot_system_codegen import RobotSystemLowering
 from .routine_codegen import RoutineLowering
 from .routine_declarations import RoutineDeclarations
@@ -41,7 +42,7 @@ class Emitter(DeclarationPasses, TypeQueries, ExpressionLowering, AssignmentLowe
               ControlFlowLowering, SelectLowering, SourceNormalization, RoutineEffectAnalysis,
               ConstantAnalysis, NamedTypeAnalysis, ArraySchemaAnalysis, RoutineDeclarations,
               ProgramLowering, ProgramCLILowering, ProcedureLowering, TimingLowering,
-              BuiltinFunctionLowering, OutputProcedureLowering):
+              BuiltinFunctionLowering, OutputProcedureLowering, ReferenceLowering):
     """Emit a Python module from a parsed program and its checked declarations."""
 
     def __init__(self, program, filename, array_shapes=None, mode='strict', cooperative=False):
