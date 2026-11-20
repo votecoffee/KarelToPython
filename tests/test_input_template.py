@@ -659,6 +659,45 @@ class InputTemplateTests(unittest.TestCase):
         self.assertEqual(set(by_path(prepared)), {'WANTED'})
         self.assertEqual([row['path'] for row in report['path_storage']], ['SOURCE'])
 
+    def test_path_assignment_updates_borrowed_header_and_detaches_old_whole_node(self):
+        source = (
+            'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+            'head_t=STRUCTURE code:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t PATHHEADER=head_t '
+            'VAR route,seed:route_t wanted,unused:INTEGER '
+            'ROUTINE replace(v:route_t;head:head_t;held:INTEGER;old:row_t) '
+            'BEGIN v=seed WRITE(old.amount) old.amount=31 held=held+1 '
+            'IF (head.code=42) AND (v.code=42) AND (v[1].amount=13) AND (old.amount=31) '
+            'THEN WRITE(wanted) ELSE WRITE(unused) ENDIF END replace '
+            'BEGIN seed.code=41 seed[1].amount=13 replace(route,route[0],route.code,route[1]) END T'
+        )
+        spec = ['PATH', ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]],
+                ['STRUCTURE', 'HEAD_T', [['CODE', ['INTEGER']]]]]
+        context = {'variables': [
+            dict(program='T', path=path, type=spec,
+                 value=dict(nodes=[{'AMOUNT': MISSING}], data={'CODE': MISSING}))
+            for path in ('ROUTE', 'SEED')
+        ]}
+        prepared = prepare_inputs(translate(source).python_source, context=context)
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'ROUTE[1].AMOUNT', 'WANTED'})
+
+    def test_path_assignment_cannot_assume_partial_header_fields_stay_attached(self):
+        source = (
+            'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+            'head_t=STRUCTURE code:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t PATHHEADER=head_t '
+            'VAR route,seed:route_t '
+            'ROUTINE replace(v:route_t;held:INTEGER) BEGIN v=seed WRITE(held) END replace '
+            'BEGIN replace(route,route.code) END T'
+        )
+        spec = ['PATH', ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]],
+                ['STRUCTURE', 'HEAD_T', [['CODE', ['INTEGER']]]]]
+        context = {'variables': [dict(program='T', path='SEED', type=spec,
+                                      value=dict(nodes=[], data=MISSING))]}
+        report = prepare_inputs(translate(source).python_source, context=context)['template']['discovery']
+        self.assertTrue(any('Captured PATH reference has an unresolved origin' in row['message']
+                            for row in report['unresolved']))
+
     def test_borrowed_header_remains_live_during_in_place_node_edit(self):
         source = (
             'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
@@ -814,13 +853,31 @@ class InputTemplateTests(unittest.TestCase):
         self.assertTrue(report['complete'], report['unresolved'])
         self.assertEqual(set(by_path(prepared)), {'WANTED'})
 
-    def test_valid_copy_may_rebind_a_live_borrow_and_stays_unresolved(self):
+    def test_self_copy_preserves_detached_whole_node_borrow(self):
+        source = (
+            'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t '
+            'VAR route:route_t wanted,unused:INTEGER '
+            'ROUTINE replace(v:route_t;held:row_t) VAR s:INTEGER '
+            'BEGIN COPY_PATH(v,0,0,v,s) held.amount=29 INSERT_NODE(v,1,s) v[1].amount=34 '
+            'IF (held.amount=29) AND (v[2].amount=15) AND (PATH_LEN(v)=2) '
+            'THEN WRITE(wanted) ELSE WRITE(unused) ENDIF END replace '
+            'BEGIN route[1].amount=15 replace(route,route[1]) END T'
+        )
+        spec = ['PATH', ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]], None]
+        context = {'variables': [dict(program='T', path='ROUTE', type=spec,
+                                      value=dict(nodes=[{'AMOUNT': MISSING}], data=None))]}
+        prepared = prepare_inputs(translate(source).python_source, context=context)
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'WANTED'})
+
+    def test_copy_with_unavailable_captured_destination_slot_remains_unresolved(self):
         source = (
             'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t '
             'VAR route:route_t '
             'ROUTINE replace(v:route_t;held:row_t) VAR s:INTEGER '
             'BEGIN COPY_PATH(v,0,0,v,s) WRITE(held.amount) END replace '
-            'BEGIN replace(route,route[1]) END T'
+            'BEGIN replace(route,route[2]) END T'
         )
         spec = ['PATH', ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]], None]
         context = {'variables': [dict(program='T', path='ROUTE', type=spec,

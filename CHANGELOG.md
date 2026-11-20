@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1120.180351 - 2026-11-20
+
+- Follow borrowed headers through PATH assignment and retain references to
+  the previous node list.
+- Keep proved header and node borrows from the old descriptor across
+  COPY_PATH, including disjoint status fields for later node edits.
+
 ## 26.1120.175650 - 2026-11-20
 
 - Discover fields borrowed from proved deleted PATH nodes at their original

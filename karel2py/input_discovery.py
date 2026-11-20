@@ -91,7 +91,7 @@ class _Suspension:
 
 @dataclass(frozen=True)
 class _PathOrder:
-    """Current record order and identities that a live descendant can still borrow."""
+    """Current record order and the identities kept by detached references."""
 
     nodes: tuple
     header: int | None = None
@@ -160,13 +160,17 @@ def _merge(flows):
                  pauses,uncertain,any(flow.path_shape_unknown for flow in live),path_orders)
 
 
-def _path_node_identity(part):
+def _path_record_identity(part):
     kind, index = part
-    if kind == 'created-node':
+    if kind in ('created-node', 'created-header'):
         return -index
-    if kind == 'index' and index > 0:
+    if kind == 'index' and index >= 0:
         return index
     return None
+
+
+def _path_header_part(part):
+    return part[0] == 'created-header' or part == ('index', 0)
 
 
 def _array_dimensions(spec):
@@ -407,52 +411,87 @@ class _Analyzer:
     def definite_path_effect(self, flow, conditional):
         return not (flow.opaque or flow.path_shape_unknown or conditional or self.repeat_depth)
 
-    def can_publish_path(self, loc, flow, conditional, *, unchanged_nodes=None, shifted_nodes=(),
-                         removed_node=None):
+    def can_publish_path(self, loc, flow, conditional):
         if loc is None or not self.definite_path_effect(flow, conditional):
             return False
         if not self.frames:
             return loc.kind == 'variable'
         current = self.frames[-1]
-        if loc.kind == 'local' and loc.owner == current['owner']:
-            return True
-        if not current['borrowed_path_edits']:
-            return False
-
-        record_depth = len(loc.parts) + 1
-        stationary = set(unchanged_nodes or ())
-        shifted = set(shifted_nodes)
-        order = flow.path_orders.get(loc.key)
-        detached = order.detached if order is not None else ()
-
-        def may_retarget(ref):
-            if ref is None:
-                return True
-            part = ref.parts[record_depth - 1]
-            origin = _path_node_identity(part)
-            descendant = len(ref.parts) > record_depth
-            if descendant and origin in detached:
-                return False
-            if unchanged_nodes is None:
-                return True
-            if part[0] == 'created-header' or part == ('index', 0):
-                return False
-            if origin is None:
-                return True
-            # Whole nodes borrow a list slot. A descendant holds the record's
-            # storage even if the edit moves or removes that record.
-            return origin not in stationary and (
-                not descendant or (origin not in shifted and origin != removed_node)
-            )
-
-        return not any(may_retarget(ref) for ref in self.active_path_borrows(loc))
+        return (loc.kind == 'local' and loc.owner == current['owner']) or current['borrowed_path_edits']
 
     def active_path_borrows(self, path):
+        if self.frames and path.kind == 'local' and path.owner == self.frames[-1]['owner']:
+            return
         depth = len(path.parts)
         for frame in self.frames:
             for ref in frame['references']:
-                if ref is None or len(ref.parts) > depth and self.path_contains_reference(path, ref):
+                if ref is None or (len(ref.parts) > depth and self.path_contains_reference(path, ref)):
                     yield ref
+
+    def node_edit_preserves_borrows(self, path, order, prefix, suffix, removed):
+        borrows = tuple(self.active_path_borrows(path))
+        if not borrows:
+            return True
+        depth = len(path.parts)
+        stationary = set(prefix)
+        shifted = set(suffix)
+        for ref in borrows:
+            if ref is None:
+                return False
+            part = ref.parts[depth]
+            origin = _path_record_identity(part)
+            if _path_header_part(part) or origin in stationary or origin in order.detached:
+                continue
+            # A whole-node borrow keeps a list slot. A descendant keeps the
+            # record's storage through an in-place move or deletion.
+            if len(ref.parts) > depth + 1 and origin is not None and (origin in shifted or origin == removed):
+                continue
+            return False
+        return True
+
+    def replaced_path_borrows(self, path, flow, conditional, *, keep_header=False, complete_header=False):
+        """Validate borrowed records and return the identities kept by old storage."""
+        if not self.can_publish_path(path, flow, conditional):
+            return None
+        order = flow.path_orders.get(path.key)
+        detached = order.detached if order is not None else frozenset()
+        depth = len(path.parts)
+        replaced = set()
+        available_nodes = None
+        for ref in self.active_path_borrows(path):
+            if ref is None or (order is None and path.key in flow.path_orders):
+                return None
+            part = ref.parts[depth]
+            origin = _path_record_identity(part)
+            if origin in detached:
+                continue
+            if _path_header_part(part):
+                header = -order.header if order is not None and order.header is not None else 0
+                if path.spec[2] is None or origin != header:
+                    return None
+                if keep_header:
+                    # Replacing incomplete aggregate data can drop a nested
+                    # container. A whole header still borrows its descriptor slot.
+                    if len(ref.parts) > depth + 1 and not complete_header:
+                        return None
+                    continue
+            else:
+                if available_nodes is None:
+                    if order is not None:
+                        self.tick(len(order.nodes))
+                        available_nodes = set(order.nodes)
+                    else:
+                        count = self.known_path_count(path, flow, conditional)
+                        if count is None:
+                            return None
+                        available_nodes = range(1, count + 1)
+                if origin not in available_nodes:
+                    return None
+            replaced.add(origin)
+        if replaced:
+            self.tick(len(detached) + len(replaced))
+            return detached | replaced
+        return detached
 
     def lost_path_reference(self, loc, flow):
         if not flow.path_orders or not loc.parts:
@@ -939,7 +978,7 @@ class _Analyzer:
         order = flow.path_orders.get(path.key)
         depth = len(path.parts)
         return (order is not None and len(status.parts) > depth + 1
-                and _path_node_identity(status.parts[depth]) in order.detached)
+                and _path_record_identity(status.parts[depth]) in order.detached)
 
     def path_seed_compatible(self, path, seed, convert):
         """Return True for a modeled copy, False for status 3, or None."""
@@ -1011,13 +1050,13 @@ class _Analyzer:
                 prefix = order.nodes[:offset]
                 shifted = order.nodes[index if removing else offset:]
                 removed = order.nodes[offset] if removing else None
-                if self.can_publish_path(path, flow, conditional, unchanged_nodes=prefix,
-                                         shifted_nodes=shifted, removed_node=removed):
+                if (self.can_publish_path(path, flow, conditional)
+                        and self.node_edit_preserves_borrows(path, order, prefix, shifted, removed)):
                     detached = order.detached
                     if removing:
                         depth = len(path.parts)
                         if any(ref is not None and len(ref.parts) > depth + 1
-                               and _path_node_identity(ref.parts[depth]) == removed
+                               and _path_record_identity(ref.parts[depth]) == removed
                                for ref in self.active_path_borrows(path)):
                             self.tick(len(detached))
                             detached = detached | {removed}
@@ -1075,10 +1114,11 @@ class _Analyzer:
                 else:
                     self.write(status, _Value(2, spec=['INTEGER']), flow, node)
                     return _Value()
-                if self.can_publish_path(target, flow, conditional):
+                detached = self.replaced_path_borrows(target, flow, conditional)
+                if detached is not None:
                     captured = self.capture_path_copy(source, indexes, node, flow, conditional)
                     if captured is not None and 'kinematic' not in layout:
-                        self.publish_path_copy(target, captured, node, flow)
+                        self.publish_path_records(target, captured, node, flow, detached=detached)
                         self.write(status, _Value(0, spec=['INTEGER']), flow, node)
                         return _Value()
 
@@ -1119,10 +1159,14 @@ class _Analyzer:
         target = self.locate(target_arg, flow, conditional)
         if flow.stopped and not flow.opaque:
             return
-        if (value.path_records is not None and self.can_publish_path(target, flow, conditional)
-                and target.spec == target_type):
-            self.publish_path_copy(target, value.path_records, node, flow)
-            return
+        if value.path_records is not None and target is not None and target.spec == target_type:
+            complete_header = target_type[2] is not None and value.path_records[0].complete
+            detached = self.replaced_path_borrows(target, flow, conditional, keep_header=True,
+                                                  complete_header=complete_header)
+            if detached is not None:
+                self.publish_path_records(target, value.path_records, node, flow,
+                                          keep_header=True, detached=detached)
+                return
 
         flow.path_orders[target.key if target is not None else None] = None
         self.unresolved_at('path-topology', 'PATH assignment source or destination effects require review', node)
@@ -1145,21 +1189,22 @@ class _Analyzer:
             values.append(self.read(loc, node, flow, conditional, partial=True))
         return values
 
-    def publish_path_copy(self, target, values, node, flow):
-        """Publish detached identities for the destination header and nodes."""
-        header = None
+    def publish_path_records(self, target, values, node, flow, *, keep_header=False, detached=frozenset()):
+        """Give replacement nodes new identities and write the selected header."""
+        previous = flow.path_orders.get(target.key)
+        header = previous.header if keep_header and previous is not None else None
         nodes = []
         for index, value in enumerate(values):
-            self.serial += 1
             if index == 0 and target.spec[2] is not None:
-                header = self.serial
-                record = self.child(target, 'created-header', header, node)
+                if not keep_header:
+                    self.serial += 1
+                    header = self.serial
+                part = ('index', 0) if header is None else ('created-header', header)
             else:
+                self.serial += 1
+                part = ('created-node', self.serial)
                 nodes.append(-self.serial)
-                record = self.child(target, 'created-node', self.serial, node)
-            self.write(record, value, flow, node)
-        previous = flow.path_orders.get(target.key)
-        detached = previous.detached if previous is not None else frozenset()
+            self.write(self.child(target, *part, node), value, flow, node)
         flow.path_orders[target.key] = _PathOrder(tuple(nodes), header, detached)
 
     def call(self, node, flow, conditional, *, statement_call=False):
@@ -1481,7 +1526,7 @@ class _Analyzer:
                 loc=_Location('local',owner,formal,spec=resolved,root_spec=resolved);frame['slots'][formal]=loc
                 if resolved[0] == 'PATH':
                     if isinstance(item, _Value) and item.path_records is not None and not flow.opaque:
-                        self.publish_path_copy(loc, item.path_records, node, flow)
+                        self.publish_path_records(loc, item.path_records, node, flow)
                     else:
                         flow.path_orders[loc.key] = None
                 else:

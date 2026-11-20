@@ -319,6 +319,30 @@ class SavedProjectTests(unittest.TestCase):
         self.assertEqual(result['text_output'], ' 0 2 12 21\n')
         self.assertEqual(result['programs']['LIB']['values']['TARGET']['data'], {'CODE': 0, 'TOTAL': 2})
 
+    def test_linked_copy_detaches_a_previous_copy_header_and_node(self):
+        types = ('TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+                 'head_t=STRUCTURE code:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t PATHHEADER=head_t ')
+        main = self.module('MAIN', 'source.code=41 source[1].amount=12 COPY_PATH(source,0,0,target,s) '
+                           'replace(target,target[0],target.code,target[1]) WRITE(target,CR)',
+                           types+'VAR source:route_t target FROM LIB:route_t s:INTEGER',
+                           'ROUTINE replace(v:route_t;head:head_t;status:INTEGER;held:row_t) FROM LIB')
+        lib = self.module('LIB', declarations=types+'VAR target:route_t',
+                          routines='ROUTINE replace(v:route_t;head:head_t;status:INTEGER;held:row_t) '
+                                   'VAR s:INTEGER BEGIN COPY_PATH(v,0,0,v,s) v.code=23 '
+                                   'APPEND_NODE(v,status) v[2].amount=34 held.amount=17 '
+                                   'WRITE(head.code,held.amount,CR) END replace')
+        spec = ['PATH', ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]],
+                ['STRUCTURE', 'HEAD_T', [['CODE', ['INTEGER']]]]]
+        source = dict(program='MAIN', path='SOURCE', type=spec,
+                      value=dict(nodes=[{'AMOUNT': MISSING}], data={'CODE': MISSING}))
+        prepared = self.create(main, lib, context={'variables': [source]}, discover=True)
+        report = prepared['inputs']['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertFalse(report['inputs'])
+        result = runner.run_document(self.document)['results']
+        self.assertEqual(result['status'], 'completed', result['error'])
+        self.assertEqual(result['text_output'], ' 0 17\n 23 12 34\n')
+
     def test_linked_node_borrow_stays_live_when_edits_follow_its_slot(self):
         types = 'TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t '
         main = self.module('MAIN', 'edit(routes[2],routes[2,1]) WRITE(routes[2],CR)',

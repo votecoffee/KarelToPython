@@ -427,7 +427,7 @@ use that shape. The destination can be a declared PATH with no saved seed.
 A copy preserves missing leaves. Reading an incompletely proven copied
 value later can report a `derived-value` gap. Known rejected layouts or
 bounds produce status 3 or 2 before reading the source records. Unknown
-bounds, retained destination aliases, and model-dependent results leave
+bounds, unproved destination references, and model-dependent results leave
 the destination effect unresolved.
 
 Discovery also follows whole scalar PATH assignments between declared
@@ -460,14 +460,20 @@ with its record when insertion or deletion shifts it to another slot.
 Discovery uses the original or source-created record identity, so a borrowed
 field read still identifies the original saved input. A proved deletion leaves
 borrowed fields of the removed record accessible through their references.
-Their writes affect the removed record only. Later edits and replacements can
-preserve those detached references. A shifted whole-node borrow or a whole
-replacement with live references into the current records can remain unresolved.
+Their writes affect the removed record only. A whole-node borrow can remain
+unresolved when an in-place edit changes its slot.
+
+Whole assignment updates the existing destination header and replaces the
+node list. A whole-header borrow sees the assigned header, and a nested
+header borrow can follow a complete replacement header. A checked COPY_PATH
+replaces the descriptor, leaving proved borrows of its old header and node
+list accessible. In both cases, references to the old nodes retain their
+storage and later writes through them leave the new nodes independent.
 
 The status output must use storage disjoint from the edited PATH at the start
-of the service call. A field from a previously deleted record can provide this
-storage. A known rejection of a node edit or COPY_PATH updates the status and
-preserves the shape and live references.
+of the service call. A field from a previously deleted or replaced record can
+provide this storage. A known rejection of a node edit or COPY_PATH updates
+the status and preserves the shape and live references.
 
 A routine invoked to evaluate another operand can run while the caller
 still holds earlier captured references, so its borrowed structural edits
