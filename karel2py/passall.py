@@ -49,7 +49,7 @@ def decode_field(text, field, line):
     return runtime.TextInput(text)(request)[0]
 
 
-def probe_bytes(raw, operations, eol, line):
+def probe_bytes(raw, operations, eol, line, transport):
     """Return values and bytes consumed once every field and CR is present."""
     from . import runtime
 
@@ -73,10 +73,10 @@ def probe_bytes(raw, operations, eol, line):
             try:
                 text = raw[start:end].decode('ascii')
             except UnicodeError as exc:
-                raise runtime.KarelRuntimeError('ATR_PASSALL serial fields require ASCII data', line) from exc
+                raise runtime.KarelRuntimeError(f'ATR_PASSALL {transport} fields require ASCII data', line) from exc
             values.append(decode_field(text, field, line))
         return values, offset
 
     if len(raw) >= MAX_READ_BYTES:
-        raise runtime.KarelRuntimeError(f'ATR_PASSALL serial READ exceeds {MAX_READ_BYTES} raw bytes', line)
+        raise runtime.KarelRuntimeError(f'ATR_PASSALL {transport} READ exceeds {MAX_READ_BYTES} raw bytes', line)
     return None

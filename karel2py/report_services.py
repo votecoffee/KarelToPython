@@ -256,6 +256,7 @@ def add_policies(report, *, array_context, cooperative):
     report['socket_wait_policy']=dict(
         configuration='Exact BOOLEAN wait/final and independent wait_output per Messaging endpoint; default immediate RX/TX behavior is retained',
         input='Explicit host feed and finish_input; validate a complete typed text/binary READ before consuming its RX prefix or publishing destinations',
+        passall='Readable text FILEs accept ATR_PASSALL for fixed ASCII widths. Explicit CR uses the exact ATR_EOL byte. Complete batches consume RX bytes atomically, with at most 4096 bytes examined per read.',
         input_capacity='Fixed fields and required CR bytes must fit the bank. A full RX queue can wait only if EOF could complete the retained request.',
         output='Capture complete rendered WRITE bytes once; wait for bank space from explicit host drains or another endpoint consuming RX, then append atomically',
         lifetime='Explicit standalone sleeper or scheduler; ten-millisecond delays with eligible timed condition scans in scheduled tasks; one pending operation per FILE with exact connection and buffer identity checks',
@@ -267,6 +268,7 @@ def add_policies(report, *, array_context, cooperative):
         context='Explicit FilePipes with up to 32 canonical PIP names and bounded combined configured sector capacities; zero sectors selects default eight KiB; DAQ and plain pipe names must be distinct',
         files='Circular byte histories retain newest configured bytes; independent text/binary cursors, AP starts at the retained end and enables reads after its first nonempty append; optional WAIT_USED complete-read waits or WAIT_NOTUSED snapshot ends; absent attrs preserve immediate EOF and cursor clamping',
         attributes=dict(rt.COMMUNICATION_CONSTANTS),
+        passall='Readable text FILEs accept ATR_PASSALL for fixed ASCII widths and explicit CR discards. Bounded reads honor snapshot ends and overflow policies.',
         reading='Explicit waits use logical 10 ms cooperative polls with eligible timed condition scans, staged typed fields and one final publication; standalone pending reads require an explicitly injected sleeper inherited through source linkage. Binary widths and waiting text fixed fields plus CR minima must fit the pipe.',
         handler_reads='Ready reads may complete inside a handler. Reads that would wait fail before sleeping in the caller or a linked routine.',
         overflow='Opt-in EOF latch or capacity-checked byte advance rounded to record_size; a pending read follows backend-authorized moves between polls and rejects ring changes during capture; bytes queries honor snapshot/overflow state',

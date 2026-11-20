@@ -32,6 +32,25 @@ resets it. Unsupported or failed seeks preserve it. Dropping only already
 consumed pipe history adjusts the saved cursor and preserves the separator.
 The continuation is transient; it is never saved in context JSON.
 
+## ATR_PASSALL fixed fields
+
+Readable text FILEs on plain PIP and socket endpoints accept
+`SET_FILE_ATR(channel,ATR_PASSALL)` before OPEN. Each field consumes its
+exact width. STRING fields can include ASCII control bytes and default to
+their declared capacity. Numeric, BOOLEAN and quoted STRING fields require
+explicit widths. See the [fixed field formats](serial-streams.md#atr_passall-fixed-fields).
+
+An explicit CR discards through the configured ATR_EOL byte. If the byte
+is missing, the batch remains incomplete, including at finite EOF. A raw
+CR consumes one terminator and leaves any following LF available as data.
+Each READ can examine up to 4096 bytes.
+
+All fields must be present and valid before READ commits destinations and
+cursor progress. Waiting reads and cancellation keep their existing
+lifetimes. Socket input consumes the successful prefix. Pipe input advances
+its own cursor inside the visible ring history, subject to snapshot and
+overflow settings. Binary and write-only modes reject ATR_PASSALL at OPEN.
+
 ## Socket messaging
 
 ```python

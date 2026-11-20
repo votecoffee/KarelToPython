@@ -44,6 +44,88 @@ def stream(transport, data, body, *, sleep=None, waiting=True, attributes='', ca
     return task, bank, name, pending, feed, translation
 
 
+class PassallStreamTests(unittest.TestCase):
+    attributes = 'SET_FILE_ATR(f,ATR_PASSALL)'
+
+    def test_fixed_width_and_explicit_cr_on_finite_and_waiting_transports(self):
+        for transport in TRANSPORTS:
+            for waiting in (False, True):
+                with self.subTest(transport=transport, waiting=waiting):
+                    task, bank, name, pending, _, _ = stream(
+                        transport, b'a\n\x00b2Ajunk;tail',
+                        'READ f(first::4,n::2::16,CR) status=IO_STATUS(f)',
+                        waiting=waiting, attributes=self.attributes + ' SET_FILE_ATR(f,ATR_EOL,59)',
+                    )
+                    result = task.run()
+                    self.assertEqual((result['FIRST'], result['N'], result['STATUS']), ('a\n\x00b', 42, 0))
+                    handle = task._state.values['F']
+                    self.assertEqual(bank.files[name][handle.position:], b'tail')
+                    self.assertEqual(pending, {})
+                    bank.close(handle)
+
+    def test_raw_cr_leaves_following_lf_for_fixed_field(self):
+        for transport in TRANSPORTS:
+            with self.subTest(transport=transport):
+                task, _, _, _, _, _ = stream(
+                    transport, b'discard\r\nx', 'READ f(CR) READ f(first::2) CLOSE FILE f',
+                    waiting=True, attributes=self.attributes + ' SET_FILE_ATR(f,ATR_EOL,13)',
+                )
+                self.assertEqual(task.run()['FIRST'], '\nx')
+
+    def test_fragmented_fixed_field_waits_for_explicit_cr(self):
+        for transport in ('socket', 'pipe'):
+            with self.subTest(transport=transport):
+                chunks = iter((b'\x00', b'skip\n'))
+                observations = []
+
+                def sleep(_):
+                    observations.append((task.snapshot()['FIRST'], task.snapshot()['F']['position']))
+                    feed(next(chunks))
+
+                task, _, _, pending, feed, _ = stream(
+                    transport, b'\n', 'READ f(first::2,CR) CLOSE FILE f',
+                    attributes=self.attributes, sleep=sleep,
+                )
+                self.assertEqual(task.run()['FIRST'], '\n\x00')
+                self.assertEqual(observations, [('old', 0), ('old', 0)])
+                self.assertEqual(len(task.read_requests), 1)
+                self.assertEqual(pending, {})
+
+    def test_cancel_after_feed_preserves_all_raw_bytes(self):
+        for transport in ('socket', 'pipe'):
+            with self.subTest(transport=transport):
+                def sleep(_):
+                    feed(b'b')
+                    rt.cancel_file(task._state, task._state.values['F'])
+
+                task, bank, name, pending, feed, _ = stream(
+                    transport, b'a\n', 'READ f(first::3) status=IO_STATUS(f) CLOSE FILE f',
+                    attributes=self.attributes, sleep=sleep,
+                )
+                values = task.run()
+                self.assertEqual((values['FIRST'], values['STATUS'], task.read_requests), ('old', 6, ()))
+                self.assertEqual(bank.files[name], b'a\nb')
+                self.assertEqual(pending, {})
+
+    def test_finite_failure_retains_destinations_and_buffer(self):
+        for transport in ('socket', 'pipe'):
+            for statement, data, reason in (
+                ('READ f(first::2,n::2)', b'a\nno', 'invalid INTEGER'),
+                ('READ f(first::2,CR)', b'a\n', 'complete PASSALL READ'),
+            ):
+                with self.subTest(transport=transport, statement=statement):
+                    task, bank, name, _, _, _ = stream(
+                        transport, data, 'n=77 ' + statement,
+                        attributes=self.attributes, waiting=False,
+                    )
+                    with self.assertRaisesRegex(rt.KarelRuntimeError, reason):
+                        task.run()
+                    result = task.snapshot()
+                    self.assertEqual((result['FIRST'], result['N'], result['F']['position']), ('old', 77, 0))
+                    self.assertEqual(bank.files[name], data)
+                    bank.close(task._state.values['F'])
+
+
 class StreamRecordBoundaryTests(unittest.TestCase):
     def test_closed_rooted_file_releases_record_continuation(self):
         with tempfile.TemporaryDirectory() as directory:

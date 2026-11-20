@@ -1456,16 +1456,18 @@ def file_read(state,handle,targets,line=None,*,line_breaks=(),formats=None):
         state.tick(line)
         check(start)
 
-    serial_passall = type(owner) is rt.SerialStreams and handle.passall
-    if serial_passall:
+    transport = {rt.SerialStreams: 'Serial', rt.Messaging: 'Socket', rt.FilePipes: 'Pipe'}.get(type(owner)) if handle.passall else None
+    if transport is not None:
         from .communications import StreamRead
 
+        handle.require_readable(line)
+        read_end = owner.end_position(handle, line) if type(owner) is rt.FilePipes else size
         try:
-            request = StreamRead(handle, targets, line_breaks, formats, 'Serial', line, raw_fields=True)
-            raw = request.capture(state, handle, data, start, size - start, lambda: check(start))
+            request = StreamRead(handle, targets, line_breaks, formats, transport, line, raw_fields=True)
+            raw = request.capture(state, handle, data, start, max(0, read_end - start), lambda: check(start))
             result = request.probe(handle, raw, final=True)
             if result is None:
-                fail('End of finite serial input before complete PASSALL READ', line)
+                fail(f'End of finite {transport.lower()} input before complete PASSALL READ', line)
             values, offset = result
             request.publish(state, values)
         except Exception:
@@ -1522,7 +1524,7 @@ def file_read(state,handle,targets,line=None,*,line_breaks=(),formats=None):
         offset=skip+reader.offset
         handle.position=start+offset
     if type(handle.owner) in (rt.Acquisition,rt.Messaging,rt.SerialStreams):handle.owner.after_read(handle,start,line)
-    if handle.binary or serial_passall:handle._text_cr=None
+    if handle.binary or transport is not None:handle._text_cr=None
     else:handle._finish_text_read(raw,offset)
     handle.status=0
 

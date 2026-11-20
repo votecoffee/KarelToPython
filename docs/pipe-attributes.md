@@ -39,6 +39,9 @@ closing quote arrives. Leading whitespace in an unfinished quoted field can
 wait for the opening quote. A CR marker also waits for its record boundary, even after
 a fixed-width field. A malformed complete field fails immediately. Text follows
 the existing ASCII, width, base, quote, field-mode and custom-EOL rules.
+[ATR_PASSALL fixed fields](communications.md#atr_passall-fixed-fields) can contain
+terminator bytes within a field. Only an explicit CR scans to the configured
+terminator. Raw reads retain the same snapshot and overflow checks.
 
 Binary reads wait for the sum of their checked field widths, then charge and
 capture just that prefix. Each text probe charges for its visible unread

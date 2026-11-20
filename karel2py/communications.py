@@ -50,6 +50,8 @@ def access_mode(handle,mode,line,*,append_read=False):
     mode={'RO':'R','WO':'W','AP':'AP' if append_read else 'A','UD':'RW'}.get(mode,mode)
     if mode not in ('R','W','RW','A','AP') or handle.xml:fail('Unsupported communication FILE access mode',line)
     if handle.owner is not None:fail('FILE is already open',line)
+    if type(handle.passall) is not bool or handle.passall and (binary or mode in ('W', 'A')):
+        fail('ATR_PASSALL requires a readable text communication FILE', line)
     return mode,binary
 
 
@@ -136,7 +138,7 @@ class StreamRead:
 
     def probe(self, handle, raw, *, final):
         if self.raw_operations is not None:
-            return passall.probe_bytes(raw, self.raw_operations, handle.eol, self.line)
+            return passall.probe_bytes(raw, self.raw_operations, handle.eol, self.line, self.transport.lower())
         runtime = rt()
         if self.widths is not None:
             if len(raw) < self.field_bytes:
@@ -418,7 +420,7 @@ class Messaging(MemoryFiles):
             return state.file_read(handle, targets, line, line_breaks=line_breaks, formats=formats)
         if handle.mode in ('W', 'A'):
             fail('Socket FILE is not readable', line)
-        request = StreamRead(handle, targets, line_breaks, formats, 'Socket', line)
+        request = StreamRead(handle, targets, line_breaks, formats, 'Socket', line, raw_fields=handle.passall)
         record = self._start_operation(state, handle, row, 'READ', line)
         try:
             if record.position + request.minimum_bytes(may_finalize=True) > record.limit:
@@ -436,7 +438,7 @@ class Messaging(MemoryFiles):
                     request.publish(state, values)
                     handle.position = record.position + offset
                     self.after_read(handle, record.position, line)
-                    if handle.binary:handle._text_cr=None
+                    if handle.binary or handle.passall:handle._text_cr=None
                     else:handle._finish_text_read(raw,offset)
                     handle.status = 0
                     return
@@ -757,10 +759,10 @@ class FilePipes(MemoryFiles):
     def pipe_read(self,state,handle,targets,line=None,*,line_breaks=(),formats=None):
         """Probe complete input without publication, then commit one READ request."""
         runtime=rt();self.before_read(handle,line)
-        request = StreamRead(handle, targets, line_breaks, formats, 'Pipe', line)
+        request = StreamRead(handle, targets, line_breaks, formats, 'Pipe', line, raw_fields=handle.passall)
         waiting=getattr(handle,'pipe_wait',None)==1
         minimum=request.minimum_bytes(may_finalize=not waiting)
-        if (handle.binary or waiting) and minimum > self.pipes[handle.name]['sectors'] * 1024:
+        if (handle.binary or handle.passall or waiting) and minimum > self.pipes[handle.name]['sectors'] * 1024:
             fail('Atomic pipe READ exceeds circular capacity', line)
         reads=self._reads
         if id(handle) in reads:fail('Pipe FILE already has an active READ',line)
@@ -789,7 +791,7 @@ class FilePipes(MemoryFiles):
                     values, offset = result
                     request.publish(state, values)
                     handle.position = start + offset
-                    if handle.binary:handle._text_cr=None
+                    if handle.binary or handle.passall:handle._text_cr=None
                     else:handle._finish_text_read(raw,offset)
                     handle.status = 0
                     return

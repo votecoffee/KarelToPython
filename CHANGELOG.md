@@ -1,5 +1,11 @@
 # Changelog
 
+## 26.1120.140339 - 2026-11-20
+
+- Extend ATR_PASSALL fixed ASCII reads to offline socket and plain pipe FILEs.
+  Preserve socket receive queues and pipe snapshot and overflow rules, with
+  atomic publication for both finite and waiting reads.
+
 ## 26.1120.135825 - 2026-11-20
 
 - Support ATR_PASSALL fixed ASCII fields on finite and waiting serial FILEs.

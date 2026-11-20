@@ -91,6 +91,46 @@ class PipeAppendTests(unittest.TestCase):
         self.assertEqual(files.files['PIP:LOG'], b'7\n9\n')
 
 
+class PipePassallBoundaryTests(unittest.TestCase):
+    def test_snapshot_excludes_later_bytes_of_fixed_field(self):
+        files = bank(b'a\n')
+        task, _ = compile_program(
+            'SET_FILE_ATR(f,ATR_PASSALL) ' + SNAP + " text='old' DELAY 1 READ f(text::3)",
+            decl=DECL, context=rt.ExecutionContext(file_pipes=files), sleep=lambda _: files.feed('LOG', b'b'),
+        )
+        with self.assertRaisesRegex(rt.KarelRuntimeError, 'End of pipe FILE'):
+            task.run()
+        self.assertEqual((task.snapshot()['TEXT'], task.snapshot()['F']['position']), ('old', 0))
+        self.assertEqual(files.files['PIP:LOG'], b'a\nb')
+        self.assertEqual(files._reads, {})
+        files.close(task._state.values['F'])
+
+    def test_pending_fixed_field_tracks_cursor_after_ring_overwrite(self):
+        files = bank(b'a' * 1024)
+        task, _ = compile_program(
+            'SET_FILE_ATR(f,ATR_PASSALL) ' + WAIT + ' SET_FILE_POS(f,1023,s) READ f(text::4) CLOSE FILE f',
+            decl=DECL, context=rt.ExecutionContext(file_pipes=files),
+            sleep=lambda _: files.feed('LOG', b'\x00\nb'),
+        )
+        self.assertEqual(task.run()['TEXT'], 'a\x00\nb')
+        self.assertEqual(files.files['PIP:LOG'], b'a' * 1021 + b'\x00\nb')
+        self.assertEqual(files._reads, {})
+
+    def test_passall_open_guards_preserve_pipe_and_socket_history(self):
+        pipes = bank(b'prior')
+        sockets = rt.Messaging({'S1:': {'input': b'prior', 'connected': True}})
+        for files, name in ((pipes, 'PIP:LOG'), (sockets, 'S1:')):
+            for mode in ('RB', 'WO', 'A'):
+                with self.subTest(name=name, mode=mode):
+                    descriptor = rt.FileHandle()
+                    descriptor.passall = True
+                    with self.assertRaisesRegex(rt.KarelRuntimeError, 'readable text'):
+                        files.open_for(None, descriptor, mode, name)
+                    self.assertIsNone(descriptor.owner)
+                    self.assertEqual(files.handles, [])
+                    self.assertEqual(files.files[name], b'prior')
+
+
 class PipeWaitingTests(unittest.TestCase):
     def test_handler_can_read_ready_data_but_cannot_wait(self):
         routines='ROUTINE collect BEGIN READ f(n,CR) END collect'
