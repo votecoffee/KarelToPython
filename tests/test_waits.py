@@ -193,6 +193,68 @@ class WaitPortEdgeTests(unittest.TestCase):
         self.assertEqual(caught.exception.code, 'E_CONTROLLER')
 
 
+class WaitEvalTests(unittest.TestCase):
+    def test_eval_captures_its_operand_before_the_first_live_poll(self):
+        body = 'after=3 n=0 WAIT FOR next_count() >= EVAL(after); done=TRUE'
+        routines = 'ROUTINE next_count:INTEGER BEGIN n=n+1 after=100 RETURN n END next_count'
+        for cooperative in (False, True):
+            with self.subTest(cooperative=cooperative):
+                program, result, sleeps = compile_program(
+                    body, routines=routines, translator=partial(translate, cooperative=cooperative)
+                )
+                state = program.run(max_steps=40)
+                self.assertEqual((state['N'], state['AFTER'], state['DONE']), (3, 100, True))
+                self.assertEqual(sleeps, [0., 0.])
+                self.assertEqual(result.report['waits'][0]['entry_captures'], 1)
+
+    def test_wait_eval_recaptures_on_loop_entry(self):
+        body = 'after=0 FOR i=1 TO 2 DO n=0 WAIT FOR next_count() >= EVAL(i); after=after+n ENDFOR'
+        routines = 'ROUTINE next_count:INTEGER BEGIN n=n+1 RETURN n END next_count'
+        program, _, sleeps = compile_program(body, routines=routines, labelled=True)
+        self.assertEqual(program.run()['AFTER'], 3)
+        self.assertEqual(sleeps, [0.])
+
+    def test_eager_captures_run_in_source_order_before_short_circuit(self):
+        routines = ("ROUTINE hit(s:STRING):BOOLEAN BEGIN trace=trace+s RETURN FALSE END hit")
+        program, _, sleeps = compile_program(
+            "trace='' WAIT FOR TRUE OR (EVAL(hit('A')) AND EVAL(hit('B')))",
+            routines=routines
+        )
+        self.assertEqual(program.run()['TRACE'], 'AB')
+        self.assertEqual(sleeps, [])
+
+    def test_source_defined_eval_routine_keeps_ordinary_call_semantics(self):
+        routines = ('ROUTINE EVAL(limit:INTEGER; step:INTEGER):BOOLEAN '
+                    'BEGIN n=n+step RETURN n>=limit END EVAL')
+        program, result, sleeps = compile_program('n=0 WAIT FOR EVAL(5,2)', routines=routines)
+        self.assertEqual(program.run()['N'], 6)
+        self.assertEqual(sleeps, [0., 0.])
+        self.assertNotIn('entry_captures', result.report['waits'][0])
+
+    def test_wait_eval_can_pin_the_port_used_by_an_edge(self):
+        ports = rt.PortBank({'DIN': 2}, {('DIN', 1): False, ('DIN', 2): False})
+        observed = []
+
+        def sleep(seconds):
+            observed.append(seconds)
+            program._state.set('N', 2)
+            ports.update('DIN', len(observed) % 2 + 1, True)
+
+        program, result, _ = compile_program('n=1 WAIT FOR DIN[EVAL(n)]+; done=TRUE',
+            sleep=sleep, context=rt.ExecutionContext(ports=ports))
+        self.assertTrue(program.run(max_steps=25)['DONE'])
+        self.assertEqual(observed, [0., 0.])
+        self.assertEqual((result.report['waits'][0]['entry_captures'],
+                          result.report['waits'][0]['port_edges']), (1, 1))
+
+    def test_wait_eval_checks_arity_types_and_capture_operands(self):
+        for condition, code in (('EVAL()', 'E_ARGUMENTS'), ('EVAL(TRUE,FALSE)', 'E_ARGUMENTS'),
+                                ('EVAL(2)', 'E_TYPE'), ('EVAL(DIN[1]+)', 'E_EVAL')):
+            with self.subTest(condition=condition), self.assertRaises(TranslationError) as caught:
+                compile_program(f'WAIT FOR {condition}')
+            self.assertEqual(caught.exception.code, code)
+
+
 class WaitIntegrationTests(unittest.TestCase):
     def test_labelled_dispatch_wait(self):
         p,result,calls=compile_program('n=0 WAIT FOR ready_now() after=n',routines=READY,labelled=True)

@@ -96,6 +96,13 @@ class InputDiscoveryTests(unittest.TestCase):
         self.assertTrue(any(row['code'] == 'condition-source' for row in report['unresolved']))
         self.assertTrue(any(row['service'] == 'ports' for row in report['context_requirements']))
 
+    def test_discovery_includes_wait_eval_inputs_before_boolean_short_circuit(self):
+        report, _ = scan('WAIT FOR TRUE OR EVAL(flag)')
+        self.assertEqual(names(report), {('variable', 'FLAG'): 'required'})
+        report, _ = scan('WAIT FOR DIN[EVAL(x)]+')
+        self.assertEqual(names(report)[('variable', 'X')], 'required')
+        self.assertTrue(any(row['service'] == 'ports' for row in report['context_requirements']))
+
     def test_zero_iteration_while_and_at_least_once_repeat(self):
         report,_=scan('WHILE flag DO x=1 ENDWHILE n=x')
         self.assertEqual(names(report),{('variable','FLAG'):'required',('variable','X'):'conditional'})

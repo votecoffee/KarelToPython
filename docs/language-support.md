@@ -285,7 +285,7 @@ internally and in the historical semantic notes.
 | Remote banks | 17 RGET/RSET numeric/string/comment/port procedures and numeric/position receive/send | Explicit persisted PeerBanks, per-peer banks/type codes, selected outputs, simulation and checked register copies; explicit position groups and comment options; no networking or robot conversion. |
 | Collection persistence | PATH and QUEUE_TYPE context variables | Typed partial PATH data, queue FIFO/sequence state and explicit buffer rebinding; portable logical snapshots without native layouts or task checkpoints. |
 | POSITION conversion | Whole assignments among XYZWPR, XYZWPREXT and POSITION; independent location/configuration and checked orientation matrices | Finite complete values; proper unit/orthogonal matrix checks with explicit 1e-9 tolerance; [Cartesian source routine conversions](cartesian-interfaces.md) use private differing representations; whole-array/BYNAME/linked declared types remain exact; context-free Cartesian conversion only; model-backed joint assignments are listed below. Widening zeros external metadata; narrowing drops it. |
-| Output pulses | PULSE DOUT statements with blocking/NOWAIT and blocking [DOUT/RDO handler actions](pulses.md) | Explicit bank, rounded duration, host polling or scheduler virtual time; portable override/lifecycle rules. |
+| Output pulses | PULSE DOUT/RDO statements with blocking/NOWAIT and blocking [handler actions](pulses.md) | Explicit bank, rounded duration, host polling or scheduler virtual time; portable override/lifecycle rules. |
 | Kinematic assignment | Whole JOINTPOS to/from POSITION/XYZWPR/XYZWPREXT assignments and [source routine conversions](kinematic-interfaces.md) using supplied robot adapters/models | Selected frame/tool and root group; inverse needs current joints as seed; same-kind source widths use checked zero-padding/zero-only narrowing; [positional ARRAYs](positional-arrays.md) use context-free changes and [model-backed arrays](kinematic-arrays.md) and [nested record conversions](kinematic-records.md) require explicit models and stage complete receiver data; [named/component source conversions](named-array-conversions.md) preserve schemas; BYNAME and declared linkage remain exact. |
 | Joint data | JOINTPOS1..9, [checked Pythonic axis subscripts](joint-axis-access.md), exact-width copies, restricted explicit-context REAL-array conversions | One-based finite REAL cells, declared schemas and captured aliases; partial axes allowed. No direct joint fields or implicit group/unit discovery. RobotContext supplies explicit kinematics. |
 | VECTOR | VEC construction, arithmetic, cross/dot products, equality, routine values and translation-frame equivalents | Complete finite components. [Pose:VECTOR points](vector-frames.md), [VECTOR translation offsets](vector-translation-frames.md), INV negation and FRAME points with a pose origin or explicit CONFIG. |
@@ -298,7 +298,7 @@ internally and in the historical semantic notes.
 | Pose axis queries | APPROACH and ORIENT on POSITION/XYZWPR/XYZWPREXT return independent writable VECTOR values for positive Z/Y | Complete finite poses, checked CONFIG and proper POSITION matrices; no normalization, defaults, other positional operands or controller acquisition. |
 | Position comparison | Approximate >=< on POSITION/XYZWPR/XYZWPREXT, including mixed operands, returns BOOLEAN | Explicit per-instance distance/angle/external-axis tolerances and CONFIG choice; complete proper poses; Euclidean distance and shortest rotation angle; no native defaults, exact/ordered relations or other operand types. |
 | DELAY | Checked 0..86400000 ms through a host callback | Host timing is not controller timing; step budget is not a time budget. |
-| WAIT FOR | Repeated checks of supported BOOLEAN expressions, including internal functions and [digital port transitions](#wait-for-port-transitions) | Ordinary step budget, short-circuit rules and sleep(0.0) after false checks; cooperative handlers are separate; no hardware acquisition or native event/timing equivalence. |
+| WAIT FOR | Repeated checks of supported BOOLEAN expressions, including internal functions, [EVAL captures](#wait-for-eval-captures) and [digital port transitions](#wait-for-port-transitions) | Ordinary step budget, short-circuit rules and sleep(0.0) after false checks; cooperative handlers are separate; no hardware acquisition or native event/timing equivalence. |
 | WRITE | Mixed scalar lists, signed integers, finite REALs, dynamic INTEGER formats, quoted STRING escaping/truncation, narrow integers and CR newlines | One complete recorder/callback request per statement, <=254 characters. Bounded formats; explicit FILE output uses MemoryFiles, a caller-rooted DirectoryFiles or configured WD windows; no live devices or native aggregate layout. [Queue entry output](queue-io.md) adds initialized scalar queues and banks. [Whole data](aggregate-output.md) now expands complete ARRAY/record/CONFIG/POSITION/joint values with one-batch publication and [default/uniform scalar formats](aggregate-formats.md). |
 | READ | Scalar variables, fields/elements and narrow scalar storage through typed callbacks, JSON batches or TextInput; CR, widths, bases and quoted STRINGs | Capture each target then its formats once; complete-response validation. Chosen text rules; MemoryFiles/DirectoryFiles add explicit text/binary FILE transfers; injected keyboard text and opted-in waiting pipe reads use cooperative generators; no live devices, native parser claim or POSITION orientation writes. [Queue entry input](queue-io.md) updates existing initialized entries and detaches buffer links. [Whole data](aggregate-input.md), including [whole POSITION](position-input.md), expands shaped ARRAY/record/CONFIG/joint targets into default or [uniformly formatted scalar fields](aggregate-formats.md) with the same transport validation. [CONFIG field input](config-field-input.md) validates turn bounds and BOOLEAN flags before any output/cursor publication. |
 | ABORT | Bare statement with sticky termination and frame cleanup | Also available in cooperative actions and explicitly registered ABORT_TASK; no motion cancellation or controller restart behavior. |
@@ -391,6 +391,20 @@ See [Boolean waits](boolean-waits.md) for repeated condition checks, host yields
 See [time text](time-text.md) for calendar validation, packed bits and complete formatting.
 See [microsecond timers](microsecond-timers.md) for host clocks, rollover and deterministic adapters.
 See [numeric registers](numeric-registers.md) for explicit banks, output checks and script context.
+
+## WAIT FOR EVAL captures
+
+`WAIT FOR measured >= EVAL(limit * scale)` captures `limit * scale` once when
+entering that wait. Later polls re-evaluate `measured`. A new entry, including
+another iteration of an enclosing loop, takes a fresh snapshot.
+
+Captures run before the first poll, in source order, including operands of
+short-circuited branches. They may contain ordinary Pythonic routine calls.
+A source routine named EVAL keeps its declared call semantics inside WAIT.
+A port transition predicate remains a live sampled condition.
+
+The reference describes EVAL in section A.5.6 and the WAIT condition syntax
+in MARRC75KR07091E Rev N Appendix E figures (t) and (u).
 
 ## WAIT FOR port transitions
 

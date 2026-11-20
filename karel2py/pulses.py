@@ -64,8 +64,8 @@ def pulse_execution(state,number,milliseconds,nowait=False,line=None,*,port_bank
     if not runtime._pythonic(): raise runtime.KarelRuntimeError('PULSE requires Pythonic mode',line)
     number=runtime.integer(number,line);milliseconds=runtime.integer(milliseconds,line);nowait=runtime.boolean(nowait,line)
     if not 0<=milliseconds<=86400000: raise runtime.KarelRuntimeError('PULSE requires milliseconds in 0..86400000',line)
-    if port_bank not in ('DOUT', 'RDO') or (port_bank == 'RDO' and nowait):
-        raise runtime.KarelRuntimeError('PULSE requires DOUT or a blocking RDO action',line)
+    if port_bank not in ('DOUT', 'RDO'):
+        raise runtime.KarelRuntimeError('PULSE requires DOUT or RDO',line)
     bank=state.execution.require('ports',line);key=bank._key(port_bank,number,line)
     row=dict(operation='PULSE',line=line,outcome='requested');state.service_requests.append(row)
     try:

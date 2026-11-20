@@ -1,5 +1,13 @@
 # Changelog
 
+## 26.1120.125146 - 2026-11-20
+
+- Capture EVAL operands once per WAIT FOR entry, before live checks and port
+  edge sampling. Preserve explicit EVAL routine calls and discover capture
+  inputs even when the live Boolean branch is skipped.
+- Support blocking and NOWAIT standalone PULSE RDO per the reference
+  statement diagram.
+
 ## 26.1120.124509 - 2026-11-20
 
 - Translate unparenthesized relative pose and VECTOR expressions in WRITE data

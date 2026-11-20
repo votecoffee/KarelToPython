@@ -5,18 +5,18 @@ explicit PortBank. No background thread or physical output adapter is created.
 
 ```karel
 PULSE DOUT[port_no] FOR milliseconds
-PULSE DOUT[port_no] FOR milliseconds NOWAIT
+PULSE RDO[port_no] FOR milliseconds NOWAIT
 ```
 
 Both operands are INTEGER expressions, evaluated once from left to right.
-Standalone statements use the supplied DOUT bank. Global condition handlers
-and motion-local actions accept blocking DOUT and RDO pulses. For example,
-`WHEN ready DO PULSE RDO[1] FOR 16` uses the RDO bank. The two banks keep separate
+Standalone statements accept DOUT and RDO with optional NOWAIT. Global
+condition handlers and motion-local actions accept blocking DOUT and RDO
+pulses, as in `WHEN ready DO PULSE RDO[1] FOR 16`. The two banks keep separate
 deadlines even at the same port number. NOWAIT in an action is rejected during
 translation.
 
-MARRC75KR07091E Rev N Appendix E figure (v) lists RDO as a condition-handler
-action. The statement form in section A.16.27 lists DOUT.
+The Pythonic forms follow MARRC75KR07091E Rev N Appendix E figures (q) and (v).
+The syntax lines in sections A.16.26 and A.16.27 list DOUT.
 
 ## Duration and waiting
 

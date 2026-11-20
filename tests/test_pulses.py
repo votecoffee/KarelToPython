@@ -306,9 +306,32 @@ class PulseSourceTests(unittest.TestCase):
         self.assertEqual(ports.poll_pulses(), 1)
         self.assertFalse(ports.read('DOUT', 1))
 
-    def test_rdo_remains_action_only_and_needs_a_blocking_integer_duration(self):
+    def test_standalone_rdo_pulse_blocks_or_uses_nowait(self):
+        for nowait in (False, True):
+            with self.subTest(nowait=nowait):
+                ports = rt.PortBank({'RDO': 1}, {('RDO', 1): False})
+                clock = {'us': 0}
+                observed = []
+
+                def sleep(seconds):
+                    observed.append((seconds, ports.read('RDO', 1)))
+
+                suffix = ' NOWAIT' if nowait else ''
+                program, result = compile_program(
+                    'PULSE RDO[1] FOR 9' + suffix + ' n=1',
+                    context=rt.ExecutionContext(ports=ports), clock_us=lambda: clock['us'], sleep=sleep
+                )
+                self.assertEqual(program.run()['N'], 1)
+                self.assertEqual(ports.read('RDO', 1), nowait)
+                self.assertEqual(result.report['pulses'][0]['port_bank'], 'RDO')
+                self.assertEqual(observed, [] if nowait else [(.016, True)])
+                clock['us'] = 16000
+                self.assertEqual(ports.poll_pulses(), int(nowait))
+                self.assertFalse(ports.read('RDO', 1))
+
+    def test_rdo_handler_keeps_blocking_and_integer_duration_guards(self):
         cases = (
-            ('PULSE RDO[1] FOR 8', 'E_SYNTAX'),
+            ('PULSE RDO[TRUE] FOR 8', 'E_TYPE'),
             ('CONDITION[1]: WHEN TRUE DO PULSE RDO[1] FOR 8 NOWAIT ENDCONDITION', 'E_CONDITION_ACTION'),
             ('CONDITION[1]: WHEN TRUE DO PULSE RDO[1] FOR 1.5 ENDCONDITION', 'E_TYPE'),
         )

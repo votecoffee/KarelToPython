@@ -555,11 +555,13 @@ class Parser:
             return self.motion_statement(token,settings)
         if self.mode=='pythonic' and name=='MOVE':return self.motion_statement(token)
         if self.mode=='pythonic' and name=='PULSE':
-            bank = 'RDO' if self.in_handler_actions and self.accept('RDO') else self.expect('DOUT').value
+            bank = self.take()
+            if bank.value not in ('DOUT', 'RDO'):
+                self.error('E_SYNTAX', 'PULSE requires DOUT or RDO', bank)
             self.expect('[');port=self.expression();self.expect(']');self.expect('FOR')
             duration=self.expression();nowait=bool(self.accept('NOWAIT'))
             if nowait and self.in_handler_actions: self.error('E_CONDITION_ACTION','NOWAIT is not allowed in a PULSE handler action',token)
-            return Statement('pulse',token,[port,duration,nowait,bank])
+            return Statement('pulse',token,[port,duration,nowait,bank.value])
         if self.mode=='pythonic' and name in ('PAUSE','RESUME','UNPAUSE','CONTINUE','STOP'):
             target=[]
             if name!='STOP' and self.accept('PROGRAM'):

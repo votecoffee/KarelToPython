@@ -335,6 +335,10 @@ Limit exhaustion returns an explicit partial report.
 
 ### Boolean and INTEGER operators
 
+WAIT FOR entry captures are read before the live predicate. Their inputs can
+be required even when a Boolean branch of the predicate is skipped. Port
+edge subscripts are then read at the polling stage.
+
 Discovery follows the translator's existing Pythonic Boolean short-circuit
 execution. `FALSE AND right` and `TRUE OR right` skip right-hand reads, routines
 and service requirements. `TRUE AND right` and `FALSE OR right` require them.
