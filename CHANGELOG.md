@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1120.170522 - 2026-11-20
+
+- Follow edits and replacements of borrowed PATHs through checked direct
+  procedures, including forwarded calls and linked programs.
+- Flag captured node and header references whose origins become uncertain
+  after an unmodeled structural effect.
+
 ## 26.1120.165829 - 2026-11-20
 
 - Discover private scalar PATH arguments, locally owned edits and detached

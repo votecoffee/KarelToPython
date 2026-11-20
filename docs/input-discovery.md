@@ -436,9 +436,8 @@ It captures the source header and nodes before evaluating the destination
 selector. Later writes to the source leave the copied values independent.
 Exact and context-free conversions preserve partial data, and the destination
 can start without a saved seed. Retranslate older Python to include the
-checked assignment schema. Uncertain receiver selection, replacement of
-borrowed or nonlocal PATHs inside routines, and model-dependent assignments
-still produce a discovery gap.
+checked assignment schema. Uncertain receiver selection and model-dependent
+assignments still produce a discovery gap.
 
 Grouped scalar PATH arguments capture private values before later arguments
 are evaluated. Bare reference arguments retain the caller's storage and
@@ -448,6 +447,18 @@ establish their shape. Returning an exact or context-free PATH snapshot
 preserves partial data and detaches it from the routine frame. The caller can
 assign that result or use its node count in `PATH_LEN`. These rules also apply
 across pinned linked routines with matching interfaces.
+
+A direct synchronous procedure can edit, copy into, or replace a borrowed
+PATH when all active argument references are resolved and none addresses a
+record or field inside that PATH. The updated shape belongs to the caller's
+storage, so later queries and transfers use the moved records' original
+saved addresses. These calls can be nested or linked.
+
+An overlapping node or header reference leaves the structural effect
+unresolved. A routine invoked to evaluate another operand can run while the
+caller still holds earlier captured references, so its borrowed structural
+edits also remain unresolved. Discovery reports the lost origin before
+reading or writing an affected captured record.
 
 ### Boolean and INTEGER operators
 

@@ -397,9 +397,29 @@ class _Analyzer:
     def can_publish_path(self, loc, flow, conditional):
         if loc is None or flow.opaque or flow.path_shape_unknown or conditional or self.repeat_depth:
             return False
-        if self.frames:
-            return loc.kind == 'local' and loc.owner == self.frames[-1]['owner']
-        return loc.kind == 'variable'
+        if not self.frames:
+            return loc.kind == 'variable'
+        current = self.frames[-1]
+        if loc.kind == 'local' and loc.owner == current['owner']:
+            return True
+        if not current['borrowed_path_edits']:
+            return False
+        return not any(
+            ref is None or len(ref.parts) > len(loc.parts) and self.path_contains_reference(loc, ref)
+            for frame in self.frames for ref in frame['references']
+        )
+
+    def lost_path_reference(self, loc, flow):
+        if not flow.path_orders or not loc.parts:
+            return False
+        dimensions, terminal = _array_dimensions(loc.root_spec)
+        if not terminal or terminal[0] != 'PATH' or len(loc.parts) <= len(dimensions):
+            return False
+        path_key = (*loc.key[:3], loc.parts[:len(dimensions)])
+        return None in flow.path_orders or (
+            path_key in flow.path_orders
+            and (flow.path_orders[path_key] is None or flow.opaque or flow.path_shape_unknown)
+        )
 
     def known_path_count(self, loc, flow, conditional):
         if loc is None or flow.opaque or flow.path_shape_unknown or conditional or None in flow.path_orders:
@@ -554,6 +574,9 @@ class _Analyzer:
         return leaves if visit(loc) else None
 
     def read(self, loc, node, flow, conditional, *, partial=False, path_io=False):
+        if self.lost_path_reference(loc, flow):
+            self.unresolved_at('path-topology', 'Captured PATH reference has an unresolved origin: '+loc.path, node)
+            return _Value(complete=False, spec=loc.spec)
         if partial and loc.spec and loc.spec[0] == 'PATH':
             count = self.known_path_count(loc, flow, conditional)
             if count is not None:
@@ -646,6 +669,10 @@ class _Analyzer:
         if loc is None:
             flow.path_shape_unknown = True
             self.unresolved_at('write-target','Writable target is not statically resolved',node);return
+        if self.lost_path_reference(loc, flow):
+            self.unresolved_at('path-topology', 'Captured PATH write has an unresolved origin: '+loc.path, node)
+            self.opaque(flow)
+            return
         leaves=self.leaves(loc)
         if leaves is None:
             self.unresolved_at('schema','Resource or unsupported write: '+loc.path,node)
@@ -686,7 +713,7 @@ class _Analyzer:
             self.unresolved_at('derived-value','Aggregate result consumed without proven complete data',node)
         return value
 
-    def expr(self, node, flow, conditional=False, *, partial=False, path_io=False):
+    def expr(self, node, flow, conditional=False, *, partial=False, path_io=False, statement_call=False):
         self.tick()
         if not isinstance(node,dict):return _Value()
         kind=node.get('kind');args=node.get('args',[]);value=node.get('value')
@@ -701,7 +728,9 @@ class _Analyzer:
             if loc:return self.read(loc,node,flow,conditional,partial=partial,path_io=path_io)
             constant=self.constant(value)
             if constant is not UNKNOWN:return _Value(constant)
-            if value in self.plan['routines']:return self.result_value(self.call(dict(node,kind='call',args=[]),flow,conditional),node,partial)
+            if value in self.plan['routines']:
+                result = self.call(dict(node, kind='call', args=[]), flow, conditional, statement_call=statement_call)
+                return self.result_value(result, node, partial)
         if kind == 'path_io_range':
             for location in self.path_io_locations(node, flow, conditional):
                 if location is not None:
@@ -711,7 +740,9 @@ class _Analyzer:
             loc=self.locate(node,flow,conditional,path_io=path_io)
             if loc:return self.read(loc,node,flow,conditional,partial=partial,path_io=path_io)
             self.unresolved_at('selection','Computed or dynamic data read is unresolved',node);return _Value(complete=False)
-        if kind=='group':return self.expr(args[0],flow,conditional,partial=partial,path_io=path_io)
+        if kind == 'group':
+            return self.expr(args[0], flow, conditional, partial=partial, path_io=path_io,
+                             statement_call=statement_call)
         if kind in ('unary','binary'):
             if kind=='binary' and value in ('AND','OR'):
                 left=self.expr(args[0],flow,conditional);evaluation=node.get('evaluation')
@@ -750,7 +781,9 @@ class _Analyzer:
                             and (type(result) is not float or math.isfinite(result))):return _Value(result)
                 except (ArithmeticError,TypeError,ValueError):pass
             return _Value(spec=['BOOLEAN'] if kind=='binary' and value in ('=','<>','<','<=','>','>=') else None)
-        if kind=='call':return self.result_value(self.call(node,flow,conditional),node,partial)
+        if kind == 'call':
+            result = self.call(node, flow, conditional, statement_call=statement_call)
+            return self.result_value(result, node, partial)
         if self.linked_plans is not None and kind=='captured':
             name, spec = value
             captured = self.capture_values.get((self.program, name))
@@ -852,8 +885,8 @@ class _Analyzer:
         )
         return _Value(spec=value.spec, facts=facts)
 
-    def path_status_overlaps(self, path, status):
-        return status.key[:3] == path.key[:3] and status.parts[:len(path.parts)] == path.parts
+    def path_contains_reference(self, path, ref):
+        return ref.key[:3] == path.key[:3] and ref.parts[:len(path.parts)] == path.parts
 
     def path_seed_compatible(self, path, seed, convert):
         """Return True for a modeled copy, False for status 3, or None."""
@@ -906,7 +939,7 @@ class _Analyzer:
         # A routine may retain a node reference captured before this edit.
         # Repeated bodies can also reach the edit with a different shape.
         if count is not None and status is not None and self.can_publish_path(path, flow, conditional):
-            aliases_path = self.path_status_overlaps(path, status)
+            aliases_path = self.path_contains_reference(path, status)
             removing = name == 'DELETE_NODE'
             last = count if removing else count + 1
             if name == 'APPEND_NODE':
@@ -957,7 +990,7 @@ class _Analyzer:
         convert = flags[0] if flags else False
         if (source is not None and source.spec[0] == 'PATH' and target is not None and target.spec[0] == 'PATH'
                 and status is not None and self.can_publish_path(target, flow, conditional)
-                and not self.path_status_overlaps(target, status)):
+                and not self.path_contains_reference(target, status)):
             source_type, target_type = tuple_spec(source.spec), tuple_spec(target.spec)
             if source_type == target_type:
                 layout = ('exact', 'exact')
@@ -1063,9 +1096,10 @@ class _Analyzer:
             self.write(record, value, flow, node)
         flow.path_orders[target.key] = _PathOrder(tuple(nodes), header)
 
-    def call(self, node, flow, conditional):
+    def call(self, node, flow, conditional, *, statement_call=False):
         name=node['value'];args=node['args']
-        if name in self.plan['routines']:return self.routine(name,args,node,flow,conditional)
+        if name in self.plan['routines']:
+            return self.routine(name, args, node, flow, conditional, statement_call=statement_call)
         if name in ('PATH_LEN', 'NODE_SIZE'):
             return self.path_metadata_call(node, flow, conditional)
         if name in ('APPEND_NODE', 'INSERT_NODE', 'DELETE_NODE'):
@@ -1313,7 +1347,7 @@ class _Analyzer:
             return None, None
         return target, routine
 
-    def routine(self, name, args, node, flow, conditional):
+    def routine(self, name, args, node, flow, conditional, *, statement_call=False):
         routine=self.plan['routines'][name]
         modes=node.get('passing',[]);actual=[]
         for index,item in enumerate(args):
@@ -1356,9 +1390,20 @@ class _Analyzer:
                 self.unresolved_at('parameter-shape','Concrete ARRAY shape conflicts with routine constraint: '+name+'.'+formal,node)
                 self.opaque(flow);return _Value(complete=False)
             bindings.append((formal,spec,item,resolved))
-        frame=dict(name=name,key=routine_key,owner=owner,result=routine['result'],
-                   slots={key:_Location('local',owner,key,spec=spec) for key,spec in routine['types'].items()},
-                   constants=routine['constants'])
+        # Expression calls may run during operand capture. Along a chain
+        # of direct procedure statements, each body starts after its
+        # arguments have been captured in the active frame.
+        direct = statement_call and routine['result'] is None and (
+            not self.frames or self.frames[-1]['borrowed_path_edits']
+        )
+        references = tuple(
+            item if isinstance(item, _Location) else None
+            for index, item in enumerate(actual) if index >= len(modes) or modes[index] != 'value'
+        )
+        frame = dict(name=name, key=routine_key, owner=owner, result=routine['result'],
+                     slots={key:_Location('local',owner,key,spec=spec,root_spec=spec)
+                            for key,spec in routine['types'].items()},
+                     constants=routine['constants'], borrowed_path_edits=direct, references=references)
         formals = {formal for formal, _, _, _ in bindings}
         for local in frame['slots'].values():
             if local.root not in formals and local.spec[0] == 'PATH':
@@ -1367,7 +1412,7 @@ class _Analyzer:
             if isinstance(item,_Location):frame['slots'][formal]=item
             else:
                 if spec==['STRING',None]:resolved=['STRING',254]
-                loc=_Location('local',owner,formal,spec=resolved);frame['slots'][formal]=loc
+                loc=_Location('local',owner,formal,spec=resolved,root_spec=resolved);frame['slots'][formal]=loc
                 if resolved[0] == 'PATH':
                     if isinstance(item, _Value) and item.path_records is not None and not flow.opaque:
                         self.publish_path_copy(loc, item.path_records, node, flow)
@@ -1631,7 +1676,9 @@ class _Analyzer:
                 return
             value=self.expr(args[1],flow,conditional,partial=True)
             self.write(self.locate(args[0],flow,conditional),value,flow,node);return
-        if kind=='call':self.expr(args[0],flow,conditional);return
+        if kind == 'call':
+            self.expr(args[0], flow, conditional, statement_call=True)
+            return
         if kind in ('file_read', 'file_write', 'file_open', 'file_close', 'file_cancel'):
             self.file_statement(node, flow, conditional)
             return

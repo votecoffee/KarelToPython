@@ -292,6 +292,29 @@ class SavedProjectTests(unittest.TestCase):
         self.assertEqual(values['TARGET']['nodes'], [{'AMOUNT': 12}, {'AMOUNT': 21}])
         self.assertEqual(values['SOURCE']['nodes'], [{'AMOUNT': 12.75}])
 
+    def test_linked_direct_procedure_copies_into_and_extends_borrowed_path(self):
+        types = 'TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t '
+        main = self.module('MAIN', 'source[1].amount=12 fill(target,source) WRITE(target,CR)',
+                           types+'VAR source:route_t target FROM LIB:route_t',
+                           'ROUTINE fill(v:route_t;seed:route_t) FROM LIB')
+        lib = self.module('LIB', declarations=types+'VAR target:route_t',
+                          routines='ROUTINE fill(v:route_t;seed:route_t) VAR s:INTEGER '
+                                   'BEGIN COPY_PATH(seed,0,0,v,s) APPEND_NODE(v,s) v[2].amount=21 END fill')
+        spec = ['PATH', ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]], None]
+        source = dict(program='MAIN', path='SOURCE', type=spec,
+                      value=dict(nodes=[{'AMOUNT': MISSING}], data=None))
+        self.create(main, lib, context={'variables': [source]})
+        revised = self.folder/'revised.run.json'
+        prepared = runner.refresh_project_document(self.document, revised, [main, lib])
+        report = prepared['inputs']['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertFalse(report['inputs'])
+        self.assertEqual(prepared['inputs']['context']['variables'], [source])
+        result = runner.run_document(revised)['results']
+        self.assertEqual(result['status'], 'completed', result['error'])
+        self.assertEqual(result['text_output'], ' 12 21\n')
+        self.assertEqual(result['programs']['LIB']['values']['TARGET']['nodes'], [{'AMOUNT': 12}, {'AMOUNT': 21}])
+
     def test_linked_seed_conversion_keeps_input_owner_and_completes_inserted_record(self):
         types = ('TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
                  'source_t=STRUCTURE amount:REAL ENDSTRUCTURE ')
