@@ -34,6 +34,63 @@ def waiting_project(files,body=WAIT+' n=77 READ f(n,CR) CLOSE FILE f',decl=DECL)
     raise AssertionError('Pipe read did not enter waiting state')
 
 
+class PipeAppendTests(unittest.TestCase):
+    def test_append_starts_at_retained_end_and_follows_circular_overwrite(self):
+        files = bank(b'a' * 1024)
+        result = run(
+            "OPEN FILE f('AP','PIP:LOG') m=GET_FILE_POS(f) WRITE f('42',CR) "
+            "READ f(n,CR) CLOSE FILE f",
+            decl=DECL, context=rt.ExecutionContext(file_pipes=files),
+        )
+        self.assertEqual((result['M'], result['N']), (1024, 42))
+        self.assertEqual(files.files['PIP:LOG'], b'a' * 1021 + b'42\n')
+
+    def test_only_an_own_nonempty_write_unlocks_pipe_reads(self):
+        files = bank(b'7\n')
+        reader = handle(files, wait=1, mode='AP')
+        files.feed('LOG', b'8\n')
+        files.write(reader, b'')
+        self.assertEqual(files.bytes_ahead(reader), 2)
+        with self.assertRaisesRegex(rt.KarelRuntimeError, 'nonempty WRITE before READ'):
+            files.read_bytes(reader, 2)
+        self.assertEqual(reader.position, 2)
+        files.write(reader, b'9\n')
+        self.assertEqual(files.read_bytes(reader, 4), b'8\n9\n')
+        files.close(reader)
+        files.open_for(None, reader, 'AP', 'PIP:LOG')
+        self.assertEqual(reader.position, 6)
+        with self.assertRaisesRegex(rt.KarelRuntimeError, 'nonempty WRITE before READ'):
+            files.read_bytes(reader, 0)
+        files.close(reader)
+
+    def test_append_can_wait_for_a_complete_record_after_writing(self):
+        files = bank(b'7\n')
+        calls = []
+
+        def sleep(delay):
+            calls.append(delay)
+            files.feed('LOG', b'2\n')
+
+        result = run(
+            "SET_FILE_ATR(f,ATR_PIPWAIT,WAIT_USED) OPEN FILE f('AP','PIP:LOG') "
+            "WRITE f('4') READ f(n,CR) CLOSE FILE f",
+            decl=DECL, context=rt.ExecutionContext(file_pipes=files), sleep=sleep,
+        )
+        self.assertEqual((result['N'], calls), (42, [.01]))
+        self.assertEqual(files._reads, {})
+
+    def test_append_snapshot_excludes_appended_bytes_even_after_first_write(self):
+        files = bank(b'7\n')
+        result = run(
+            "SET_FILE_ATR(f,ATR_PIPWAIT,WAIT_NOTUSED) OPEN FILE f('AP','PIP:LOG') "
+            "WRITE f('9',CR) SET_FILE_POS(f,0,s) READ f(n,CR) "
+            "m=BYTES_LEFT(f) CLOSE FILE f",
+            decl=DECL, context=rt.ExecutionContext(file_pipes=files),
+        )
+        self.assertEqual((result['S'], result['N'], result['M']), (0, 7, 0))
+        self.assertEqual(files.files['PIP:LOG'], b'7\n9\n')
+
+
 class PipeWaitingTests(unittest.TestCase):
     def test_handler_can_read_ready_data_but_cannot_wait(self):
         routines='ROUTINE collect BEGIN READ f(n,CR) END collect'
@@ -310,7 +367,7 @@ class PipeSnapshotAndOverflowTests(unittest.TestCase):
         self.assertIsNone(reader.owner)
 
     def test_read_attributes_reject_write_only_modes_before_truncation(self):
-        for mode in ('WO','AP'):
+        for mode in ('WO','A'):
             files=bank(b'prior')
             with self.assertRaisesRegex(rt.KarelRuntimeError,'readable'):handle(files,wait=1,mode=mode)
             self.assertEqual(files.files['PIP:LOG'],b'prior')

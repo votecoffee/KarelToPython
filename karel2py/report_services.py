@@ -265,7 +265,7 @@ def add_policies(report, *, array_context, cooperative):
     report['file_pipe_policy']=dict(
         procedures=['PIPE_CONFIG'],
         context='Explicit FilePipes with up to 32 canonical PIP names and bounded combined configured sector capacities; zero sectors selects default eight KiB; DAQ and plain pipe names must be distinct',
-        files='Circular byte histories retain newest configured bytes; independent text/binary cursors, optional WAIT_USED complete-read waits or WAIT_NOTUSED snapshot ends; absent attrs preserve immediate EOF and cursor clamping',
+        files='Circular byte histories retain newest configured bytes; independent text/binary cursors, AP starts at the retained end and enables reads after its first nonempty append; optional WAIT_USED complete-read waits or WAIT_NOTUSED snapshot ends; absent attrs preserve immediate EOF and cursor clamping',
         attributes=dict(rt.COMMUNICATION_CONSTANTS),
         reading='Explicit waits use logical 10 ms cooperative polls with eligible timed condition scans, staged typed fields and one final publication; standalone pending reads require an explicitly injected sleeper inherited through source linkage. Binary widths and waiting text fixed fields plus CR minima must fit the pipe.',
         handler_reads='Ready reads may complete inside a handler. Reads that would wait fail before sleeping in the caller or a linked routine.',

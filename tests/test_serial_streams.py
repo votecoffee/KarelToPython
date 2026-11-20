@@ -49,12 +49,42 @@ class SerialStreamFileTests(unittest.TestCase):
         self.assertEqual(ctx.serial_streams.snapshot(),before);ctx.serial_streams.close(task._state.values['F'])
 
     def test_write_only_reads_fail_without_consuming_rx(self):
-        for mode in ('WO','AP','AO'):
+        for mode in ('WO','A','AO'):
             with self.subTest(mode=mode):
                 ctx=context(b'42\n');task,_=compile_program(f"OPEN FILE f('{mode}','P2:') n=77 READ f(n)",decl=DECL,context=ctx)
                 with self.assertRaisesRegex(rt.KarelRuntimeError,'not readable'):task.run()
                 self.assertEqual(task.snapshot()['N'],77);ctx.serial_streams.close(task._state.values['F'])
                 self.assertEqual(ctx.serial_streams.snapshot()[2]['input'],b'42\n')
+
+    def test_append_mode_can_read_separate_rx_after_nonempty_write(self):
+        ctx = context(b'42\n', b'old')
+        data = run(
+            "OPEN FILE f('AP','p2:') WRITE f('new') cursor=GET_FILE_POS(f) "
+            "READ f(n,CR) CLOSE FILE f",
+            decl=DECL, context=ctx,
+        )
+        self.assertEqual((data['CURSOR'], data['N']), (0, 42))
+        self.assertEqual(ctx.serial_streams.snapshot()[2],
+                         {'capacity': 1024, 'input': b'', 'output': b'oldnew'})
+
+    def test_append_rejects_read_before_first_nonempty_write_on_each_open(self):
+        for operations, tx in (
+            ("", b'old'),
+            (" WRITE f('')", b'old'),
+            (" WRITE f('new') CLOSE FILE f OPEN FILE f('APB','P2:')", b'oldnew'),
+        ):
+            with self.subTest(operations=operations):
+                ctx = context(struct.pack('<i', 42), b'old')
+                task, _ = compile_program(
+                    "OPEN FILE f('APB','P2:')" + operations + ' n=77 READ f(n)',
+                    decl=DECL, context=ctx,
+                )
+                with self.assertRaisesRegex(rt.KarelRuntimeError, 'nonempty WRITE before READ'):
+                    task.run()
+                self.assertEqual((task.snapshot()['N'], task.snapshot()['F']['position']), (77, 0))
+                ctx.serial_streams.close(task._state.values['F'])
+                self.assertEqual(ctx.serial_streams.snapshot()[2]['input'], struct.pack('<i', 42))
+                self.assertEqual(ctx.serial_streams.snapshot()[2]['output'], tx)
 
     def test_rx_prefix_is_retained_until_explicit_close(self):
         ctx=context(b'7\n8\n');task,_=compile_program("OPEN FILE f('RO','P2:') READ f(n,CR)",decl=DECL,context=ctx)

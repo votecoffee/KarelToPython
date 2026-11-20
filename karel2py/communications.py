@@ -44,10 +44,10 @@ def data_bytes(value,limit):
     return value
 
 
-def access_mode(handle,mode,line):
+def access_mode(handle,mode,line,*,append_read=False):
     mode=rt().ascii_string(mode,line).upper();binary='B' in mode or handle.binary;mode=mode.replace('B','')
-    mode={'RO':'R','WO':'W','AP':'A','UD':'RW'}.get(mode,mode)
-    if mode not in ('R','W','RW','A') or handle.xml:fail('Unsupported communication FILE access mode',line)
+    mode={'RO':'R','WO':'W','AP':'AP' if append_read else 'A','UD':'RW'}.get(mode,mode)
+    if mode not in ('R','W','RW','A','AP') or handle.xml:fail('Unsupported communication FILE access mode',line)
     if handle.owner is not None:fail('FILE is already open',line)
     return mode,binary
 
@@ -527,7 +527,7 @@ class FilePipes(MemoryFiles):
         self.files.setdefault(key,bytearray());return 0
 
     def open_for(self,state,handle,mode,name,line=None):
-        mode,binary=access_mode(handle,mode,line)
+        mode,binary=access_mode(handle,mode,line,append_read=True)
         try:key=pipe_name(name)
         except ValueError:fail('Invalid PIP FILE name',line)
         if key not in self.pipes:fail('PIP FILE is not explicitly configured',line)
@@ -553,8 +553,11 @@ class FilePipes(MemoryFiles):
                     other._text_cr=None
                     other._pipe_version=object()
         handle.name,handle.mode,handle.owner,handle.binary=key,mode,self,binary
-        handle.logical_name=key;handle.position=0;handle.status=0
-        handle._pipe_snapshot_end=len(self.files[key]) if wait==0 else None
+        handle.logical_name=key;handle.status=0
+        size = len(self.files[key])
+        handle.position = size if mode == 'AP' else 0
+        handle._append_ready = False
+        handle._pipe_snapshot_end = size if wait == 0 else None
         handle._pipe_overflowed=False;handle._pipe_advance=advance
         handle._pipe_version=object()
         handle._text_cr=None
@@ -645,7 +648,7 @@ class FilePipes(MemoryFiles):
                 self._move_reader(other,position,end,overflowed)
                 other._text_cr=None
                 if continuation and not lost and not overflowed:other._bind_text_cr()
-        handle.status=0
+        handle._finish_write(handle.position, data)
 
     def feed(self,name,data):
         """Append explicitly supplied host bytes through ordinary circular rules."""
@@ -700,15 +703,17 @@ class FilePipes(MemoryFiles):
         if target in self.pipes:return 2
         self.pipes[target]=self.pipes.pop(source);self.files[target]=self.files.pop(source);return 0
 
-    def before_read(self,handle,line=None):
+    def before_read(self,handle,line=None,*,transfer=True):
         handle.require_open(line)
         if handle.owner is not self:fail('Pipe READ requires its original backend',line)
         if handle.mode in ('W','A'):fail('Pipe FILE is not readable',line)
+        if transfer:
+            handle.require_readable(line)
         if getattr(handle,'_pipe_overflowed',False):
             handle.status=1;fail('Pipe read overflow reached EOF; close and reopen FILE',line)
 
     def end_position(self,handle,line=None):
-        self.before_read(handle,line)
+        self.before_read(handle,line,transfer=False)
         end=getattr(handle,'_pipe_snapshot_end',None)
         return len(self.files[handle.name]) if end is None else min(end,len(self.files[handle.name]))
 

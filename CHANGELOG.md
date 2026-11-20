@@ -1,5 +1,11 @@
 # Changelog
 
+## 26.1120.135235 - 2026-11-20
+
+- Enable reads on serial and plain pipe AP FILEs after the first successful
+  nonempty write. Serial reads use the separate RX queue; pipe reads start
+  at the retained end and respect snapshot, waiting and overflow attributes.
+
 ## 26.1120.134457 - 2026-11-20
 
 - Accept ATR_TIMEOUT for typed READ on offline waiting serial and keyboard

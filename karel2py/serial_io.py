@@ -119,8 +119,8 @@ class SerialStreams:
             raise runtime.KarelRuntimeError('Serial endpoint already has an open FILE',line)
         mode=runtime.ascii_string(mode,line).upper();binary=handle.binary
         if mode.endswith('B'):binary=True;mode=mode[:-1]
-        mode={'RO':'R','WO':'W','UD':'RW','AP':'A','AO':'A'}.get(mode,mode)
-        if mode not in ('R','W','RW','A'):
+        mode={'RO':'R','WO':'W','UD':'RW','AO':'A'}.get(mode,mode)
+        if mode not in ('R','W','RW','A','AP'):
             raise runtime.KarelRuntimeError('Unsupported portable serial FILE mode',line)
         if handle.xml or handle.passall or handle.pipe_wait is not None or handle.pipe_overflow is not None:
             raise runtime.KarelRuntimeError('Serial FILE does not model XML, PASSALL or pipe attributes',line)
@@ -130,11 +130,12 @@ class SerialStreams:
         timeout = handle.read_timeout_ms
         if type(timeout) is not int or not 0 <= timeout <= runtime.MAX_FILE_TIMEOUT_MS:
             raise runtime.KarelRuntimeError('Malformed serial FILE read timeout', line)
-        if timeout and (mode not in ('R', 'RW') or not self.ports[port]['wait']):
+        if timeout and (mode in ('W', 'A') or not self.ports[port]['wait']):
             raise runtime.KarelRuntimeError('ATR_TIMEOUT requires a readable waiting serial FILE', line)
         handle.name=key;handle.logical_name=key;handle.mode=mode;handle.binary=binary
         handle.position=0;handle.status=0;handle.owner=self;handle.xml_session=None
         handle._text_cr=None
+        handle._append_ready = False
         self._open[id(handle)] = (handle, key, mode, binary, handle.reverse, handle.field,
                                   handle.eol, self.ports[port]['reclaim_input'], timeout)
         self.handles.append(handle)
@@ -155,8 +156,8 @@ class SerialStreams:
         if (type(handle.position) is not int or not 0<=handle.position<=len(self.files[handle.name])
                 or handle.mode in ('W','A') and handle.position!=0):
             raise runtime.KarelRuntimeError('Serial FILE has an invalid receive cursor',line)
-        if reading and handle.mode in ('W','A'):
-            raise runtime.KarelRuntimeError('Serial FILE is not readable',line)
+        if reading:
+            handle.require_readable(line)
         row=self.ports[int(handle.name[1])]
         if type(row['wait']) is not bool or type(row['final']) is not bool or not row['wait'] and not row['final']:
             raise runtime.KarelRuntimeError('Serial wait/final policy is invalid',line)
@@ -206,7 +207,8 @@ class SerialStreams:
         if (len(self.files[handle.name])+len(row['output'])+len(data)>row['capacity']
                 or self.used()+len(data)>self.limit):
             raise rt().KarelRuntimeError('Serial input/output byte capacity exceeded',line)
-        row['output'].extend(data);handle.status=0
+        row['output'].extend(data)
+        handle._finish_write(handle.position, data)
 
     def flush(self,handle,line=None):
         self._active(handle,line)
@@ -354,7 +356,9 @@ class SerialStreams:
                     raise runtime.KarelRuntimeError('Atomic serial WRITE exceeds retained port/bank capacity',line)
                 if (len(self.files[handle.name])+len(row['output'])+len(data)<=row['capacity']
                         and self.used()+len(data)<=self.limit):
-                    row['output'].extend(data);handle.status=0;return
+                    row['output'].extend(data)
+                    handle._finish_write(handle.position, data)
+                    return
                 if state._in_handler or runtime.task_root(state)._in_handler:
                     raise runtime.KarelRuntimeError('Pending serial WRITE cannot wait inside a handler action',line)
                 if state._scheduler is None and not getattr(runtime.task_root(state),'_sleep_injected',False):

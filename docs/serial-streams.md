@@ -61,12 +61,15 @@ outbox and never echoes into RX, truncates old output or advances the RX cursor.
 | R, RO | Read only |
 | W, WO | Write only, retaining old RX/TX |
 | RW, UD | Independent input and appended output |
-| A, AP, AO | Output-only append aliases |
+| A, AO | Output-only append aliases |
+| AP | Append to TX and allow RX reads after the first successful nonempty write on each open. |
 
-An optional trailing B or ATR_UF selects existing binary FILE field handling.
-AO is a portable append-output alias; the cited manual describes AP instead.
-This backend does not implement AP's native first-operation/read-write rules or
-UD's equal-length file replacement behavior. It always treats TX as an outbox.
+An optional trailing B or ATR_UF selects binary FILE field handling. In AP,
+the RX cursor starts at zero and a write leaves it in place. The first write
+must reach TX before READ can proceed, including when using cooperative output
+waits. Empty, failed and cancelled writes leave reads disabled. Once enabled,
+READ uses the normal finite or waiting RX rules, including ATR_TIMEOUT.
+AO is a portable append-output alias. UD uses the same two-queue model as RW.
 
 Text/binary scalar widths, numeric validation, byte order, bounded STRING rules,
 ATR_FIELD and explicit FILE ATR_EOL use the existing checked FILE parser.

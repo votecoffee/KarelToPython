@@ -225,10 +225,15 @@ alignment is inferred from `record_size`.
 
 Multiple FILEs can read and write simultaneously, up to 32 open handles per
 bank. Each reader has its own cursor, and reads retain the circular history.
-New readers start at the oldest retained byte. W/WO opens clear the retained
-history and reset existing reader cursors; A/AP and RW append. Writes do not
-advance a handle's input cursor. Seek and byte-count operations use the current
-retained buffer. EOF is immediate; source can poll `BYTES_AHEAD` cooperatively.
+RO and RW readers start at the oldest retained byte. W/WO opens clear the
+retained history and reset existing reader cursors. A is write-only append;
+RW and AP also append. A new AP handle starts reading at the end present when
+it opens, once that handle has completed a nonempty write. Host feeds and
+writes by other handles leave this read gate intact. Writes leave each input
+cursor in place except for adjustments when a circular overwrite drops bytes.
+
+Seek and byte-count operations use the visible retained buffer. EOF is immediate
+unless the FILE uses the [waiting attribute](pipe-attributes.md#waiting-and-complete-reads).
 
 The ordinary FILE access mode and attributes select text or binary field
 encoding. FILE binary flags persist across close/reopen, as with other runtime

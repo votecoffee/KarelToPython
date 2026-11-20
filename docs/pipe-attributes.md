@@ -13,8 +13,9 @@ CLOSE FILE channel
 
 Use `PIPE_CONFIG` or the host FilePipes API to configure the named pipe first.
 Acquisition pipes, sockets, keyboard/display FILEs and ordinary file backends
-reject these attributes. Read-only and read/write modes are accepted; write-only
-and append modes reject the read attributes before changing pipe data.
+reject these attributes. RO, RW, and AP accept the read attributes. A and WO
+reject them before changing pipe data. AP opens with its cursor at the retained
+end and allows READ after the first successful nonempty write on that handle.
 
 The source forms follow MARRC75KR07091E Rev N, sections 7.3 and 10.2.4. Those
 sections contain conflicting descriptions of the default pipe read mode. This
@@ -70,7 +71,9 @@ report bytes up to that boundary. SET_FILE_POS with -1 selects that logical end;
 positions beyond it fail even when newer bytes exist. Reads return EOF when the snapshot is exhausted
 and never wait. Close and reopen to take a new snapshot. This is a logical end
 boundary, not a copy of the circular buffer: later overwrites can still destroy
-unread snapshot data and trigger the selected overflow policy.
+unread snapshot data and trigger the selected overflow policy. AP opens at the
+snapshot end. After its first write, seek to an earlier position to read
+retained snapshot bytes. That write does not extend the snapshot.
 
 Without an explicit wait attribute, a separately configured overflow attribute
 keeps the existing immediate-read behavior and does not create a snapshot.

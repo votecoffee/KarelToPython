@@ -150,6 +150,15 @@ class PredefinedBackendTests(unittest.TestCase):
                                  cooperative=True, sleep=lambda _: None)
         self.assertEqual((state['N'], state['S'], restored.keyboard.elapsed_ms), (7, 4, 3))
 
+    def test_default_serial_append_unlocks_bound_input_after_write(self):
+        serial = rt.SerialStreams({2: {'input': b'17\n', 'output': b'old'}})
+        ctx = rt.ExecutionContext(serial_streams=serial, predefined_files={
+            'TPDISPLAY': binding('P2:', 'AP'),
+        })
+        state, _, _, _ = execute("WRITE('new') READ(n,CR) CLOSE FILE TPDISPLAY", ctx)
+        self.assertEqual(state['N'], 17)
+        self.assertEqual((serial.snapshot()[2]['input'], serial.snapshot()[2]['output']), (b'', b'oldnew'))
+
     def test_reverse_binary_input(self):self.assertEqual(execute('READ(n) CLOSE FILE TPDISPLAY',context(initial={'data':struct.pack('>i',7)},bindings={'TPDISPLAY':binding(binary=True,reverse=True)}))[0]['N'],7)
     def test_eol_output(self):
         ctx=context(initial={},bindings={'TPDISPLAY':binding('out','WO',eol=13)});execute("WRITE('ready',CR) CLOSE FILE TPDISPLAY",ctx);self.assertEqual(bytes(ctx.files.files['out']),b'ready\r')

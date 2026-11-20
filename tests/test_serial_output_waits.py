@@ -45,6 +45,23 @@ class SerialOutputProgressTests(unittest.TestCase):
         calls=[];task,bank,_,_=build(sleep=lambda seconds:(calls.append(seconds),bank.take_output(2))and None)
         self.assertEqual(task.run()['S'],0);self.assertEqual(bank.snapshot()[2]['output'],b'XY');self.assertEqual(calls,[.01]);clean(self,task,bank)
 
+    def test_append_unlocks_read_after_waiting_write_commits(self):
+        bank, ctx = streams(b'older', capacity=7, incoming=b'7\n', wait=True)
+        delays = []
+
+        def sleep(seconds):
+            delays.append(seconds)
+            bank.take_output(2)
+
+        task, _, _, _ = build(
+            "SET_FILE_ATR(f,ATR_TIMEOUT,2) OPEN FILE f('AP','P2:') "
+            "WRITE f('XY') READ f(n,CR)" + CLOSE,
+            ctx=ctx, sleep=sleep,
+        )
+        result = task.run()
+        self.assertEqual((result['N'], result['S'], delays), (7, 0, [.01]))
+        self.assertEqual((bank.snapshot()[2]['input'], bank.snapshot()[2]['output']), (b'', b'XY'))
+
     def test_partial_drains_do_not_publish_partial_write(self):
         bank,ctx=streams(b'abc',3);seen=[]
         def sleep(_):seen.append(bank.snapshot()[2]['output']);bank.take_output(2,1)
@@ -131,6 +148,23 @@ class SerialOutputCancellationTests(unittest.TestCase):
     def test_host_cancel_continues_without_append(self):
         def sleep(_):rt.cancel_file(task._state,task._state.values['F'])
         task,bank,_,_=build(sleep=sleep);self.assertEqual(task.run()['S'],6);self.assertEqual(bank.snapshot()[2]['output'],b'old');clean(self,task,bank)
+
+    def test_cancelled_first_append_write_does_not_unlock_read(self):
+        bank, ctx = streams(b'old', capacity=6, incoming=b'7\n')
+
+        def sleep(_):
+            rt.cancel_file(task._state, task._state.values['F'])
+
+        task, _, _, _ = build(
+            "OPEN FILE f('AP','P2:') n=77 WRITE f('XY') s=IO_STATUS(f) READ f(n)",
+            ctx=ctx, sleep=sleep,
+        )
+        with self.assertRaisesRegex(rt.KarelRuntimeError, 'nonempty WRITE before READ'):
+            task.run()
+        self.assertEqual((task.snapshot()['N'], task.snapshot()['S']), (77, 6))
+        self.assertEqual((bank.snapshot()[2]['input'], bank.snapshot()[2]['output']), (b'7\n', b'old'))
+        clean(self, task, bank)
+        bank.close(task._state.values['F'])
 
     def test_cancel_wins_over_drain_in_same_callback(self):
         def sleep(_):bank.take_output(2);rt.cancel_file(task._state,task._state.values['F'])
