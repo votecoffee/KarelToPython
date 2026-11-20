@@ -2,7 +2,6 @@
 from .compiler_language import (
     DATA_RECORD_TYPES,
     NARROW_TYPES,
-    POSITIONAL_VALUE_TYPES,
     blocked_controller_names,
 )
 from .lexer import Token
@@ -11,7 +10,7 @@ from . import runtime as rt
 
 
 class DeclarationPasses:
-    """Declaration passes shared with the checked Python emitter during migration."""
+    """Resolve source schemas and validate module declarations."""
 
     def resolve_spec(self, spec):
         if spec[0] in rt.ASSOCIATION_TYPES and self.mode!='pythonic':
@@ -62,16 +61,7 @@ class DeclarationPasses:
             self.error('E_SIZE', 'STRING size must be INTEGER in 1..254', spec[1].token)
         return ('STRING', size)
 
-    def note_string_formal(self,spec,resolved,token,routine):
-        terminal=spec[2] if spec[0]=='ARRAY' else spec
-        if terminal[0]!='STRING' or terminal[1] is None:return
-        capacity=resolved[2][1] if resolved[0]=='ARRAY' else resolved[1]
-        self.features.add('direct bounded STRING formal constraints')
-        self.string_formal_uses.append(dict(routine=routine,parameter=token.value,line=token.line,column=token.column,
-            type_spec=resolved,capacity=capacity,container='ARRAY' if spec[0]=='ARRAY' else 'scalar',interface_scope='module',
-            semantics='Existing exact reference/private bounded value contracts; no storage allocation or resize'))
-
-    def validate_symbols(self):
+    def validate_module_declarations(self):
         names = set()
         for token, expr in self.program.constants:
             if token.value in ex.PORT_TYPES: self.error('E_DUPLICATE','Port identifiers cannot be constants',token)
@@ -91,77 +81,4 @@ class DeclarationPasses:
                 self.error('E_TYPE', 'BYTE and SHORT are permitted only as ARRAY elements or STRUCTURE fields', token)
             self.types[token.value] = resolved
         self.check_used_array_shapes()
-        for routine in self.program.routines:
-            if routine.name in names: self.error('E_DUPLICATE', 'Duplicate declaration', routine.token)
-            names.add(routine.name)
-            self.routines[routine.name] = routine
-            if routine.return_type and routine.return_type[0]=='GROUPED':
-                routine.return_type=self.resolve_spec(routine.return_type)
-            if routine.return_type and routine.return_type[0] == 'STRING':
-                routine.return_type = self.resolve_spec(routine.return_type)
-                self.features.add('STRING function result')
-            if routine.return_type and routine.return_type[0] == 'NAMED':
-                result_token = routine.return_type[1]
-                definition_token = next((token for token, _ in self.program.user_types if token.value == result_token.value), None)
-                if self.mode!='pythonic' and definition_token and (definition_token.line, definition_token.column) > (routine.token.line, routine.token.column):
-                    self.error('E_TYPE', 'Named result types must be declared before the routine', result_token)
-                routine.return_type = self.resolve_spec(routine.return_type)
-                allowed_named_results = ('STRUCTURE',)
-                if self.mode == 'pythonic':
-                    allowed_named_results += ('ARRAY', 'STRING', 'INTEGER', 'BOOLEAN', 'REAL', 'PATH', 'QUEUE_TYPE', *NARROW_TYPES, *DATA_RECORD_TYPES, 'JOINTPOS')
-                if routine.return_type[0] not in allowed_named_results:
-                    message = ('BYTE and SHORT are permitted only as ARRAY elements or STRUCTURE fields' if self.mode == 'pythonic'
-                               else 'Named ARRAY function results remain blocked; a named result type must be a STRUCTURE')
-                    self.error('E_RETURN_TYPE', message, routine.token)
-                self.features.add('named ' + routine.return_type[0] + ' function result')
-                if routine.return_type[0] == 'STRING': self.features.add('STRING function result')
-            if self.mode=='pythonic' and routine.return_type and routine.return_type[0] in ('PATH','QUEUE_TYPE'):
-                routine.return_type=self.resolve_spec(routine.return_type)
-                self.features.add('logical scalar collection function result')
-            if routine.return_type == ('VECTOR',): self.features.add('VECTOR function result')
-            if routine.return_type and routine.return_type[0] == 'ARRAY':
-                routine.return_type = self.resolve_routine_array_result(routine)
-            if routine.return_type and routine.return_type[0] in POSITIONAL_VALUE_TYPES:
-                self.features.add('exact positional function result')
-        for routine in self.program.routines:
-            # Parameters are resolved before local declarations: local constants
-            # cannot alter the routine's interface or a global type definition.
-            for token, spec in routine.parameters:
-                if token.value in routine.local_types or token.value in self.constants or token.value in self.user_types or token.value in blocked_controller_names(self.mode) | ex.PORT_TYPES.keys():
-                    self.error('E_DUPLICATE', 'Duplicate, constant-shadowing or controller local identifier', token)
-                resolved = self.resolve_array_parameter_spec(spec,token,routine.name) if self.mode=='pythonic' else self.resolve_spec(spec)
-                if self.mode=='pythonic':self.note_string_formal(spec,resolved,token,routine.name)
-                if self.mode!='pythonic' and resolved[0] in NARROW_TYPES:
-                    self.error('E_PARAMETERS', 'BYTE and SHORT are permitted only as ARRAY elements or STRUCTURE fields', token)
-                routine.local_types[token.value] = resolved
-            routine.parameters = [(token, routine.local_types[token.value]) for token, _ in routine.parameters]
-            self.current_routine = routine
-            if self.mode=='pythonic':
-                local_names=set(routine.local_types)
-                for kind,token,definition in routine.local_declarations:
-                    if (token.value in local_names or token.value in self.constants or token.value in self.user_types
-                            or token.value in blocked_controller_names(self.mode) | ex.PORT_TYPES.keys()):
-                        self.error('E_DUPLICATE','Duplicate, constant-shadowing or controller local identifier',token)
-                    local_names.add(token.value)
-                    if kind=='CONST' and (token.value in names or token.value==self.program.name):
-                        self.error('E_LOCAL_CONST_SHADOW','Local constants that shadow global declarations need namespace evidence',token)
-                self.resolve_constants([(token,definition) for kind,token,definition in routine.local_declarations if kind=='CONST'],routine.local_constants,routine.name)
-                if routine.local_constants:self.features.add('routine-local CONST')
-            for kind, token, definition in routine.local_declarations:
-                if self.mode=='pythonic' and kind=='CONST':continue
-                if (token.value in routine.local_types or token.value in routine.local_constants
-                        or token.value in self.constants or token.value in self.user_types
-                        or token.value in blocked_controller_names(self.mode) | ex.PORT_TYPES.keys()):
-                    self.error('E_DUPLICATE', 'Duplicate, constant-shadowing or controller local identifier', token)
-                if kind == 'CONST':
-                    if token.value in names or token.value == self.program.name:
-                        self.error('E_LOCAL_CONST_SHADOW', 'Local constants that shadow global declarations need namespace evidence', token)
-                    routine.local_constants[token.value] = self.checked_constant_declaration(token, definition)
-                    self.features.add('routine-local CONST')
-                else:
-                    resolved = self.resolve_spec(definition)
-                    if self.mode!='pythonic' and resolved[0] in NARROW_TYPES:
-                        self.error('E_TYPE', 'BYTE and SHORT are permitted only as ARRAY elements or STRUCTURE fields', token)
-                    routine.local_types[token.value] = resolved
-            self.current_routine = None
-        self.constant_dependency_uses.sort(key=lambda row:(row['line'],row['column']))
+        return names

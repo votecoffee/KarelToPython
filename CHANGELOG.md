@@ -1,5 +1,11 @@
 # Changelog
 
+## 26.1120.005844 - 2026-11-20
+
+- Separate routine interface and local declaration checks from module
+  validation. Preserve module-scope interface bounds, routine-local
+  constants, and declaration diagnostic order.
+
 ## 26.1120.005405 - 2026-11-20
 
 - Separate ARRAY schema resolution for declared storage, routine parameters,
