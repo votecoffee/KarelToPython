@@ -1,5 +1,14 @@
 # Changelog
 
+## 26.1120.120945 - 2026-11-20
+
+- Follow explicit top-level `PAUSE` in linked child bodies limited to
+  private scalar storage. A known continuation starts at the saved source
+  position and keeps the child's prior initialization facts.
+- Leave later reads dormant until a possible continuation. Retain conservative
+  candidates when a shared variable, unsupported body, or unresolved task
+  effect makes the suspended state uncertain.
+
 ## 26.1120.120029 - 2026-11-20
 
 - Defer linked paused-on-entry child discovery when generated Python has

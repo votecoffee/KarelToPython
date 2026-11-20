@@ -59,19 +59,19 @@ discovered scalar and structured inputs and shows each saved program snapshot.
 Input saves check the document revision and module pins and keep prior results.
 Discovery follows synchronous linked calls, known child task bodies, and
 global and motion-local condition callbacks. Child and scan-time reads are
-conditional. Linked discovery follows known paused entries through
-continuation and tracks numbered handler activation within each invocation. Motion capture
-operands follow emitted evaluation order.
+conditional. Linked discovery follows known paused entries and explicit
+top-level child pauses through continuation. It tracks numbered handler
+activation within each invocation and follows emitted motion capture order.
 Refreshing a module set carries compatible owner-qualified values into a new
 document and reports changed, omitted and unresolved inputs.
 [Linked input discovery](input-discovery.md#linked-project-discovery)
 
 ### Remaining linked-run work
 
-1. **Expand linked discovery.** Resolve in-body suspension, synchronization
-   between tasks, and handler rearming where order and targets can be determined. Track
-   effects between motion callbacks when ordering can be established, and
-   keep dynamic selections and external effects visible in the report.
+1. **Expand linked discovery.** Model suspension in routine frames and nested
+   control flow, synchronization between tasks, and handler rearming where
+   order and targets can be determined. Track effects between motion
+   callbacks and keep dynamic selections and external effects visible.
 2. **Export linked sources from the desktop.** Reuse linked-project validation
    and cooperative Python export so the desktop workflow can begin with KAREL
    source files. Keep the existing output and source-file protections.

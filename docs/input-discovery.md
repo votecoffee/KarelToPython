@@ -56,13 +56,20 @@ contributes no body reads until a possible continuation. Potential reads remain
 visible if discovery cannot verify a leading checkpoint, including entries
 that use a label dispatcher.
 
-Discovery evaluates signal and wait selectors and can track parked entries
-across a delay or simple event wait. A signal or delay alone leaves a paused
-entry parked. Delivery, admission, and timing remain unresolved. Dynamic or
-missing targets, recursion, live in-body continuations, and possible effects
-from concurrent tasks remain explicit gaps. When ordering is unknown, a
-potentially runnable child still contributes conditional reads. A child's
-writes do not establish that a parent read is initialized.
+Discovery can also stop at an explicit top-level `PAUSE` in a child body
+limited to private scalar assignments, simple IF blocks, WRITE and event
+signals. A known continuation resumes at the next statement and keeps
+initialization and scalar value facts from earlier statements in that child.
+Several such pauses can be tracked. Shared storage, external calls, nested
+pauses, and ambiguous suspended positions use conservative analysis.
+
+Discovery evaluates signal and wait selectors and can track known pauses
+across a delay or simple event wait. A signal or delay alone does not
+continue a paused task. Delivery, admission, and timing remain unresolved.
+Dynamic or missing targets, recursion, and unmodeled effects from concurrent
+tasks remain explicit gaps. A potentially runnable child with uncertain
+ordering still contributes conditional reads. A child's writes do not
+establish that a parent read is initialized.
 
 Discovery evaluates condition numbers, options and captured `EVAL` operands
 when it reaches a definition. In modeled structured linked flow, a known
