@@ -572,6 +572,9 @@ class InputTemplateTests(unittest.TestCase):
             ('WRITE(build()[1..0],build[0..0],build()[1])', set(), set()),
             ('IF (build().flags[2,1]=13) AND (build()[1].amount=42) '
              'THEN WRITE(wanted) ELSE WRITE(unused) ENDIF', {'WANTED'}, set()),
+            ('IF (ARRAY_LEN(build().flags,2)=2) AND UNINIT(build()[2].amount) '
+             'AND NOT UNINIT(build()[1].amount) '
+             'THEN WRITE(wanted) ELSE WRITE(unused) ENDIF', {'WANTED'}, set()),
             ('WRITE(build().flags[bound,wanted])', {'BOUND', 'WANTED'}, {'dynamic-address'}),
             ('WRITE(build())', set(), {'derived-value'}),
             ('WRITE(build()[2..2])', set(), {'derived-value'}),

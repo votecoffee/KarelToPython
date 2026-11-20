@@ -299,11 +299,20 @@ FOR, SELECT and routine returns. It intersects definite writes across branches,
 allows zero loop iterations where needed and tracks partial aggregate writes.
 Small constant FOR ranges are expanded; uncertain loops widen address facts.
 Internal calls preserve reference aliases and private value arguments, while
-uncalled routines do not contribute inputs. UNINIT and ARRAY_LEN are metadata
-probes. ARRAY_LEN returns a static fact when the selected logical dimension is
-known, including private wildcard ARRAY parameters and internal ARRAY results.
-This can bound the existing small FOR expansion without reading missing cells.
-Computed metadata receivers retain their modeled call effects exactly once.
+uncalled routines do not contribute inputs. `ARRAY_LEN` returns a static fact
+when the selected logical dimension is known, including private wildcard ARRAY
+parameters, returned arrays and array fields selected from routine results. This
+can bound the existing small FOR expansion without reading missing cells.
+`UNINIT` can resolve a branch when the selected fields are known initialized or
+a leaf is known missing, including an unwritten routine local, a source-created
+PATH record or a known SHORT sentinel. Initial values that can come from saved
+context and conditional writes can leave the result unknown. A computed receiver
+runs once before any dimension expression. Selectors are evaluated in source order.
+
+Selections on detached array, joint and record results preserve known selected
+fields in standalone and linked analysis. Selecting a known field can drive a
+branch even when other fields in the result lack values. Consuming an unproven
+scalar result is reported as a derived-value gap.
 
 Private ARRAY calls retain known source dimensions and inherited STRING element
 capacities while using the declared receiver's component layout and converted

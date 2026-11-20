@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1120.192013 - 2026-11-20
+
+- Follow selected array cells, record fields and joint axes on detached routine
+  results in standalone and linked input discovery.
+- Resolve `ARRAY_LEN` and `UNINIT` on computed selectors when analysis proves
+  the shape or initialization state, preserving operand evaluation order.
+
 ## 26.1120.190633 - 2026-11-20
 
 - Track selected records and fields of scalar PATH routine results during

@@ -86,6 +86,7 @@ class _Value:
     spec: object = None
     facts: object = None
     path_records: tuple | None = None
+    uninitialized: bool = False  # Positive proof, separate from incomplete knowledge.
 
 
 @dataclass(eq=False, frozen=True)
@@ -141,12 +142,13 @@ class _Flow:
     # Original node indexes are positive; source-created nodes use negative
     # identities. None marks a receiver with uncertain order.
     path_orders: dict = field(default_factory=dict)
+    uninitialized: set = field(default_factory=set)
 
     def copy(self):
         return _Flow(self.defined.copy(),self.assigned.copy(),self.maybe.copy(),
                      self.constants.copy(),self.stopped,self.opaque,self.handlers.copy(),
                      self.requested_tasks.copy(),self.paused_tasks.copy(),self.task_order_unknown,
-                     self.path_shape_unknown,self.path_orders.copy())
+                     self.path_shape_unknown,self.path_orders.copy(),self.uninitialized.copy())
 
     def take(self, other):
         self.handlers = other.handlers
@@ -155,6 +157,7 @@ class _Flow:
         self.path_shape_unknown, self.path_orders = other.path_shape_unknown, other.path_orders
         self.defined,self.assigned,self.maybe,self.constants = other.defined,other.assigned,other.maybe,other.constants
         self.stopped,self.opaque = other.stopped,other.opaque
+        self.uninitialized = other.uninitialized
 
 
 def _merge(flows):
@@ -184,7 +187,8 @@ def _merge(flows):
                  set.union(*(flow.maybe for flow in live)),constants,False,any(flow.opaque for flow in live),
                  {key: tuple(definitions) for key, definitions in handlers.items()},
                  set.union(*(flow.requested_tasks for flow in live)),
-                 pauses,uncertain,any(flow.path_shape_unknown for flow in live),path_orders)
+                 pauses,uncertain,any(flow.path_shape_unknown for flow in live),path_orders,
+                 set.intersection(*(flow.uninitialized for flow in live)))
 
 
 def _path_record_identity(part):
@@ -231,20 +235,23 @@ def _array_value_schema(declared,source):
 def _stored_value(spec,value):
     """Availability/schema facts after storage; narrow casts remain conservative."""
     constant=value.constant;complete=value.complete
+    uninitialized = value.uninitialized and spec == value.spec
     if spec==['REAL'] and type(constant) is int:
         constant=float(constant) if constant.bit_length()<=64 else UNKNOWN
     if spec and spec[0]=='STRING' and type(constant) is str:
         capacity=spec[1] if len(spec)>1 else None
         if type(capacity) is not int or len(constant)>capacity:constant=UNKNOWN
     elif spec and spec[0] in ('INTEGER','BYTE','SHORT') and type(constant) is float:
-        if spec==['SHORT'] and math.isfinite(constant) and math.trunc(constant)==32767:complete=False
+        if spec==['SHORT'] and math.isfinite(constant) and math.trunc(constant)==32767:
+            complete, uninitialized = False, True
         constant=UNKNOWN
-    if spec==['SHORT'] and constant==32767:complete=False
+    if spec==['SHORT'] and constant==32767:
+        complete, uninitialized = False, True
     if spec==['SHORT'] and value.constant is UNKNOWN and value.spec not in (['SHORT'],['BYTE']):complete=False
     if spec and spec[0]=='ARRAY' and value.spec and value.spec[0]=='ARRAY':
         _,target=_array_dimensions(spec);_,source=_array_dimensions(value.spec)
         if target==['SHORT'] and source!=target:complete=False
-    return _Value(constant,complete,spec)
+    return _Value(constant, complete, spec, uninitialized=uninitialized)
 
 
 def _merged_value(values,spec=None):
@@ -260,7 +267,8 @@ def _merged_value(values,spec=None):
         and len(item.path_records) == len(first.path_records) for item in values
     ):
         path_records = tuple(_merged_value(records) for records in zip(*(item.path_records for item in values)))
-    return _Value(constant,all(item.complete for item in values),schema,facts,path_records)
+    return _Value(constant, all(item.complete for item in values), schema, facts, path_records,
+                  uninitialized=all(item.uninitialized for item in values))
 
 
 class _Analyzer:
@@ -287,6 +295,7 @@ class _Analyzer:
         self.activation_unknown = False
         self.scanning_handler = False
         self.repeat_depth = 0
+        self.callback_depth = 0
         self.track_tasks = track_tasks
         self.task_numbers = tuple(linked_plans) if linked_plans is not None else ()
         self.segmentable = {}
@@ -321,6 +330,7 @@ class _Analyzer:
         if task_order:
             self.lose_task_order(flow)
         flow.opaque=True;flow.defined.clear();flow.assigned.clear();flow.constants.clear()
+        flow.uninitialized.clear()
         flow.path_orders = dict.fromkeys(flow.path_orders)
 
     def context(self, service, address):
@@ -761,6 +771,17 @@ class _Analyzer:
             return all(visit(self.child(current,'field',name,{})) for name in fields)
         return leaves if visit(loc) else None
 
+    def leaf_uninitialized(self, loc, flow):
+        key = loc.key
+        if (key in flow.defined or flow.opaque or flow.task_order_unknown or self.callback_depth
+                or loc.spec == ['BYTE']):
+            return False
+        if key in flow.uninitialized:
+            return True
+        return key not in flow.maybe and (loc.kind == 'local' or any(
+            kind in ('created-node', 'created-header') for kind, _ in loc.parts
+        ))
+
     def read(self, loc, node, flow, conditional, *, partial=False, path_io=False):
         if self.lost_path_reference(loc, flow):
             self.unresolved_at('path-topology', 'Captured PATH reference has an unresolved origin: '+loc.path, node)
@@ -823,8 +844,13 @@ class _Analyzer:
         complete=not missing or bool(loc.spec and loc.spec[0] in SCALARS)
         facts=None
         if loc.spec and loc.spec[0] not in SCALARS:
-            facts={leaf.parts[len(loc.parts):]:_Value(flow.constants.get(leaf.key,UNKNOWN) if leaf.key in flow.defined else UNKNOWN,
-                leaf.key in flow.defined,leaf.spec) for leaf in leaves}
+            facts = {
+                leaf.parts[len(loc.parts):]: _Value(
+                    flow.constants.get(leaf.key, UNKNOWN) if leaf.key in flow.defined else UNKNOWN,
+                    leaf.key in flow.defined, leaf.spec, uninitialized=self.leaf_uninitialized(leaf, flow),
+                )
+                for leaf in leaves
+            }
         return _Value(flow.constants.get(loc.key,UNKNOWN) if loc.key in flow.defined else UNKNOWN,complete,loc.spec,facts)
 
     def copy_requires_complete(self,target,source):
@@ -875,10 +901,13 @@ class _Analyzer:
             key=leaf.key;flow.maybe.add(key);flow.constants.pop(key,None)
             fact=stored.facts.get(leaf.parts[len(loc.parts):],_Value(complete=False)) if stored.facts is not None else stored
             if not fact.complete:flow.defined.discard(key)
+            if definite or not fact.uninitialized:
+                flow.uninitialized.discard(key)
             if definite:
                 if not flow.opaque:flow.assigned.add(key)
                 flow.defined.discard(key)
                 if fact.complete and not flow.opaque:flow.defined.add(key)
+                if fact.uninitialized and not flow.opaque:flow.uninitialized.add(key)
                 if fact.constant is not UNKNOWN and not flow.opaque:flow.constants[key]=fact.constant
         if len(flow.maybe)>MAX_FACTS:raise _Limit('Analysis storage limit reached')
 
@@ -901,7 +930,7 @@ class _Analyzer:
             self.unresolved_at('derived-value','Aggregate result consumed without proven complete data',node)
         return value
 
-    def selects_path_result(self, receiver):
+    def selects_routine_result(self, receiver):
         """Recognize selectors on detached results without probing live storage."""
         while receiver['kind'] in ('group', 'field', 'index'):
             receiver = receiver['args'][0]
@@ -914,12 +943,12 @@ class _Analyzer:
                                                    or name in self.frames[-1]['constants'])):
             return False
         result = self.plan['routines'].get(name, {}).get('result')
-        return bool(result and result[0] == 'PATH')
+        return bool(result and result[0] in (*rt.RECORD_TYPES, 'ARRAY', 'JOINTPOS', 'PATH'))
 
     def select_result_member(self, value, kind, key, node):
         if value.spec is None:
             return _Value(complete=False)
-        location = _Location('local', self.program, 'PATH result', spec=value.spec)
+        location = _Location('local', self.program, 'routine result', spec=value.spec)
         member = self.child(location, kind, key, node)
         if member is None:
             return _Value(complete=False)
@@ -928,7 +957,8 @@ class _Analyzer:
             return facts.get(member.parts, _Value(complete=value.complete, spec=member.spec))
         selected = {path[1:]: fact for path, fact in facts.items() if path[:1] == member.parts}
         complete = all(fact.complete for fact in selected.values()) if selected else value.complete
-        return _Value(complete=complete, spec=member.spec, facts=selected or None)
+        return _Value(complete=complete, spec=member.spec, facts=selected or None,
+                      uninitialized=any(fact.uninitialized for fact in selected.values()))
 
     def select_result_record(self, value, index, node):
         if value.path_records is None:
@@ -943,7 +973,7 @@ class _Analyzer:
             return _Value(complete=False)
         return value.path_records[index if has_header else index - 1]
 
-    def path_result_selection(self, node, flow, conditional, *, partial, path_io):
+    def routine_result_selection(self, node, flow, conditional, *, path_io=False):
         kind = node['kind']
         receiver, *arguments = node['args']
         value = self.expr(receiver, flow, conditional, partial=True)
@@ -961,7 +991,7 @@ class _Analyzer:
                     return _Value(complete=False)
             for position, index in enumerate(indexes, 1):
                 if type(index) is not int:
-                    self.unresolved_at('dynamic-address', 'PATH result index is not statically known', node)
+                    self.unresolved_at('dynamic-address', 'Routine result index is not statically known', node)
                     return _Value(complete=False)
                 if value.spec and value.spec[0] == 'PATH':
                     header_allowed = position == len(arguments) and (
@@ -973,8 +1003,6 @@ class _Analyzer:
                     value = self.select_result_record(value, index, node)
                 else:
                     value = self.select_result_member(value, 'index', index, node)
-        if not partial and value.spec and not value.complete:
-            self.unresolved_at('derived-value', 'Selected PATH result has unproven data', node)
         return value
 
     def path_result_range(self, node, flow, conditional):
@@ -1017,15 +1045,18 @@ class _Analyzer:
                 result = self.call(dict(node, kind='call', args=[]), flow, conditional, statement_call=statement_call)
                 return self.result_value(result, node, partial)
         if kind == 'path_io_range':
-            if self.selects_path_result(args[0]):
+            if self.selects_routine_result(args[0]):
                 return self.path_result_range(node, flow, conditional)
             for location in self.path_io_locations(node, flow, conditional):
                 if location is not None:
                     self.read(location, node, flow, conditional)
             return _Value(complete=False)
         if kind in ('field','index'):
-            if self.selects_path_result(args[0]):
-                return self.path_result_selection(node, flow, conditional, partial=partial, path_io=path_io)
+            if self.selects_routine_result(args[0]):
+                selected = self.routine_result_selection(node, flow, conditional, path_io=path_io)
+                if selected.spec and not selected.complete and (not partial or selected.spec[0] in SCALARS):
+                    self.unresolved_at('derived-value', 'Selected routine result has unproven data', node)
+                return selected
             loc=self.locate(node,flow,conditional,path_io=path_io)
             if loc:return self.read(loc,node,flow,conditional,partial=partial,path_io=path_io)
             self.unresolved_at('selection','Computed or dynamic data read is unresolved',node);return _Value(complete=False)
@@ -1126,19 +1157,57 @@ class _Analyzer:
         spec=['STRING',254] if type(result) is str else ['REAL'] if type(result) is float else ['INTEGER']
         return _Value(result,spec=spec)
 
+    def metadata_operand(self, target, flow, conditional):
+        while target['kind'] == 'group':
+            target = target['args'][0]
+        kind = target['kind']
+        if self.selects_routine_result(target):
+            value = (self.routine_result_selection(target, flow, conditional)
+                     if kind in ('field', 'index') else self.expr(target, flow, conditional, partial=True))
+            return None, value
+        if kind in ('name', 'field', 'index'):
+            return self.locate(target, flow, conditional), None
+        return None, self.expr(target, flow, conditional, partial=True)
+
+    def data_metadata_call(self, node, flow, conditional):
+        name = node['value']
+        target, *arguments = node['args']
+        loc, value = self.metadata_operand(target, flow, conditional)
+        spec = loc.spec if loc is not None else value.spec if value is not None else None
+        result = _Value(spec=['BOOLEAN'] if name == 'UNINIT' else ['INTEGER'])
+        if flow.stopped and not flow.opaque:
+            return result
+        if name == 'ARRAY_LEN':
+            dimension = self.expr(arguments[0], flow, conditional).constant if arguments else 1
+            if spec and spec[0] == 'ARRAY' and not (flow.stopped and not flow.opaque):
+                dimensions, _ = _array_dimensions(spec)
+                if type(dimension) is int and 1 <= dimension <= len(dimensions):
+                    size = dimensions[dimension - 1]
+                    if type(size) is int:
+                        result.constant = size
+            return result
+        # One abstract visit cannot determine the state at every loop or scan.
+        if flow.opaque or flow.task_order_unknown or self.callback_depth or self.repeat_depth:
+            return result
+        if value is not None:
+            if value.uninitialized or (value.facts and any(fact.uninitialized for fact in value.facts.values())):
+                result.constant = True
+            elif value.complete and value.spec:
+                result.constant = False
+        elif (loc is not None and loc.kind in ('variable', 'local') and spec[0] not in ('FILE', 'QUEUE_TYPE')
+              and not self.lost_path_reference(loc, flow)):
+            leaves = self.leaves(loc)
+            if leaves is not None:
+                if any(self.leaf_uninitialized(leaf, flow) for leaf in leaves):
+                    result.constant = True
+                elif all(leaf.key in flow.defined for leaf in leaves):
+                    result.constant = False
+        return result
+
     def path_metadata_call(self, node, flow, conditional):
         name = node['value']
         target, = node['args']
-        while target['kind'] == 'group':
-            target = target['args'][0]
-        loc = None
-        value = None
-        if target['kind'] in ('name', 'field', 'index'):
-            loc = self.locate(target, flow, conditional)
-            if loc is None and target['kind'] == 'name' and target['value'] in self.plan['routines']:
-                value = self.expr(target, flow, conditional, partial=True)
-        else:
-            value = self.expr(target, flow, conditional, partial=True)
+        loc, value = self.metadata_operand(target, flow, conditional)
         spec = loc.spec if loc is not None else value.spec if value is not None else None
         if flow.stopped and not flow.opaque:
             return _Value(complete=False, spec=['INTEGER'])
@@ -1270,7 +1339,8 @@ class _Analyzer:
                         self.serial += 1
                         nodes = prefix + (-self.serial,) + shifted
                         record = self.child(path, 'created-node', self.serial, node)
-                        value = _Value(complete=False) if seed is None else self.complete_path_record(seed)
+                        value = (_Value(complete=False, spec=record.spec, uninitialized=True)
+                                 if seed is None else self.complete_path_record(seed))
                         self.write(record, value, flow, node)
                     flow.path_orders[path.key] = replace(
                         order, nodes=nodes, detached=detached,
@@ -1427,20 +1497,8 @@ class _Analyzer:
             return self.path_edit(node, flow, conditional)
         if name == 'COPY_PATH':
             return self.path_copy(node, flow, conditional)
-        if name in ('UNINIT','ARRAY_LEN'):
-            target=args[0] if args else {};spec=None
-            while target.get('kind')=='group':target=target['args'][0]
-            if target.get('kind') in ('name','field','index'):
-                loc=self.locate(target,flow,conditional);spec=loc.spec if loc else None
-            elif args:spec=self.expr(target,flow,conditional,partial=True).spec
-            values=[self.expr(item,flow,conditional) for item in args[1:]]
-            if name=='ARRAY_LEN' and spec and spec[0]=='ARRAY':
-                dimensions,_=_array_dimensions(spec)
-                dimension=values[0].constant if values else 1
-                if type(dimension) is int and 1<=dimension<=len(dimensions):
-                    size=dimensions[dimension-1]
-                    if type(size) is int:return _Value(size,spec=['INTEGER'])
-            return _Value(spec=['BOOLEAN'] if name=='UNINIT' else ['INTEGER'])
+        if name in ('UNINIT', 'ARRAY_LEN'):
+            return self.data_metadata_call(node, flow, conditional)
         if name in SCALAR_PURE:return self.scalar_call(node,flow,conditional)
         if name in PURE:
             for item in args:self.expr(item,flow,conditional)
@@ -1767,7 +1825,7 @@ class _Analyzer:
         merged=_merge([item[0] for item in exits])
         if caller_handlers is not None:
             merged.handlers = caller_handlers
-        for field_name in ('defined','assigned','maybe'):
+        for field_name in ('defined','assigned','maybe','uninitialized'):
             setattr(merged,field_name,{key for key in getattr(merged,field_name) if key[1]!=owner})
         merged.constants={key:value for key,value in merged.constants.items() if key[1]!=owner}
         merged.path_orders = {key: order for key, order in merged.path_orders.items() if key is None or key[1] != owner}
@@ -1829,6 +1887,7 @@ class _Analyzer:
 
     def scan_callbacks(self, clauses, captures, scan, *, motion=False):
         previous, self.capture_values = self.capture_values, captures
+        self.callback_depth += 1
         try:
             # Later motion scans may see changes from other clauses. Analyze
             # each clause independently without borrowing mutable constants.
@@ -1844,6 +1903,7 @@ class _Analyzer:
                 if matched is True and (not motion or clause.get('trigger') == 'UNTIL'):
                     break
         finally:
+            self.callback_depth -= 1
             self.capture_values = previous
 
     def condition(self, node, flow, conditional):

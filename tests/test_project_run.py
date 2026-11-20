@@ -388,6 +388,33 @@ class SavedProjectTests(unittest.TestCase):
         self.assertEqual(result['status'], 'completed', result['error'])
         self.assertEqual(result['text_output'], ' 42 41\n')
 
+    def test_linked_array_result_probe_preserves_operand_order(self):
+        main = self.module(
+            'MAIN',
+            'visits=0 IF (ARRAY_LEN(make_grid()[1],dimension())=3) AND (visits=12) '
+            'AND UNINIT(make_grid()[2,3]) THEN WRITE(amount,CR) ELSE WRITE(unused,CR) ENDIF',
+            'VAR visits,amount,unused:INTEGER',
+            'ROUTINE make_grid:ARRAY[2,3] OF INTEGER FROM LIB '
+            'ROUTINE dimension:INTEGER BEGIN visits=visits*10+2 RETURN 1 END dimension',
+        )
+        lib = self.module(
+            'LIB', declarations='VAR visits FROM MAIN:INTEGER',
+            routines='ROUTINE make_grid:ARRAY[2,3] OF INTEGER VAR grid:ARRAY[2,3] OF INTEGER '
+                     'BEGIN visits=visits*10+1 grid[1,1]=7 RETURN grid END make_grid',
+        )
+        prepared = self.create(main, lib, discover=True)
+        report = prepared['inputs']['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        candidate, = report['inputs']
+        self.assertEqual((candidate['program'], candidate['path']), ('MAIN', 'AMOUNT'))
+
+        runner.save_input_value(self.document, ('variable', 'MAIN', 'AMOUNT'), 'INTEGER', '42',
+                                expected=self.document.read_bytes())
+        result = runner.run_document(self.document)['results']
+        self.assertEqual(result['status'], 'completed', result['error'])
+        self.assertEqual(result['text_output'], ' 42\n')
+        self.assertEqual(result['programs']['MAIN']['values']['VISITS'], 121)
+
     def test_linked_header_alias_stays_live_after_copy_and_borrowed_append(self):
         types = ('TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
                  'head_t=STRUCTURE code:INTEGER total:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t PATHHEADER=head_t ')

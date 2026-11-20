@@ -169,6 +169,69 @@ class ArrayMetadataAndReturnDiscoveryTests(unittest.TestCase):
         self.assertEqual(names(report),{('variable','X'):'conditional',('variable','Y'):'conditional'})
         self.assertTrue(report['complete'])
 
+    def test_returned_aggregate_selectors_keep_value_shape_and_initialization_facts(self):
+        prefix = 'TYPE row_t=STRUCTURE count:INTEGER scores:ARRAY[2,3] OF INTEGER ENDSTRUCTURE'
+        routines = (
+            'ROUTINE make_row:row_t VAR row:row_t BEGIN row.count=7 RETURN row END make_row '
+            'ROUTINE scores:ARRAY[* ,*] OF INTEGER VAR grid:ARRAY[2,3] OF INTEGER '
+            'BEGIN grid[1,1]=7 RETURN grid END scores '
+            'ROUTINE make_vector:VECTOR VAR v:VECTOR BEGIN v.x=7 RETURN v END make_vector '
+            'ROUTINE make_joint:JOINTPOS2 VAR j:JOINTPOS2 BEGIN j[1]=7 RETURN j END make_joint'
+        )
+        predicates = (
+            'ARRAY_LEN(make_row().scores,2)=3',
+            'ARRAY_LEN(scores()[1])=3',
+            'make_row().count=7',
+            'scores()[1,1]=7',
+            'UNINIT(scores()[1,2])',
+            'NOT UNINIT(make_row().count)',
+            'make_vector().x=7',
+            'UNINIT(make_vector().y)',
+            'make_joint()[1]=7',
+            'UNINIT(make_joint()[2])',
+        )
+        for predicate in predicates:
+            with self.subTest(predicate=predicate):
+                report, _ = scan(f'IF {predicate} THEN n=x ELSE n=y ENDIF',
+                                 decl='n,x,y:INTEGER', prefix=prefix, routines=routines)
+                self.assertTrue(report['complete'], report['unresolved'])
+                self.assertEqual(names(report), {('variable', 'X'): 'required'})
+
+    def test_missing_scalar_result_read_stays_unresolved_on_assignment(self):
+        report, _ = scan('n=make()[1]', decl='n:INTEGER', routines=(
+            'ROUTINE make:ARRAY[1] OF INTEGER VAR a:ARRAY[1] OF INTEGER BEGIN RETURN a END make'
+        ))
+        self.assertEqual(report['inputs'], [])
+        self.assertEqual([row['code'] for row in report['unresolved']], ['derived-value'])
+
+    def test_uninit_prunes_proven_states_and_keeps_conditional_writes_uncertain(self):
+        report, _ = scan('check()', decl='take_branch:BOOLEAN n,x,y:INTEGER', routines=(
+            'ROUTINE check VAR temp:INTEGER marker:SHORT BEGIN '
+            'IF NOT UNINIT(temp) THEN n=y ENDIF '
+            'temp=1 marker=32767 '
+            'IF UNINIT(temp) OR NOT UNINIT(marker) THEN n=y ENDIF '
+            'n=x END check'
+        ))
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(names(report), {('variable', 'X'): 'required'})
+
+        report, _ = scan('check()', decl='take_branch:BOOLEAN n,x,y:INTEGER', routines=(
+            'ROUTINE check VAR temp:INTEGER BEGIN '
+            'IF take_branch THEN temp=1 ENDIF '
+            'IF UNINIT(temp) THEN n=x ELSE n=y ENDIF END check'
+        ))
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(names(report), {('variable', 'TAKE_BRANCH'): 'required',
+                                         ('variable', 'X'): 'conditional', ('variable', 'Y'): 'conditional'})
+
+    def test_uninit_does_not_prune_loop_paths_after_first_iteration(self):
+        report, _ = scan('check()', decl='again:BOOLEAN n,x:INTEGER', routines=(
+            'ROUTINE check VAR temp:INTEGER BEGIN WHILE again DO '
+            'IF UNINIT(temp) THEN temp=1 ELSE n=x ENDIF ENDWHILE END check'
+        ))
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(names(report), {('variable', 'AGAIN'): 'required', ('variable', 'X'): 'conditional'})
+
     def test_scalar_result_coercion_cannot_hide_a_reachable_branch(self):
         report,_=scan('IF make()=1 THEN n=x ELSE n=y ENDIF',routines='ROUTINE make:INTEGER BEGIN RETURN 1.9 END make')
         self.assertEqual(names(report),{('variable','X'):'conditional',('variable','Y'):'conditional'})
