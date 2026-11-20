@@ -6,6 +6,7 @@ from pathlib import Path
 import re
 
 from .extended import PREDEFINED_FILE_NAMES, ZERO_BASED_PORTS, path_conversion_layout, path_node_size
+from .file_io import path_io_indexes
 from .input_contract import extract, InputContractError
 from .storage import tuple_spec
 from . import runtime as rt
@@ -438,13 +439,15 @@ class _Analyzer:
         last = self.expr(last_arg, flow, conditional).constant
         if (path is None or not path.spec or path.spec[0] != 'PATH'
                 or type(first) is not int or type(last) is not int
-                or not 0 <= first <= 32767 or not 1 <= last <= 32767):
+                or not 0 <= first <= 32767 or not 0 <= last <= 32767):
             self.unresolved_at('selection', 'PATH range requires known bounds and a declared PATH receiver', expr)
             return [None]
-        if first == 0 and path.spec[2] is None:
-            first = 1
-        step = 1 if first <= last else -1
-        indexes = range(first, last + step, step)
+        count = self.known_path_count(path, flow, conditional)
+        try:
+            indexes = path_io_indexes(32767 if count is None else count, path.spec[2] is not None, (first, last))
+        except rt.KarelRuntimeError as error:
+            self.unresolved_at('path-topology', str(error), expr)
+            return [None]
         if len(indexes) > MAX_PATH_IO_FIELDS:
             self.unresolved_at('selection', 'PATH range exceeds the bounded FILE transfer limit', expr)
             return [None]

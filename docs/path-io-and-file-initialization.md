@@ -62,9 +62,11 @@ Header READ updates its fields in place and preserves the existing node count.
 
 `route[first..last]` selects an inclusive ordered range. Bounds are evaluated
 once, left to right, before the format expressions. Use `route[3..1]` to
-transfer node records in reverse order. The final bound must select an
-existing node. A first bound of zero includes the declared header, when
-present, before nodes 1 through the final bound.
+transfer node records in reverse order. A zero endpoint includes the declared
+header in that order. Use `route[3..0]` for nodes 3 through 1 followed by the
+header, or `route[0..0]` for only the header. For a headerless PATH, a leading
+zero before a positive end still starts at node 1. A trailing zero requires
+a declared header.
 
 A PATH cell in an array accepts range syntax such as `routes[i][2..1]` and
 `routes[i,2..1]`. Only selected records contribute fields to the transfer.

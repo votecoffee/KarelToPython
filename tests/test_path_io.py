@@ -180,6 +180,42 @@ class PathSelectionTests(unittest.TestCase):
         ])
         self.assertEqual(values['Q']['nodes'][2]['AMOUNT'], 99)
 
+    def test_binary_descending_range_transfers_nodes_then_header(self):
+        p, _, ctx = file_program(
+            "OPEN FILE f('WB','out') WRITE f(p[2..0]) CLOSE FILE f "
+            "INSERT_NODE(q,1,s) INSERT_NODE(q,2,s) INSERT_NODE(q,3,s) q[3].amount=99 "
+            "OPEN FILE f('RB','out') READ f(q[2..0]) CLOSE FILE f",
+        )
+        values = p.run()
+        expected = struct.pack('<i4si4si', 9, b'wxyz', 7, b'abcd', 2)
+        self.assertEqual(ctx.files.snapshot()['out'], expected)
+        self.assertEqual(values['Q']['data'], {'TOTAL': 2})
+        self.assertEqual(values['Q']['nodes'][:2], values['P']['nodes'])
+        self.assertEqual(values['Q']['nodes'][2]['AMOUNT'], 99)
+
+    def test_literal_and_dynamic_zero_ranges_use_only_header_formats(self):
+        p, _ = build(
+            "INSERT_NODE(p,1,s) p[1].flag=TRUE p.label='old' n=0 READ(p[n..n]) "
+            "WRITE(p[0..0]::7::3) WRITE(p[n..n]::7::3)",
+            decl='p:PATH NODEDATA=node_t PATHHEADER=header_t n,s:INTEGER',
+            prefix='TYPE node_t=STRUCTURE flag:BOOLEAN ENDSTRUCTURE '
+                   'header_t=STRUCTURE label:STRING[4] ENDSTRUCTURE',
+            seed=False, values=['part'],
+        )
+        self.assertEqual(p.run()['P'], {'nodes': [{'FLAG': True}], 'data': {'LABEL': 'part'}})
+        self.assertEqual(text(p), [" 'part'", " 'part'"])
+
+    def test_range_ending_at_zero_requires_header_before_input(self):
+        for bounds in ('2..0', '0..0'):
+            with self.subTest(bounds=bounds):
+                requests = []
+                p, _ = build(f'INSERT_NODE(p,1,s) INSERT_NODE(p,2,s) READ(p[{bounds}])',
+                             decl='p:PATH NODEDATA=node_t s:INTEGER', seed=False,
+                             read=requests.append)
+                with self.assertRaisesRegex(rt.KarelRuntimeError, 'range is outside'):
+                    p.run()
+                self.assertEqual(requests, [])
+
     def test_array_cell_selection_and_bounds_evaluated_once(self):
         p, _ = build(
             "INSERT_NODE(routes[1],1,s) INSERT_NODE(routes[1],2,s) "
@@ -205,7 +241,7 @@ class PathSelectionTests(unittest.TestCase):
 
     def test_out_of_bounds_range_has_no_transport_or_format_effects(self):
         routines = 'ROUTINE width:INTEGER BEGIN visits=visits+1 RETURN 4 END width'
-        for operation, bounds in (('READ', '2..0'), ('WRITE', '1..3')):
+        for operation, bounds in (('READ', '3..0'), ('WRITE', '1..3')):
             with self.subTest(operation=operation):
                 calls = []
                 p, _ = build(f'visits=0 {operation}(p[{bounds}]::width())',

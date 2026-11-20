@@ -672,6 +672,40 @@ class InputTemplateTests(unittest.TestCase):
         self.assertIn('path-topology', {row['code'] for row in gap['unresolved']})
         self.assertEqual(gap['inputs'], [])
 
+    def test_path_range_discovery_includes_trailing_or_only_header(self):
+        prefix = ('TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+                  'head_t=STRUCTURE total:INTEGER ENDSTRUCTURE')
+        spec = ['PATH', ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]],
+                ['STRUCTURE', 'HEAD_T', [['TOTAL', ['INTEGER']]]]]
+        seed = dict(program='T', path='ROUTE', type=spec,
+                    value=dict(nodes=[{'AMOUNT': MISSING}, {'AMOUNT': MISSING}],
+                               data={'TOTAL': MISSING}))
+        for bounds, expected in (('2..0', {'ROUTE[0]', 'ROUTE[1]', 'ROUTE[2]'}),
+                                 ('0..0', {'ROUTE[0]'})):
+            with self.subTest(bounds=bounds):
+                prepared = prepare(f'WRITE(route[{bounds}])',
+                                   decl='route:PATH NODEDATA=row_t PATHHEADER=head_t',
+                                   prefix=prefix, context={'variables': [seed]})
+                report = prepared['template']['discovery']
+                self.assertTrue(report['complete'], report['unresolved'])
+                self.assertEqual(set(by_path(prepared)), expected)
+
+    def test_initial_path_bounds_reject_the_whole_transfer_before_inputs(self):
+        prefix = ('TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+                  'head_t=STRUCTURE total:INTEGER ENDSTRUCTURE')
+        spec = ['PATH', ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]],
+                ['STRUCTURE', 'HEAD_T', [['TOTAL', ['INTEGER']]]]]
+        seed = dict(program='T', path='ROUTE', type=spec,
+                    value=dict(nodes=[{'AMOUNT': MISSING}], data={'TOTAL': MISSING}))
+        for body, context in (('WRITE(route[0..1])', {}), ('WRITE(route[2..0])', {'variables': [seed]}),
+                              ('READ(route[0..2])', {'variables': [seed]})):
+            with self.subTest(body=body):
+                prepared = prepare(body, decl='route:PATH NODEDATA=row_t PATHHEADER=head_t',
+                                   prefix=prefix, context=context)
+                report = prepared['template']['discovery']
+                self.assertEqual(report['inputs'], [])
+                self.assertIn('path-topology', {row['code'] for row in report['unresolved']})
+
     def test_range_outside_an_edited_path_has_no_partial_candidates(self):
         spec = ['PATH', ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]], None]
         seed = dict(program='T', path='ROUTE', type=spec,

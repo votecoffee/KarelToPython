@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1120.190004 - 2026-11-20
+
+- Accept header-only PATH ranges and reverse ranges ending at the header
+  in Pythonic READ and WRITE, with formats checked against selected records.
+- Share PATH range validation with discovery so invalid known bounds yield
+  no partial input candidates.
+
 ## 26.1120.183741 - 2026-11-20
 
 - Retain saved PATH nodes through additive header changes and compatible PATH

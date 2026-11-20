@@ -370,8 +370,10 @@ Discovery supports statically located PATH headers, nodes and their fields,
 including PATH ARRAY cells. `ROUTE.COUNT` and `ROUTE[0].COUNT` share the
 same input address, `ROUTE[0].COUNT`. READ and WRITE can also use a computed
 selector when analysis proves its value. An inclusive range with known bounds
-visits its selected records in source order. Unknown selectors remain explicit
-in the discovery report. Retranslate older output to add the header-selector
+visits the records in range order, including a declared header at either
+zero endpoint. The known saved or source-created node count validates the
+entire range before discovery lists its inputs. Unknown selectors remain
+explicit in the discovery report. Retranslate older output to add the header-selector
 and default-node metadata.
 
 A discovered header in a fresh PATH or fixed PATH ARRAY can be edited directly.

@@ -138,6 +138,29 @@ def path_io_components(spec, line=None):
     return node, header
 
 
+def path_io_indexes(length, has_header, bounds, line=None):
+    """Select ordered one-based node indexes and zero for a declared header."""
+    if bounds is None:
+        return range(0 if has_header else 1, length + 1)
+    rt = runtime()
+    first, last = bounds
+    first = rt.integer(first, line)
+    if last is None:
+        if first == 0 and not has_header:
+            fail('PATH header selection requires a declared PATHHEADER', line)
+        if not 0 <= first <= length:
+            fail('PATH node index out of range', line)
+        return range(first, first + 1)
+
+    last = rt.integer(last, line)
+    if not 0 <= first <= length or not (0 if has_header else 1) <= last <= length:
+        fail('PATH I/O range is outside the existing nodes', line)
+    if first == 0 and not has_header:
+        first = 1
+    step = 1 if first <= last else -1
+    return range(first, last + step, step)
+
+
 def path_io_references(spec, value, line=None, *, check=None, bounds=None):
     """Capture the records selected by one PATH I/O item."""
     rt = runtime()
@@ -149,38 +172,25 @@ def path_io_references(spec, value, line=None, *, check=None, bounds=None):
 
     nodes, data = value.nodes, value.data
     length = len(nodes)
-    include_header = header is not None
-    indexes = range(length)
-    if bounds is not None:
-        first, last = bounds
-        first = rt.integer(first, line)
-        include_header = include_header and first == 0
-        if last is None:
-            if first == 0 and not include_header:
-                fail('PATH header selection requires a declared PATHHEADER', line)
-            if not 0 <= first <= length:
-                fail('PATH node index out of range', line)
-            indexes = range(max(0, first - 1), first)
-        else:
-            last = rt.integer(last, line)
-            if not 0 <= first <= length or not 1 <= last <= length:
-                fail('PATH I/O range is outside the existing nodes', line)
-            step = 1 if first <= last else -1
-            indexes = range(max(1, first) - 1, last - 1 + step, step)
-
-    count = (rt.scalar_leaf_count(header) if include_header else 0) + len(indexes) * rt.scalar_leaf_count(node)
+    indexes = path_io_indexes(length, header is not None, bounds, line)
+    include_header = 0 in indexes
+    count = (len(indexes) - include_header) * rt.scalar_leaf_count(node)
+    if include_header:
+        count += rt.scalar_leaf_count(header)
     if count > 1024:
         fail('PATH I/O is limited to 1024 scalar fields including CR', line)
     if check is not None:
-        selected_nodes = tuple(nodes[index] for index in indexes)
+        selected_nodes = tuple((index, nodes[index - 1]) for index in indexes if index)
         for _ in range(count):
             check(line)
         if (value.spec != spec or value.nodes is not nodes or len(nodes) != length or value.data is not data
-                or any(nodes[index] is not saved for index, saved in zip(indexes, selected_nodes))):
+                or any(nodes[index - 1] is not saved for index, saved in selected_nodes)):
             fail('PATH I/O storage changed during preparation', line)
 
-    references = [rt.Reference(header, vars(value), 'data')] if include_header else []
-    references.extend(rt.Reference(node, nodes, index) for index in indexes)
+    references = [
+        rt.Reference(header, vars(value), 'data') if index == 0 else rt.Reference(node, nodes, index - 1)
+        for index in indexes
+    ]
     for reference in references:
         rt._aggregate_value(reference.spec, reference.raw(), line, allow_partial=True)
     return references

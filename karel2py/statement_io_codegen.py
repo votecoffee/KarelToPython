@@ -109,9 +109,16 @@ class StatementIOLowering:
         node_formats = rt.aggregate_format_kinds(node)
         options = (node_formats,)
         leading_index = format_literal(start, constants=self.visible_constants())
-        if header is not None and leading_index in (0, None):
-            with_header = node_formats | rt.aggregate_format_kinds(header)
-            options = (with_header,) if leading_index == 0 else (node_formats, with_header)
+        trailing_index = format_literal(end, constants=self.visible_constants())
+        if header is not None and (leading_index in (0, None) or trailing_index in (0, None)):
+            header_formats = rt.aggregate_format_kinds(header)
+            options = ()
+            if leading_index != 0 and trailing_index != 0:
+                options += (node_formats,)
+            if leading_index in (0, None) and trailing_index in (0, None):
+                options += (header_formats,)
+            if leading_index != 0 or trailing_index != 0:
+                options += (node_formats | header_formats,)
         return _PathIOSelection(receiver, options, f'({first}, {last})', 'range')
 
     def lower_write_items(self, stmt, file_code):
