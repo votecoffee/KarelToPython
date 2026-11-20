@@ -4,9 +4,7 @@ import re
 from .compiler_language import (
     BUILTIN_PROCEDURES,
     CONFIG_TEXT_PROCEDURES,
-    INTEGRAL_TYPES,
     JOINT_PROCEDURES,
-    NARROW_TYPES,
     REGISTER_PROCEDURES,
     SKIPPABLE_STATEMENTS,
     TIME_TEXT_PROCEDURES,
@@ -14,6 +12,7 @@ from .compiler_language import (
 from .assignment_codegen import AssignmentLowering
 from .declarations import DeclarationPasses
 from .handler_codegen import HandlerLowering
+from .loop_codegen import LoopLowering
 from .syntax import Expr, Statement
 from .select_analysis import check_select
 from .expression_codegen import ExpressionLowering
@@ -24,7 +23,8 @@ from .service_codegen import ServiceCallLowering
 from .statement_io_codegen import StatementIOLowering
 from .task_codegen import TaskControlLowering
 from .type_checking import TypeQueries
-from .control_flow import FlowGraph, counter_text, validate_labels
+from .using_codegen import UsingLowering
+from .control_flow import FlowGraph, validate_labels
 from .lexer import Token, TranslationError
 from . import __version__
 from . import extended as ex
@@ -33,7 +33,7 @@ from . import runtime as rt
 
 class Emitter(DeclarationPasses, TypeQueries, ExpressionLowering, AssignmentLowering,
               RoutineLowering, RobotSystemLowering, ServiceCallLowering, StatementIOLowering,
-              MotionLowering, TaskControlLowering, HandlerLowering):
+              MotionLowering, TaskControlLowering, HandlerLowering, LoopLowering, UsingLowering):
     """Emit a Python module from a parsed program and its checked declarations."""
 
     def __init__(self, program, filename, array_shapes=None, mode='strict', cooperative=False):
@@ -260,13 +260,13 @@ class Emitter(DeclarationPasses, TypeQueries, ExpressionLowering, AssignmentLowe
                     self.line(f'{pc} = {node.targets[0]!r}')
                 elif kind=='for_enter':
                     self.features.add('for');self.line(f'self._state.tick({line})',token)
-                    counter,reference,first,last,adjustment,step=self.for_values(stmt)
-                    stop,captured=self.fresh(),self.fresh()
-                    self.line(f'{captured} = {reference}')
-                    self.line(f'{captured}.set({first}, {line})')
+                    operands = self.for_operands(stmt)
+                    stop, captured = self.fresh(), self.fresh()
+                    self.capture_for_counter(operands, captured, line)
                     self.line(f'{frames}.append([{index}, {captured}, None])')
-                    self.line(f'{stop} = {last}')
-                    self.line(f'{frames}[-1][2] = iter(range(_rt.require({captured}.raw(), {line}), {stop} + ({adjustment}), {step}))')
+                    self.line(f'{stop} = {operands.final}')
+                    start = f'_rt.require({captured}.raw(), {line})'
+                    self.line(f'{frames}[-1][2] = iter({operands.range_code(start, stop)})')
                     self.line(f'{pc} = {node.targets[0]!r}')
                 elif kind=='for_next':
                     item=self.fresh()
@@ -324,87 +324,6 @@ class Emitter(DeclarationPasses, TypeQueries, ExpressionLowering, AssignmentLowe
         report['jumps']=transfers
         if self.current_routine: self.control_flow['routines'][self.current_routine.name] = report
         else: self.control_flow['program'] = report
-
-    def path_node_selector(self,selector):
-        while selector.kind=='group':selector=selector.args[0]
-        if selector.kind!='index':return False
-        spec=self.relative_operand_type(selector.args[0])
-        return spec[0]=='PATH' or rt.collection_array_node_type(spec,len(selector.args)-1) is not None
-
-    def emit_using_entry(self,stmt):
-        if self.mode != 'pythonic': return
-        for name,selector,kind in zip(stmt.using_captures,stmt.args,stmt.using_capture_kinds):
-            selected=self.relative_operand_type(selector)
-            if selected[0]=='PATH':
-                if kind=='computed_value':value,_=self.expression(selector,raw=True)
-                else:value,_=self.reference(selector)
-                reference=f'_rt.using_path_header({selected!r},{value},{selector.token.line},reference={kind=="storage_reference"})'
-            elif kind=='computed_value':
-                value,spec=self.expression(selector,raw=True)
-                reference=f'_rt.value_argument({spec!r},{value},{selector.token.line})'
-            else:
-                reference,spec=self.reference(selector)
-                if self.path_node_selector(selector):
-                    reference=f'_rt.using_path_node_reference({spec!r},{reference},{selector.token.line})'
-                    self.features.add('stable PATH node USING capture')
-            self.line(f'{name} = {reference}',selector.token)
-
-    def for_values(self,stmt):
-        """Share the bound/type/effect proof between structured and labelled FORs."""
-        counter,initial,final,direction=stmt.args
-        token=counter.token if isinstance(counter,Expr) else counter;root=self.protection_root(counter)
-        private=root in self.private_using_roots
-        local_owner=self.current_routine.name if self.current_routine and root in {item.value for item,_ in self.current_routine.declarations} else None
-        if (local_owner,root) in self.retained_timer_alias_roots:
-            self.error('E_FOR_COUNTER','Counter root may be retained by a handler that can borrow it for a timer',token)
-        if private and root in self.escaped_private_using_roots:
-            self.error('E_FOR_COUNTER','Private USING counter root may have escaped through a potentially retained writable routine alias',token)
-        if self.cooperative and self.implicit_counter_write(root):
-            self.error('E_FOR_COUNTER','Condition action or connected timer may modify this FOR counter root',token)
-        counter_types=self.types|(self.current_routine.local_types if self.current_routine else {})|self.private_using_roots
-        if root not in counter_types or root in self.visible_constants():
-            self.error('E_FOR_COUNTER','FOR counter requires declared writable integral scalar storage',token)
-        path_root=self.mode=='pythonic' and rt.path_counter_root(counter_types[root])
-        if path_root:
-            if (local_owner,root) in self.retained_path_counter_roots or local_owner is None and self.unknown_path_counter_alias:
-                self.error('E_FOR_COUNTER','PATH counter root may have a retained writable routine or dynamic alias',token)
-            if local_owner is None and root in {row[0] for row in self.program.imported_variables}:
-                self.error('E_FOR_COUNTER','PATH counters require an owned declared root; imported roots remain excluded',token)
-        if not private and self.current_routine and self.current_routine.parameters and root not in {item.value for item,_ in self.current_routine.declarations}:
-            self.error('E_FOR_COUNTER','Parameterized routines require fresh local FOR counter roots until alias effects are validated',token)
-        if root in self.active_counters:
-            self.error('E_FOR_COUNTER','Nested loops cannot reuse an active FOR counter root',token)
-        reference=None
-        if self.mode=='pythonic':
-            if (counter_types[root][0] in ('FILE','QUEUE_TYPE') or rt.resource_array_type(counter_types[root]) and not path_root
-                    or self.is_value_only_subfield(counter)):
-                self.error('E_FOR_COUNTER','FOR counters require ordinary integral leaves outside FILE/queue roots and CONFIG domains',token)
-            if self.is_position_read_only_access(counter):self.error('E_POSITION_READ_ONLY','FOR counter storage is read-only',token)
-            reference,spec=self.reference(counter)
-            if spec[0] not in INTEGRAL_TYPES:self.error('E_FOR_COUNTER','FOR counter requires an INTEGER, BYTE or SHORT scalar reference',token)
-            if path_root:
-                reference=f'_rt.path_for_reference(self._state.reference({root!r},{token.line}),{counter_types[root]!r},{reference},{token.line})'
-                self.features.add('captured PATH integral FOR counter')
-            self.reference_for_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
-                line=token.line,column=token.column,selector=counter_text(counter),root=root,kind=counter.kind,
-                captured_once=True,cleanup='selected_scalar',write_protection='whole_root'))
-            if path_root:self.reference_for_uses[-1].update(path_counter=True,root_type_spec=counter_types[root],root_ownership='owned_declared_storage')
-            if private:
-                self.reference_for_uses[-1].update(root=None,protection_root=root,provenance='private_temporary')
-                self.features.add('private USING '+spec[0]+' FOR counter')
-            self.features.add('captured '+spec[0]+' FOR counter reference')
-        elif counter_types[root][0]!='INTEGER':
-            self.error('E_FOR_COUNTER','FOR counter must be an INTEGER variable',token)
-        first=self.require_type(initial,'INTEGER');last=self.require_type(final,'INTEGER')
-        if self.mode=='pythonic' and spec[0] in NARROW_TYPES:
-            reference=f'_rt.NarrowForCounter({reference},{token.line})'
-            last=f'_rt.for_bound({spec!r},{last},{final.token.line})'
-            self.reference_for_uses[-1].update(counter_type=spec,bound_domain=[0,255] if spec[0]=='BYTE' else [-32768,32766],
-                cleanup_marker='unknown_byte' if spec[0]=='BYTE' else 'uninitialized')
-        if self.mode=='strict' and (self.has_routine_call(initial) or self.has_routine_call(final)):
-            self.error('E_EVALUATION_ORDER','FOR bounds with routine calls are blocked',stmt.token)
-        adjustment,step=(1,1) if direction=='TO' else (-1,-1)
-        return counter,reference,first,last,adjustment,step
 
     def test_code(self,code,line):
         return f'(yield from _rt.cooperative_test(self._state,lambda: {code},{line}))' if self.cooperative else f'self._state.test({code},{line})'
@@ -540,36 +459,7 @@ class Emitter(DeclarationPasses, TypeQueries, ExpressionLowering, AssignmentLowe
             self.line('break')
             self.indent -= 2
         elif kind == 'for':
-            counter,reference,first,last,adjustment,step=self.for_values(stmt)
-            root=self.protection_root(counter)
-            stop, item = self.fresh(), self.fresh()
-            # Manual: initialize count before final is evaluated (final may read count).
-            if self.mode=='pythonic':
-                captured=self.fresh();self.line(f'{captured} = {reference}')
-                self.line(f'{captured}.set({first}, {line})')
-            else:self.line(f'self._state.set({counter.value!r}, {first}, {line})')
-            if self.mode == 'pythonic':
-                self.line('try:')
-                self.indent += 1
-            self.line(f'{stop} = {last}')
-            start=f'_rt.require({captured}.raw(), {line})' if self.mode=='pythonic' else f'self._state.get({counter.value!r})'
-            self.line(f'for {item} in range({start}, {stop} + ({adjustment}), {step}):')
-            self.indent += 1
-            self.line(f'self._state.tick({line})')
-            if self.mode=='pythonic':self.line(f'{captured}.set({item}, {line})')
-            else:self.line(f'self._state.set({counter.value!r}, {item}, {line})')
-            self.active_counters.add(root)
-            self.block(stmt.body)
-            self.active_counters.remove(root)
-            self.indent -= 1
-            if self.mode == 'pythonic':
-                self.indent -= 1
-                self.line('finally:')
-                self.indent += 1
-                self.line(f'{captured}.clear()')
-                self.indent -= 1
-            else:
-                self.line(f'self._state.clear({counter.value!r})')
+            self.emit_structured_for(stmt)
         elif kind == 'select':
             _, cases = stmt.args
             temporary = self.fresh()

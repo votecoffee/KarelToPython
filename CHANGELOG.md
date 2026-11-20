@@ -1,5 +1,11 @@
 # Changelog
 
+## 26.1120.002515 - 2026-11-20
+
+- Share FOR counter checks, capture, and bounds between structured Python and
+  label dispatch. Move USING entry generation into its own module and keep
+  PATH node classification in the shared type queries.
+
 ## 26.1120.002038 - 2026-11-20
 
 - Separate condition-handler and connected-timer compilation from the statement

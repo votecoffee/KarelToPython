@@ -13,6 +13,7 @@ input-discovery contract to the result.
 | Call analysis | `call_analysis.py` | Plans routine arguments and results, including conversion, storage, and collection rules. Validates bindings and protected counter use, resolves service signatures, and checks PATH node compatibility. |
 | SELECT checking | `select_analysis.py` | `check_select()` returns a checked selector and typed CASE rows in source order. The emitter assembles the dispatch call and report from those rows. |
 | Control flow | `control_flow.py` | `validate_labels()` checks scope entry with the declared names and source mode. `FlowGraph` lowers a validated body to dispatch nodes. |
+| Loop and USING generation | `loop_analysis.py`, `loop_codegen.py`, `using_codegen.py` | Checks FOR counter ownership and schema. Both control-flow engines share counter initialization, inclusive range generation, and USING entry capture. |
 | Generation | `expression_codegen.py`, `python_codegen.py` | `ExpressionLowering` lowers expressions and access paths. `Emitter.emit()` drives validation and emits Python. |
 | Routine generation | `routine_codegen.py` | Captures arguments in source order and emits calls and checked RETURN values. |
 | Assignment | `assignment_analysis.py`, `assignment_codegen.py`, `schema_conversion.py` | Checks declared or concrete receiver schemas and emits scalar, ARRAY prefix, and collection writes. Assignments and routines share conversion selection with distinct ARRAY policies. |
@@ -43,6 +44,10 @@ before evaluating destination selectors, including when an ARRAY result is
 assigned through a routine formal. System pose writes use the same ordering
 with separately checked frame/tool selectors. READ and WRITE retain separate
 capture and publication steps for scalar and aggregate data.
+FOR lowering initializes the captured counter before evaluating the final
+bound. Structured loops clear it on exit, and labelled bodies track it in the
+dispatcher scope stack. USING entry generation consumes the capture kinds
+recorded by declaration analysis and uses the shared PATH node type query.
 Keep label validation independent of Python emission. The report modules are
 applied in order because later policies extend earlier entries.
 

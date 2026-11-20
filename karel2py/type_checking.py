@@ -44,6 +44,15 @@ class TypeQueries:
         while expr.kind in ('index','field','group'):expr=expr.args[0]
         return expr.value[7] if expr.kind=='using_ref' else expr.value
 
+    def path_node_selector(self, selector):
+        """Identify a selected PATH node that needs a stable USING binding."""
+        while selector.kind == 'group':
+            selector = selector.args[0]
+        if selector.kind != 'index':
+            return False
+        spec = self.relative_operand_type(selector.args[0])
+        return spec[0] == 'PATH' or rt.collection_array_node_type(spec, len(selector.args) - 1) is not None
+
     def member_type(self, spec, expr):
         if spec[0]=='PATH':
             if not spec[2]: self.error('E_FIELD','PATH has no PATHHEADER',expr.token)
