@@ -1,4 +1,4 @@
-"""Generate checked routine arguments, calls and RETURN values."""
+"""Generate routine frames, checked arguments, calls, and RETURN values."""
 from .call_analysis import (
     check_byname_argument,
     check_return_operand,
@@ -31,6 +31,33 @@ _DIRECT_CONVERSIONS = {
 
 class RoutineLowering:
     """Emit routine operations using the current expression and type scope."""
+
+    def emit_routine_definitions(self):
+        for routine in self.program.routines:
+            self.current_routine = routine
+            self.line()
+            argument_names = [f'_argument_{i}' for i in range(len(routine.parameters))]
+            signature = ', '.join(['self'] + argument_names)
+            self.line(f'@_rt._with_numeric_mode({self.mode!r})')
+            self.line(f'def _routine_{routine.name}({signature}):', routine.token)
+            self.indent = 2
+            self.line(f'self._state.tick({routine.token.line})')
+            bindings = ', '.join(f'{token.value!r}: {arg}' for (token, _), arg in zip(routine.parameters, argument_names))
+            self.line(f'self._state.enter_routine({routine.local_types!r}, {routine.token.line}, {{{bindings}}}, routine={routine.name!r})')
+            self.line('try:')
+            self.indent = 3
+            if routine.external:
+                self.line(f'return (yield from self._state.external_call({routine.external!r},{routine.name!r},[{", ".join(argument_names)}],{routine.return_type!r},{routine.token.line}))',routine.token)
+            else:
+                self.emit_body(routine.body)
+            if routine.return_type and not routine.external:
+                self.line(f'raise _rt.KarelRuntimeError("Function completed without RETURN", {routine.token.line})')
+            self.indent = 2
+            self.line('finally:')
+            self.indent = 3
+            self.line('self._state.leave_routine()')
+            self.indent = 1
+        self.current_routine = None
 
     def file_prefix_reference_code(self,argument):
         base,container=self.expression(argument.args[0],raw=True)

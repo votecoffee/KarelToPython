@@ -1,5 +1,11 @@
 # Changelog
 
+## 26.1120.010454 - 2026-11-20
+
+- Separate generated Program setup, execution entry points, and standalone
+  CLI bindings from the compiler driver. Emit routine frames with the routine
+  generator and preserve runtime state, checkpoints, and output.
+
 ## 26.1120.005844 - 2026-11-20
 
 - Separate routine interface and local declaration checks from module

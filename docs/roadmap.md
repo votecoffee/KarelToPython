@@ -31,9 +31,11 @@ Constant evaluation and dependency ordering have their own compiler module.
 Named TYPE resolution checks expanded schema size and depth and shares the
 dependency walk with CONST. ARRAY storage, parameter, and result schemas
 have a dedicated resolver. Routine interface and local scope validation run
-after module declarations. Next, move generated Program initialization and
-runtime bindings into a dedicated module. The runtime and extended services
-can be split by ownership after their boundaries are covered with regressions. See
+after module declarations. Program initialization, execution entry points,
+and standalone CLI bindings have dedicated generators. Next, separate
+procedure dispatch and remaining FILE, DELAY, and WAIT emission from the
+statement driver. The runtime and extended services can be split by ownership
+after their boundaries are covered with regressions. See
 [compiler architecture](compiler-architecture.md).
 
 ## Python runner and parameter editor

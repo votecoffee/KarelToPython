@@ -21,7 +21,8 @@ input-discovery contract to the result.
 | Control flow | `control_flow.py`, `flow_codegen.py` | `validate_labels()` checks scope entry and `FlowGraph` builds dispatch nodes. `ControlFlowLowering.emit_body()` emits the validated body, its source checkpoints, and FOR scope cleanup. |
 | Loop and USING generation | `loop_analysis.py`, `loop_codegen.py`, `using_codegen.py` | Checks FOR counter ownership and schema. Both control-flow engines share counter initialization, inclusive range generation, and USING entry capture. |
 | Generation | `expression_codegen.py`, `python_codegen.py` | `ExpressionLowering` lowers expressions and access paths. `Emitter.emit()` drives validation and emits Python. |
-| Routine generation | `routine_codegen.py` | Captures arguments in source order and emits calls and checked RETURN values. |
+| Program generation | `program_codegen.py`, `program_cli_codegen.py` | Emits class metadata, runtime state construction, synchronous and cooperative entry points, and the standalone CLI for supplied adapters. |
+| Routine generation | `routine_codegen.py` | Emits routine frames, captures arguments in source order, and emits calls and checked RETURN values. |
 | Assignment | `assignment_analysis.py`, `assignment_codegen.py`, `schema_conversion.py` | Checks declared or concrete receiver schemas and emits scalar, ARRAY prefix, and collection writes. Assignments and routines share conversion selection with distinct ARRAY policies. |
 | Robot system access | `robot_system_analysis.py`, `robot_system_codegen.py` | Checks writable pose paths and source schemas. Emits system reads and captures write values before frame/tool selectors. |
 | Statement I/O | `statement_io_analysis.py`, `statement_io_codegen.py` | Checks READ and WRITE source formats. Stages targets, rendered values, and explicit or default FILE bindings before runtime publication. |
@@ -76,6 +77,10 @@ timer-formal writes alongside ordinary parameter and global writes. Retained
 alias checks use those effects and the reference-binding rules to identify
 private USING roots, borrowed timer roots, and PATH roots that may still be
 writable after a routine returns.
+Program setup emits the checked schemas and runtime constructor before routine
+frames and the program body. Source checkpoints and local counter roots are
+emitted after the bodies have been checked. The standalone CLI adds options
+from the features discovered during generation.
 Keep label validation independent of Python emission. The report modules are
 applied in order because later policies extend earlier entries.
 
