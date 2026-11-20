@@ -104,10 +104,15 @@ CLOSE FILE channel
 MSG_DISCO('S1:',status)
 ```
 
-One FILE can be open on each connected endpoint. Ordinary R/RO, W/WO, RW and
-A/AP access forms and explicit binary variants use the existing FILE field
-encoding. XML access is excluded. Opening for write preserves queued data;
-sockets have no file-truncation behavior.
+One FILE can be open on each connected endpoint. R/RO is read-only, W/WO and
+A are write-only, and RW/UD allow both directions. In the portable AP mode,
+the original open handle must append a successful nonempty WRITE before it
+can READ. Empty, failed or cancelled writes leave reads disabled. Reopening
+starts a new write requirement. The same rule applies to immediate and
+cooperatively queued writes.
+
+All modes preserve preloaded RX and TX at OPEN. Use a B suffix or ATR_UF
+for binary field encoding. Socket FILEs reject XML attributes.
 
 Receive and transmit queues are independent. A successful READ consumes its
 receive bytes; a WRITE appends output without echoing into input or advancing

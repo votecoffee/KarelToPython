@@ -43,7 +43,7 @@ class SocketReadWaitTests(unittest.TestCase):
         self.assertEqual(bank._pending, {})
 
     def test_timeout_requires_wait_and_readable_socket_mode(self):
-        for wait, mode in ((False, 'RO'), (True, 'WO'), (True, 'AP')):
+        for wait, mode in ((False, 'RO'), (True, 'WO'), (True, 'A')):
             with self.subTest(wait=wait, mode=mode):
                 bank, ctx = services(dict(wait=wait, input=b'a'))
                 task = build(f"SET_FILE_ATR(f,ATR_TIMEOUT,2) OPEN FILE f('{mode}','S1:')", ctx)
@@ -168,6 +168,42 @@ class SocketReadWaitTests(unittest.TestCase):
 
 
 class SocketWriteWaitTests(unittest.TestCase):
+    def test_waiting_append_unlocks_receive_deadline_after_tx_commit(self):
+        bank, ctx = services(dict(wait=True, wait_output=True, input=b'7', output=b'old!'), limit=5)
+        delays = []
+
+        def sleep(delay):
+            delays.append(delay)
+            if len(delays) == 1:
+                bank.take_output('S1:')
+
+        task = build(
+            "SET_FILE_ATR(f,ATR_TIMEOUT,3) OPEN FILE f('AP','S1:') "
+            "n=77 WRITE f('XY') READ f(n,CR) status=IO_STATUS(f) READ f(m::1) CLOSE FILE f",
+            ctx, sleep=sleep,
+        )
+        result = task.run()
+        self.assertEqual((result['N'], result['STATUS'], result['M']), (77, 4, 7))
+        self.assertEqual(delays, [.01, .003])
+        self.assertEqual((bank.take_output('S1:'), bank.files['S1:'], bank._pending), (b'XY', b'', {}))
+
+    def test_cancelled_first_append_write_leaves_reads_disabled(self):
+        bank, ctx = services(dict(wait=True, wait_output=True, input=b'7\n', output=b'old'), limit=5)
+
+        def sleep(_):
+            bank.take_output('S1:', 2)
+            rt.cancel_file(task._state, task._state.values['F'])
+
+        task = build(
+            "n=77 OPEN FILE f('AP','S1:') WRITE f('XY') status=IO_STATUS(f) READ f(n)",
+            ctx, sleep=sleep,
+        )
+        with self.assertRaisesRegex(rt.KarelRuntimeError, 'nonempty WRITE before READ'):
+            task.run()
+        self.assertEqual((task.snapshot()['N'], task.snapshot()['STATUS']), (77, 6))
+        self.assertEqual((bank.take_output('S1:'), bank.files['S1:'], bank._pending), (b'd', b'7\n', {}))
+        bank.close(task._state.values['F'])
+
     def test_aggregate_payload_is_captured_once_across_partial_drains(self):
         bank, ctx = services(dict(wait_output=True, output='old!'), limit=8)
         observations = []

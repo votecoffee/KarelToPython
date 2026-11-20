@@ -167,6 +167,15 @@ class PredefinedBackendTests(unittest.TestCase):
                 )
                 self.assertEqual((state['N'], state['S'], delays), (7, 4, [.003]))
 
+    def test_default_socket_append_supports_passall_read_after_write(self):
+        bank = rt.Messaging({'S1:': {'connected': True, 'input': b'a\n\x00tail'}})
+        ctx = rt.ExecutionContext(messaging=bank, predefined_files={
+            'TPDISPLAY': binding('S1:', 'AP', passall=True),
+        })
+        state, _, _, _ = execute("WRITE('query') READ(text::3) CLOSE FILE TPDISPLAY", ctx)
+        self.assertEqual(state['TEXT'], 'a\n\x00')
+        self.assertEqual((bank.files['S1:'], bank.take_output('S1:')), (b'tail', b'query'))
+
     def test_default_serial_append_unlocks_bound_input_after_write(self):
         serial = rt.SerialStreams({2: {'input': b'17\n', 'output': b'old'}})
         ctx = rt.ExecutionContext(serial_streams=serial, predefined_files={

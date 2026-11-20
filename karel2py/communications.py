@@ -45,9 +45,9 @@ def data_bytes(value,limit):
     return value
 
 
-def access_mode(handle,mode,line,*,append_read=False):
+def access_mode(handle,mode,line):
     mode=rt().ascii_string(mode,line).upper();binary='B' in mode or handle.binary;mode=mode.replace('B','')
-    mode={'RO':'R','WO':'W','AP':'AP' if append_read else 'A','UD':'RW'}.get(mode,mode)
+    mode={'RO':'R','WO':'W','UD':'RW'}.get(mode,mode)
     if mode not in ('R','W','RW','A','AP') or handle.xml:fail('Unsupported communication FILE access mode',line)
     if handle.owner is not None:fail('FILE is already open',line)
     if type(handle.passall) is not bool or handle.passall and (binary or mode in ('W', 'A')):
@@ -320,6 +320,8 @@ class Messaging(MemoryFiles):
             row.get(name) is True for name in ('mounted', 'available', 'connected')
         ):
             fail('Offline socket endpoint is disconnected', line)
+        if not any(registered is handle for registered in self.handles):
+            fail('Socket FILE requires its original open registration', line)
         if (any(type(row.get(name)) is not bool for name in ('wait', 'final', 'wait_output'))
                 or not row['wait'] and not row['final']):
             fail('Socket wait policy is invalid', line)
@@ -335,8 +337,10 @@ class Messaging(MemoryFiles):
         if handle.read_timeout_ms and (mode in ('W', 'A') or row['wait'] is not True):
             fail('ATR_TIMEOUT requires a readable waiting socket FILE', line)
         handle.name,handle.mode,handle.owner,handle.binary=key,mode,self,binary
-        handle.logical_name=key;handle.position=0;handle.status=0;self.handles.append(handle)
+        handle.logical_name=key;handle.position=0;handle.status=0
         handle._text_cr=None
+        handle._append_ready = False
+        self.handles.append(handle)
 
     def require_idle(self, handle, line=None, *, reading=False):
         if id(handle) in self._pending:
@@ -349,6 +353,7 @@ class Messaging(MemoryFiles):
     def before_read(self, handle, line=None):
         self.require_idle(handle, line, reading=True)
         self.connected(handle, line)
+        handle.require_readable(line)
 
     def read_bytes(self, handle, count, line=None):
         self.before_read(handle, line)
@@ -372,7 +377,8 @@ class Messaging(MemoryFiles):
         row=self.connected(handle,line)
         if handle.mode=='R':fail('Socket FILE is read-only',line)
         if self.used()+len(data)>self.limit:fail('Combined socket data exceeds its bank limit',line)
-        row['output'].extend(data);handle.status=0
+        row['output'].extend(data)
+        handle._finish_write(handle.position, data)
 
     def _start_operation(self, state, handle, row, kind, line):
         if id(handle) in self._pending or not any(item is handle for item in self.handles):
@@ -443,8 +449,7 @@ class Messaging(MemoryFiles):
         row = self.connected(handle, line)
         if not row['wait']:
             return state.file_read(handle, targets, line, line_breaks=line_breaks, formats=formats)
-        if handle.mode in ('W', 'A'):
-            fail('Socket FILE is not readable', line)
+        handle.require_readable(line)
         request = StreamRead(handle, targets, line_breaks, formats, 'Socket', line, raw_fields=handle.passall)
         deadline = StreamReadDeadline(state._scheduler, handle.read_timeout_ms)
         record = self._start_operation(state, handle, row, 'READ', line)
@@ -513,7 +518,7 @@ class Messaging(MemoryFiles):
                     fail('Atomic socket WRITE exceeds retained receive and output bank limit', line)
                 if self.used() + len(data) <= record.limit:
                     record.tx.extend(data)
-                    handle.status = 0
+                    handle._finish_write(handle.position, data)
                     return
                 yield from self._wait(state, 'WRITE', line)
         except GeneratorExit:
@@ -572,7 +577,7 @@ class FilePipes(MemoryFiles):
         self.files.setdefault(key,bytearray());return 0
 
     def open_for(self,state,handle,mode,name,line=None):
-        mode,binary=access_mode(handle,mode,line,append_read=True)
+        mode,binary=access_mode(handle,mode,line)
         try:key=pipe_name(name)
         except ValueError:fail('Invalid PIP FILE name',line)
         if key not in self.pipes:fail('PIP FILE is not explicitly configured',line)

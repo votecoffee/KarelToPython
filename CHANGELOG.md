@@ -1,5 +1,11 @@
 # Changelog
 
+## 26.1120.141401 - 2026-11-20
+
+- Enable offline socket AP reads after the original open FILE commits its first
+  nonempty write. Immediate and queued writes share the same read gate.
+  Cancelled writes and reopening leave reads disabled.
+
 ## 26.1120.140916 - 2026-11-20
 
 - Extend ATR_TIMEOUT to waiting socket and plain pipe FILE reads. Timed-out

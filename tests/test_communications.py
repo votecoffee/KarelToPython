@@ -1,5 +1,5 @@
 """Authored offline socket/FILE behavior and circular plain-pipe regressions."""
-from copy import deepcopy
+from copy import copy, deepcopy
 import json
 import struct
 import unittest
@@ -32,6 +32,49 @@ class MessagingTests(unittest.TestCase):
         data=run("MSG_CONNECT('s1:',s) OPEN FILE f('RW','s1:') READ f(n,CR) WRITE f('ack',CR) CLOSE FILE f MSG_DISCO('S1:',s)",decl=DECL,context=ctx)
         self.assertEqual((data['N'],data['S']),(42,0))
         self.assertEqual(ctx.messaging.files['S1:'],b'');self.assertEqual(ctx.messaging.take_output('S1:'),b'ack\n')
+
+    def test_append_after_write_reads_rx_and_appends_to_existing_tx(self):
+        ctx = socket_context()
+        ctx.messaging.ports['S1:']['output'].extend(b'prior:')
+        result = run(
+            "MSG_CONNECT('S1:',s) OPEN FILE f('AP','S1:') WRITE f('query',CR) "
+            "available=GET_FILE_POS(f) READ f(n,CR) CLOSE FILE f",
+            decl=DECL, context=ctx,
+        )
+        self.assertEqual((result['N'], result['AVAILABLE']), (42, 0))
+        self.assertEqual(ctx.messaging.files['S1:'], b'')
+        self.assertEqual(ctx.messaging.take_output('S1:'), b'prior:query\n')
+
+    def test_append_requires_nonempty_write_on_each_open(self):
+        for operations, tx in (
+            ('', b''),
+            ("WRITE f('') ", b''),
+            ("WRITE f('query') CLOSE FILE f OPEN FILE f('APB','S1:') ", b'query'),
+        ):
+            with self.subTest(operations=operations):
+                ctx = socket_context(struct.pack('<i', 42))
+                task, _ = compile_program(
+                    "n=77 MSG_CONNECT('S1:',s) OPEN FILE f('APB','S1:') " + operations + 'READ f(n)',
+                    decl=DECL, context=ctx,
+                )
+                with self.assertRaisesRegex(rt.KarelRuntimeError, 'nonempty WRITE before READ'):
+                    task.run()
+                self.assertEqual((task.snapshot()['N'], task.snapshot()['F']['position']), (77, 0))
+                self.assertEqual(ctx.messaging.files['S1:'], struct.pack('<i', 42))
+                self.assertEqual(ctx.messaging.take_output('S1:'), tx)
+                ctx.messaging.close(task._state.values['F'])
+
+    def test_copied_append_handle_cannot_use_ready_receive_and_transmit_queues(self):
+        bank = rt.Messaging({'S1:': {'connected': True, 'input': b'rx'}})
+        handle = rt.FileHandle()
+        bank.open_for(None, handle, 'AP', 'S1:')
+        bank.write(handle, b'tx')
+        copied = copy(handle)
+        for operation in (lambda: bank.read_bytes(copied, 1), lambda: bank.write(copied, b'x')):
+            with self.assertRaisesRegex(rt.KarelRuntimeError, 'original open registration'):
+                operation()
+        self.assertEqual((bank.files['S1:'], bank.take_output('S1:'), handle.position), (b'rx', b'tx', 0))
+        bank.close(handle)
 
     def test_mount_and_dismount_preserve_queued_bytes(self):
         bank=rt.Messaging({'C1:':{'mounted':False,'input':'in','output':'out'}});ctx=rt.ExecutionContext(messaging=bank)

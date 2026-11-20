@@ -64,7 +64,8 @@ routines and lexical USING fields keep their normal priority over the names.
 Aliases are not discoverable variable data or additional globals.
 
 Bound operations reuse ordinary text/binary formats, aggregate capture, byte
-cursors and atomic destination publication. Default WRITE bypasses its callback
+cursors and atomic destination publication. A bound [socket FILE in AP mode](communications.md#file-input-and-output)
+can READ after its first successful nonempty WRITE. Default WRITE bypasses its callback
 when bound. No new packed layouts, device timings or numeric conventions are added.
 
 ## Cancellation and ownership
