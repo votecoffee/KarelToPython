@@ -11,8 +11,8 @@ input-discovery contract to the result.
 | Type queries | `type_checking.py` | `TypeQueries` inspects schemas, resolves scoped references and FILE prefixes, and checks storage for BYNAME and service operands. Declaration analysis and lowering share these queries. |
 | Operator rules | `operator_types.py` | Unary and binary rules check operand schemas and return a result schema. Python generation applies evaluation order, source diagnostics, and reporting. |
 | Call analysis | `call_analysis.py` | Plans routine arguments and results, including conversion, storage, and collection rules. Validates bindings and protected counter use, resolves service signatures, and checks PATH node compatibility. |
-| SELECT checking | `select_analysis.py` | `check_select()` returns a checked selector and typed CASE rows in source order. The emitter assembles the dispatch call and report from those rows. |
-| Control flow | `control_flow.py` | `validate_labels()` checks scope entry with the declared names and source mode. `FlowGraph` lowers a validated body to dispatch nodes. |
+| SELECT | `select_analysis.py`, `select_codegen.py` | `check_select()` returns a checked selector and typed CASE rows in source order. The shared generator emits the match and uses the control-flow engine to emit each branch. |
+| Control flow | `control_flow.py`, `flow_codegen.py` | `validate_labels()` checks scope entry and `FlowGraph` builds dispatch nodes. `ControlFlowLowering.emit_body()` emits the validated body, its source checkpoints, and FOR scope cleanup. |
 | Loop and USING generation | `loop_analysis.py`, `loop_codegen.py`, `using_codegen.py` | Checks FOR counter ownership and schema. Both control-flow engines share counter initialization, inclusive range generation, and USING entry capture. |
 | Generation | `expression_codegen.py`, `python_codegen.py` | `ExpressionLowering` lowers expressions and access paths. `Emitter.emit()` drives validation and emits Python. |
 | Routine generation | `routine_codegen.py` | Captures arguments in source order and emits calls and checked RETURN values. |

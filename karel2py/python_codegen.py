@@ -11,10 +11,11 @@ from .compiler_language import (
 )
 from .assignment_codegen import AssignmentLowering
 from .declarations import DeclarationPasses
+from .flow_codegen import ControlFlowLowering
 from .handler_codegen import HandlerLowering
 from .loop_codegen import LoopLowering
 from .syntax import Expr, Statement
-from .select_analysis import check_select
+from .select_codegen import SelectLowering
 from .expression_codegen import ExpressionLowering
 from .motion_codegen import MotionLowering
 from .robot_system_codegen import RobotSystemLowering
@@ -24,7 +25,6 @@ from .statement_io_codegen import StatementIOLowering
 from .task_codegen import TaskControlLowering
 from .type_checking import TypeQueries
 from .using_codegen import UsingLowering
-from .control_flow import FlowGraph, validate_labels
 from .lexer import Token, TranslationError
 from . import __version__
 from . import extended as ex
@@ -33,7 +33,8 @@ from . import runtime as rt
 
 class Emitter(DeclarationPasses, TypeQueries, ExpressionLowering, AssignmentLowering,
               RoutineLowering, RobotSystemLowering, ServiceCallLowering, StatementIOLowering,
-              MotionLowering, TaskControlLowering, HandlerLowering, LoopLowering, UsingLowering):
+              MotionLowering, TaskControlLowering, HandlerLowering, LoopLowering, UsingLowering,
+              ControlFlowLowering, SelectLowering):
     """Emit a Python module from a parsed program and its checked declarations."""
 
     def __init__(self, program, filename, array_shapes=None, mode='strict', cooperative=False):
@@ -174,160 +175,6 @@ class Emitter(DeclarationPasses, TypeQueries, ExpressionLowering, AssignmentLowe
         if not statements: self.line('pass')
         for statement in statements: self.statement(statement)
 
-    def validate_labels(self, statements):
-        conflicts = set(self.types) | set(self.visible_constants()) | set(self.user_types) | set(self.routines) | {self.program.name}
-        if self.current_routine:
-            conflicts.update(self.current_routine.local_types)
-        return validate_labels(statements, conflicts=conflicts, mode=self.mode, error=self.error)
-
-    def select_code(self, stmt):
-        checked = check_select(stmt, mode=self.mode, expression=self.expression, require_type=self.require_type,
-                               constant=self.constant, visible_constants=self.visible_constants, error=self.error)
-        category, selector, spec = checked.category, checked.selector, checked.schema
-        cases = [tuple(case.value for case in row) for row in checked.clauses]
-        sites = []
-        if category is None:
-            table = repr(tuple(cases))
-        else:
-            expressions = []
-            for case_index, row in enumerate(checked.clauses):
-                codes = []
-                for value_index, case in enumerate(row):
-                    expr = case.source
-                    code = f'_rt.select_scalar({case.code},{category!r},{expr.token.line})' if case.dynamic else repr(case.value)
-                    codes.append(code)
-                    sites.append(dict(clause=case_index, value_index=value_index, line=expr.token.line, column=expr.token.column,
-                                      expression_kind=expr.kind, type=case.kind, dynamic=case.dynamic, evaluated_once=True))
-                expressions.append('(' + ','.join(codes) + ',)')
-            # Validate/capture the selector before any case expression effects.
-            selector = f'_rt.select_scalar({selector},{category!r},{stmt.token.line})'
-            table = '(' + ','.join(expressions) + ',)'
-        self.select_scopes.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
-                                       line=stmt.token.line, column=stmt.token.column, case_values=cases,
-                                       case_count=len(cases), has_else=stmt.has_else,
-                                       empty_else=stmt.has_else and not stmt.alternate,
-                                       no_match='else_clause' if stmt.has_else else 'KarelRuntimeError'))
-        if category is not None:
-            dynamic = any(site['dynamic'] for site in sites)
-            case_types = [[case.kind for case in row] for row in checked.clauses]
-            self.select_scopes[-1].update(selector_type=spec, comparison_category=category, case_types=case_types,
-                dynamic_cases=dynamic, case_expressions=sites, case_evaluation='all_once_left_to_right_before_matching')
-            if spec[0] in ('BOOLEAN', 'STRING', 'REAL'): self.features.add('Pythonic scalar SELECT')
-            if dynamic: self.features.add('dynamic SELECT case expressions')
-        self.features.add('SELECT first matching CASE')
-        self.features.add('SELECT no-match guard')
-        category_code = f',category={category!r}' if category is not None else ''
-        return f'_rt.select_case({selector}, {table}, {stmt.has_else!r}, {stmt.token.line}{category_code})'
-
-    def emit_body(self, statements):
-        labelled,transfers=self.validate_labels(statements)
-        if not labelled:
-            report = dict(engine='structured_python', labels={})
-            self.block(statements)
-        else:
-            graph = FlowGraph(statements,lower_for=self.mode=='pythonic')
-            report = graph.report()
-            self.features.add('label control-flow dispatcher')
-            pc = self.fresh()
-            frames=done=None
-            if graph.for_scopes:
-                self.features.add('FOR dispatcher scopes and checked jumps')
-                frames,done=self.fresh(),self.fresh()
-                self.line(f'{frames} = []')
-                self.line(f'{done} = object()')
-                self.line('try:');self.indent+=1
-            self.line(f'{pc} = {graph.entry!r}')
-            self.line(f'while {pc} is not None:')
-            self.indent += 1
-            self.line(f'match {pc}:')
-            self.indent += 1
-            for index, node in enumerate(graph.nodes):
-                stmt, kind = node.statement, node.kind
-                token, line = stmt.token, stmt.token.line
-                self.line(f'case {index}:', token)
-                self.indent += 1
-                previous_counters=self.active_counters
-                if graph.for_scopes:
-                    self.active_counters={self.protection_root(graph.for_scopes[scope].args[0]) for scope in node.for_scopes}
-                    self.line(f'while {frames} and {frames}[-1][0] not in {node.for_scopes!r}:')
-                    self.indent+=1;self.line(f'{frames}.pop()[1].clear()');self.indent-=1
-                    self.line(f'if tuple(_frame[0] for _frame in {frames}) != {node.for_scopes!r}:')
-                    self.indent+=1;self.line(f'raise _rt.KarelRuntimeError("Invalid generated FOR scope state", {line})');self.indent-=1
-                if kind in ('label', 'goto', 'enter'):
-                    self.features.add(stmt.kind)
-                    if kind != 'label': self.line(f'self._state.tick({line})', token)
-                    if kind == 'enter' and stmt.kind == 'using': self.emit_using_entry(stmt)
-                    self.line(f'{pc} = {node.targets[0]!r}')
-                elif kind=='for_enter':
-                    self.features.add('for');self.line(f'self._state.tick({line})',token)
-                    operands = self.for_operands(stmt)
-                    stop, captured = self.fresh(), self.fresh()
-                    self.capture_for_counter(operands, captured, line)
-                    self.line(f'{frames}.append([{index}, {captured}, None])')
-                    self.line(f'{stop} = {operands.final}')
-                    start = f'_rt.require({captured}.raw(), {line})'
-                    self.line(f'{frames}[-1][2] = iter({operands.range_code(start, stop)})')
-                    self.line(f'{pc} = {node.targets[0]!r}')
-                elif kind=='for_next':
-                    item=self.fresh()
-                    self.line(f'{item} = next({frames}[-1][2], {done})')
-                    self.line(f'if {item} is {done}:');self.indent+=1
-                    self.line(f'{pc} = {node.targets[1]!r}');self.indent-=1
-                    self.line('else:');self.indent+=1
-                    self.line(f'self._state.tick({line})',token)
-                    self.line(f'{frames}[-1][1].set({item}, {line})')
-                    self.line(f'{pc} = {node.targets[0]!r}');self.indent-=1
-                elif kind=='for_exit':
-                    self.line(f'{frames}.pop()[1].clear()')
-                    self.line(f'{pc} = {node.targets[0]!r}')
-                elif kind in ('if', 'while_test', 'repeat_test'):
-                    self.features.add(stmt.kind)
-                    if kind == 'if': self.line(f'self._state.tick({line})', token)
-                    condition = self.require_type(stmt.args[0], 'BOOLEAN')
-                    yes, no = node.targets
-                    self.line(f'{pc} = {yes!r} if {self.test_code(condition,line)} else {no!r}', token)
-                elif kind == 'select':
-                    self.features.add('select')
-                    self.line(f'self._state.tick({line})', token)
-                    temporary = self.fresh()
-                    self.line(f'{temporary} = {self.select_code(stmt)}', token)
-                    self.line(f'match {temporary}:')
-                    self.indent += 1
-                    for case_index, _ in enumerate(stmt.args[1]):
-                        case_token = stmt.args[1][case_index][0]
-                        self.line(f'case {case_index}:', case_token)
-                        self.indent += 1
-                        self.line(f'{pc} = {node.targets[case_index]!r}')
-                        self.indent -= 1
-                    self.line('case _:')
-                    self.indent += 1
-                    if stmt.has_else:
-                        self.line(f'{pc} = {node.targets[-1]!r}')
-                    else:
-                        self.line(f'raise _rt.KarelRuntimeError("No match in CASE", {line})', token)
-                    self.indent -= 2
-                elif kind == 'abort':
-                    self.statement(stmt)  # Terminal node: no fall-through successor.
-                else:
-                    self.statement(stmt)
-                    self.line(f'{pc} = {node.targets[0]!r}')
-                self.indent -= 1
-                self.active_counters=previous_counters
-            self.line('case _:')
-            self.indent += 1
-            self.line('raise _rt.KarelRuntimeError("Invalid generated control-flow state")')
-            self.indent -= 3
-            if graph.for_scopes:
-                self.indent-=1;self.line('finally:');self.indent+=1
-                self.line(f'while {frames}:');self.indent+=1
-                self.line(f'{frames}.pop()[1].clear()');self.indent-=2
-        report['jumps']=transfers
-        if self.current_routine: self.control_flow['routines'][self.current_routine.name] = report
-        else: self.control_flow['program'] = report
-
-    def test_code(self,code,line):
-        return f'(yield from _rt.cooperative_test(self._state,lambda: {code},{line}))' if self.cooperative else f'self._state.test({code},{line})'
-
     def statement(self, stmt, file_code=None):
         token, kind = stmt.token, stmt.kind
         line = token.line
@@ -439,45 +286,13 @@ class Emitter(DeclarationPasses, TypeQueries, ExpressionLowering, AssignmentLowe
         elif kind == 'read':
             self.lower_read(stmt, file_code)
         elif kind in ('if', 'while'):
-            condition = self.require_type(stmt.args[0], 'BOOLEAN')
-            self.line(f'{kind} {self.test_code(condition,line)}:', token)
-            self.indent += 1
-            self.block(stmt.body)
-            self.indent -= 1
-            if kind == 'if' and stmt.alternate:
-                self.line('else:')
-                self.indent += 1
-                self.block(stmt.alternate)
-                self.indent -= 1
+            self.emit_structured_condition(stmt)
         elif kind == 'repeat':
-            condition = self.require_type(stmt.args[0], 'BOOLEAN')
-            self.line('while True:', token)
-            self.indent += 1
-            self.block(stmt.body)
-            self.line(f'if {self.test_code(condition,line)}:')
-            self.indent += 1
-            self.line('break')
-            self.indent -= 2
+            self.emit_structured_repeat(stmt)
         elif kind == 'for':
             self.emit_structured_for(stmt)
         elif kind == 'select':
-            _, cases = stmt.args
-            temporary = self.fresh()
-            self.line(f'{temporary} = {self.select_code(stmt)}', token)
-            self.line(f'match {temporary}:')
-            self.indent += 1
-            for index, (case_token, _, body) in enumerate(cases):
-                self.line(f'case {index}:', case_token)
-                self.indent += 1
-                self.block(body)
-                self.indent -= 1
-            self.line('case _:')
-            self.indent += 1
-            if stmt.has_else:
-                self.block(stmt.alternate)
-            else:
-                self.line(f'raise _rt.KarelRuntimeError("No match in CASE", {line})', token)
-            self.indent -= 2
+            self.emit_structured_select(stmt)
         elif kind == 'call':
             expr = stmt.args[0]
             if self.mode=='pythonic' and expr.value in ex.PROCEDURES and expr.value not in self.routines:

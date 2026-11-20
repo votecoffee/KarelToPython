@@ -1,5 +1,11 @@
 # Changelog
 
+## 26.1120.002847 - 2026-11-20
+
+- Give body dispatch and FOR scope unwinding a dedicated Python generator.
+  Share SELECT case emission between structured and labelled bodies while
+  preserving source checkpoints and counter lifetime.
+
 ## 26.1120.002515 - 2026-11-20
 
 - Share FOR counter checks, capture, and bounds between structured Python and
