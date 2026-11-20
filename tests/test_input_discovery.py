@@ -103,6 +103,12 @@ class InputDiscoveryTests(unittest.TestCase):
         self.assertEqual(names(report)[('variable', 'X')], 'required')
         self.assertTrue(any(row['service'] == 'ports' for row in report['context_requirements']))
 
+    def test_numbered_pause_wait_reads_its_target_before_boolean_short_circuit(self):
+        report, _ = scan('WAIT FOR TRUE OR PAUSE PROGRAM[x]')
+        self.assertEqual(names(report), {('variable', 'X'): 'required'})
+        self.assertTrue(any(row['service'] == 'tasks' for row in report['context_requirements']))
+        self.assertTrue(any(row['code'] == 'condition-source' for row in report['unresolved']))
+
     def test_zero_iteration_while_and_at_least_once_repeat(self):
         report,_=scan('WHILE flag DO x=1 ENDWHILE n=x')
         self.assertEqual(names(report),{('variable','FLAG'):'required',('variable','X'):'conditional'})

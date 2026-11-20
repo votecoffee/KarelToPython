@@ -13,6 +13,9 @@ class HandlerLowering(HandlerAnalysis):
             if not isinstance(item, Expr) or item.kind != 'eval':
                 continue
             operand = item.args[0]
+            if any(isinstance(node, Expr) and node.kind == 'program_pause'
+                   for node in self.walk_nodes(operand)):
+                self.error('E_EVAL', 'EVAL cannot capture a qualified pause event', item.token)
             code, spec = self.expression(operand)
             temporary = self.fresh()
             captures.append((temporary, operand))
@@ -96,12 +99,15 @@ class HandlerLowering(HandlerAnalysis):
         options = {'$SCAN_TIME': '0', '$PRIORITY': '50'}
         for key, value in source_options:
             options[key.value] = self._capture_handler_integer(value)
+        observe_pauses = any(isinstance(node, Expr) and node.kind == 'program_pause'
+                             for clause in stmt.body for node in self.walk_nodes(clause.args[0]))
         pairs = [f'({predicate},{action})' for predicate, action in self.condition_callbacks(stmt.body)]
         self.handler_uses.append(dict(
             body=self.current_routine.name if self.current_routine else self.program.name, line=line, column=token.column,
             option_order=[key.value for key, _ in source_options], clauses=len(stmt.body), evaluated_once=True))
-        self.line(f'_rt.define_condition(self._state,{captured},[{", ".join(pairs)}],{line},scan_ms={options["$SCAN_TIME"]},priority={options["$PRIORITY"]})',
-                  token)
+        pause_option = ',observe_pauses=True' if observe_pauses else ''
+        self.line(f'_rt.define_condition(self._state,{captured},[{", ".join(pairs)}],{line},'
+                  f'scan_ms={options["$SCAN_TIME"]},priority={options["$PRIORITY"]}{pause_option})', token)
 
     def lower_connected_timer(self, stmt):
         token, line = stmt.token, stmt.token.line

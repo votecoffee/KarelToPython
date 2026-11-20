@@ -28,6 +28,11 @@ class ExpressionLowering:
         if expr.kind=='edge':
             value=self.require_type(expr.args[0],'BOOLEAN'); key=(expr.token.line,expr.token.column)
             return f'_rt.edge_condition(self._state,{key!r},{value},{expr.value!r},{expr.token.line})',('BOOLEAN',)
+        if expr.kind == 'program_pause':
+            number = self.require_type(expr.args[0], 'INTEGER')
+            site = (expr.token.line, expr.token.column)
+            self.features.add('qualified PAUSE condition')
+            return f'_rt.program_pause_condition(self._state,{number},{site!r},{expr.token.line})', ('BOOLEAN',)
         if expr.kind=='task_event':
             if expr.value=='PAUSE': return 'self._state._pause_requested',('BOOLEAN',)
             if expr.value=='ABORT': return 'self._state._abort_requested',('BOOLEAN',)

@@ -974,6 +974,15 @@ class Parser:
             self.expect('[')
             arguments=[] if self.accept('*') else [self.expression()]
             self.expect(']'); left=Expr('error_condition',token,args=arguments)
+        elif token.value == 'PAUSE' and (self.in_wait_condition or self.in_condition and self.current.value == 'PROGRAM'):
+            target = None
+            if self.accept('PROGRAM'):
+                if self.in_motion_condition:
+                    self.error('E_MOTION_CONDITION', 'PAUSE PROGRAM is supported in global conditions and WAIT FOR', token)
+                self.expect('[')
+                target = self.expression()
+                self.expect(']')
+            left = Expr('wait_pause' if self.in_wait_condition else 'program_pause', token, args=[target])
         elif self.in_condition and token.value in ('PAUSE','ABORT','CONTINUE','POWERUP'):
             left=Expr('task_event',token,token.value)
         elif token.kind == 'INT':

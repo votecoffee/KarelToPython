@@ -1,5 +1,13 @@
 # Changelog
 
+## 26.1120.125942 - 2026-11-20
+
+- Translate global PAUSE PROGRAM conditions and WAIT FOR PAUSE with an
+  optional registered task number. Track suspensions in the offline drivers
+  and preserve self-pause suppression for qualified global handlers.
+- Isolate pause observation per wait or handler activation. Include task
+  selectors in input discovery and leave past pauses behind on handler rearm.
+
 ## 26.1120.125146 - 2026-11-20
 
 - Capture EVAL operands once per WAIT FOR entry, before live checks and port

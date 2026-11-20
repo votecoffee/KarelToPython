@@ -7,7 +7,7 @@ def wait_terms(operand):
     if isinstance(operand, Expr):
         for child in operand.args:
             yield from wait_terms(child)
-        if operand.kind in ('wait_eval', 'wait_edge'):
+        if operand.kind in ('wait_eval', 'wait_edge', 'wait_pause'):
             yield operand
 
 
@@ -32,13 +32,15 @@ class TimingLowering:
         operand = stmt.args[0]
         terms = list(wait_terms(operand))
         captures = [term for term in terms if term.kind == 'wait_eval']
-        edges = [term for term in terms if term.kind == 'wait_edge']
+        samples = [term for term in terms if term.kind != 'wait_eval']
+        edge_count = sum(term.kind == 'wait_edge' for term in samples)
+        pause_count = len(samples) - edge_count
         originals = []
         try:
             for term in captures:
                 self.emit_wait_capture(term, originals)
-            condition = (self.emit_wait_edge_predicate(operand, edges, originals) if edges
-                         else self.require_type(operand, 'BOOLEAN'))
+            condition = (self.emit_sampled_wait(operand, samples, originals, edge_count, pause_count)
+                         if samples else self.require_type(operand, 'BOOLEAN'))
         finally:
             # Preserve source operands and operator identities for input discovery.
             for term, kind, value, args in originals:
@@ -56,9 +58,12 @@ class TimingLowering:
         if captures:
             self.features.add('WAIT FOR EVAL capture')
             self.wait_uses[-1]['entry_captures'] = len(captures)
-        if edges:
+        if edge_count:
             self.features.update(('ports', 'WAIT FOR port edges'))
-            self.wait_uses[-1]['port_edges'] = len(edges)
+            self.wait_uses[-1]['port_edges'] = edge_count
+        if pause_count:
+            self.features.add('WAIT FOR PAUSE')
+            self.wait_uses[-1]['task_pause_conditions'] = pause_count
 
     @staticmethod
     def bind_wait_temporary(term, temporary, spec, originals):
@@ -67,33 +72,47 @@ class TimingLowering:
 
     def emit_wait_capture(self, term, originals):
         operand = term.args[0]
-        if any(child.kind == 'wait_edge' for child in wait_terms(operand)):
-            self.error('E_EVAL', 'EVAL in WAIT FOR cannot capture a port transition', term.token)
+        if any(child.kind in ('wait_edge', 'wait_pause') for child in wait_terms(operand)):
+            self.error('E_EVAL', 'EVAL in WAIT FOR cannot capture a port transition or task pause', term.token)
         code, spec = self.expression(operand)
         temporary = self.fresh()
         self.line(f'{temporary} = _rt.assignment_value({code}, {term.token.line})', term.token)
         self.bind_wait_temporary(term, temporary, spec, originals)
 
-    def emit_wait_edge_predicate(self, operand, edges, originals):
-        history, predicate = self.fresh(), self.fresh()
-        self.line(f'{history} = {{}}')
+    def emit_sampled_wait(self, operand, samples, originals, edge_count, pause_count):
+        predicate = self.fresh()
+        if edge_count:
+            edges = self.fresh()
+            self.line(f'{edges} = {{}}')
+        if pause_count:
+            pauses = self.fresh()
+            self.line(f'{pauses} = _rt.PauseSamples(self._state, include_current=True)')
         self.line(f'def {predicate}():')
         self.indent += 1
-        for key, edge in enumerate(edges):
-            port = edge.args[0]
-            bank = port.args[0]
-            if bank.kind != 'name' or bank.value in self.types or bank.value in self.visible_constants():
-                self.error('E_PORT_EDGE', 'WAIT FOR edge requires an unshadowed digital port bank', edge.token)
-            if len(port.args) != 2:
-                self.error('E_ARGUMENTS', 'Ports require one index', port.token)
-            address = self.require_type(port.args[1], 'INTEGER')
-            sample = self.fresh()
-            self.line(f'{sample} = _rt.sample_wait_edge(self._state, {history}, {key}, '
-                      f'{bank.value!r}, {address}, {edge.value!r}, {edge.token.line})', edge.token)
-            self.bind_wait_temporary(edge, sample, ('BOOLEAN',), originals)
+        for key, term in enumerate(samples):
+            if term.kind == 'wait_edge':
+                evaluation = self.wait_edge_sample(term, edges, key)
+            else:
+                target = term.args[0]
+                number = self.require_type(target, 'INTEGER') if target is not None else 'None'
+                evaluation = f'_rt.sample_wait_pause(self._state, {pauses}, {number}, {key}, {term.token.line})'
+            temporary = self.fresh()
+            self.line(f'{temporary} = {evaluation}', term.token)
+            self.bind_wait_temporary(term, temporary, ('BOOLEAN',), originals)
         self.line(f'return {self.require_type(operand, "BOOLEAN")}', operand.token)
         self.indent -= 1
         return f'{predicate}()'
+
+    def wait_edge_sample(self, term, history, key):
+        port = term.args[0]
+        bank = port.args[0]
+        if bank.kind != 'name' or bank.value in self.types or bank.value in self.visible_constants():
+            self.error('E_PORT_EDGE', 'WAIT FOR edge requires an unshadowed digital port bank', term.token)
+        if len(port.args) != 2:
+            self.error('E_ARGUMENTS', 'Ports require one index', port.token)
+        address = self.require_type(port.args[1], 'INTEGER')
+        return (f'_rt.sample_wait_edge(self._state, {history}, {key}, '
+                f'{bank.value!r}, {address}, {term.value!r}, {term.token.line})')
 
     def lower_pulse(self, stmt):
         token = stmt.token

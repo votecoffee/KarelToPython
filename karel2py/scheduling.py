@@ -89,6 +89,11 @@ def paused_task_descendants(root):
     return descendants
 
 
+def mark_task_paused(state):
+    state.task_state = 'paused'
+    state._pause_generation += 1
+
+
 def mark_task_continued(state):
     state.task_state = 'running'
     state._pause_requested = False
@@ -370,6 +375,51 @@ def sample_wait_edge(state, history, key, bank, address, direction, line):
             and value == (direction == '+'))
 
 
+def registered_task(state, number, line):
+    number = rt().integer(number, line)
+    tasks = list(state.execution.tasks.tasks.values())
+    if not 1 <= number <= len(tasks):
+        raise rt().KarelRuntimeError('Task number is not registered', line)
+    return tasks[number - 1]
+
+
+class PauseSamples:
+    """Track a pause generation for every predicate site and registered target."""
+
+    def __init__(self, state, *, include_current=False):
+        self.include_current = include_current
+        self.baselines = {program._state: self.baseline(program._state)
+                          for program in state.execution.tasks.tasks.values()}
+        root = rt().task_root(state)
+        self.baselines.setdefault(root, self.baseline(root))
+        self.seen = {}
+
+    def baseline(self, target):
+        return target._pause_generation - (self.include_current and target.task_state == 'paused')
+
+    def consume(self, target, site):
+        baseline = self.baselines.setdefault(target, self.baseline(target))
+        key = target, site
+        previous = self.seen.get(key, baseline)
+        self.seen[key] = target._pause_generation
+        return target._pause_generation > previous
+
+
+def program_pause_condition(state, number, site, line):
+    target = registered_task(state, number, line)._state
+    if target is rt().task_root(state):
+        # A self-pause action can suppress the request before it reaches the driver.
+        return state._pause_requested
+    handler = state._handlers.get(state._scanning_condition)
+    samples = handler.get('pause_samples') if handler else None
+    return samples.consume(target, site) if samples is not None else False
+
+
+def sample_wait_pause(state, samples, number, site, line):
+    target = rt().task_root(state) if number is None else registered_task(state, number, line)._state
+    return samples.consume(target, site)
+
+
 def lifecycle_condition(state,name,key):
     generation=state._lifecycle.get(name,0); consumer=(getattr(state,'_scanning_condition',None),key,name)
     previous=state._event_seen.get(consumer,0); state._event_seen[consumer]=generation
@@ -589,7 +639,7 @@ class TaskScheduler:
                         with runtime._numeric_scope('pythonic'): event=next(program._execution)
                         name=names[slot]
                         if type(event) is not dict: raise runtime.KarelRuntimeError('Invalid scheduler event')
-                        if event['kind']=='pause': state.task_state='paused'
+                        if event['kind']=='pause': mark_task_paused(state)
                         elif event['kind']=='sleep': self.waiting[name]=event['until']; state.task_state='waiting'
                         elif event['kind']=='kcl_wait': self.waiting[name]=event['ready']; state.task_state='waiting'
                         elif event['kind']!='timeslice': raise runtime.KarelRuntimeError('Unknown scheduler event')
@@ -728,9 +778,7 @@ def run_registered_task(registry, caller, operation, args, line=None):
 
 
 def control_task(state,action,number,line=None):
-    number=rt().integer(number,line); tasks=list(state.execution.tasks.tasks.values())
-    if not 1<=number<=len(tasks): raise rt().KarelRuntimeError('Task number is not registered',line)
-    target=tasks[number-1]
+    target = registered_task(state, number, line)
     if target._state is rt().task_root(state):
         if action in ('PAUSE','ABORT'):
             rt().request_task_control(target._state,action,line)

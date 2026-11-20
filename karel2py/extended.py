@@ -2133,7 +2133,7 @@ def disconnect_timer(state,reference,line=None,*,scoped=False):
     if binding is not None:del owner._frame_timers[key]
 
 
-def define_condition(state,number,clauses,line=None,*,scan_ms=0,priority=50):
+def define_condition(state,number,clauses,line=None,*,scan_ms=0,priority=50,observe_pauses=False):
     number=runtime().integer(number,line)
     if not 1<=number<=1000: fail('Condition number must be in 1..1000',line)
     if number in state._handlers: fail('Purge an existing condition before redefining it',line)
@@ -2143,14 +2143,24 @@ def define_condition(state,number,clauses,line=None,*,scan_ms=0,priority=50):
     if not 1<=priority<=99:fail('Handler priority must be in 1..99',line)
     local_frame=state.local_frames[-1] if state.execution.local_handlers and state.local_frames else None
     state._handlers[number]=dict(clauses=clauses,enabled=False,frames=list(state.local_frames),scan_ms=scan_ms,priority=priority,due=None,local_frame=local_frame)
+    if observe_pauses:
+        state._handlers[number]['observe_pauses'] = True
 
 
 def condition_control(state,operation,number,line=None):
     number=runtime().integer(number,line)
     if operation=='PURGE': state._handlers.pop(number,None); return
     if number not in state._handlers: return
-    state._handlers[number]['enabled']=operation=='ENABLE'
-    if operation=='ENABLE': state._handlers[number]['due']=None
+    handler = state._handlers[number]
+    enable = operation == 'ENABLE'
+    if handler.get('observe_pauses'):
+        if enable and not handler['enabled']:
+            handler['pause_samples'] = runtime().PauseSamples(state)
+        elif not enable:
+            handler.pop('pause_samples', None)
+    handler['enabled'] = enable
+    if enable:
+        handler['due'] = None
 
 
 def debug_pause(state,line,*,channel=None):
@@ -2211,6 +2221,7 @@ def checkpoint(state,line=None,*,force_pause=False,_defer_control=False,_source=
                             if state._handlers.get(number) is not handler or not handler['enabled']:
                                 break
                         handler['enabled']=False
+                        handler.pop('pause_samples', None)
                         result=action()
                         if rt.inspect.isgenerator(result): yield from result
                         break
@@ -2257,7 +2268,9 @@ def drive(program):
     try:
         event=next(program._execution)
         if type(event) is not dict or event.get('kind')!='pause': fail('Unknown cooperative execution event')
-        state.task_state='paused'; raise KarelPause('Task paused; call Program.resume()')
+        from .scheduling import mark_task_paused
+        mark_task_paused(state)
+        raise KarelPause('Task paused; call Program.resume()')
     except StopIteration as finished:
         program._execution=None; state.task_state='completed'; return finished.value
     except KarelPause: raise

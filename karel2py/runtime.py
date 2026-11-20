@@ -4229,6 +4229,7 @@ class State:
         self._abort_requested=False; self._abort_request_line=None; self._lifecycle={'CONTINUE':0,'POWERUP':0}
         self._current_error=None
         self.task_state='ready'; self._pause_requested=False; self._driving=False
+        self._pause_generation = 0
         if joint_axes is not None and (type(joint_axes) is not int or not 1 <= joint_axes <= 9):
             raise ValueError('joint_axes must be None or an INTEGER in 1..9')
         if sleep is not None and not callable(sleep):
@@ -5162,7 +5163,7 @@ from .configtext import ConfigTextFormats, CONFIG_TEXT_GROUP_MISSING
 from .pulses import pulse_execution
 from .kinematics import SerialRobotModel
 from .scheduling import (TaskScheduler,EventBank,event_condition,edge_condition,lifecycle_condition,
-                         sample_wait_edge,
+                         sample_wait_edge, PauseSamples, program_pause_condition, sample_wait_pause,
                          signal_event,delay_execution,control_task,condition_scope,TASK_CONSTANTS,
                          configure_task,TASK_DIRECTIVES,TASK_FLAG_DIRECTIVES,TASK_MASKS,
                          SOURCE_DIRECTIVES,SOURCE_FLAG_DIRECTIVES,SOURCE_DIRECTIVE_RANGES,

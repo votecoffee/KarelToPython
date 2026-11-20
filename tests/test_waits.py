@@ -255,6 +255,32 @@ class WaitEvalTests(unittest.TestCase):
             self.assertEqual(caught.exception.code, code)
 
 
+class WaitTaskPauseTests(unittest.TestCase):
+    def test_host_pause_can_satisfy_unqualified_wait_after_resume(self):
+        observed = []
+
+        def sleep(seconds):
+            observed.append(seconds)
+            program.pause()
+
+        program, result, _ = compile_program('WAIT FOR PAUSE; done=TRUE', sleep=sleep)
+        with self.assertRaises(rt.KarelPause):
+            program.run(max_steps=15)
+        self.assertTrue(program.resume()['DONE'])
+        self.assertEqual(observed, [0.])
+        self.assertEqual(result.report['waits'][0]['task_pause_conditions'], 1)
+
+    def test_wait_pause_validates_target_type_and_registration(self):
+        with self.assertRaises(TranslationError) as caught:
+            compile_program('WAIT FOR PAUSE PROGRAM[TRUE]')
+        self.assertEqual(caught.exception.code, 'E_TYPE')
+        program, _, sleeps = compile_program('WAIT FOR PAUSE PROGRAM[1]')
+        with self.assertRaisesRegex(rt.KarelRuntimeError, 'Task number is not registered') as runtime:
+            program.run()
+        self.assertEqual(runtime.exception.line, 6)
+        self.assertEqual(sleeps, [])
+
+
 class WaitIntegrationTests(unittest.TestCase):
     def test_labelled_dispatch_wait(self):
         p,result,calls=compile_program('n=0 WAIT FOR ready_now() after=n',routines=READY,labelled=True)

@@ -28,6 +28,24 @@ Self CONTINUE, bare or numeric, scans handlers after incrementing its lifecycle 
 including when it is the final source statement. POWERUP and ordinary resume
 retain their [existing contracts](control-notifications.md#recovery-and-handler-actions).
 
+### Pause conditions
+
+A global handler can use `WHEN PAUSE PROGRAM[n] DO ...` to watch a registered
+task. The task number follows the same one-based order as `PAUSE PROGRAM[n]`.
+A handler watching its own task can suppress a pending pause with `NOPAUSE`.
+A handler watching another task observes a suspension after it reaches that
+task's driver. Enabling or rearming the handler starts a fresh observation.
+Multiple suspensions between predicate samples count as one observation.
+
+`WAIT FOR PAUSE PROGRAM[n]` accepts a currently paused target or a new
+suspension after wait entry. Unqualified `WAIT FOR PAUSE` watches the calling
+task and can complete after it resumes. Task selection in WAIT is sampled once
+per poll, and `EVAL` can freeze the number at entry.
+
+These are cooperative task observations over explicitly registered programs.
+The KAREL reference documents the condition in MARRC75KR07091E Rev N,
+section A.16.4, and its use in WAIT through Appendix E figures (t) and (u).
+
 ### Forced and broadcast requests
 
 `PAUSE_TASK(name,force_sw,stop_mtn_sw,status)` and

@@ -538,6 +538,11 @@ class _Analyzer:
             return _Value(complete=False, spec=spec)
         if self.linked_plans is not None and kind=='motion_event':
             return _Value(spec=['BOOLEAN'])
+        if kind == 'program_pause':
+            self.expr(args[0], flow, conditional)
+            self.context('tasks', None)
+            self.unresolved_at('condition-source', 'Pause delivery depends on registered task execution', node)
+            return _Value(spec=['BOOLEAN'])
         if self.linked_plans is not None and kind in ('event', 'semaphore', 'edge', 'error_condition', 'task_event'):
             for item in args:
                 self.expr(item, flow, conditional)
@@ -1048,16 +1053,22 @@ class _Analyzer:
             after_program_return = not self.frames and len(self.exits) > exits_before_block
             self.statement(node, flow, conditional or after_program_return)
 
-    def sample_wait_inputs(self, node, flow, conditional, kind):
+    def sample_wait_inputs(self, node, flow, conditional, kinds):
         if not isinstance(node, dict) or not node.get('args'):
             return node
-        args = [self.sample_wait_inputs(arg, flow, conditional, kind) for arg in node['args']]
-        if node['kind'] != kind:
+        args = [self.sample_wait_inputs(arg, flow, conditional, kinds) for arg in node['args']]
+        kind = node['kind']
+        if kind not in kinds:
             return dict(node, args=args) if any(a is not b for a, b in zip(args, node['args'])) else node
         value = self.expr(args[0], flow, conditional, partial=kind == 'wait_eval')
         if kind == 'wait_edge':
             self.context('ports', None)
             self.unresolved_at('condition-source', 'Port transitions require offline samples', node)
+            value = _Value(spec=['BOOLEAN'])
+        elif kind == 'wait_pause':
+            if args[0] is not None:
+                self.context('tasks', None)
+            self.unresolved_at('condition-source', 'Pause delivery depends on task execution', node)
             value = _Value(spec=['BOOLEAN'])
         return dict(node, kind='wait_sample', value=value, args=[])
 
@@ -1070,8 +1081,8 @@ class _Analyzer:
             self.write(self.locate(args[0],flow,conditional),value,flow,node);return
         if kind=='call':self.expr(args[0],flow,conditional);return
         if kind == 'wait':
-            captured = self.sample_wait_inputs(args[0], flow, conditional, 'wait_eval')
-            predicate = self.sample_wait_inputs(captured, flow, conditional, 'wait_edge')
+            captured = self.sample_wait_inputs(args[0], flow, conditional, ('wait_eval',))
+            predicate = self.sample_wait_inputs(captured, flow, conditional, ('wait_edge', 'wait_pause'))
             if predicate is not args[0]:
                 self.expr(predicate, flow, conditional)
                 self.unresolved_at('task-wait', 'Waiting and possible task effects require an execution order', node)

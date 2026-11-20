@@ -4,6 +4,7 @@ from pathlib import Path
 import unittest
 
 from karel2py import translate_project,load_project,runtime as rt
+from karel2py.lexer import TranslationError
 from tests.test_extended_services import compile_program
 
 
@@ -163,6 +164,102 @@ class SchedulerTests(unittest.TestCase):
         with self.assertRaises(rt.KarelAbort): instance.run('MAIN')
         self.assertEqual(instance.scheduler.snapshot()['CHILD']['state'],'aborted')
         self.assertIsNone(instance.programs['CHILD']._state._scheduler)
+
+    def test_wait_for_numbered_pause_observes_a_new_or_current_pause(self):
+        for paused_on_entry in (False, True):
+            with self.subTest(paused_on_entry=paused_on_entry):
+                launch = 'TRUE' if paused_on_entry else 'FALSE'
+                delay = 'DELAY 10 ' if paused_on_entry else ''
+                main = (f"RUN_TASK('CHILD',0,{launch},FALSE,0,s) {delay}"
+                        'WAIT FOR PAUSE PROGRAM[2]; n=7 CONTINUE PROGRAM[2]')
+                child = 'n=9' if paused_on_entry else 'DELAY 5 PAUSE n=9'
+                result = self.programs(main, child).run('MAIN')
+                self.assertEqual(result['MAIN']['values']['N'], 7)
+                self.assertEqual(result['CHILD']['values']['N'], 9)
+                self.assertEqual(result['CHILD']['state'], 'completed')
+
+    def test_numbered_self_pause_allows_handler_to_suppress_suspension(self):
+        main = ('n=0 CONDITION[1]: WHEN PAUSE PROGRAM[1] DO NOPAUSE, n=7 ENDCONDITION '
+                'ENABLE CONDITION[1] PAUSE')
+        result = self.programs(main, '').run('MAIN')
+        self.assertEqual((result['MAIN']['state'], result['MAIN']['values']['N']), ('completed', 7))
+
+    def test_global_pause_condition_filters_targets_and_rearms_without_replay(self):
+        sources = {
+            'watch': source('WATCH', 'n=0 CONDITION[1]: WHEN PAUSE PROGRAM[3] DO '
+                            'n=n+1 ENABLE CONDITION[1] ENDCONDITION ENABLE CONDITION[1] '
+                            'WHILE n<2 DO DELAY 1 ENDWHILE'),
+            'other': source('OTHER', 'PAUSE'),
+            'child': source('CHILD', 'PAUSE DELAY 2 PAUSE'),
+        }
+        project = translate_project(sources).instantiate()
+        scheduler = project.scheduler
+        watch = project.programs['WATCH']
+        scheduler.start('WATCH')
+        for _ in range(30):
+            scheduler.step()
+            if watch._state._handlers.get(1, {}).get('enabled'):
+                break
+        else:
+            self.fail('Watch did not enable its handler')
+        scheduler.start('OTHER')
+        for _ in range(12):
+            scheduler.step()
+        self.assertEqual(project.programs['OTHER'].task_state, 'paused')
+        self.assertEqual(watch.snapshot()['N'], 0)
+        scheduler.start('CHILD')
+        for _ in range(30):
+            scheduler.step()
+            if watch.snapshot()['N'] == 1:
+                break
+        else:
+            self.fail('Watch did not observe the child pause')
+        for _ in range(12):
+            scheduler.step()
+        self.assertEqual(project.programs['CHILD'].task_state, 'paused')
+        self.assertEqual(watch.snapshot()['N'], 1)
+        scheduler.continue_task('CHILD')
+        result = scheduler.run()
+        self.assertEqual((result['WATCH']['state'], result['WATCH']['values']['N']), ('completed', 2))
+
+    def test_handler_enable_seeds_past_pause_generation(self):
+        main = ('n=0 CONDITION[1]: WHEN PAUSE PROGRAM[2] DO n=99 ENDCONDITION '
+                'ENABLE CONDITION[1] n=n+1 DELAY 1 n=n+1')
+        project = self.programs(main, 'PAUSE')
+        scheduler = project.scheduler
+        scheduler.start('CHILD')
+        self.assertEqual(scheduler.run()['CHILD']['state'], 'paused')
+        self.assertEqual(project.run('MAIN')['MAIN']['values']['N'], 2)
+
+    def test_global_pause_condition_remembers_a_pause_between_scans(self):
+        main = ('n=0 CONDITION[1]: WHEN PAUSE PROGRAM[2] DO n=7 ENDCONDITION '
+                'ENABLE CONDITION[1] DELAY 80 n=n+1')
+        project = self.programs(main, 'PAUSE n=9')
+        scheduler = project.scheduler
+        watch, child = project.programs['MAIN'], project.programs['CHILD']
+        scheduler.start('MAIN')
+        for _ in range(20):
+            scheduler.step()
+            if watch.task_state == 'waiting':
+                break
+        else:
+            self.fail('Watch did not enter its delay')
+        scheduler.start('CHILD')
+        for _ in range(10):
+            scheduler.step()
+            if child.task_state == 'paused':
+                break
+        else:
+            self.fail('Child did not pause')
+        scheduler.continue_task('CHILD')
+        result = scheduler.run()
+        self.assertEqual((result['MAIN']['values']['N'], result['CHILD']['values']['N']), (8, 9))
+
+    def test_qualified_pause_cannot_be_frozen_in_handler_eval(self):
+        body = 'CONDITION[1]: WHEN EVAL(PAUSE PROGRAM[2]) DO n=7 ENDCONDITION'
+        with self.assertRaises(TranslationError) as caught:
+            self.programs(body, '')
+        self.assertEqual(caught.exception.code, 'E_EVAL')
 
     def test_scheduler_budget_bounded(self):
         instance=self.programs('WAIT FOR FALSE','n=1')
