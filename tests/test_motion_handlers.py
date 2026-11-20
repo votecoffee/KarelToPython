@@ -184,6 +184,19 @@ class ScriptedMotionProgressTests(unittest.TestCase):
         self.assertEqual(pauses,[.01,.01,.01,.005])
         self.assertEqual(p._state._edge_history,{})
 
+    def test_port_edge_can_end_an_until_predicate_with_or_without_then(self):
+        for actions in (' THEN n=5 ', '\n', ' '):
+            with self.subTest(actions=actions):
+                ctx = scripted(25)
+                ctx.ports = rt.PortBank({'DIN': 1}, {('DIN', 1): False})
+                values, _, program, _, _ = execute(
+                    'n=0 ATTACH MOVE AWAY 1, UNTIL DIN[1]+' + actions + 'ENDMOVE n=n+1',
+                    ctx=ctx, sleep=lambda _: ctx.ports.update('DIN', 1, True)
+                )
+                self.assertEqual(values['N'], 6 if 'THEN' in actions else 1)
+                self.assertEqual(move(ctx)['outcome'], 'cancelled')
+                self.assertEqual(program._state._edge_history, {})
+
     def test_predicate_function_is_polled_until_its_one_shot_trigger(self):
         routines='ROUTINE ready:BOOLEAN BEGIN n=n+1 RETURN n>=3 END ready'
         values,ctx,_,_,_=execute('n=0 s=0 ATTACH MOVE AWAY 1, WHEN ready() DO s=1 ENDMOVE',ctx=scripted(30),routines=routines)

@@ -361,6 +361,15 @@ def edge_condition(state,key,value,direction,line=None):
     return value and not previous if direction=='+' else previous and not value
 
 
+def sample_wait_edge(state, history, key, bank, address, direction, line):
+    """Detect a change from the preceding sample of the same port."""
+    value = rt().boolean(state.port_read(bank, address, line), line)
+    previous = history.get(key)
+    history[key] = (address, value)
+    return (previous is not None and previous[0] == address and previous[1] != value
+            and value == (direction == '+'))
+
+
 def lifecycle_condition(state,name,key):
     generation=state._lifecycle.get(name,0); consumer=(getattr(state,'_scanning_condition',None),key,name)
     previous=state._event_seen.get(consumer,0); state._event_seen[consumer]=generation

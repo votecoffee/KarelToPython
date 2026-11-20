@@ -30,6 +30,9 @@ a satisfied clause disables itself before running its actions. Earlier actions
 can affect a later predicate in the same scan. A WHEN action list finishes even
 when it cancels the current request; later clauses then stop scanning.
 
+An edge predicate can end an UNTIL clause before THEN or ENDMOVE, as in
+`UNTIL DIN[1]+ THEN n=5` or `UNTIL DIN[1]- ENDMOVE`.
+
 UNTIL first cancels the current group, then executes optional THEN actions.
 The source continues after ENDMOVE unless an action pauses, stops, aborts or
 fails. Cancellation is recorded as `cancelled`; an action failure is recorded as

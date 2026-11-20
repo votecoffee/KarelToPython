@@ -5162,6 +5162,7 @@ from .configtext import ConfigTextFormats, CONFIG_TEXT_GROUP_MISSING
 from .pulses import pulse_execution
 from .kinematics import SerialRobotModel
 from .scheduling import (TaskScheduler,EventBank,event_condition,edge_condition,lifecycle_condition,
+                         sample_wait_edge,
                          signal_event,delay_execution,control_task,condition_scope,TASK_CONSTANTS,
                          configure_task,TASK_DIRECTIVES,TASK_FLAG_DIRECTIVES,TASK_MASKS,
                          SOURCE_DIRECTIVES,SOURCE_FLAG_DIRECTIVES,SOURCE_DIRECTIVE_RANGES,

@@ -97,6 +97,8 @@ not enter global type declarations, routine interfaces or caller/sibling scopes.
   edges, semaphores, errors and lifecycle notifications have offline models.
   TIME-style behavior uses connected timers and comparisons; motion timing,
   asynchronous native interrupts and physical node-arrival scans are unavailable.
+  [WAIT FOR port transitions](language-support.md#wait-for-port-transitions) now compare
+  consecutive samples from the supplied port bank. Pulses entirely between polls remain unobserved.
 - Transfers across program/routine bodies and entry into an uncaptured USING or
   unstarted FOR scope. [FOR jumps](for-jumps.md) now support same-loop labels,
   nested active-loop transfers and exits with counter cleanup under an explicit

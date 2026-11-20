@@ -474,6 +474,7 @@ class _Analyzer:
         if not isinstance(node,dict):return _Value()
         kind=node.get('kind');args=node.get('args',[]);value=node.get('value')
         if kind=='literal':return _Value(value)
+        if kind=='wait_edge_value':return _Value(spec=['BOOLEAN'])
         if kind=='real_literal':
             try:return _Value(float(value))
             except ValueError:return _Value()
@@ -1047,6 +1048,17 @@ class _Analyzer:
             after_program_return = not self.frames and len(self.exits) > exits_before_block
             self.statement(node, flow, conditional or after_program_return)
 
+    def sample_wait_inputs(self, node, flow, conditional):
+        if not isinstance(node, dict) or not node.get('args'):
+            return node
+        args = [self.sample_wait_inputs(arg, flow, conditional) for arg in node['args']]
+        if node['kind'] == 'wait_edge':
+            self.expr(args[0], flow, conditional)
+            self.context('ports', None)
+            self.unresolved_at('condition-source', 'Port transitions require offline samples', node)
+            return dict(node, kind='wait_edge_value', args=[])
+        return dict(node, args=args) if any(a is not b for a, b in zip(args, node['args'])) else node
+
     def statement(self, node, flow, conditional):
         self.tick();kind=node['kind'];args=node['args']
         if flow.task_order_unknown and flow.paused_tasks:
@@ -1055,6 +1067,13 @@ class _Analyzer:
             value=self.expr(args[1],flow,conditional,partial=True)
             self.write(self.locate(args[0],flow,conditional),value,flow,node);return
         if kind=='call':self.expr(args[0],flow,conditional);return
+        if kind == 'wait':
+            predicate = self.sample_wait_inputs(args[0], flow, conditional)
+            if predicate is not args[0]:
+                self.expr(predicate, flow, conditional)
+                self.unresolved_at('task-wait', 'Waiting and possible task effects require an execution order', node)
+                self.opaque(flow)
+                return
         if self.linked_plans is not None:
             if kind in ('motion', 'motion_action', 'motion_control'):
                 self.motion(node, flow, conditional)

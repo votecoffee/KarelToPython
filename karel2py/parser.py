@@ -22,6 +22,7 @@ class Parser:
         self.continuations = []
         self.motion_setting_constants = {}
         self.in_motion_condition = False
+        self.in_wait_condition = False
         self.escaped_string_literals = []
         self.predefined_uses = []
         self.directive_metadata = []
@@ -690,7 +691,12 @@ class Parser:
             return Statement('delay', token, [self.expression()])
         if name == 'WAIT' and self.mode == 'pythonic':
             self.expect('FOR')
-            return Statement('wait', token, [self.expression()])
+            self.in_wait_condition = True
+            try:
+                condition = self.expression()
+            finally:
+                self.in_wait_condition = False
+            return Statement('wait', token, [condition])
         if name == 'ABORT':
             if self.mode=='pythonic' and self.accept('PROGRAM'):
                 self.expect('['); target=self.expression(); self.expect(']')
@@ -1014,10 +1020,11 @@ class Parser:
             self.error('E_EXPRESSION', f'Expected expression, found {token.value}', token)
         if self.mode == 'pythonic' and left.kind in ('call', 'group'):
             left = self.access(left)
-        if (self.in_condition and left.kind=='index' and left.args[0].kind=='name'
-                and ex.PORT_TYPES.get(left.args[0].value)=='BOOLEAN' and self.current.value in ('+','-')
-                and self.tokens[self.position+1].value in ('DO','AND','OR',')','=','<>')):
-            operator=self.take(); left=Expr('edge',operator,operator.value,[left])
+        if ((self.in_condition or self.in_wait_condition) and left.kind == 'index'
+                and left.args[0].kind == 'name' and ex.PORT_TYPES.get(left.args[0].value) == 'BOOLEAN'
+                and self.current.value in ('+', '-') and self.port_edge_ends_here()):
+            operator = self.take()
+            left = Expr('wait_edge' if self.in_wait_condition else 'edge', operator, operator.value, [left])
         while (self.current.value in PRECEDENCE and PRECEDENCE[self.current.value] >= minimum
                and (self.current.value != ':' or self.mode == 'pythonic' and allow_relative)):
             operator = self.take()
@@ -1029,3 +1036,14 @@ class Parser:
             right = self.expression(PRECEDENCE[operator.value] + 1, allow_relative=allow_relative)
             left = Expr('binary', operator, operator.value, [left, right])
         return left
+
+    def port_edge_ends_here(self):
+        # A sign followed by an operand is still a binary arithmetic operator.
+        following = self.tokens[self.position + 1]
+        if following.value in ('AND', 'OR', ')', '=', '<>'):
+            return True
+        if self.in_wait_condition:
+            return following.kind in ('NL', 'EOF') or following.value in BLOCK_ENDS | {';'}
+        if self.in_motion_condition:
+            return following.kind == 'NL' or following.value in ('DO', 'THEN', 'ENDMOVE', 'WHEN', 'UNTIL')
+        return following.value == 'DO'

@@ -298,7 +298,7 @@ internally and in the historical semantic notes.
 | Pose axis queries | APPROACH and ORIENT on POSITION/XYZWPR/XYZWPREXT return independent writable VECTOR values for positive Z/Y | Complete finite poses, checked CONFIG and proper POSITION matrices; no normalization, defaults, other positional operands or controller acquisition. |
 | Position comparison | Approximate >=< on POSITION/XYZWPR/XYZWPREXT, including mixed operands, returns BOOLEAN | Explicit per-instance distance/angle/external-axis tolerances and CONFIG choice; complete proper poses; Euclidean distance and shortest rotation angle; no native defaults, exact/ordered relations or other operand types. |
 | DELAY | Checked 0..86400000 ms through a host callback | Host timing is not controller timing; step budget is not a time budget. |
-| WAIT FOR | Repeated checks of supported BOOLEAN expressions, including internal functions | Ordinary step budget, short-circuit rules and sleep(0.0) after false checks; cooperative handlers are separate; no hardware acquisition or native event/timing equivalence. |
+| WAIT FOR | Repeated checks of supported BOOLEAN expressions, including internal functions and [digital port transitions](#wait-for-port-transitions) | Ordinary step budget, short-circuit rules and sleep(0.0) after false checks; cooperative handlers are separate; no hardware acquisition or native event/timing equivalence. |
 | WRITE | Mixed scalar lists, signed integers, finite REALs, dynamic INTEGER formats, quoted STRING escaping/truncation, narrow integers and CR newlines | One complete recorder/callback request per statement, <=254 characters. Bounded formats; explicit FILE output uses MemoryFiles, a caller-rooted DirectoryFiles or configured WD windows; no live devices or native aggregate layout. [Queue entry output](queue-io.md) adds initialized scalar queues and banks. [Whole data](aggregate-output.md) now expands complete ARRAY/record/CONFIG/POSITION/joint values with one-batch publication and [default/uniform scalar formats](aggregate-formats.md). |
 | READ | Scalar variables, fields/elements and narrow scalar storage through typed callbacks, JSON batches or TextInput; CR, widths, bases and quoted STRINGs | Capture each target then its formats once; complete-response validation. Chosen text rules; MemoryFiles/DirectoryFiles add explicit text/binary FILE transfers; injected keyboard text and opted-in waiting pipe reads use cooperative generators; no live devices, native parser claim or POSITION orientation writes. [Queue entry input](queue-io.md) updates existing initialized entries and detaches buffer links. [Whole data](aggregate-input.md), including [whole POSITION](position-input.md), expands shaped ARRAY/record/CONFIG/joint targets into default or [uniformly formatted scalar fields](aggregate-formats.md) with the same transport validation. [CONFIG field input](config-field-input.md) validates turn bounds and BOOLEAN flags before any output/cursor publication. |
 | ABORT | Bare statement with sticky termination and frame cleanup | Also available in cooperative actions and explicitly registered ABORT_TASK; no motion cancellation or controller restart behavior. |
@@ -391,6 +391,22 @@ See [Boolean waits](boolean-waits.md) for repeated condition checks, host yields
 See [time text](time-text.md) for calendar validation, packed bits and complete formatting.
 See [microsecond timers](microsecond-timers.md) for host clocks, rollover and deterministic adapters.
 See [numeric registers](numeric-registers.md) for explicit banks, output checks and script context.
+
+## WAIT FOR port transitions
+
+Use `WAIT FOR DIN[1]+` for a rising edge or `WAIT FOR DIN[1]-` for a falling
+edge. Each wait uses its own baseline from the first observed sample. If a
+subscript selects a different port, that port establishes a new baseline.
+
+Each poll samples every edge operand once before applying the BOOLEAN predicate.
+Several edges joined by AND must occur in the same poll. Other BOOLEAN terms
+keep the existing short-circuit behavior. End an edge expression with a newline
+or a semicolon when a new statement follows.
+
+The offline model detects changes between consecutive observations in the
+supplied PortBank. A pulse entirely between polls is invisible. For the KAREL
+syntax, see MARRC75KR07091E Rev N, section A.23.1 and Appendix E figures (t) and
+(u).
 
 ## Program RETURN
 

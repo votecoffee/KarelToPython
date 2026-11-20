@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1120.123855 - 2026-11-20
+
+- Support rising and falling digital port transitions in Pythonic WAIT FOR.
+  Sample each edge once per poll and establish fresh baselines on wait entry
+  or address changes. Include edge subscript reads in input discovery.
+- Accept port edge predicates before THEN and ENDMOVE in local UNTIL clauses.
+
 ## 26.1120.122652 - 2026-11-20
 
 - Translate bare main-program RETURN in Pythonic mode. Finish normally after

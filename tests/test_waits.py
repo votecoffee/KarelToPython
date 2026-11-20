@@ -1,10 +1,11 @@
 """Boolean WAIT polling, cooperative host yields and bounded control flow."""
+from functools import partial
 import json
 from pathlib import Path
 import unittest
 from unittest.mock import patch
 
-from karel2py import translate, runtime as rt
+from karel2py import translate, translate_project, runtime as rt
 from karel2py.lexer import TranslationError
 from tests.legacy_numeric_support import translate as legacy_translate
 
@@ -78,6 +79,118 @@ class WaitBehaviorTests(unittest.TestCase):
         p,_,calls=compile_program('box.ready=TRUE USING box DO WAIT FOR ready ENDUSING done=TRUE',
                                  types='TYPE box_t=STRUCTURE ready: BOOLEAN ENDSTRUCTURE',declarations=DECLARATIONS+' box: box_t')
         self.assertTrue(p.run()['DONE']); self.assertEqual(calls,[])
+
+
+class WaitPortEdgeTests(unittest.TestCase):
+    def test_first_sample_is_baseline_in_both_directions_and_engines(self):
+        for sign, initial, updates in (('+', True, (False, True)), ('-', False, (True, False))):
+            for cooperative in (False, True):
+                with self.subTest(sign=sign, cooperative=cooperative):
+                    ports = rt.PortBank({'DIN': 1}, {('DIN', 1): initial})
+                    levels = iter(updates)
+                    observed = []
+
+                    def sleep(seconds):
+                        observed.append(seconds)
+                        ports.update('DIN', 1, next(levels))
+
+                    program, result, _ = compile_program(
+                        f'WAIT FOR DIN[1]{sign}\ndone=TRUE', sleep=sleep,
+                        translator=partial(translate, cooperative=cooperative),
+                        context=rt.ExecutionContext(ports=ports)
+                    )
+                    self.assertTrue(program.run()['DONE'])
+                    self.assertEqual(observed, [0., 0.])
+                    self.assertEqual(result.report['waits'][0]['port_edges'], 1)
+
+    def test_simultaneous_edges(self):
+        ports = rt.PortBank({'DIN': 2}, {('DIN', 1): False, ('DIN', 2): True})
+        levels = iter(((True, True), (True, False), (False, True), (True, False)))
+        observed = []
+
+        def sleep(seconds):
+            observed.append(seconds)
+            for number, value in enumerate(next(levels), 1):
+                ports.update('DIN', number, value)
+
+        program, _, _ = compile_program(
+            'WAIT FOR DIN[1]+ AND ((DIN[2]- AND TRUE) OR FALSE); done=TRUE',
+            sleep=sleep, context=rt.ExecutionContext(ports=ports), labelled=True,
+        )
+        self.assertTrue(program.run()['DONE'])
+        self.assertEqual(observed, [0.] * 4)
+
+    def test_edge_subscripts_are_sampled_once_in_source_order(self):
+        ports = rt.PortBank({'DIN': 2}, {('DIN', 1): False, ('DIN', 2): False})
+        program, _, _ = compile_program(
+            "trace='' WAIT FOR (TRUE OR DIN[first()]+) OR DIN[second()]+",
+            routines=("ROUTINE first:INTEGER BEGIN trace=trace+'A' RETURN 1 END first "
+                      "ROUTINE second:INTEGER BEGIN trace=trace+'B' RETURN 2 END second"),
+            context=rt.ExecutionContext(ports=ports),
+        )
+        self.assertEqual(program.run()['TRACE'], 'AB')
+
+    def test_invalid_port_sample_is_rejected_before_waiting(self):
+        ports = rt.PortBank({'DIN': 1}, {('DIN', 1): False})
+        ports.values['DIN', 1] = 1
+        program, _, sleeps = compile_program('WAIT FOR DIN[1]+',
+            context=rt.ExecutionContext(ports=ports))
+        with self.assertRaisesRegex(rt.KarelRuntimeError, 'BOOLEAN'):
+            program.run()
+        self.assertEqual(sleeps, [])
+
+    def test_wait_reentry_recaptures_the_current_level(self):
+        ports = rt.PortBank({'DIN': 1}, {('DIN', 1): False})
+        levels = iter((True, False, True))
+        observed = []
+
+        def sleep(seconds):
+            observed.append(seconds)
+            ports.update('DIN', 1, next(levels))
+
+        program, _, _ = compile_program(
+            'n=0 FOR i=1 TO 2 DO WAIT FOR DIN[1]+; n=n+1 ENDFOR',
+            sleep=sleep, context=rt.ExecutionContext(ports=ports)
+        )
+        self.assertEqual(program.run()['N'], 2)
+        self.assertEqual(observed, [0.] * 3)
+
+    def test_subscript_change_samples_a_new_baseline(self):
+        ports = rt.PortBank({'DIN': 2}, {('DIN', 1): False, ('DIN', 2): True})
+        updates = iter((lambda: program._state.set('N', 2),
+                        lambda: ports.update('DIN', 2, False),
+                        lambda: ports.update('DIN', 2, True)))
+        observed = []
+
+        def sleep(seconds):
+            observed.append(seconds)
+            next(updates)()
+
+        program, _, _ = compile_program('n=1 WAIT FOR DIN[n]+; done=TRUE',
+            sleep=sleep, context=rt.ExecutionContext(ports=ports))
+        self.assertTrue(program.run()['DONE'])
+        self.assertEqual(observed, [0.] * 3)
+
+    def test_scheduler_observes_a_port_update_from_another_task(self):
+        sources = {
+            'main.kl': ("PROGRAM MAIN VAR s:INTEGER done:BOOLEAN BEGIN "
+                        "RUN_TASK('WORKER',0,FALSE,FALSE,0,s) WAIT FOR DOUT[1]+; done=TRUE END MAIN"),
+            'worker.kl': 'PROGRAM WORKER BEGIN DELAY 10 DOUT[1]=TRUE END WORKER',
+        }
+        ports = rt.PortBank({'DOUT': 1}, {('DOUT', 1): False})
+        project = translate_project(sources).instantiate(context=rt.ExecutionContext(ports=ports))
+        results = project.run('MAIN')
+        self.assertEqual((results['MAIN']['state'], results['MAIN']['values']['DONE']), ('completed', True))
+
+    def test_edges_require_a_real_boolean_port_with_one_integer_index(self):
+        for condition, code in (('DIN[1,2]+', 'E_ARGUMENTS'), ('DIN[TRUE]-', 'E_TYPE'),
+                                ('DIN[1] + 2', 'E_TYPE')):
+            with self.subTest(condition=condition), self.assertRaises(TranslationError) as caught:
+                compile_program(f'WAIT FOR {condition}')
+            self.assertEqual(caught.exception.code, code)
+        with self.assertRaises(TranslationError) as caught:
+            compile_program('WAIT FOR DIN[1]+', declarations='DIN:ARRAY[1] OF BOOLEAN')
+        self.assertEqual(caught.exception.code, 'E_CONTROLLER')
 
 
 class WaitIntegrationTests(unittest.TestCase):
