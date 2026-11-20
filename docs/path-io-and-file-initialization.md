@@ -54,10 +54,11 @@ rules continue to apply.
 
 ## Header and node range selections
 
-Use `READ route_file(route[0])` or `WRITE route_file(route[0])` for the fields
-of a declared PATHHEADER. Zero can be a literal or a named INTEGER constant.
-Header READ updates those fields in place and leaves the existing node count
-intact. `route[n]` selects one existing node.
+Use `READ route_file(route[0])` or `WRITE route_file(route[0])` for the
+fields of a declared PATHHEADER. An INTEGER index can be computed at runtime.
+Zero selects the declared header, and a positive index selects one existing
+node. The index is evaluated once before format expressions and transport.
+Header READ updates its fields in place and preserves the existing node count.
 
 `route[first..last]` selects an inclusive ordered range. Bounds are evaluated
 once, left to right, before the format expressions. Use `route[3..1]` to
@@ -74,8 +75,9 @@ apply to these selections.
 ## Formats, empty paths and FILEs
 
 One uniform format list is evaluated once and interpreted for each scalar kind.
-Literal controls must fit every represented kind. Dynamic controls are checked
-before input or output publication. This reuses the
+Literal controls must fit every kind within a possible selection. If a
+runtime index can select different records, the actual selection determines
+which formats are valid. All controls are checked before transferring data. This reuses the
 [aggregate format rules](aggregate-formats.md).
 
 A header-only PATH can be read or written. READ requires at least an existing

@@ -3433,63 +3433,6 @@ def capture_read_target(target, formats, line=None):
     return target, read_formats(target.spec, formats, line)
 
 
-def path_io_components(spec,line=None):
-    """Concrete data schemas for scalar PATHs and explicit PATH-bank I/O."""
-    if type(spec) is not tuple or len(spec)!=3 or spec[0]!='PATH':
-        raise KarelRuntimeError('PATH I/O requires an exact PATH schema',line)
-    node=PREDEFINED_STRUCTURES['STD_PTH_NODE'] if spec[1] is None else spec[1];header=spec[2]
-    if (type(node) is not tuple or not node or node[0]!='STRUCTURE'
-            or header is not None and (type(header) is not tuple or not header or header[0]!='STRUCTURE')):
-        raise KarelRuntimeError('PATH I/O requires STRUCTURE node/header schemas',line)
-    for component in (node,header):
-        if component is not None:_validate_data_schema(component,line)
-    return node,header
-
-
-def _path_io_references(spec, value, line=None, *, check=None, bounds=None):
-    node, header = path_io_components(spec, line)
-    if type(value) is not PathValue or value.spec != spec or type(value.nodes) is not list or len(value.nodes) > 32767:
-        raise KarelRuntimeError('PATH I/O requires matching ordinary PATH storage', line)
-    if header is None and value.data is not None:
-        raise KarelRuntimeError('PATH I/O found unexpected header storage', line)
-
-    nodes, data = value.nodes, value.data
-    length = len(nodes)
-    include_header = header is not None
-    indexes = range(length)
-    if bounds is not None:
-        first, last = bounds
-        first = integer(first, line)
-        if last is None:
-            if first != 0 or not include_header:
-                raise KarelRuntimeError('PATH header selection requires a declared PATHHEADER', line)
-            indexes = range(0)
-        else:
-            last = integer(last, line)
-            if not 0 <= first <= length or not 1 <= last <= length:
-                raise KarelRuntimeError('PATH I/O range is outside the existing nodes', line)
-            include_header = include_header and first == 0
-            step = 1 if first <= last else -1
-            indexes = range(max(1, first) - 1, last - 1 + step, step)
-
-    count = (scalar_leaf_count(header) if include_header else 0) + len(indexes) * scalar_leaf_count(node)
-    if count > 1024:
-        raise KarelRuntimeError('PATH I/O is limited to 1024 scalar fields including CR', line)
-    selected_nodes = tuple(nodes[index] for index in indexes)
-    if check is not None:
-        for _ in range(count):
-            check(line)
-        if (value.spec != spec or value.nodes is not nodes or len(nodes) != length or value.data is not data
-                or any(nodes[index] is not saved for index, saved in zip(indexes, selected_nodes))):
-            raise KarelRuntimeError('PATH I/O storage changed during preparation', line)
-
-    references = [Reference(header, vars(value), 'data')] if include_header else []
-    references.extend(Reference(node, nodes, index) for index in indexes)
-    for reference in references:
-        _aggregate_value(reference.spec, reference.raw(), line, allow_partial=True)
-    return references
-
-
 def path_array_io_type(spec):
     """Only ARRAY chains ending in PATH; embedded resource fields remain excluded."""
     if type(spec) is not tuple or not spec or spec[0]!='ARRAY':return False
@@ -5170,7 +5113,10 @@ def cooperative_file_read(state,handle,targets,line=None,*,line_breaks=(),format
         if handle._read_operation is operation:handle._read_operation=None
 
 
-from .file_io import FILE_READ_TIMEOUT_STATUS, MAX_FILE_TIMEOUT_MS, FileHandle, file_piece
+from .file_io import (
+    FILE_READ_TIMEOUT_STATUS, MAX_FILE_TIMEOUT_MS, FileHandle, file_piece, path_io_components,
+    path_io_references as _path_io_references,
+)
 from .extended import (ExecutionContext, StringRegisters, PositionRegisters, PortBank, RegisterComments, CallParameters, ProgramCatalog, ProgramAttributes, PROGRAM_CONSTANTS, PeerBanks, PEER_UNAVAILABLE,
                        SerialPorts,SERIAL_CONSTANTS,XML_CONSTANTS,
                        VariableStore, variable_value, variable_reference, MemoryFiles, PathValue, QueueValue, RobotContext, RobotState,

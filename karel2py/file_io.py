@@ -1,4 +1,4 @@
-"""FILE descriptors, portable field formats, and finite FILE input."""
+"""FILE descriptors, portable field formats, PATH selection, and finite input."""
 import struct
 
 
@@ -120,6 +120,70 @@ def set_file_attribute(handle, attribute, value, line=None):
         handle.read_timeout_ms = value
     else:
         fail('Unsupported portable file attribute', line)
+
+
+def path_io_components(spec, line=None):
+    """Concrete data schemas for scalar PATHs and explicit PATH-bank I/O."""
+    rt = runtime()
+    if type(spec) is not tuple or len(spec) != 3 or spec[0] != 'PATH':
+        fail('PATH I/O requires an exact PATH schema', line)
+    node = rt.PREDEFINED_STRUCTURES['STD_PTH_NODE'] if spec[1] is None else spec[1]
+    header = spec[2]
+    components = (node,) if header is None else (node, header)
+    if any(type(component) is not tuple or not component or component[0] != 'STRUCTURE'
+           for component in components):
+        fail('PATH I/O requires STRUCTURE node/header schemas', line)
+    for component in components:
+        rt._validate_data_schema(component, line)
+    return node, header
+
+
+def path_io_references(spec, value, line=None, *, check=None, bounds=None):
+    """Capture the records selected by one PATH I/O item."""
+    rt = runtime()
+    node, header = path_io_components(spec, line)
+    if type(value) is not rt.PathValue or value.spec != spec or type(value.nodes) is not list or len(value.nodes) > 32767:
+        fail('PATH I/O requires matching ordinary PATH storage', line)
+    if header is None and value.data is not None:
+        fail('PATH I/O found unexpected header storage', line)
+
+    nodes, data = value.nodes, value.data
+    length = len(nodes)
+    include_header = header is not None
+    indexes = range(length)
+    if bounds is not None:
+        first, last = bounds
+        first = rt.integer(first, line)
+        include_header = include_header and first == 0
+        if last is None:
+            if first == 0 and not include_header:
+                fail('PATH header selection requires a declared PATHHEADER', line)
+            if not 0 <= first <= length:
+                fail('PATH node index out of range', line)
+            indexes = range(max(0, first - 1), first)
+        else:
+            last = rt.integer(last, line)
+            if not 0 <= first <= length or not 1 <= last <= length:
+                fail('PATH I/O range is outside the existing nodes', line)
+            step = 1 if first <= last else -1
+            indexes = range(max(1, first) - 1, last - 1 + step, step)
+
+    count = (rt.scalar_leaf_count(header) if include_header else 0) + len(indexes) * rt.scalar_leaf_count(node)
+    if count > 1024:
+        fail('PATH I/O is limited to 1024 scalar fields including CR', line)
+    if check is not None:
+        selected_nodes = tuple(nodes[index] for index in indexes)
+        for _ in range(count):
+            check(line)
+        if (value.spec != spec or value.nodes is not nodes or len(nodes) != length or value.data is not data
+                or any(nodes[index] is not saved for index, saved in zip(indexes, selected_nodes))):
+            fail('PATH I/O storage changed during preparation', line)
+
+    references = [rt.Reference(header, vars(value), 'data')] if include_header else []
+    references.extend(rt.Reference(node, nodes, index) for index in indexes)
+    for reference in references:
+        rt._aggregate_value(reference.spec, reference.raw(), line, allow_partial=True)
+    return references
 
 
 def binary_format(kind,formats,line=None):

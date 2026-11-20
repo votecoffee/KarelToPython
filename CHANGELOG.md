@@ -1,5 +1,11 @@
 # Changelog
 
+## 26.1120.152218 - 2026-11-20
+
+- Resolve computed PATH READ and WRITE indexes to the header or an existing
+  node. Validate formats against the selected records.
+- Move PATH I/O record selection from the core runtime into the FILE module.
+
 ## 26.1120.151252 - 2026-11-20
 
 - Add Pythonic PATH header and inclusive node-range READ and WRITE, including

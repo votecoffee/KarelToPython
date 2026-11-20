@@ -81,6 +81,91 @@ class PathSelectionTests(unittest.TestCase):
         self.assertEqual(text(p), [' 42\n'])
         self.assertEqual(result.report['reads'][0]['destinations'][0]['path_selection'], 'header')
 
+    def test_runtime_index_selects_header_or_node_once_per_transfer(self):
+        batches = iter(([12], [17, 'edit']))
+        requests = []
+
+        def reader(request):
+            requests.append(request)
+            return next(batches)
+
+        p, result = build(
+            'visits=0 READ(p[pick(0)]) READ(p[pick(2)]) WRITE(p[pick(0)],p[pick(2)])',
+            routines='ROUTINE pick(i:INTEGER):INTEGER BEGIN visits=visits+1 RETURN i END pick',
+            read=reader,
+        )
+        values = p.run()
+        self.assertEqual(values['VISITS'], 4)
+        self.assertEqual(values['P']['data'], {'TOTAL': 12})
+        self.assertEqual(values['P']['nodes'], [
+            {'AMOUNT': 7, 'LABEL': 'abcd'}, {'AMOUNT': 17, 'LABEL': 'edit'},
+        ])
+        self.assertEqual(len(requests), 2)
+        self.assertEqual(text(p), [' 12 17edit'])
+        self.assertEqual(result.report['reads'][0]['destinations'][0]['path_selection'], 'index')
+
+    def test_runtime_array_selection_formats_match_header_and_node_schemas(self):
+        p, _ = build(
+            "INSERT_NODE(routes[1],1,s) routes[1].label='part' routes[1,1].amount=26 "
+            "n=0 WRITE(routes[1,n]::7::3) n=1 WRITE(routes[1][n]::4::16)",
+            decl='routes:ARRAY[1] OF PATH NODEDATA=node_t PATHHEADER=header_t n,s:INTEGER',
+            prefix='TYPE node_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+                   'header_t=STRUCTURE label:STRING[4] ENDSTRUCTURE',
+            seed=False,
+        )
+        p.run()
+        self.assertEqual(text(p), [" 'part'", ' 01A'])
+
+    def test_dynamic_range_format_is_checked_against_the_selected_records(self):
+        p, _ = build(
+            'INSERT_NODE(p,1,s) p[1].amount=26 p.flag=TRUE '
+            'n=1 WRITE(p[n..1]::4::16) n=0 WRITE(p[n..1]::4::16)',
+            decl='p:PATH NODEDATA=node_t PATHHEADER=header_t n,s:INTEGER',
+            prefix='TYPE node_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+                   'header_t=STRUCTURE flag:BOOLEAN ENDSTRUCTURE',
+            seed=False,
+        )
+        with self.assertRaisesRegex(rt.KarelRuntimeError, 'BOOLEAN WRITE accepts only a width'):
+            p.run()
+        self.assertEqual(text(p), [' 01A'])
+
+    def test_incompatible_runtime_read_format_preserves_input_and_path(self):
+        requests = []
+        p, _ = build(
+            "n=0 p.label='old' READ(p[n]::4::16)",
+            decl='p:PATH NODEDATA=node_t PATHHEADER=header_t n:INTEGER',
+            prefix='TYPE node_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+                   'header_t=STRUCTURE label:STRING[4] ENDSTRUCTURE',
+            seed=False, read=requests.append,
+        )
+        with self.assertRaisesRegex(rt.KarelRuntimeError, 'Invalid STRING READ second format'):
+            p.run()
+        self.assertEqual(requests, [])
+        self.assertEqual(p.snapshot()['P']['data'], {'LABEL': 'old'})
+
+    def test_waiting_read_keeps_original_selected_header(self):
+        packed = struct.pack('<i', 42)
+        bank = rt.SerialStreams({2: {'input': packed[:1], 'wait': True}})
+        ctx = rt.ExecutionContext(serial_streams=bank)
+        delays = []
+
+        def feed(delay):
+            delays.append(delay)
+            self.assertEqual(len(delays), 1)
+            self.assertEqual(p.snapshot()['P']['data'], {'TOTAL': 2})
+            p._state.values['N'] = 2
+            bank.feed(2, packed[1:])
+
+        p, _ = build(
+            "n=0 OPEN FILE f('RB','P2:') READ f(p[n]) CLOSE FILE f",
+            context=ctx, sleep=feed,
+        )
+        values = p.run()
+        self.assertEqual((delays, values['N']), ([.01], 2))
+        self.assertEqual(values['P']['data'], {'TOTAL': 42})
+        self.assertEqual(values['P']['nodes'][1]['AMOUNT'], 9)
+        self.assertEqual(bank.snapshot()[2]['input'], b'')
+
     def test_binary_path_ranges_follow_explicit_order(self):
         p, _, ctx = file_program(
             "OPEN FILE f('WB','out') WRITE f(p[0..2]) CLOSE FILE f "
@@ -100,7 +185,7 @@ class PathSelectionTests(unittest.TestCase):
             "INSERT_NODE(routes[1],1,s) INSERT_NODE(routes[1],2,s) "
             "routes[1].total=2 routes[1,1].amount=7 routes[1,1].label='abcd' "
             "routes[1,2].amount=9 routes[1,2].label='wxyz' visits=0 "
-            "WRITE(routes[1,first()..last()]::4::0,CR) WRITE(routes[1][top])",
+            "WRITE(routes[1,first()..last()]::4::0,CR) WRITE(routes[1][(+top)])",
             decl=DECL + ' routes:ARRAY[2] OF PATH NODEDATA=node_t PATHHEADER=header_t',
             prefix=TYPES + ' CONST top=0',
             routines='ROUTINE first:INTEGER BEGIN visits=visits*10+1 RETURN 2 END first '

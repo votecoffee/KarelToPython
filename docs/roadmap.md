@@ -40,8 +40,9 @@ Built-in function and typed output procedure generation are also separate.
 Storage references, subscript checks, and ARRAY prefix lowering have a
 dedicated generator, as do unary, binary, and relative pose operators.
 Function-call dispatch and shared schema conversions have dedicated modules.
-`file_io.py` now owns FILE descriptors, portable field formats and finite
-READ execution. Continue extracting service families from `runtime.py` and
+`file_io.py` now owns FILE descriptors, portable field formats, PATH
+record selection and finite READ execution. Continue extracting service
+families from `runtime.py` and
 `extended.py` behind their existing runtime interfaces with focused
 regressions. See
 [compiler architecture](compiler-architecture.md).

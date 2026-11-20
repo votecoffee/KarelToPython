@@ -1,14 +1,35 @@
 """Check source format literals for staged READ and WRITE."""
 from .compiler_language import INTEGRAL_TYPES
+from .lexer import TranslationError
 
 
-def format_literal(expr):
-    """Recognize signed/grouped literals without folding runtime expressions."""
+def format_literal(expr, *, constants=None):
+    """Recognize signed/grouped literals and optional named constants."""
     sign = 1
     while expr.kind == 'group' or expr.kind == 'unary' and expr.value in ('+', '-'):
         if expr.kind == 'unary' and expr.value == '-': sign = -sign
         expr = expr.args[0]
-    return sign * expr.value if expr.kind == 'literal' and type(expr.value) is int else None
+    if expr.kind == 'literal':
+        value = expr.value
+    elif expr.kind == 'name' and constants is not None:
+        value = constants.get(expr.value)
+    else:
+        return None
+    return sign * value if type(value) is int else None
+
+
+def check_format_options(checker, data_type, options, operands, literals, *, error):
+    """Accept a literal format if at least one possible selection supports it."""
+    first_error = None
+    for kinds in options:
+        try:
+            checker(data_type, kinds, operands, literals, error=error)
+        except TranslationError as diagnostic:
+            if first_error is None:
+                first_error = diagnostic
+        else:
+            return
+    raise first_error
 
 
 def check_write_format(data_type, kinds, operands, literals, *, error):

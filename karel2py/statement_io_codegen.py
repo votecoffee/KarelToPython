@@ -1,8 +1,17 @@
 """Generate staged READ and WRITE operations for the offline runtime."""
+from typing import NamedTuple
+
 from . import extended as ex, runtime as rt
 from .compiler_language import INTEGRAL_TYPES, NARROW_TYPES
-from .statement_io_analysis import check_read_format, check_write_format, format_literal
+from .statement_io_analysis import check_format_options, check_read_format, check_write_format, format_literal
 from .syntax import Expr
+
+
+class _PathIOSelection(NamedTuple):
+    receiver: Expr
+    formats: tuple[set[str], ...]
+    bounds: str
+    kind: str
 
 
 class StatementIOLowering:
@@ -58,7 +67,7 @@ class StatementIOLowering:
         return f'self._state.{method}({file_code},'
 
     def _path_io_selection(self, operand):
-        """Resolve a direct PATH range or explicit header index in a FILE item."""
+        """Resolve a range or a single PATH index that can select the header."""
         while operand.kind == 'group':
             operand = operand.args[0]
         if operand.kind == 'path_io_range':
@@ -66,8 +75,8 @@ class StatementIOLowering:
         elif operand.kind == 'index':
             receiver, *indexes = operand.args
             start = indexes[-1]
-            index = self.visible_constants().get(start.value) if start.kind == 'name' else format_literal(start)
-            if type(index) is not int or index != 0:
+            index = format_literal(start, constants=self.visible_constants())
+            if index is not None and index != 0:
                 return None
             if receiver.kind == 'name' and receiver.value in ex.PORT_TYPES and receiver.value not in self.types:
                 return None
@@ -85,15 +94,25 @@ class StatementIOLowering:
             self.error('E_PATH_IO', 'READ/WRITE range requires a PATH receiver', operand.token)
         node, header = rt.path_io_components(spec, operand.token.line)
         if end is None:
+            if index == 0:
+                if header is None:
+                    self.error('E_PATH_IO', 'READ/WRITE index 0 requires a declared PATHHEADER', operand.token)
+                return _PathIOSelection(receiver, (rt.aggregate_format_kinds(header),), '(0, None)', 'header')
             if header is None:
-                self.error('E_PATH_IO', 'READ/WRITE index 0 requires a declared PATHHEADER', operand.token)
-            return receiver, rt.aggregate_format_kinds(header), '(0, None)', 'header'
+                return None
+            first = self.require_type(start, 'INTEGER')
+            options = (rt.aggregate_format_kinds(node), rt.aggregate_format_kinds(header))
+            return _PathIOSelection(receiver, options, f'({first}, None)', 'index')
+
         first = self.require_type(start, 'INTEGER')
         last = self.require_type(end, 'INTEGER')
-        kinds = rt.aggregate_format_kinds(node)
-        if header is not None and format_literal(start) in (0, None):
-            kinds |= rt.aggregate_format_kinds(header)
-        return receiver, kinds, f'({first}, {last})', 'range'
+        node_formats = rt.aggregate_format_kinds(node)
+        options = (node_formats,)
+        leading_index = format_literal(start, constants=self.visible_constants())
+        if header is not None and leading_index in (0, None):
+            with_header = node_formats | rt.aggregate_format_kinds(header)
+            options = (with_header,) if leading_index == 0 else (node_formats, with_header)
+        return _PathIOSelection(receiver, options, f'({first}, {last})', 'range')
 
     def lower_write_items(self, stmt, file_code):
         token, line = stmt.token, stmt.token.line
@@ -107,7 +126,7 @@ class StatementIOLowering:
                                   format_specifiers=[]))
                 continue
             selection = self._path_io_selection(item.args[0])
-            operand = selection[0] if selection else item.args[0]
+            operand = selection.receiver if selection else item.args[0]
             value, spec = self.expression(operand, collection_io=True)
             data_type = spec[0]
             aggregate=data_type not in ('STRING','BOOLEAN','INTEGER','REAL',*NARROW_TYPES)
@@ -115,18 +134,19 @@ class StatementIOLowering:
                 self.error('E_TYPE',f'WRITE requires scalar or resource-free aggregate data, found {data_type}',item.token)
             aggregate_output=aggregate_output or aggregate
             format_exprs = item.args[1:]
-            format_kinds = selection[1] if selection else (
-                rt.aggregate_format_kinds(spec) if aggregate else {data_type}
+            format_options = selection.formats if selection else (
+                rt.aggregate_format_kinds(spec) if aggregate else {data_type},
             )
             format_codes = [self.require_type(expr, 'INTEGER') for expr in format_exprs]
             literals = [format_literal(expr) for expr in format_exprs]
             formats = [literal if literal is not None else dict(expression=True, line=expr.token.line,
                         column=expr.token.column) for literal, expr in zip(literals, format_exprs)]
-            check_write_format(data_type, format_kinds, format_exprs, literals, error=self.error)
+            check_format_options(check_write_format, data_type, format_options,
+                                 format_exprs, literals, error=self.error)
             if aggregate:
                 options=f',file={file_code}' if file_code else ''
                 check=',check=self._state.tick' if rt.collection_type(spec) or rt.collection_array_type(spec) else ''
-                bounds = f',bounds={selection[2]}' if selection else ''
+                bounds = f',bounds={selection.bounds}' if selection else ''
                 rendered=(f'_rt.format_aggregate_write(_rt.capture_aggregate_write({spec!r},{value},{item.token.line}{check}{bounds}),[{", ".join(format_codes)}],{item.token.line}{options})'
                           if format_exprs else f'_rt.aggregate_write_pieces({spec!r},{value},{item.token.line}{options}{check}{bounds})')
                 write_groups.append(rendered);pieces.append(rendered)
@@ -139,7 +159,7 @@ class StatementIOLowering:
                 items[-1].update(aggregate=True,type_spec=spec,scalar_order='ARRAY-row-major/QUEUE-entry-order/INTEGER-values' if rt.queue_io_type(spec) else 'ARRAY-row-major/PATH-header/nodes/declaration/row-major/joint-axis' if rt.path_array_io_type(spec) else 'PATH-header/nodes/declaration/row-major/joint-axis' if data_type=='PATH' else 'declaration/row-major/joint-axis',formats='uniform scalar formats' if format_exprs else 'scalar defaults',capture_before_formats=True)
                 self.features.add('whole data aggregate WRITE')
                 if selection:
-                    items[-1].update(path_selection=selection[3],
+                    items[-1].update(path_selection=selection.kind,
                                      scalar_order='selected PATH records in index order, then declaration/row-major/joint-axis')
                     self.features.add('selected PATH WRITE')
             self.features.add(f'WRITE {data_type} output request')
@@ -218,22 +238,23 @@ class StatementIOLowering:
             target = item.args[0] if item.kind == 'read_item' else item
             format_exprs = item.args[1:] if item.kind == 'read_item' else []
             selection = self._path_io_selection(target)
-            receiver = selection[0] if selection else target
+            receiver = selection.receiver if selection else target
             root = self.check_read_target(receiver)
             reference, spec = self.reference(receiver,config_read=self.mode=='pythonic' and self.is_config_subfield(receiver),allow_prefix=self.mode=='pythonic',collection_prefix=self.mode=='pythonic' and rt.collection_array_type(self.access_type(receiver)),collection_io=True)
             aggregate=spec[0] not in (*INTEGRAL_TYPES,'BOOLEAN','REAL','STRING')
             if aggregate and (self.mode!='pythonic' or not rt.aggregate_read_type(spec)):
                 self.error('E_READ_TYPE','READ requires scalar or Pythonic resource-free aggregate data',target.token)
-            format_kinds = selection[1] if selection else (
-                rt.aggregate_format_kinds(spec) if aggregate else {spec[0]}
+            format_options = selection.formats if selection else (
+                rt.aggregate_format_kinds(spec) if aggregate else {spec[0]},
             )
             aggregate_input=aggregate_input or aggregate
             format_codes = [self.require_type(expr, 'INTEGER') for expr in format_exprs]
             literals = [format_literal(expr) for expr in format_exprs]
-            check_read_format(spec[0], format_kinds, format_exprs, literals, error=self.error)
+            check_format_options(check_read_format, spec[0], format_options,
+                                 format_exprs, literals, error=self.error)
             if aggregate:
                 check=',check=self._state.tick' if rt.collection_type(spec) or rt.collection_array_type(spec) else ''
-                bounds = f',bounds={selection[2]}' if selection else ''
+                bounds = f',bounds={selection.bounds}' if selection else ''
                 captured_group=f'_rt.capture_aggregate_read_target({reference}, [], {line}{check}{bounds})'
                 read_groups.append(f'_rt.format_aggregate_read_group({captured_group},[{", ".join(format_codes)}],{line})' if format_exprs else captured_group)
             else:read_groups.append(f'[_rt.capture_read_target({reference}, [{", ".join(format_codes)}], {line})]')
@@ -245,7 +266,7 @@ class StatementIOLowering:
                 destinations[-1].update(aggregate=True,scalar_order='ARRAY-row-major/QUEUE-entry-order/INTEGER-values' if rt.queue_io_type(spec) else 'ARRAY-row-major/PATH-header/nodes/declaration/row-major/joint-axis' if rt.path_array_io_type(spec) else 'PATH-header/nodes/declaration/row-major/joint-axis' if spec[0]=='PATH' else 'declaration/row-major/joint-axis',formats='uniform scalar formats' if format_exprs else 'scalar defaults',capture_before_formats=True)
                 self.features.add('whole data aggregate READ')
                 if selection:
-                    destinations[-1].update(path_selection=selection[3],
+                    destinations[-1].update(path_selection=selection.kind,
                                             scalar_order='selected PATH records in index order, then declaration/row-major/joint-axis')
                     self.features.add('selected PATH READ')
             if self.mode=='pythonic' and self.is_config_subfield(receiver):

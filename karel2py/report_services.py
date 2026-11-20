@@ -705,7 +705,7 @@ def add_policies(report, *, array_context, cooperative):
         guide='docs/offline-services.md',controller_validated=False)
     report['path_io_policy']=dict(
         source='Whole and selected PATH WRITE and in-place READ, including exact linked/borrowed PATH formals. Fields follow declaration/row-major/joint-axis order.',
-        selection='A literal or named constant zero selects a declared header. Inclusive node ranges traverse ascending or descending existing positions, with a leading zero including a declared header. Bounds evaluate once before formats and transport.',
+        selection='A single checked INTEGER index selects the declared header at zero or an existing node at a positive index. Inclusive ranges traverse ascending or descending existing positions, including any declared header when the first bound is zero. Selectors evaluate once before formats and transport; concrete selected fields determine format validity.',
         capture='Charge scalar PATH fields before payload validation, formats or transport; WRITE detaches values and READ captures original scalar cells without resizing',
         formats='Reuse uniform scalar aggregate controls and ordinary text/binary/default-input transports; 1024 scalar fields including CR and existing output/file limits',
         empty='Empty PATH WRITE produces one empty item, including declared-domain-checked formats under empty_collection_write_policy; READ requires an existing header or node',
