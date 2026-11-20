@@ -153,6 +153,26 @@ class SavedProjectTests(unittest.TestCase):
         values = outputs['programs']['MAIN']['values']['ROUTES']
         self.assertEqual(values, [dict(nodes=[{'VALUE': 31}], data=None), dict(nodes=[], data=None)])
 
+    def test_linked_refresh_retains_owner_storage_used_only_for_path_count(self):
+        types = 'TYPE row_t=STRUCTURE value:INTEGER ENDSTRUCTURE '
+        main = self.module('MAIN', 'IF get_count()=1 THEN WRITE(19) ELSE WRITE(0) ENDIF',
+                           routines='ROUTINE get_count:INTEGER FROM LIB')
+        lib = self.module('LIB', declarations=types+'VAR route:PATH NODEDATA=row_t',
+                          routines='ROUTINE get_count:INTEGER BEGIN RETURN PATH_LEN(route) END get_count')
+        spec = ['PATH', ['STRUCTURE', 'ROW_T', [['VALUE', ['INTEGER']]]], None]
+        seed = dict(program='LIB', path='ROUTE', type=spec, value=dict(nodes=[{'VALUE': MISSING}], data=None))
+        self.create(main, lib, context={'variables': [seed]})
+        revised = self.folder/'revised.run.json'
+        prepared = runner.refresh_project_document(self.document, revised, [main, lib])['inputs']
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(report['inputs'], [])
+        self.assertEqual(prepared['context']['variables'], [seed])
+        self.assertEqual(report['path_storage'], [dict(program='LIB', path='ROUTE', type=spec)])
+        result = runner.run_document(revised)['results']
+        self.assertEqual(result['status'], 'completed', result['error'])
+        self.assertEqual(result['text_output'].strip(), '19')
+
     def test_linked_selected_path_read_retains_storage_even_without_field_inputs(self):
         decl = 'TYPE row_t=STRUCTURE value:INTEGER ENDSTRUCTURE VAR route:PATH NODEDATA=row_t'
         main = self.module('MAIN', 'READ INPUT(route[2])', decl)

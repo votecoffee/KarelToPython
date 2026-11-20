@@ -177,6 +177,8 @@ def build(program, emitter):
                     from .extended import PROCEDURES, FUNCTIONS, signature_for
                     if value.value in ('GET_POS_REG','GET_EPOS_REG','GET_JPOS_REG','SET_POS_REG','SET_EPOS_REG','SET_JPOS_REG'):
                         used_records.add('XYZWPREXT')
+                    if value.value == 'NODE_SIZE' and id(value) in emitter.node_size_schemas:
+                        row['node_data_type'] = encode(emitter.node_size_schemas[id(value)], depth + 1)
                     if value.value in PROCEDURES or value.value in FUNCTIONS:
                         try:
                             row['signature'] = encode(signature_for(value.value, len(value.args)), depth + 1)

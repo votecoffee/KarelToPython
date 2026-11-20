@@ -204,6 +204,36 @@ class InputTemplateTests(unittest.TestCase):
         self.assertEqual([row['code'] for row in report['unresolved']], ['input-stream'])
         self.assertEqual(by_path(prepared)['ROUTE[1]']['certainty'], 'conditional')
 
+    def test_saved_path_count_selects_last_record_and_prunes_empty_branch(self):
+        prefix = ('TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+                  'head_t=STRUCTURE total:INTEGER ENDSTRUCTURE')
+        decl = 'routes:ARRAY[2] OF PATH NODEDATA=row_t PATHHEADER=head_t n,unused:INTEGER'
+        context = {'variables': [dict(program='T', path='ROUTES',
+            type=['ARRAY', 2, ['PATH', ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]],
+                               ['STRUCTURE', 'HEAD_T', [['TOTAL', ['INTEGER']]]]]],
+            value=[dict(nodes=[], data={'TOTAL': 7}),
+                   dict(nodes=[{'AMOUNT': 19}, {'AMOUNT': MISSING}], data={'TOTAL': 9})])]}
+        prepared = prepare('IF PATH_LEN(routes[1])=0 THEN '
+                           'n=PATH_LEN(routes[2]) WRITE(routes[2][n]) ELSE WRITE(unused) ENDIF',
+                           decl=decl, prefix=prefix, context=context)
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'ROUTES[2][2]'})
+        self.assertEqual(by_path(prepared)['ROUTES[2][2]']['status'], 'missing')
+
+    def test_path_count_is_unresolved_after_node_mutation(self):
+        context = {'variables': [dict(program='T', path='ROUTE',
+            type=['PATH', ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]], None],
+            value=dict(nodes=[{'AMOUNT': 7}], data=None))]}
+        prepared = prepare('DELETE_NODE(route,1,s) n=PATH_LEN(route) '
+                           'IF n=1 THEN WRITE(x) ELSE WRITE(y) ENDIF',
+                           decl='route:PATH NODEDATA=row_t n,s,x,y:INTEGER',
+                           prefix='TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE', context=context)
+        report = prepared['template']['discovery']
+        self.assertIn('path-topology', {row['code'] for row in report['unresolved']})
+        self.assertNotIn('path_storage', report)
+        self.assertTrue({'X', 'Y'} <= set(by_path(prepared)))
+
     def test_whole_path_topology_remains_unresolved_after_unknown_mutation(self):
         prefix = 'TYPE node_t=STRUCTURE amount:INTEGER ENDSTRUCTURE'
         path = ['PATH', ['STRUCTURE', 'NODE_T', [['AMOUNT', ['INTEGER']]]], None]

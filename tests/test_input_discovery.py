@@ -269,6 +269,46 @@ class InputDiscoveryTests(unittest.TestCase):
             {'dynamic-address', 'file-state', 'file-transport'},
         )
 
+    def test_node_size_queries_schema_without_reading_path_values(self):
+        report, _ = scan(
+            'i=1 IF NODE_SIZE((routes[i]))=8 THEN n=known ELSE n=unused ENDIF '
+            'IF NODE_SIZE(defaults)=64 THEN n=n+standard ELSE n=unused ENDIF WRITE(i,n)',
+            decl='routes:ARRAY[2] OF PATH NODEDATA=row_t PATHHEADER=head_t defaults:PATH '
+                 'i,n,known,standard,unused:INTEGER',
+            prefix='TYPE row_t=STRUCTURE axes:JOINTPOS2 ENDSTRUCTURE '
+                   'head_t=STRUCTURE text:STRING[9] ENDSTRUCTURE',
+        )
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(names(report), {('variable', name): 'required' for name in ('KNOWN', 'STANDARD')})
+
+    def test_node_size_subscript_evaluates_once_before_using_declared_schema(self):
+        report, _ = scan(
+            'i=1 n=NODE_SIZE(routes[next_index()]) '
+            'IF (i=2) AND (n=4) THEN WRITE(wanted) ELSE WRITE(unused) ENDIF',
+            decl='routes:ARRAY[3] OF PATH NODEDATA=row_t i,n,wanted,unused:INTEGER',
+            prefix='TYPE row_t=STRUCTURE count:INTEGER ENDSTRUCTURE',
+            routines='ROUTINE next_index:INTEGER BEGIN i=i+1 RETURN i END next_index',
+        )
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(names(report), {('variable', 'WANTED'): 'required'})
+
+    def test_node_size_known_schema_with_unknown_cell_still_tracks_subscript(self):
+        report, _ = scan(
+            'IF NODE_SIZE(routes[i])=4 THEN WRITE(used) ELSE WRITE(unused) ENDIF',
+            decl='routes:ARRAY[2] OF PATH NODEDATA=row_t i,used,unused:INTEGER',
+            prefix='TYPE row_t=STRUCTURE value:INTEGER ENDSTRUCTURE',
+        )
+        self.assertEqual(names(report), {('variable', name): 'required' for name in ('I', 'USED')})
+        self.assertEqual({row['code'] for row in report['unresolved']}, {'dynamic-address'})
+
+    def test_unknown_path_count_does_not_discard_unrelated_write_facts(self):
+        report, _ = scan(
+            'n=7 i=PATH_LEN(route) WRITE(n,i) IF i>0 THEN WRITE(x) ELSE WRITE(y) ENDIF',
+            decl='route:PATH i,n,x,y:INTEGER',
+        )
+        self.assertEqual({row['code'] for row in report['unresolved']}, {'path-topology'})
+        self.assertEqual(names(report), {('variable', name): 'conditional' for name in ('X', 'Y')})
+
     def test_path_header_field_aliases_share_write_facts(self):
         prefix = ('TYPE node_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
                   'header_t=STRUCTURE total:INTEGER ENDSTRUCTURE')

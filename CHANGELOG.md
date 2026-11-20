@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1120.161733 - 2026-11-20
+
+- Use known PATH_LEN and NODE_SIZE results in Pythonic input discovery.
+  Resolve selectors and branches from the saved node count or checked schema,
+  preserving separately evaluated subscript inputs and effects.
+- Retain linked PATH roots needed solely for PATH_LEN when refreshing a run.
+
 ## 26.1120.160947 - 2026-11-20
 
 - Discover whole PATH and PATH ARRAY inputs in pinned linked runs, using the

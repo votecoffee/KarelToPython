@@ -114,6 +114,8 @@ class ServiceCallLowering:
             else:
                 code, schema = self._service_value_argument(name, index, operand, ungrouped, passing, kind)
             node_schema = checked.check_operand(index, schema, operand.token, node_schema=node_schema, error=self.error)
+            if name == 'NODE_SIZE':
+                self.node_size_schemas[id(expr)] = schema[1] or rt.PREDEFINED_STRUCTURES['STD_PTH_NODE']
             codes.append(code)
 
         record_service_call(self, name, expr.token)

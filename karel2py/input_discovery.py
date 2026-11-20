@@ -5,8 +5,9 @@ import math
 from pathlib import Path
 import re
 
-from .extended import PREDEFINED_FILE_NAMES, ZERO_BASED_PORTS
+from .extended import PREDEFINED_FILE_NAMES, ZERO_BASED_PORTS, path_node_size
 from .input_contract import extract, InputContractError
+from .storage import tuple_spec
 from . import runtime as rt
 
 
@@ -713,9 +714,48 @@ class _Analyzer:
         spec=['STRING',254] if type(result) is str else ['REAL'] if type(result) is float else ['INTEGER']
         return _Value(result,spec=spec)
 
+    def path_metadata_call(self, node, flow, conditional):
+        name = node['value']
+        target, = node['args']
+        while target['kind'] == 'group':
+            target = target['args'][0]
+        loc = None
+        if target['kind'] in ('name', 'field', 'index'):
+            loc = self.locate(target, flow, conditional)
+            spec = loc.spec if loc is not None else None
+            if loc is None and target['kind'] == 'name' and target['value'] in self.plan['routines']:
+                spec = self.expr(target, flow, conditional, partial=True).spec
+        else:
+            spec = self.expr(target, flow, conditional, partial=True).spec
+        if flow.stopped and not flow.opaque:
+            return _Value(complete=False, spec=['INTEGER'])
+        if name == 'NODE_SIZE':
+            node_type = node.get('node_data_type')
+            if node_type is None and spec and spec[0] == 'PATH':
+                node_type = spec[1] or self.plan.get('default_path_node') or rt.PREDEFINED_STRUCTURES['STD_PTH_NODE']
+            if node_type is not None:
+                try:
+                    size = rt.integer(path_node_size(tuple_spec(node_type), node.get('line')), node.get('line'))
+                except (rt.KarelRuntimeError, TypeError, ValueError, IndexError, RecursionError) as error:
+                    self.unresolved_at('path-schema', 'NODE_SIZE cannot resolve the portable node layout: '+str(error), node)
+                else:
+                    return _Value(size, spec=['INTEGER'])
+            else:
+                self.unresolved_at('path-schema', 'NODE_SIZE requires a known NODEDATA schema', node)
+        else:
+            if spec and spec[0] == 'PATH' and self.stable_path_context(loc, flow, conditional):
+                count = self.saved_path_count(loc.owner, loc.root, loc.root_spec, loc.parts)
+                if count is not None:
+                    self.path_storage[loc.owner, loc.root] = loc.root_spec
+                    return _Value(count, spec=['INTEGER'])
+            self.unresolved_at('path-topology', 'PATH_LEN requires a matching saved PATH with unchanged topology', node)
+        return _Value(spec=['INTEGER'])
+
     def call(self, node, flow, conditional):
         name=node['value'];args=node['args']
         if name in self.plan['routines']:return self.routine(name,args,node,flow,conditional)
+        if name in ('PATH_LEN', 'NODE_SIZE'):
+            return self.path_metadata_call(node, flow, conditional)
         if name in ('UNINIT','ARRAY_LEN'):
             target=args[0] if args else {};spec=None
             while target.get('kind')=='group':target=target['args'][0]
