@@ -3,7 +3,9 @@
 Pythonic `READ file(...)` accepts `KB:TPKB`, `KB:CRKB`, `WD:name/TPKB`
 and `WD:name/CRKB` through `KeyboardInput`. It consumes supplied key events,
 with cooperative waits and no physical keyboard, desktop window or controller
-connection. `READ_KB` keeps its separate masked key/edit interface.
+connection. `READ_KB` keeps its separate masked key/edit interface. A bare
+`READ(...)` can wait on a [predefined FILE binding](predefined-files.md).
+With `%CRTDEVICE`, bind `INPUT` to `KB:CRKB` to use the CRT queue.
 
 ```karel
 OPEN FILE input_file('RO','KB:TPKB')

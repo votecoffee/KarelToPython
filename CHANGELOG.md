@@ -1,5 +1,10 @@
 # Changelog
 
+## 26.1120.145016 - 2026-11-20
+
+- Generate waiting-capable Pythonic READ statements for default FILE bindings.
+  Unbound input still uses the existing callback path.
+
 ## 26.1120.144402 - 2026-11-20
 
 - Support KB:CRKB and WD:name/CRKB for typed READ and READ_KB. Route supplied

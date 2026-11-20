@@ -148,7 +148,7 @@ class PredefinedBackendTests(unittest.TestCase):
                 ctx = rt.ExecutionContext(keyboard=keyboard, predefined_files={alias: binding('KB:' + device)})
                 state, _, _, _ = execute(
                     f'READ(n) count=BYTES_LEFT({alias}) READ(m,CR) s=BYTES_LEFT({alias}) CLOSE FILE {alias}',
-                    ctx, prefix=prefix, cooperative=True,
+                    ctx, prefix=prefix,
                 )
                 self.assertEqual((state['N'], state['M'], state['COUNT'], state['S']), (7, 9, 3, 0))
 
@@ -157,8 +157,11 @@ class PredefinedBackendTests(unittest.TestCase):
             'TPDISPLAY': binding('KB:TPKB', read_timeout_ms=3),
         })
         restored = rt.ExecutionContext.from_config(json.loads(json.dumps(ctx.to_config())))
-        state, _, _, _ = execute('n=7 READ(n) s=IO_STATUS(TPDISPLAY) CLOSE FILE TPDISPLAY', restored,
-                                 cooperative=True, sleep=lambda _: None)
+        state, _, _, result = execute(
+            'n=7 READ(n) s=IO_STATUS(TPDISPLAY) CLOSE FILE TPDISPLAY',
+            restored, sleep=lambda _: None,
+        )
+        self.assertTrue(result.report['cooperative_execution'])
         self.assertEqual((state['N'], state['S'], restored.keyboard.elapsed_ms), (7, 4, 3))
 
     def test_default_pipe_and_socket_timeouts_from_saved_bindings(self):
@@ -174,7 +177,7 @@ class PredefinedBackendTests(unittest.TestCase):
                 delays = []
                 state, _, _, _ = execute(
                     'n=7 READ(n,CR) s=IO_STATUS(TPDISPLAY) CLOSE FILE TPDISPLAY',
-                    restored, cooperative=True, sleep=delays.append,
+                    restored, sleep=delays.append,
                 )
                 self.assertEqual((state['N'], state['S'], delays), (7, 4, [.003]))
 
@@ -219,8 +222,33 @@ class PredefinedBackendTests(unittest.TestCase):
         pipes=pipe_bank(b'7\n');ctx=rt.ExecutionContext(file_pipes=pipes,predefined_files={'TPDISPLAY':binding('PIP:LOG',pipe_wait=0)});self.assertEqual(execute('READ TPDISPLAY(n,CR) CLOSE FILE TPDISPLAY',ctx)[0]['N'],7)
     def test_keyboard_typed_input(self):
         ctx=keyboard_context(keys=['7','ENTER']);ctx=rt.ExecutionContext(keyboard=ctx.keyboard,pendant=ctx.pendant,predefined_files={'TPDISPLAY':binding('KB:TPKB','RW')});self.assertEqual(execute('READ TPDISPLAY(n,CR) CLOSE FILE TPDISPLAY',ctx)[0]['N'],7)
-    def test_default_keyboard_uses_cooperative_option(self):
-        ctx=keyboard_context(keys=['7','ENTER']);ctx=rt.ExecutionContext(keyboard=ctx.keyboard,pendant=ctx.pendant,predefined_files={'TPDISPLAY':binding('KB:TPKB','RW')});self.assertEqual(execute('READ(n,CR) CLOSE FILE TPDISPLAY',ctx,cooperative=True)[0]['N'],7)
+    def test_crt_read_in_routine_waits_for_future_input(self):
+        keyboard = rt.KeyboardInput(events=[
+            dict(key='7', device='CRKB', at_ms=3),
+            dict(key='ENTER', device='CRKB', at_ms=3),
+        ])
+        ctx = rt.ExecutionContext(keyboard=keyboard, predefined_files={'INPUT': binding('KB:CRKB')})
+        delays = []
+        state, _, _, result = execute(
+            'work s=IO_STATUS(INPUT) CLOSE FILE INPUT', ctx, prefix='%CRTDEVICE',
+            routines='ROUTINE work BEGIN READ(n,CR) END work', sleep=delays.append,
+        )
+        self.assertEqual((state['N'], state['S'], delays, keyboard.elapsed_ms), (7, 0, [.003], 3))
+        self.assertTrue(result.report['cooperative_execution'])
+
+    def test_host_can_cancel_waiting_default_read(self):
+        serial = rt.SerialStreams({2: {'input': b'17', 'wait': True}})
+        ctx = rt.ExecutionContext(serial_streams=serial, predefined_files={'TPDISPLAY': binding('P2:')})
+
+        def cancel(_):
+            rt.cancel_file(task._state, ctx._predefined_values['TPDISPLAY'])
+
+        task, _ = build('n=77 READ(n,CR) s=IO_STATUS(TPDISPLAY) CLOSE FILE TPDISPLAY', ctx, sleep=cancel)
+        state = task.run()
+        self.assertEqual((state['N'], state['S']), (77, 6))
+        self.assertEqual(serial.snapshot()[2]['input'], b'17')
+        self.assertEqual(serial._pending, {})
+
     def test_read_kb_uses_predefined_file_argument(self):
         ctx=keyboard_context(keys=['a','ENTER']);ctx=rt.ExecutionContext(keyboard=ctx.keyboard,pendant=ctx.pendant,predefined_files={'TPDISPLAY':binding('KB:TPKB','RW')});v,_,_,_=execute("READ_KB(TPDISPLAY,text,16,KC_DISPLAY,KC_ENTER_KEY,0,'',count,key,s) CLOSE FILE TPDISPLAY",ctx);self.assertEqual((v['TEXT'],v['S']),('a',0))
 

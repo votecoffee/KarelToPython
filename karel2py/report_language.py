@@ -766,7 +766,7 @@ def add_policies(report, *, expansion, filename, mode):
         bindings='Explicit ExecutionContext(predefined_files={alias:{name,mode,attributes?}}) or context JSON; detached checked endpoint descriptions, lazy open through existing offline services',
         source='Unshadowed predefined FILE names supply ordinary borrowed FILE references; declarations and lexical USING fields retain priority; OPEN cannot retarget a predefined binding',
         defaults='Omitted READ/WRITE captures TPDISPLAY, or INPUT/OUTPUT under CRTDEVICE, once before destinations/items/formats; unbound defaults retain existing callbacks and observations',
-        transports='Existing text/binary, aggregate, keyboard, serial, socket, pipe and rooted file paths; waiting default input requires cooperative translation or existing handler/task forms',
+        transports='Existing text/binary, aggregate, keyboard, serial, socket, pipe and rooted file paths; Pythonic READ supports waiting on configured default and explicit FILEs',
         read_timeout='Declarative read_timeout_ms sets ATR_TIMEOUT for keyboard and waiting serial, socket or plain pipe FILEs. The same typed READ deadlines and status 4 apply.',
         cancellation='Bare CANCEL FILE selects the bound default input; explicit aliases and READ_KB use the same exact pending-operation and portable status-6 rules',
         lifetime='One cached handle per configured alias and context; source CLOSE or explicit close_predefined_files releases only owned aliases, retaining pending/foreign identities for recovery',

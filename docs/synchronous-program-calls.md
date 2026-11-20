@@ -1,7 +1,7 @@
 # Calling attached synchronous source programs
 
 CALL_PROG and CALL_PROGLIN can execute a newly generated ordinary Pythonic Program
-alongside existing cooperative targets. Normal output includes a private
+alongside existing cooperative targets. Synchronous output includes a private
 `_execute_sync` body. A nested call uses that body with fresh stacks and shared
 attached globals, without invoking the target's standalone run/reset/cleanup.
 
@@ -40,11 +40,11 @@ Source effects and the published index hint remain visible on a later failure.
 Combined routine/program depth remains bounded at 64.
 
 A synchronous body runs to completion without scheduler yields. Source delays
-and READ/WRITE callbacks use inherited caller adapters and complete synchronously.
-Use `cooperative=True` when in-body suspension, scheduler interleaving or waiting
-input is needed. Automatic cooperative generation for task controls, FILE READ,
-handlers and other existing source forms is unchanged. Project inputs remain
-cooperative by default.
+and input/output callbacks use inherited caller adapters. Pythonic READ enables
+cooperative generation so a runtime binding can supply waiting input. When the
+default FILE is unbound, the inherited input callback runs immediately. Task
+controls, handlers and linked project input also enable cooperative generation.
+Use `cooperative=True` to enable scheduler interleaving for other source forms.
 
 CALL_PROGLIN pause-entry still suspends before the body, after validation and
 index publication. Resume enters the body once; stop before entry skips it.

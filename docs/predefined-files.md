@@ -28,10 +28,11 @@ BEGIN
 END EXAMPLE
 ```
 
-Translate with the ordinary CLI, then run generated Python with --context and,
-after closing resources as above, --state-out. Use --cooperative at translation
-for default input that may wait without existing handler/task-control forms.
-Explicit FILE READ and READ_KB retain their automatic cooperative translation.
+Translate with the ordinary CLI, then run generated Python with `--context` and,
+after closing resources as above, `--state-out`. Pythonic READ can wait on a
+default or explicit FILE binding without `--cooperative`. An unbound default
+READ still calls the input adapter directly. Retranslate older output to enable
+waiting on a default FILE.
 No desktop window, physical keyboard, socket or serial port is opened.
 
 ## Binding and capture
