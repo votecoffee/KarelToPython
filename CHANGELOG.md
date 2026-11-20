@@ -1,5 +1,13 @@
 # Changelog
 
+## 26.1120.162350 - 2026-11-20
+
+- Track provable Pythonic PATH appends, end inserts, tail deletions and
+  rejected indexes during input discovery. Carry the updated shape into
+  PATH_LEN and FILE transfers.
+- Keep earlier saved inputs distinct from new nodes initialized by source
+  writes or FILE input. Retain seed storage on linked refresh.
+
 ## 26.1120.161733 - 2026-11-20
 
 - Use known PATH_LEN and NODE_SIZE results in Pythonic input discovery.

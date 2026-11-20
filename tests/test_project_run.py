@@ -173,6 +173,47 @@ class SavedProjectTests(unittest.TestCase):
         self.assertEqual(result['status'], 'completed', result['error'])
         self.assertEqual(result['text_output'].strip(), '19')
 
+    def test_linked_tail_edit_refresh_retains_seed_and_resolves_updated_count(self):
+        types = 'TYPE row_t=STRUCTURE value:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t '
+        main = self.module('MAIN',
+                           'APPEND_NODE(route,s) route[PATH_LEN(route)].value=31 '
+                           'WRITE(PATH_LEN(route),route)',
+                           types+'VAR route FROM LIB:route_t s:INTEGER')
+        lib = self.module('LIB', declarations=types+'VAR route:route_t')
+        spec = ['PATH', ['STRUCTURE', 'ROW_T', [['VALUE', ['INTEGER']]]], None]
+        seed = dict(program='LIB', path='ROUTE', type=spec, value=dict(nodes=[{'VALUE': 5}], data=None))
+        self.create(main, lib, context={'variables': [seed]})
+        revised = self.folder/'revised.run.json'
+        prepared = runner.refresh_project_document(self.document, revised, [main, lib])['inputs']
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(prepared['context']['variables'], [seed])
+        self.assertEqual([row['path'] for row in report['inputs']], ['ROUTE[1]'])
+        result = runner.run_document(revised)['results']
+        self.assertEqual(result['status'], 'completed', result['error'])
+        self.assertEqual(result['text_output'], ' 2 5 31')
+
+    def test_linked_binary_read_uses_source_appended_path_storage(self):
+        types = 'TYPE row_t=STRUCTURE value:INTEGER ENDSTRUCTURE '
+        main = self.module('MAIN', 'APPEND_NODE(route,s) READ INPUT(route) CLOSE FILE INPUT',
+                           types+'VAR route:PATH NODEDATA=row_t s:INTEGER')
+        spec = ['PATH', ['STRUCTURE', 'ROW_T', [['VALUE', ['INTEGER']]]], None]
+        seed = dict(program='MAIN', path='ROUTE', type=spec, value=dict(nodes=[{'VALUE': MISSING}], data=None))
+        config = dict(variables=[seed], files={'data': {'hex': '1f00000029000000'}},
+                      predefined_files={'INPUT': dict(name='data', mode='RB')})
+        self.create(main, context=config)
+        revised = self.folder/'revised.run.json'
+        prepared = runner.refresh_project_document(self.document, revised, [main])['inputs']
+        report = prepared['template']['discovery']
+        self.assertEqual(report['inputs'], [])
+        self.assertEqual({row['code'] for row in report['unresolved']},
+                         {'input-stream', 'file-state', 'file-transport'})
+        self.assertEqual(prepared['context']['variables'], [seed])
+        result = runner.run_document(revised)['results']
+        self.assertEqual(result['status'], 'completed', result['error'])
+        route = result['programs']['MAIN']['values']['ROUTE']
+        self.assertEqual(route['nodes'], [{'VALUE': 31}, {'VALUE': 41}])
+
     def test_linked_selected_path_read_retains_storage_even_without_field_inputs(self):
         decl = 'TYPE row_t=STRUCTURE value:INTEGER ENDSTRUCTURE VAR route:PATH NODEDATA=row_t'
         main = self.module('MAIN', 'READ INPUT(route[2])', decl)

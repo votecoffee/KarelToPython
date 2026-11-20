@@ -100,18 +100,19 @@ class _Flow:
     paused_tasks: dict = field(default_factory=dict)
     task_order_unknown: bool = False
     path_shape_unknown: bool = False
+    path_counts: dict = field(default_factory=dict)
 
     def copy(self):
         return _Flow(self.defined.copy(),self.assigned.copy(),self.maybe.copy(),
                      self.constants.copy(),self.stopped,self.opaque,self.handlers.copy(),
                      self.requested_tasks.copy(),self.paused_tasks.copy(),self.task_order_unknown,
-                     self.path_shape_unknown)
+                     self.path_shape_unknown,self.path_counts.copy())
 
     def take(self, other):
         self.handlers = other.handlers
         self.requested_tasks, self.paused_tasks = other.requested_tasks, other.paused_tasks
         self.task_order_unknown = other.task_order_unknown
-        self.path_shape_unknown = other.path_shape_unknown
+        self.path_shape_unknown, self.path_counts = other.path_shape_unknown, other.path_counts
         self.defined,self.assigned,self.maybe,self.constants = other.defined,other.assigned,other.maybe,other.constants
         self.stopped,self.opaque = other.stopped,other.opaque
 
@@ -134,12 +135,14 @@ def _merge(flows):
             if cursor is not None and any(branch.paused_tasks.get(name) is not cursor for branch in live):
                 uncertain = True
             pauses[name] = cursor
+    path_shape_unknown = any(flow.path_shape_unknown or flow.path_counts != first.path_counts for flow in live)
+    path_counts = {} if path_shape_unknown else first.path_counts.copy()
     return _Flow(set.intersection(*(flow.defined for flow in live)),
                  set.intersection(*(flow.assigned for flow in live)),
                  set.union(*(flow.maybe for flow in live)),constants,False,any(flow.opaque for flow in live),
                  {key: tuple(definitions) for key, definitions in handlers.items()},
                  set.union(*(flow.requested_tasks for flow in live)),
-                 pauses,uncertain,any(flow.path_shape_unknown for flow in live))
+                 pauses,uncertain,path_shape_unknown,path_counts)
 
 
 def _array_dimensions(spec):
@@ -222,6 +225,7 @@ class _Analyzer:
         self.saw_handler = False
         self.activation_unknown = False
         self.scanning_handler = False
+        self.repeat_depth = 0
         self.track_tasks = track_tasks
         self.task_numbers = tuple(linked_plans) if linked_plans is not None else ()
         self.segmentable = {}
@@ -256,6 +260,7 @@ class _Analyzer:
         if task_order:
             self.lose_task_order(flow)
         flow.opaque=True;flow.defined.clear();flow.assigned.clear();flow.constants.clear()
+        flow.path_counts.clear()
 
     def context(self, service, address):
         self.contexts.setdefault((service,str(address)),dict(service=service,address=address))
@@ -357,7 +362,7 @@ class _Analyzer:
         if len(indexes) > MAX_PATH_IO_FIELDS:
             self.unresolved_at('selection', 'PATH range exceeds the bounded FILE transfer limit', expr)
             return [None]
-        locations = [self.child(path, 'index', index, expr) for index in indexes]
+        locations = [self.index_child(path, index, expr, flow) for index in indexes]
         for location in locations:
             self.retain_selected_path_storage(location, flow, conditional)
         return locations
@@ -365,6 +370,21 @@ class _Analyzer:
     def stable_path_context(self, loc, flow, conditional):
         return (self.saved_path_count is not None and loc is not None and loc.kind == 'variable'
                 and not (flow.opaque or flow.path_shape_unknown or conditional))
+
+    def known_path_count(self, loc, flow, conditional):
+        if not self.stable_path_context(loc, flow, conditional):
+            return None
+        if loc.key in flow.path_counts:
+            return flow.path_counts[loc.key]
+        return self.saved_path_count(loc.owner, loc.root, loc.root_spec, loc.parts)
+
+    def index_child(self, loc, index, node, flow):
+        if loc.spec[0] == 'PATH' and not (flow.opaque or flow.path_shape_unknown):
+            count = flow.path_counts.get(loc.key)
+            if count is not None and index > count:
+                self.unresolved_at('path-topology', f'PATH node {index} is outside the modeled shape of {loc.path}', node)
+                return None
+        return self.child(loc, 'index', index, node)
 
     def retain_selected_path_storage(self, loc, flow, conditional):
         if not self.stable_path_context(loc, flow, conditional):
@@ -398,7 +418,7 @@ class _Analyzer:
                     expand(self.child(current, 'index', index, node))
                     for index in range(1, size + 1)
                 )
-            count = self.saved_path_count(current.owner, current.root, current.root_spec, current.parts)
+            count = self.known_path_count(current, flow, conditional)
             if count is None:
                 return False
             for index in range(0 if spec[2] is not None else 1, count + 1):
@@ -451,7 +471,7 @@ class _Analyzer:
                         self.unresolved_at('selection', 'PATH header requires a statically selected zero subscript', expr)
                         loc = None
                     else:
-                        loc = self.child(loc, 'index', index, expr)
+                        loc = self.index_child(loc, index, expr, flow)
             return loc
         if kind in ('call','binary','unary','literal','real_literal','predefined'):
             self.expr(expr,flow,conditional)
@@ -743,19 +763,62 @@ class _Analyzer:
             else:
                 self.unresolved_at('path-schema', 'NODE_SIZE requires a known NODEDATA schema', node)
         else:
-            if spec and spec[0] == 'PATH' and self.stable_path_context(loc, flow, conditional):
-                count = self.saved_path_count(loc.owner, loc.root, loc.root_spec, loc.parts)
+            if loc is not None and spec and spec[0] == 'PATH':
+                count = self.known_path_count(loc, flow, conditional)
                 if count is not None:
                     self.path_storage[loc.owner, loc.root] = loc.root_spec
                     return _Value(count, spec=['INTEGER'])
-            self.unresolved_at('path-topology', 'PATH_LEN requires a matching saved PATH with unchanged topology', node)
+            self.unresolved_at('path-topology', 'PATH_LEN requires a matching saved PATH with a known current node count', node)
         return _Value(spec=['INTEGER'])
+
+    def path_edit(self, node, flow, conditional):
+        name = node['value']
+        path_arg, *indexes, status_arg = node['args']
+        path = self.locate(path_arg, flow, conditional)
+        index = self.expr(indexes[0], flow, conditional).constant if indexes else None
+        status = self.locate(status_arg, flow, conditional)
+        if flow.stopped and not flow.opaque:
+            return _Value(complete=False)
+
+        count = self.known_path_count(path, flow, conditional) if path is not None and path.spec[0] == 'PATH' else None
+        # A routine may retain a node reference captured before this edit.
+        # Repeated bodies can also reach the edit with a different shape.
+        if count is not None and status is not None and not self.frames and not self.repeat_depth:
+            aliases_path = (status.key[:3] == path.key[:3]
+                            and status.parts[:len(path.parts)] == path.parts)
+            removing = name == 'DELETE_NODE'
+            last = count if removing else count + 1
+            if name == 'APPEND_NODE':
+                index = last
+            if not aliases_path and type(index) is int and (removing or count < 32767):
+                if not 1 <= index <= last:
+                    self.path_storage[path.owner, path.root] = path.root_spec
+                    self.write(status, _Value(2, spec=['INTEGER']), flow, node)
+                    return _Value()
+                if index == last:
+                    record = self.child(path, 'index', last, node)
+                    if record is not None:
+                        self.path_storage[path.owner, path.root] = path.root_spec
+                        flow.path_counts[path.key] = count - 1 if removing else count + 1
+                        # A newly allocated record and a removed record cannot
+                        # use saved or previously written values at this index.
+                        self.write(record, _Value(complete=False), flow, node)
+                        self.write(status, _Value(0, spec=['INTEGER']), flow, node)
+                        return _Value()
+
+        self.unresolved_at('path-topology', name+' may change PATH topology or captured node references', node)
+        self.opaque(flow)
+        self.write(status, _Value(), flow, node)
+        return _Value()
 
     def call(self, node, flow, conditional):
         name=node['value'];args=node['args']
         if name in self.plan['routines']:return self.routine(name,args,node,flow,conditional)
         if name in ('PATH_LEN', 'NODE_SIZE'):
             return self.path_metadata_call(node, flow, conditional)
+        if ((name == 'APPEND_NODE' and len(args) == 2)
+                or (name in ('INSERT_NODE', 'DELETE_NODE') and len(args) == 3)):
+            return self.path_edit(node, flow, conditional)
         if name in ('UNINIT','ARRAY_LEN'):
             target=args[0] if args else {};spec=None
             while target.get('kind')=='group':target=target['args'][0]
@@ -807,7 +870,7 @@ class _Analyzer:
                         if field:loc=self.child(loc,'field',field[1].upper(),node);rest=rest[field.end():]
                         elif index:
                             for item in index[1].split(','):
-                                if loc:loc=self.child(loc,'index',int(item),node)
+                                if loc:loc=self.index_child(loc,int(item),node,flow)
                             rest=rest[index.end():]
                         else:loc=None
             complete=False
@@ -1350,11 +1413,16 @@ class _Analyzer:
             self.lose_activation_order()
             self.lose_task_order(flow)
             exits_before_body = len(self.exits)
-            flow.constants.clear();self.block(node['body'],flow,conditional)
-            if not flow.stopped:
-                conditionally_reached = conditional or (not self.frames and len(self.exits) > exits_before_body)
-                predicate = self.sample_condition_inputs(args[0], flow, conditionally_reached, ('repeat_eval',))
-                self.expr(predicate, flow, conditionally_reached)
+            flow.constants.clear()
+            self.repeat_depth += 1
+            try:
+                self.block(node['body'],flow,conditional)
+                if not flow.stopped:
+                    conditionally_reached = conditional or (not self.frames and len(self.exits) > exits_before_body)
+                    predicate = self.sample_condition_inputs(args[0], flow, conditionally_reached, ('repeat_eval',))
+                    self.expr(predicate, flow, conditionally_reached)
+            finally:
+                self.repeat_depth -= 1
             return
         if kind=='select':
             selected=self.expr(args[0],flow,conditional).constant

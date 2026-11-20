@@ -117,10 +117,10 @@ The `karel2py.inputs.v1` report contains target byte identity, `inputs`,
 `context_requirements`, `unresolved` and `complete`. Each input identifies its
 logical kind, owner, selected path, type when known, certainty and source
 locations. Include locations retain their physical file/line; `python_lines`
-points into the generated module. When a FILE transfer or `PATH_LEN` depends
-on existing PATH storage, `path_storage` lists the exact owner, root path
-and type of each saved root used. A shape dependency can exist without a
-field input.
+points into the generated module. When a FILE transfer, `PATH_LEN`, or
+bounded node edit depends on existing PATH storage, `path_storage` lists the
+exact owner, root path and type of each saved root used. A shape dependency
+can exist without a field input.
 
 - `required`: a modeled unconditional read has no proven prior source write.
 - `conditional`: the read depends on a branch, a potentially empty loop, a
@@ -266,8 +266,8 @@ unavailable. The new module pins are checked before publication.
 
 Linked refresh uses the same schema compatibility rules and keys storage by
 the owning program and root path. Exact saved PATH roots needed by a whole or
-selected FILE transfer or `PATH_LEN` carry forward, including READ destinations
-with no initial fields to edit. A context variable without a matching discovered root
+selected FILE transfer, `PATH_LEN`, or a proved node edit carry forward,
+including READ destinations with no initial fields to edit. A context variable without a matching discovered root
 or PATH storage dependency is omitted from the new context. The `refresh.variables` row
 points to its original value and marks it `not-discovered` if discovery finished,
 or `unresolved` if discovery was incomplete. Even an omitted variable may be
@@ -384,11 +384,25 @@ ordering requires a conservative second pass.
 `PATH_LEN` uses the node count of a matching saved PATH when that shape still
 applies. This can resolve branch decisions, node selectors and FILE range
 bounds without treating any record field as an input. An unknown shape or
-possible intervening node edit produces a `path-topology` gap. `NODE_SIZE`
+unmodeled intervening node edit produces a `path-topology` gap. `NODE_SIZE`
 uses the translator's portable NODEDATA schema size, independently of node
 count or values. Subscript expressions still contribute their own inputs
 and effects. Retranslate older Python to attach the schema when an unresolved
 subscript prevents finding it through the selected location.
+
+For a matching saved shape, discovery tracks unseeded `APPEND_NODE`, an
+`INSERT_NODE` at the end, and `DELETE_NODE` of the last node in definite
+program-body flow. Known invalid indexes report the runtime's status 2 and
+preserve the shape. Successful edits set status 0 and update later
+`PATH_LEN` and FILE destinations. New records begin with missing data
+owned by the source, so their fields must be written or read from a stream
+before use. A deleted index loses its prior facts, including when a later
+append reuses that index.
+
+Middle edits, seeded inserts, aliases into the edited PATH, edits inside
+routine frames, and uncertain or potentially repeated edits leave the
+topology unresolved. A following query then needs an explicit review of the
+changed topology.
 
 ### Boolean and INTEGER operators
 

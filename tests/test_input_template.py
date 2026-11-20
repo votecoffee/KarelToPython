@@ -224,7 +224,7 @@ class InputTemplateTests(unittest.TestCase):
     def test_path_count_is_unresolved_after_node_mutation(self):
         context = {'variables': [dict(program='T', path='ROUTE',
             type=['PATH', ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]], None],
-            value=dict(nodes=[{'AMOUNT': 7}], data=None))]}
+            value=dict(nodes=[{'AMOUNT': 7}, {'AMOUNT': 9}], data=None))]}
         prepared = prepare('DELETE_NODE(route,1,s) n=PATH_LEN(route) '
                            'IF n=1 THEN WRITE(x) ELSE WRITE(y) ENDIF',
                            decl='route:PATH NODEDATA=row_t n,s,x,y:INTEGER',
@@ -233,6 +233,78 @@ class InputTemplateTests(unittest.TestCase):
         self.assertIn('path-topology', {row['code'] for row in report['unresolved']})
         self.assertNotIn('path_storage', report)
         self.assertTrue({'X', 'Y'} <= set(by_path(prepared)))
+
+    def test_path_end_edits_update_shapes_and_keep_earlier_saved_inputs(self):
+        prefix = 'TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE'
+        path = ['PATH', ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]], None]
+        context = {'variables': [dict(program='T', path='ROUTES', type=['ARRAY', 2, path],
+            value=[dict(nodes=[], data=None), dict(nodes=[{'AMOUNT': MISSING}], data=None)])]}
+        prepared = prepare(
+            'APPEND_NODE(routes[2],s) n=PATH_LEN(routes[2]) routes[2,n].amount=8 '
+            'INSERT_NODE(routes[2],n+1,s) routes[2,3].amount=9 '
+            'IF (s=0) AND (PATH_LEN(routes[2])=3) THEN WRITE(routes[2]) ELSE WRITE(unused) ENDIF',
+            decl='routes:ARRAY[2] OF PATH NODEDATA=row_t n,s,unused:INTEGER', prefix=prefix, context=context,
+        )
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'ROUTES[2][1]'})
+        self.assertEqual(by_path(prepared)['ROUTES[2][1]']['status'], 'missing')
+        self.assertEqual(report['path_storage'], [dict(program='T', path='ROUTES', type=['ARRAY', 2, path])])
+
+    def test_tail_deletion_drops_old_facts_when_the_index_is_reused(self):
+        spec = ['PATH', ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]], None]
+        seed = dict(program='T', path='ROUTE', type=spec, value=dict(nodes=[{'AMOUNT': 7}], data=None))
+        context = {'variables': [seed]}
+        prefix = 'TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE'
+        decl = 'route:PATH NODEDATA=row_t s:INTEGER'
+        prepared = prepare('route[1].amount=11 DELETE_NODE(route,1,s) APPEND_NODE(route,s) WRITE(route)',
+                           decl=decl, prefix=prefix, context=context)
+        report = prepared['template']['discovery']
+        self.assertFalse(report['inputs'])
+        self.assertEqual({row['code'] for row in report['unresolved']}, {'derived-value'})
+        bounds = prepare('DELETE_NODE(route,1,s) WRITE(route[1])', decl=decl, prefix=prefix, context=context)
+        gap = bounds['template']['discovery']
+        self.assertIn('path-topology', {row['code'] for row in gap['unresolved']})
+        self.assertEqual(gap['inputs'], [])
+
+    def test_invalid_path_edit_index_preserves_count_and_sets_status(self):
+        spec = ['PATH', ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]], None]
+        context = {'variables': [dict(program='T', path='ROUTE', type=spec, value=dict(nodes=[], data=None))]}
+        prepared = prepare(
+            'INSERT_NODE(route,0,s) IF s=2 THEN DELETE_NODE(route,1,s) ENDIF '
+            'IF (s=2) AND (PATH_LEN(route)=0) THEN WRITE(wanted) ELSE WRITE(unused) ENDIF',
+            decl='route:PATH NODEDATA=row_t s,wanted,unused:INTEGER',
+            prefix='TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE', context=context,
+        )
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'WANTED'})
+
+    def test_potentially_repeated_end_edit_leaves_topology_unresolved(self):
+        spec = ['PATH', ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]], None]
+        context = {'variables': [dict(program='T', path='ROUTE', type=spec, value=dict(nodes=[], data=None))]}
+        prepared = prepare('REPEAT APPEND_NODE(route,s) UNTIL done WRITE(PATH_LEN(route))',
+                           decl='route:PATH NODEDATA=row_t s:INTEGER done:BOOLEAN',
+                           prefix='TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE', context=context)
+        report = prepared['template']['discovery']
+        self.assertNotIn('path_storage', report)
+        self.assertIn('path-topology', {row['code'] for row in report['unresolved']})
+
+    def test_routine_captured_node_is_not_rebound_after_an_edit(self):
+        spec = ['PATH', ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]], None]
+        context = {'variables': [dict(program='T', path='ROUTE', type=spec,
+                                      value=dict(nodes=[{'AMOUNT': 7}], data=None))]}
+        program = translate(
+            'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+            'VAR route:PATH NODEDATA=row_t s:INTEGER '
+            'ROUTINE replace(old:row_t) BEGIN DELETE_NODE(route,1,s) APPEND_NODE(route,s) '
+            'old.amount=11 END replace '
+            'BEGIN replace(route[1]) WRITE(route) END T'
+        )
+        report = prepare_inputs(program.python_source, context=context)['template']['discovery']
+        self.assertFalse(report['complete'])
+        self.assertNotIn('path_storage', report)
+        self.assertIn('path-topology', {row['code'] for row in report['unresolved']})
 
     def test_whole_path_topology_remains_unresolved_after_unknown_mutation(self):
         prefix = 'TYPE node_t=STRUCTURE amount:INTEGER ENDSTRUCTURE'
