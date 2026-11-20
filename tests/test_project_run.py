@@ -343,6 +343,30 @@ class SavedProjectTests(unittest.TestCase):
         self.assertEqual(result['status'], 'completed', result['error'])
         self.assertEqual(result['text_output'], ' 0 17\n 23 12 34\n')
 
+    def test_linked_whole_node_retires_current_slot_when_path_is_copied(self):
+        types = 'TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t '
+        main = self.module('MAIN', 'routes[2,1].amount=29 '
+                           'edit(routes[2],routes[2,1],routes[2,1].amount) WRITE(routes[2],CR)',
+                           types+'VAR routes FROM LIB:ARRAY[2] OF route_t',
+                           'ROUTINE edit(v:route_t;held:row_t;field:INTEGER) FROM LIB')
+        lib = self.module('LIB', declarations=types+'VAR routes:ARRAY[2] OF route_t',
+                          routines='ROUTINE edit(v:route_t;held:row_t;field:INTEGER) VAR s:INTEGER '
+                                   'unused:INTEGER BEGIN INSERT_NODE(v,1,s) held.amount=12 WRITE(held.amount,field,CR) '
+                                   'COPY_PATH(v,0,0,v,s) '
+                                   'IF (held.amount=12) AND (field=29) THEN '
+                                   'held.amount=23 APPEND_NODE(v,held.amount) v[3].amount=34 '
+                                   'WRITE(held.amount,field,CR) ELSE WRITE(unused) ENDIF END edit')
+        spec = ['PATH', ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]], None]
+        root = dict(program='LIB', path='ROUTES', type=['ARRAY', 2, spec],
+                    value=[dict(nodes=[], data=None), dict(nodes=[{'AMOUNT': MISSING}], data=None)])
+        prepared = self.create(main, lib, context={'variables': [root]}, discover=True)
+        report = prepared['inputs']['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertFalse(report['inputs'])
+        result = runner.run_document(self.document)['results']
+        self.assertEqual(result['status'], 'completed', result['error'])
+        self.assertEqual(result['text_output'], ' 12 29\n 0 29\n 12 29 34\n')
+
     def test_linked_node_borrow_stays_live_when_edits_follow_its_slot(self):
         types = 'TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t '
         main = self.module('MAIN', 'edit(routes[2],routes[2,1]) WRITE(routes[2],CR)',

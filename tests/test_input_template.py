@@ -815,21 +815,23 @@ class InputTemplateTests(unittest.TestCase):
         self.assertTrue(any('Captured PATH reference has an unresolved origin' in row['message']
                             for row in report['unresolved']))
 
-    def test_saved_node_origin_does_not_override_current_slot_in_alias_guard(self):
+    def test_whole_node_follows_captured_slot_after_second_insertion(self):
         source = (
             'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t '
-            'VAR route:route_t s:INTEGER '
+            'VAR route:route_t s,wanted,unused:INTEGER '
             'ROUTINE update(v:route_t;held:row_t) VAR status:INTEGER '
-            'BEGIN INSERT_NODE(v,2,status) WRITE(held.amount) END update '
+            'BEGIN INSERT_NODE(v,2,status) v[2].amount=17 '
+            'IF held.amount=17 THEN held.amount=23 ENDIF '
+            'IF v[2].amount=23 THEN WRITE(v[3].amount,wanted) ELSE WRITE(unused) ENDIF END update '
             'BEGIN INSERT_NODE(route,1,s) update(route,route[2]) END T'
         )
         spec = ['PATH', ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]], None]
         context = {'variables': [dict(program='T', path='ROUTE', type=spec,
                                       value=dict(nodes=[{'AMOUNT': MISSING}], data=None))]}
-        report = prepare_inputs(translate(source).python_source, context=context)['template']['discovery']
-        self.assertFalse(report['inputs'])
-        self.assertTrue(any('Captured PATH reference has an unresolved origin' in row['message']
-                            for row in report['unresolved']))
+        prepared = prepare_inputs(translate(source).python_source, context=context)
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'ROUTE[1].AMOUNT', 'WANTED'})
 
     def test_rejected_copy_does_not_invalidate_borrowed_header_or_node(self):
         source = (
@@ -887,21 +889,22 @@ class InputTemplateTests(unittest.TestCase):
         self.assertTrue(any('Captured PATH reference has an unresolved origin' in row['message']
                             for row in report['unresolved']))
 
-    def test_descendant_borrow_in_ancestor_frame_blocks_a_nested_edit(self):
+    def test_nested_delete_distinguishes_whole_slot_from_original_field(self):
         source = (
             'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t '
             'VAR route:route_t '
-            'ROUTINE edit(v:route_t) VAR s:INTEGER BEGIN DELETE_NODE(v,1,s) END edit '
-            'ROUTINE forward(old:row_t) BEGIN edit(route) WRITE(old.amount) END forward '
-            'BEGIN forward(route[1]) END T'
+            'ROUTINE edit(v:route_t;old:row_t;field:INTEGER) VAR s:INTEGER '
+            'BEGIN DELETE_NODE(v,1,s) WRITE(old.amount,field) END edit '
+            'ROUTINE forward(old:row_t;field:INTEGER) BEGIN edit(route,old,field) END forward '
+            'BEGIN forward(route[1],route[1].amount) END T'
         )
         spec = ['PATH', ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]], None]
         context = {'variables': [dict(program='T', path='ROUTE', type=spec,
-                                      value=dict(nodes=[{'AMOUNT': MISSING}, {'AMOUNT': 42}], data=None))]}
-        report = prepare_inputs(translate(source).python_source, context=context)['template']['discovery']
-        self.assertFalse(report['inputs'])
-        self.assertTrue(any('Captured PATH reference has an unresolved origin' in row['message']
-                            for row in report['unresolved']))
+                                      value=dict(nodes=[{'AMOUNT': MISSING}, {'AMOUNT': MISSING}], data=None))]}
+        prepared = prepare_inputs(translate(source).python_source, context=context)
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'ROUTE[1].AMOUNT', 'ROUTE[2].AMOUNT'})
 
     def test_operand_call_cannot_rebind_an_earlier_captured_path_argument(self):
         source = (
@@ -920,7 +923,23 @@ class InputTemplateTests(unittest.TestCase):
         self.assertTrue(any('Captured PATH reference has an unresolved origin' in row['message']
                             for row in report['unresolved']))
 
-    def test_routine_captured_node_is_not_rebound_after_an_edit(self):
+    def test_unmodeled_effect_hides_captured_slot_origin_without_prior_edit(self):
+        source = (
+            'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t '
+            'VAR route:route_t address:STRING[20] '
+            'ROUTINE edit(held:row_t) VAR entry,s:INTEGER '
+            "BEGIN entry=0 SET_VAR(entry,'',address,17,s) WRITE(held.amount) END edit "
+            'BEGIN edit(route[1]) END T'
+        )
+        spec = ['PATH', ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]], None]
+        context = {'variables': [dict(program='T', path='ROUTE', type=spec,
+                                      value=dict(nodes=[{'AMOUNT': MISSING}], data=None))]}
+        prepared = prepare_inputs(translate(source).python_source, context=context)
+        report = prepared['template']['discovery']
+        self.assertEqual(set(by_path(prepared)), {'ADDRESS'})
+        self.assertIn('path-topology', {row['code'] for row in report['unresolved']})
+
+    def test_whole_node_slot_that_goes_out_of_range_remains_unresolved(self):
         spec = ['PATH', ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]], None]
         context = {'variables': [dict(program='T', path='ROUTE', type=spec,
                                       value=dict(nodes=[{'AMOUNT': 7}], data=None))]}

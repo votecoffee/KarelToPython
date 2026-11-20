@@ -1,5 +1,5 @@
 """Bounded read-before-write discovery from checked generated Python contracts."""
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 import hashlib
 import math
 from pathlib import Path
@@ -43,6 +43,17 @@ class _TaskOrderUnknown(Exception):
 
 
 @dataclass(frozen=True)
+class _PathNodeSlot:
+    path: '_Location'
+    position: int
+    generation: int
+
+    @property
+    def key(self):
+        return self.generation, self.position
+
+
+@dataclass(frozen=True)
 class _Location:
     kind: str
     owner: str
@@ -50,6 +61,7 @@ class _Location:
     parts: tuple = ()
     spec: object = field(default=None, compare=False, hash=False)
     root_spec: object = field(default=None, compare=False, hash=False)
+    node_slot: _PathNodeSlot | None = field(default=None, compare=False, hash=False)
 
     @property
     def key(self):
@@ -96,6 +108,13 @@ class _PathOrder:
     nodes: tuple
     header: int | None = None
     detached: frozenset[int] = frozenset()
+    generation: int = 0
+    retired_slots: dict = field(default_factory=dict)
+
+    def slot_origin(self, slot):
+        if slot.generation != self.generation:
+            return self.retired_slots.get(slot.key)
+        return self.nodes[slot.position - 1] if 1 <= slot.position <= len(self.nodes) else None
 
 
 @dataclass
@@ -338,10 +357,23 @@ class _Analyzer:
                 return None
         return _Location('variable', owner, root, spec=spec, root_spec=spec)
 
-    def slot(self, name, node):
-        if self.frames and name in self.frames[-1]['slots']:
-            return self.frames[-1]['slots'][name]
-        return self.global_slot(name,node)
+    def slot(self, name, node, flow):
+        if not self.frames or name not in self.frames[-1]['slots']:
+            return self.global_slot(name, node)
+        loc = self.frames[-1]['slots'][name]
+        slot = loc.node_slot
+        if slot is None:
+            return loc
+        if not (flow.opaque or flow.path_shape_unknown or self.lost_path_reference(loc, flow)):
+            order = flow.path_orders.get(slot.path.key)
+            if order is None:
+                return loc
+            origin = order.slot_origin(slot)
+            if origin is not None:
+                part = ('created-node', -origin) if origin < 0 else ('index', origin)
+                return replace(loc, parts=(*slot.path.parts, part))
+        self.unresolved_at('path-topology', 'Captured PATH reference has an unresolved origin: '+loc.path, node)
+        return None
 
     def constant(self, name):
         if self.frames and name in self.frames[-1]['constants']:return self.frames[-1]['constants'][name]
@@ -435,9 +467,17 @@ class _Analyzer:
         depth = len(path.parts)
         stationary = set(prefix)
         shifted = set(suffix)
+        new_count = len(prefix) + len(suffix) + (removed is None)
         for ref in borrows:
             if ref is None:
                 return False
+            slot = ref.node_slot
+            if slot is not None:
+                if order.slot_origin(slot) is None:
+                    return False
+                if slot.generation == order.generation and slot.position > new_count:
+                    return False
+                continue
             part = ref.parts[depth]
             origin = _path_record_identity(part)
             if _path_header_part(part) or origin in stationary or origin in order.detached:
@@ -450,21 +490,35 @@ class _Analyzer:
         return True
 
     def replaced_path_borrows(self, path, flow, conditional, *, keep_header=False, complete_header=False):
-        """Validate borrowed records and return the identities kept by old storage."""
+        """Validate borrowed records and retain the last contents of replaced slots."""
         if not self.can_publish_path(path, flow, conditional):
             return None
         order = flow.path_orders.get(path.key)
         detached = order.detached if order is not None else frozenset()
+        retired_slots = order.retired_slots if order is not None else {}
         depth = len(path.parts)
         replaced = set()
+        retiring = {}
         available_nodes = None
         for ref in self.active_path_borrows(path):
             if ref is None or (order is None and path.key in flow.path_orders):
                 return None
             part = ref.parts[depth]
-            origin = _path_record_identity(part)
-            if origin in detached:
-                continue
+            slot = ref.node_slot
+            if slot is not None:
+                if slot.key in retired_slots:
+                    continue
+                origin = order.slot_origin(slot) if order is not None else slot.position
+                if origin is None:
+                    return None
+                retiring[slot.key] = origin
+                replaced.add(origin)
+                if order is not None:
+                    continue
+            else:
+                origin = _path_record_identity(part)
+                if origin in detached:
+                    continue
             if _path_header_part(part):
                 header = -order.header if order is not None and order.header is not None else 0
                 if path.spec[2] is None or origin != header:
@@ -490,8 +544,11 @@ class _Analyzer:
             replaced.add(origin)
         if replaced:
             self.tick(len(detached) + len(replaced))
-            return detached | replaced
-        return detached
+            detached = detached | replaced
+        if retiring:
+            self.tick(len(retired_slots) + len(retiring))
+            retired_slots = retired_slots | retiring
+        return detached, retired_slots
 
     def lost_path_reference(self, loc, flow):
         if not flow.path_orders or not loc.parts:
@@ -598,12 +655,13 @@ class _Analyzer:
             return None
         return records
 
-    def locate(self, expr, flow, conditional, *, path_io=False):
+    def locate(self, expr, flow, conditional, *, path_io=False, capture_node=False):
         if not isinstance(expr,dict):return None
         kind=expr.get('kind');args=expr.get('args',[])
-        if 'token' in expr:return self.slot(expr['token'],expr)
-        if kind=='name':return self.slot(expr['value'],expr)
-        if kind=='group':return self.locate(args[0],flow,conditional,path_io=path_io)
+        if 'token' in expr:return self.slot(expr['token'],expr,flow)
+        if kind=='name':return self.slot(expr['value'],expr,flow)
+        if kind=='group':
+            return self.locate(args[0], flow, conditional, path_io=path_io, capture_node=capture_node)
         if kind=='field':
             base=self.locate(args[0],flow,conditional)
             return self.field_child(base, expr['value'], expr, flow) if base else None
@@ -630,7 +688,13 @@ class _Analyzer:
                         self.unresolved_at('selection', 'PATH header requires a statically selected zero subscript', expr)
                         loc = None
                     else:
-                        loc = self.index_child(loc, index, expr, flow)
+                        selected = self.index_child(loc, index, expr, flow)
+                        if (selected is not None and capture_node and position == len(args) - 1
+                                and loc.spec[0] == 'PATH' and index > 0):
+                            order = flow.path_orders.get(loc.key)
+                            slot = _PathNodeSlot(loc, index, order.generation if order is not None else 0)
+                            selected = replace(selected, node_slot=slot)
+                        loc = selected
             return loc
         if kind in ('call','binary','unary','literal','real_literal','predefined'):
             self.expr(expr,flow,conditional)
@@ -808,7 +872,7 @@ class _Analyzer:
             except ValueError:return _Value()
         if kind=='predefined':return _Value({'ON':True,'OFF':False,'MININT':-2147483648,'MAXINT':2147483647}.get(value,UNKNOWN))
         if kind=='name':
-            loc=self.slot(value,node)
+            loc=self.slot(value,node,flow)
             if loc:return self.read(loc,node,flow,conditional,partial=partial,path_io=path_io)
             constant=self.constant(value)
             if constant is not UNKNOWN:return _Value(constant)
@@ -1067,7 +1131,7 @@ class _Analyzer:
                         record = self.child(path, 'created-node', self.serial, node)
                         value = _Value(complete=False) if seed is None else self.complete_path_record(seed)
                         self.write(record, value, flow, node)
-                    flow.path_orders[path.key] = _PathOrder(nodes, order.header, detached)
+                    flow.path_orders[path.key] = replace(order, nodes=nodes, detached=detached)
                     self.write(status, _Value(0, spec=['INTEGER']), flow, node)
                     return _Value()
 
@@ -1114,11 +1178,11 @@ class _Analyzer:
                 else:
                     self.write(status, _Value(2, spec=['INTEGER']), flow, node)
                     return _Value()
-                detached = self.replaced_path_borrows(target, flow, conditional)
-                if detached is not None:
+                history = self.replaced_path_borrows(target, flow, conditional)
+                if history is not None:
                     captured = self.capture_path_copy(source, indexes, node, flow, conditional)
                     if captured is not None and 'kinematic' not in layout:
-                        self.publish_path_records(target, captured, node, flow, detached=detached)
+                        self.publish_path_records(target, captured, node, flow, history=history)
                         self.write(status, _Value(0, spec=['INTEGER']), flow, node)
                         return _Value()
 
@@ -1161,11 +1225,11 @@ class _Analyzer:
             return
         if value.path_records is not None and target is not None and target.spec == target_type:
             complete_header = target_type[2] is not None and value.path_records[0].complete
-            detached = self.replaced_path_borrows(target, flow, conditional, keep_header=True,
-                                                  complete_header=complete_header)
-            if detached is not None:
+            history = self.replaced_path_borrows(target, flow, conditional, keep_header=True,
+                                                 complete_header=complete_header)
+            if history is not None:
                 self.publish_path_records(target, value.path_records, node, flow,
-                                          keep_header=True, detached=detached)
+                                          keep_header=True, history=history)
                 return
 
         flow.path_orders[target.key if target is not None else None] = None
@@ -1189,7 +1253,7 @@ class _Analyzer:
             values.append(self.read(loc, node, flow, conditional, partial=True))
         return values
 
-    def publish_path_records(self, target, values, node, flow, *, keep_header=False, detached=frozenset()):
+    def publish_path_records(self, target, values, node, flow, *, keep_header=False, history=None):
         """Give replacement nodes new identities and write the selected header."""
         previous = flow.path_orders.get(target.key)
         header = previous.header if keep_header and previous is not None else None
@@ -1205,7 +1269,9 @@ class _Analyzer:
                 part = ('created-node', self.serial)
                 nodes.append(-self.serial)
             self.write(self.child(target, *part, node), value, flow, node)
-        flow.path_orders[target.key] = _PathOrder(tuple(nodes), header, detached)
+        self.serial += 1
+        detached, retired_slots = history if history is not None else (frozenset(), {})
+        flow.path_orders[target.key] = _PathOrder(tuple(nodes), header, detached, self.serial, retired_slots)
 
     def call(self, node, flow, conditional, *, statement_call=False):
         name=node['value'];args=node['args']
@@ -1465,7 +1531,7 @@ class _Analyzer:
             if flow.stopped and not flow.opaque:
                 return _Value(complete=False)
             mode=modes[index] if index<len(modes) else 'unknown'
-            if mode=='reference':actual.append(self.locate(item,flow,conditional))
+            if mode=='reference':actual.append(self.locate(item,flow,conditional,capture_node=True))
             elif mode=='value':
                 value = self.expr(item,flow,conditional,partial=True)
                 expected = routine['parameters'][index][1]

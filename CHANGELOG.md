@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1120.181017 - 2026-11-20
+
+- Follow whole-node PATH borrows at their captured slots through checked
+  in-place inserts and deletes, including nested and linked calls.
+- Retain the last occupant of a borrowed slot when assignment or COPY_PATH
+  replaces the list, independently of the new records.
+
 ## 26.1120.180351 - 2026-11-20
 
 - Follow borrowed headers through PATH assignment and retain references to
