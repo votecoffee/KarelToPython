@@ -13,24 +13,12 @@ from .compiler_language import (
     TIMER_FUNCTIONS,
     TIME_TEXT_PROCEDURES,
 )
-from .operator_types import POSE_OPERANDS, binary_result, operand_type, unary_result
 from . import extended as ex
 from . import runtime as rt
 
 
 class ExpressionLowering:
     """Lower expressions against the current checked program and emitter scope."""
-
-    def geometry_operand(self,code,spec,token,operation):
-        if self.mode=='pythonic' and spec==('VECTOR',) and operation in (':','INV','FRAME'):
-            return f'_rt.vector_value({code},{token.line})'
-        if self.mode=='pythonic' and spec[0]=='JOINTPOS':
-            self.features.update(('extended services','joint geometry'))
-            if self.current_routine: self.current_routine.may_services=True
-            self.joint_geometry_uses.append(dict(operation=operation,body=self.current_routine.name if self.current_routine else self.program.name,
-                line=token.line,column=token.column,source_type=spec,target_type=('XYZWPREXT',),evaluated_once=True,independent_value=True))
-            return f'self._state.geometry_value({code},{spec!r},{token.line})'
-        return f'_rt.frame_value({code}, {token.line}, expected={spec!r})'
 
     def path_conversion_value(self,expected,actual,value,token,operation,*,receiver=None):
         array=expected[0]=='ARRAY'
@@ -105,56 +93,9 @@ class ExpressionLowering:
         if expr.kind in ('name', 'field', 'index', 'using_ref'):
             return self.lower_storage_read(expr, raw=raw, collection_io=collection_io)
         if expr.kind == 'unary':
-            # The source manual requires the named predefined minimum.
-            if self.is_minimum_literal(expr):
-                self.error('E_MININT_LITERAL', 'The manual requires MININT instead of the INTEGER literal -2147483648', expr.token)
-            value, spec = self.expression(expr.args[0])
-            result_type = unary_result(expr.value, spec, mode=self.mode)
-            if result_type is None: self.error('E_TYPE', 'Invalid unary operand type', expr.token)
-            self.features.add('unary ' + expr.value)
-            return f'_rt.unary({expr.value!r}, {value}, {line})', result_type
+            return self.lower_unary(expr)
         if expr.kind == 'binary':
-            if self.mode == 'strict' and self.has_external_effect_call(expr):
-                self.error('E_EVALUATION_ORDER', 'Function calls that may write globals/reference parameters, delay, request output or abort are blocked inside operator expressions', expr.token)
-            left, lt = self.expression(expr.args[0])
-            right, right_type = self.expression(expr.args[1])
-            lt, right_type = operand_type(lt), operand_type(right_type)
-            op = expr.value
-            if op == ':':
-                relative_kinds = (*POSE_OPERANDS, 'VECTOR')
-                result_type = None
-                if self.mode == 'pythonic' and lt[0] in relative_kinds and right_type[0] in relative_kinds:
-                    result_type = self.relative_result_type([lt, right_type], expr.token)
-            else:
-                result_type = binary_result(op, lt, right_type, mode=self.mode)
-            if (op in ('AND', 'OR') and self.mode == 'strict' and lt[0] == 'BOOLEAN'
-                    and right_type[0] != 'VECTOR' and any(self.has_routine_call(x) for x in expr.args)):
-                self.error('E_EVALUATION_ORDER', 'Boolean expressions containing routine calls are not implemented', expr.token)
-            if result_type is None: self.error('E_TYPE', f'Unsupported {lt[0]} {op} {right_type[0]}', expr.token)
-            if op == '>=<':
-                self.position_comparison_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
-                                                          line=line, column=expr.token.column, operand_types=[lt[0],right_type[0]],
-                                                          result_type='BOOLEAN', evaluated_once=True, operands_copied=True))
-            elif op == ':':
-                self.frame_operation_uses.append(dict(operation=':', body=self.current_routine.name if self.current_routine else self.program.name,
-                                                      line=line, column=expr.token.column, operand_types=[lt[0],right_type[0]],
-                                                      result_type=result_type[0], evaluated_once=True, operands_copied=True))
-            elif 'VECTOR' in (lt[0], right_type[0]):
-                self.features.add('VECTOR operator ' + op)
-            self.features.add('operator ' + op)
-            if self.mode == 'pythonic':
-                if lt[0] == 'BOOLEAN' and op in ('AND', 'OR'):
-                    self.short_circuit_expressions.add(id(expr))
-                    return f'(_rt.boolean({left}, {line}) {op.lower()} _rt.boolean({right}, {line}))', result_type
-                # Capture mutable values before a later operand can change them.
-                if lt == ('VECTOR',): left = f'_rt.vector_value({left}, {line})'
-                if right_type == ('VECTOR',): right = f'_rt.vector_value({right}, {line})'
-                if op in (':','>=<'):
-                    if lt!=('VECTOR',):left = self.geometry_operand(left,lt,expr.args[0].token,op)
-                    if right_type!=('VECTOR',):right = self.geometry_operand(right,right_type,expr.args[1].token,op)
-                if op == '>=<':
-                    return f'_rt.positions_close({left}, {right}, self._state.pose_tolerance, {line}, external_tolerance=self._state.external_tolerance)', result_type
-            return f'_rt.binary({op!r}, {left}, {right}, {line})', result_type
+            return self.lower_binary(expr)
         if expr.kind == 'call':
             if self.mode=='pythonic' and expr.value in ex.FUNCTIONS and expr.value not in self.routines:
                 return self.service_call(expr),ex.FUNCTIONS[expr.value][1]

@@ -1,5 +1,11 @@
 # Changelog
 
+## 26.1120.012844 - 2026-11-20
+
+- Move unary, binary, and relative pose operator emission into its own
+  module. Preserve short-circuit discovery, operand capture order, and
+  model-backed geometry checks.
+
 ## 26.1120.012328 - 2026-11-20
 
 - Separate storage loads, writable references, and ARRAY index generation

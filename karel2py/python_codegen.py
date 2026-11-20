@@ -15,6 +15,7 @@ from .select_codegen import SelectLowering
 from .expression_codegen import ExpressionLowering
 from .motion_codegen import MotionLowering
 from .named_type_analysis import NamedTypeAnalysis
+from .operator_codegen import OperatorLowering
 from .output_procedure_codegen import OutputProcedureLowering
 from .procedure_codegen import ProcedureLowering
 from .program_cli_codegen import ProgramCLILowering
@@ -42,7 +43,7 @@ class Emitter(DeclarationPasses, TypeQueries, ExpressionLowering, AssignmentLowe
               ControlFlowLowering, SelectLowering, SourceNormalization, RoutineEffectAnalysis,
               ConstantAnalysis, NamedTypeAnalysis, ArraySchemaAnalysis, RoutineDeclarations,
               ProgramLowering, ProgramCLILowering, ProcedureLowering, TimingLowering,
-              BuiltinFunctionLowering, OutputProcedureLowering, ReferenceLowering):
+              BuiltinFunctionLowering, OutputProcedureLowering, ReferenceLowering, OperatorLowering):
     """Emit a Python module from a parsed program and its checked declarations."""
 
     def __init__(self, program, filename, array_shapes=None, mode='strict', cooperative=False):

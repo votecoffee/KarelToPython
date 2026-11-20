@@ -15,7 +15,7 @@ input-discovery contract to the result.
 | Routine declarations | `routine_declarations.py` | Registers routine results, resolves parameter schemas in module scope, and checks local names and constants before resolving local storage. |
 | Routine effects | `routine_effects.py`, `retained_aliases.py` | Collects direct effects and propagates them through routine calls. Records retained writable aliases used by the FOR storage checks. |
 | Type queries | `type_checking.py` | `TypeQueries` inspects schemas, resolves scoped references and FILE prefixes, and checks storage for BYNAME and service operands. Declaration analysis and lowering share these queries. |
-| Operator rules | `operator_types.py` | Unary and binary rules check operand schemas and return a result schema. Python generation applies evaluation order, source diagnostics, and reporting. |
+| Operators | `operator_types.py`, `operator_codegen.py` | Type rules check operand schemas. Operator generation applies source order, Boolean short-circuiting, and vector and pose capture. |
 | Call analysis | `call_analysis.py` | Plans routine arguments and results, including conversion, storage, and collection rules. Validates bindings and protected counter use, resolves service signatures, and checks PATH node compatibility. |
 | SELECT | `select_analysis.py`, `select_codegen.py` | `check_select()` returns a checked selector and typed CASE rows in source order. The shared generator emits the match and uses the control-flow engine to emit each branch. |
 | Control flow | `control_flow.py`, `flow_codegen.py` | `validate_labels()` checks scope entry and `FlowGraph` builds dispatch nodes. `ControlFlowLowering.emit_body()` emits the validated body, its source checkpoints, and FOR scope cleanup. |
