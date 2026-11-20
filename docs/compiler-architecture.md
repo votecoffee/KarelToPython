@@ -20,6 +20,7 @@ input-discovery contract to the result.
 | Statement I/O | `statement_io_analysis.py`, `statement_io_codegen.py` | Checks READ and WRITE source formats. Stages targets, rendered values, and explicit or default FILE bindings before runtime publication. |
 | Motion | `motion_analysis.py`, `motion_codegen.py` | Checks motion operand types and PATH selectors. Captures settings, operands, and local callbacks for the offline runtime. |
 | Task control | `task_codegen.py` | Lowers local and addressed task transitions, ABORT, and event/semaphore signals with the existing scheduler checkpoints. |
+| Conditions and timers | `handler_analysis.py`, `handler_codegen.py` | Validates handler actions and timer storage, checks asynchronous FOR counter writes, and emits EVAL and USING captures for condition and motion callbacks. |
 | Service generation | `service_codegen.py` | Lowers storage references, bounded ARRAY operands, and captured values in source order. Checks each typed operand against its service signature. |
 | Reports | `call_reporting.py`, `report_base.py`, `report_services.py`, `report_language.py`, `report_interfaces.py`, `reporting.py` | Call reporting records argument binding and conversions as the call is lowered. Report builders collect this evidence and describe the policies applied to the translation. |
 

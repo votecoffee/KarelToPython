@@ -1,5 +1,11 @@
 # Changelog
 
+## 26.1120.002038 - 2026-11-20
+
+- Separate condition-handler and connected-timer compilation from the statement
+  dispatcher. Preserve callback capture, timer ownership, and checks for
+  asynchronous writes to active FOR counters.
+
 ## 26.1119.235739 - 2026-11-19
 
 - Separate offline motion operand checks and request generation from the

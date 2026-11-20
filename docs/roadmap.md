@@ -20,10 +20,12 @@ keeping their distinct ARRAY and collection checks. Assignment analysis and
 generation now cover ordinary writes, ARRAY prefixes, collection copies, and
 routine result receivers. Robot system access and staged READ and WRITE have
 dedicated analysis and generation modules. Motion and task-control lowering
-now have their own modules. Next, separate condition-handler and connected
-timer compilation from the statement dispatcher. The runtime and extended
-services can be split by ownership after their boundaries are covered with
-regressions. See [compiler architecture](compiler-architecture.md).
+now have their own modules. Condition handlers and connected timers share
+dedicated compiler modules for capture, storage checks, and lowering. Next,
+extract the FOR bounds and USING capture emission shared by structured and
+label-dispatch bodies. The runtime and extended services can be split by
+ownership after their boundaries are covered with regressions. See
+[compiler architecture](compiler-architecture.md).
 
 ## Python runner and parameter editor
 

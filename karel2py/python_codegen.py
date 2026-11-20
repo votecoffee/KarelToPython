@@ -6,7 +6,6 @@ from .compiler_language import (
     CONFIG_TEXT_PROCEDURES,
     INTEGRAL_TYPES,
     JOINT_PROCEDURES,
-    MULTI_OUTPUT_PROCEDURES,
     NARROW_TYPES,
     REGISTER_PROCEDURES,
     SKIPPABLE_STATEMENTS,
@@ -14,6 +13,7 @@ from .compiler_language import (
 )
 from .assignment_codegen import AssignmentLowering
 from .declarations import DeclarationPasses
+from .handler_codegen import HandlerLowering
 from .syntax import Expr, Statement
 from .select_analysis import check_select
 from .expression_codegen import ExpressionLowering
@@ -33,7 +33,7 @@ from . import runtime as rt
 
 class Emitter(DeclarationPasses, TypeQueries, ExpressionLowering, AssignmentLowering,
               RoutineLowering, RobotSystemLowering, ServiceCallLowering, StatementIOLowering,
-              MotionLowering, TaskControlLowering):
+              MotionLowering, TaskControlLowering, HandlerLowering):
     """Emit a Python module from a parsed program and its checked declarations."""
 
     def __init__(self, program, filename, array_shapes=None, mode='strict', cooperative=False):
@@ -406,87 +406,8 @@ class Emitter(DeclarationPasses, TypeQueries, ExpressionLowering, AssignmentLowe
         adjustment,step=(1,1) if direction=='TO' else (-1,-1)
         return counter,reference,first,last,adjustment,step
 
-    @staticmethod
-    def using_defaults(clauses):
-        # Handlers outlive a block entry. Freeze only enclosing references, never
-        # captures that an inner USING will allocate when its action later runs.
-        nodes=list(Emitter.walk_nodes(clauses))
-        local={name for node in nodes if isinstance(node,Statement) and node.kind=='using'
-               for name in getattr(node,'using_captures',())}
-        refs=sorted({node.value[0] for node in nodes if isinstance(node,Expr) and node.kind=='using_ref'}-local)
-        return ','.join(name+'='+name for name in refs)
-
     def test_code(self,code,line):
         return f'(yield from _rt.cooperative_test(self._state,lambda: {code},{line}))' if self.cooperative else f'self._state.test({code},{line})'
-
-    def implicit_counter_write(self, name):
-        """Handlers and timers can run between ordinary source statements."""
-        owners=(None,*self.program.routines)
-        current_local=self.current_routine is not None and name in {token.value for token,_ in self.current_routine.declarations}
-        for owner in owners:
-            for node in self.walk_nodes(owner.body if owner else self.program.body):
-                if not isinstance(node, Statement): continue
-                if node.kind == 'timer_connect' and self.protection_root(node.args[0]) == name:
-                    if owner is not None and name in {token.value for token,_ in owner.parameters}:continue
-                    timer_local=owner is not None and name in {token.value for token,_ in owner.declarations}
-                    if current_local==timer_local and (not current_local or owner is self.current_routine):return True
-                if node.kind != 'condition' and not (node.kind=='motion' and node.args[2] and node.body): continue
-                for action in self.walk_nodes(node.body):
-                    if isinstance(action, Statement) and action.kind in ('assign','for') and self.protection_root(action.args[0]) == name: return True
-                    if isinstance(action, Statement) and action.kind == 'read':
-                        if any(self.protection_root(item.args[0] if item.kind == 'read_item' else item) == name for item in action.args if item.kind != 'read_cr'): return True
-                    if not isinstance(action, Expr) or action.kind != 'call': continue
-                    if name not in self.private_using_roots and ex.variable_write_call(action.value,action.args): return True
-                    routine = self.routines.get(action.value)
-                    if routine:
-                        if name in routine.global_writes: return True
-                        if name in self.types and self.types[name][0] not in INTEGRAL_TYPES and routine.name in self.external_write_routines:return True
-                        if any(token.value in routine.parameter_writes and self.protection_root(value) == name and self.argument_is_reference(value,expected) for (token,expected),value in zip(routine.parameters,action.args)): return True
-                    if routine is None:
-                        outputs=[]
-                        if action.value in BUILTIN_PROCEDURES:outputs=action.args[-1:]
-                        elif action.value=='CNV_STR_CONF':outputs=action.args[1:3]
-                        elif action.value in MULTI_OUTPUT_PROCEDURES|CONFIG_TEXT_PROCEDURES|TIME_TEXT_PROCEDURES:outputs=action.args[1:]
-                        elif action.value in REGISTER_PROCEDURES:outputs=action.args[1:] if action.value=='GET_REG' else action.args[2:]
-                        if any(self.protection_root(value)==name for value in outputs):return True
-                        signature = ex.signature_for(action.value,len(action.args))
-                        if any(mode in ('o', 'r','m') and self.protection_root(value) == name for value, (mode, _) in zip(action.args, signature)): return True
-        return False
-
-    def condition_callbacks(self,clauses,*,motion_terms=None):
-        pairs=[]
-        for clause in clauses:
-            for item in reversed(list(self.walk_nodes([*clause.args,*clause.body]))):
-                if isinstance(item,Expr) and item.kind=='eval':
-                    code,spec=self.expression(item.args[0]); temporary=self.fresh()
-                    self.line(f'{temporary}=_rt.assignment_value({code},{item.token.line})',item.token)
-                    item.kind='captured'; item.value=(temporary,spec); item.args=[]
-            for item in list(self.walk_nodes(clause.args)):
-                if not isinstance(item,Expr) or item.kind!='motion_condition':continue
-                if motion_terms is None:self.error('E_MOTION_CONDITION','AT NODE/TIME requires a motion-local predicate',item.token)
-                if len(motion_terms)>=64:self.error('E_MOTION_CONDITION','MOVE supports at most 64 temporal selectors',item.token)
-                offset,node=item.args;offset_code='0';node_code=repr('*')
-                if offset is not None:
-                    code=self.require_type(offset,'INTEGER');offset_code=self.fresh()
-                    self.line(f'{offset_code}=_rt.integer({code},{offset.token.line})',offset.token)
-                if node is not None:
-                    code=self.require_type(node,'INTEGER');node_code=self.fresh()
-                    self.line(f'{node_code}=_rt.integer({code},{node.token.line})',node.token)
-                temporary=self.fresh()
-                self.line(f'{temporary}=_rt.motion_selector({item.value!r},{offset_code},{node_code},{item.token.line})',item.token)
-                motion_terms.append((temporary,dict(kind=item.value,line=item.token.line,column=item.token.column,wildcard=node is None,evaluated_once=True)))
-                item.kind='motion_event';item.value=temporary;item.args=[]
-            for action_node in self.walk_nodes(clause.body):
-                if isinstance(action_node,Statement) and action_node.kind in ('label','goto','return','condition'):
-                    self.error('E_CONDITION_ACTION','Handler actions cannot define handlers, jump or RETURN',action_node.token)
-            predicate=self.fresh(); action=self.fresh()
-            condition=self.require_type(clause.args[0],'BOOLEAN')
-            defaults=self.using_defaults([clause.args,clause.body])
-            self.line(f'def {predicate}({defaults}):'); self.indent+=1; self.line(f'return {condition}'); self.indent-=1
-            self.line(f'def {action}({defaults}):'); self.indent+=1; self.line('if False: yield None')
-            self.block(clause.body); self.indent-=1
-            pairs.append((predicate,action))
-        return pairs
 
     def statement(self, stmt, file_code=None):
         token, kind = stmt.token, stmt.kind
@@ -527,46 +448,18 @@ class Emitter(DeclarationPasses, TypeQueries, ExpressionLowering, AssignmentLowe
         if kind in ('signal_event', 'signal_semaphore'):
             self.lower_task_signal(stmt)
             return
-        if kind=='handler_action':
-            self.line(f'_rt.handler_action(self._state,{stmt.args[0]!r},{line})',token); return
-        if kind in ('timer_connect','timer_disconnect'):
-            target=stmt.args[0]
-            root=self.root_name(target);protection=self.protection_root(target)
-            private=protection in self.private_using_roots
-            local=not private and self.current_routine is not None and root in {name.value for name,_ in self.current_routine.declarations}
-            formal=not private and self.current_routine is not None and root in {name.value for name,_ in self.current_routine.parameters}
-            if not private and not local and not formal and root is None:
-                self.error('E_TIMER_SCOPE','Connected timer storage requires a declared global/local/formal root or captured private USING record',target.token)
-            if self.protection_root(target) in self.active_counters: self.error('E_FOR_COUNTER','Timer cannot modify active FOR counter',target.token)
-            reference,spec=self.reference(target)
-            if spec!=('INTEGER',) or self.is_value_only_subfield(target): self.error('E_TYPE','Timer requires ordinary INTEGER storage',target.token)
-            method='connect_timer' if kind=='timer_connect' else 'disconnect_timer'
-            self.connected_timer_uses.append(dict(operation='CONNECT' if kind=='timer_connect' else 'DISCONNECT',
-                body=self.current_routine.name if self.current_routine else self.program.name,
-                line=line,column=token.column,selector=counter_text(target),root=root,
-                provenance='private_temporary' if private else 'borrowed_formal' if formal else 'routine_local' if local else 'declared_storage',
-                protection_root=protection,evaluated_once=True,lifetime='routine_frame' if local or formal else 'invocation',
-                control_scope='same_task_existing_claim' if kind=='timer_disconnect' else 'defining_connection'))
-            self.features.add('connected INTEGER timer')
-            if private:self.features.add('private USING connected timer')
-            if local:self.features.add('routine-local connected timer')
-            if formal:self.features.add('borrowed formal connected timer')
-            scope=',scoped=True' if local or formal else ''
-            self.line(f'_rt.{method}(self._state,{reference},{line}{scope})',token); return
-        if kind=='condition_control':
-            number=self.require_type(stmt.args[1],'INTEGER')
-            self.line(f'_rt.condition_control(self._state,{stmt.args[0]!r},{number},{line})',token); return
-        if kind=='condition':
-            number=self.require_type(stmt.args[0],'INTEGER');captured=self.fresh()
-            self.line(f'{captured}=_rt.integer({number},{stmt.args[0].token.line})',token)
-            options={'$SCAN_TIME':'0','$PRIORITY':'50'}
-            for key,value in stmt.args[1]:
-                code=self.require_type(value,'INTEGER');temporary=self.fresh()
-                self.line(f'{temporary}=_rt.integer({code},{value.token.line})',value.token);options[key.value]=temporary
-            pairs=[f'({predicate},{action})' for predicate,action in self.condition_callbacks(stmt.body)]
-            self.handler_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
-                line=line,column=token.column,option_order=[key.value for key,_ in stmt.args[1]],clauses=len(stmt.body),evaluated_once=True))
-            self.line(f'_rt.define_condition(self._state,{captured},[{", ".join(pairs)}],{line},scan_ms={options["$SCAN_TIME"]},priority={options["$PRIORITY"]})',token); return
+        if kind == 'handler_action':
+            self.lower_handler_action(stmt)
+            return
+        if kind in ('timer_connect', 'timer_disconnect'):
+            self.lower_connected_timer(stmt)
+            return
+        if kind == 'condition_control':
+            self.lower_condition_control(stmt)
+            return
+        if kind == 'condition':
+            self.lower_condition(stmt)
+            return
         if kind in ('file_read','file_write'):
             file_value=self.require_type(stmt.args[0],'FILE'); captured_file=self.fresh()
             self.line(f'{captured_file}={file_value}',token); self.features.add('memory files')
