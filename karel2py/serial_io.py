@@ -127,10 +127,16 @@ class SerialStreams:
         if (any(type(value) is not bool for value in (binary,handle.reverse,handle.field,handle.noecho,handle.interactive))
                 or type(handle.eol) is not int or not 0<=handle.eol<=127):
             raise runtime.KarelRuntimeError('Malformed serial FILE attributes',line)
+        timeout = handle.read_timeout_ms
+        if type(timeout) is not int or not 0 <= timeout <= runtime.MAX_FILE_TIMEOUT_MS:
+            raise runtime.KarelRuntimeError('Malformed serial FILE read timeout', line)
+        if timeout and (mode not in ('R', 'RW') or not self.ports[port]['wait']):
+            raise runtime.KarelRuntimeError('ATR_TIMEOUT requires a readable waiting serial FILE', line)
         handle.name=key;handle.logical_name=key;handle.mode=mode;handle.binary=binary
         handle.position=0;handle.status=0;handle.owner=self;handle.xml_session=None
         handle._text_cr=None
-        self._open[id(handle)]=(handle,key,mode,binary,handle.reverse,handle.field,handle.eol,self.ports[port]['reclaim_input'])
+        self._open[id(handle)] = (handle, key, mode, binary, handle.reverse, handle.field,
+                                  handle.eol, self.ports[port]['reclaim_input'], timeout)
         self.handles.append(handle)
 
     def open(self,handle,mode,name,line=None):return self.open_for(None,handle,mode,name,line)
@@ -155,8 +161,10 @@ class SerialStreams:
         if type(row['wait']) is not bool or type(row['final']) is not bool or not row['wait'] and not row['final']:
             raise runtime.KarelRuntimeError('Serial wait/final policy is invalid',line)
         if type(row['wait_output']) is not bool:raise runtime.KarelRuntimeError('Serial wait_output policy is invalid',line)
-        if len(record)!=8 or type(row['reclaim_input']) is not bool or row['reclaim_input'] is not record[7]:
+        if len(record)!=9 or type(row['reclaim_input']) is not bool or row['reclaim_input'] is not record[7]:
             raise runtime.KarelRuntimeError('Serial reclaim_input policy changed or is invalid',line)
+        if type(handle.read_timeout_ms) is not int or handle.read_timeout_ms != record[8]:
+            raise runtime.KarelRuntimeError('Serial FILE read timeout changed or is invalid', line)
         return row
 
     def _reclaims_input(self,handle,line=None):
@@ -249,6 +257,9 @@ class SerialStreams:
                             row,self.files[handle.name],row['output'],row['capacity'],self.limit,
                             self._pending,self.ports,self.files,self._open)
         self._pending[id(handle)]=pending
+        scheduler = state._scheduler
+        remaining = handle.read_timeout_ms or None
+        deadline = scheduler.now_us + remaining * 1000 if scheduler is not None and remaining is not None else None
         try:
             while True:
                 row=self.validate_read(handle,state,line,expected=pending)
@@ -276,9 +287,19 @@ class SerialStreams:
                 root=runtime.task_root(state)
                 if state._in_handler or root._in_handler:
                     raise runtime.KarelRuntimeError('Pending serial READ cannot wait inside a handler action',line)
-                if state._scheduler is None and not getattr(root,'_sleep_injected',False):
-                    raise runtime.KarelRuntimeError('Indefinite standalone serial wait requires an explicit sleeper callback',line)
-                yield from runtime.delay_execution(state,10,line,scan_handlers=True)
+                if deadline is not None:
+                    remaining = (deadline - scheduler.now_us + 999) // 1000
+                if remaining is None:
+                    if scheduler is None and not getattr(root,'_sleep_injected',False):
+                        raise runtime.KarelRuntimeError('Indefinite standalone serial wait requires an explicit sleeper callback',line)
+                    delay = 10
+                else:
+                    if remaining <= 0:
+                        handle.status = runtime.FILE_READ_TIMEOUT_STATUS
+                        return
+                    delay = min(10, remaining)
+                    remaining -= delay
+                yield from runtime.delay_execution(state, delay, line, scan_handlers=True)
                 yield from runtime.checkpoint(state,line)
         except GeneratorExit:raise
         except BaseException:

@@ -1327,6 +1327,11 @@ class VariableStore:
         reference=rt.Reference(spec,{'value':stored},'value'); self.bind(program,name,reference); return reference
 
 
+FILE_TIMEOUT_ATTRIBUTE = 11
+MAX_FILE_TIMEOUT_MS = 86_400_000
+FILE_READ_TIMEOUT_STATUS = 4
+
+
 class FileHandle:
     def __init__(self):
         self.name=None; self.position=0; self.mode=''; self.binary=False; self.status=0; self.owner=None
@@ -1338,6 +1343,7 @@ class FileHandle:
         self._read_operation=None;self._write_operation=None
         self._text_cr=None
         self._append_ready = False
+        self.read_timeout_ms = 0
 
     @property
     def appends_at_end(self):
@@ -2394,13 +2400,15 @@ def predefined_file_config(config):
         if type(mode) is not str or mode.upper() not in ('R','W','RW','A','RO','WO','AP','UD'):
             raise ValueError('Unsupported predefined FILE access mode')
         attributes=row.get('attributes',{})
-        if type(attributes) is not dict or set(attributes)-(flags|{'eol','pipe_wait','pipe_overflow'}):
+        if type(attributes) is not dict or set(attributes)-(flags|{'eol','pipe_wait','pipe_overflow','read_timeout_ms'}):
             raise ValueError('Unknown predefined FILE attributes')
         for attribute,value in attributes.items():
             if attribute in flags and type(value) is not bool:raise ValueError('Predefined FILE flags must be BOOLEAN')
             if attribute=='eol' and (type(value) is not int or not 0<=value<=127):raise ValueError('Predefined FILE eol must be ASCII')
             if attribute=='pipe_wait' and (type(value) is not int or value not in (0,1)):raise ValueError('Predefined FILE pipe_wait must be 0 or 1')
             if attribute=='pipe_overflow' and (type(value) is not int or not -1<=value<=64*1024*1024):raise ValueError('Predefined FILE pipe_overflow outside bounds')
+            if attribute == 'read_timeout_ms' and (type(value) is not int or not 0 <= value <= MAX_FILE_TIMEOUT_MS):
+                raise ValueError('Predefined FILE read_timeout_ms outside bounds')
         result[key]=dict(name=target,mode=mode.upper())
         if attributes:result[key]['attributes']=dict(sorted(attributes.items()))
     return dict(sorted(result.items()))
@@ -3153,6 +3161,10 @@ class ExecutionContext:
                 elif attribute==10:
                     if not -1<=args[2]<=64*1024*1024: fail('ATR_PIPOVADV requires OVF_EOF or a bounded byte count',line)
                     handle.pipe_overflow=args[2]
+                elif attribute == FILE_TIMEOUT_ATTRIBUTE:
+                    if not 0 <= args[2] <= MAX_FILE_TIMEOUT_MS:
+                        fail('ATR_TIMEOUT requires milliseconds in 0..86400000', line)
+                    handle.read_timeout_ms = args[2]
                 else: fail('Unsupported portable file attribute',line)
                 return
             if name=='CLR_IO_STAT': handle.status=0; return

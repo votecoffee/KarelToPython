@@ -133,6 +133,8 @@ class KeyboardInput:
     def open_for(self,state,handle,mode,name,line=None):
         mode=rt().ascii_string(mode,line).upper();mode={'RO':'R','RW':'RW','UD':'RW'}.get(mode,mode)
         if handle.owner is not None or handle.binary or handle.xml or mode not in ('R','RW') or len(self._handles)>=256:raise rt().KarelRuntimeError('Keyboard FILE requires an available text input handle',line)
+        if type(handle.read_timeout_ms) is not int or not 0 <= handle.read_timeout_ms <= rt().MAX_FILE_TIMEOUT_MS:
+            raise rt().KarelRuntimeError('Malformed keyboard FILE read timeout', line)
         pane=pane_for(state);match=re.fullmatch(r'WD:([A-Za-z_][A-Za-z_0-9]{0,3})/TPKB',name,re.I);echo=None
         if match:
             pendant=state.execution.require('pendant',line);echo=rt().FileHandle();pendant.open_for(state,echo,'RW','WD:'+match[1],line)
@@ -280,11 +282,12 @@ class KeyboardInput:
         if type(binding) is dict and binding.get('_read_kb_job') is job:binding.pop('_read_kb_job')
         if not self._active:self._domain=None
 
-    def event(self,job):
+    def event(self,job,*,deadline=None):
         self.sync()
         if job['suspended']:return None
+        cutoff = self.elapsed_ms if deadline is None else min(self.elapsed_ms, deadline)
         for event in list(self.events):
-            if event['pane']!=job['pane'] or event['at_ms']>self.elapsed_ms:continue
+            if event['pane']!=job['pane'] or event['at_ms']>cutoff:continue
             _,category=key_info(event['key'])
             owners=[reader for reader in self._active.values() if reader['pane']==job['pane'] and reader['interest']&category]
             eligible=[reader for reader in owners if not reader['suspended']]
@@ -475,6 +478,7 @@ class KeyboardInput:
         if job is None:raise runtime.KarelRuntimeError('Keyboard FILE READ capacity or clock domain is busy',line)
         binding['input_mode']='line'
         claim=self._capture_file_read(state,handle,job)
+        deadline = min(MAX_SEQUENCE, self.elapsed_ms + handle.read_timeout_ms) if handle.read_timeout_ms else None
         text='';cursor=0;steps=0;submitted=[];observed=False;complete=False
         past=binding['past'];history_index=len(past)
         def deliver(values=None,error=None):
@@ -508,9 +512,15 @@ class KeyboardInput:
                     complete=True;return
                 job.update(text=text,cursor=cursor)
                 self.echo(job,field,text,line)
-                event=self.event(job)
+                event=self.event(job, deadline=deadline)
                 if event is None:
-                    yield from self.wait(state,job,None,line);continue
+                    if deadline is not None and self.elapsed_ms >= deadline:
+                        handle.status = runtime.FILE_READ_TIMEOUT_STATUS
+                        self._record_file_read(claim, 'timeout', text=text, fields=len(targets),
+                                               lines=len(submitted), status=handle.status)
+                        complete = True
+                        return
+                    yield from self.wait(state,job,deadline,line);continue
                 steps+=1;key=event['key']
                 submit=key=='ENTER' if handle.eol in (10,13) else key==chr(handle.eol)
                 if steps>=4096 and not submit:raise runtime.KarelRuntimeError('Keyboard FILE READ exceeds 4096 processed keys',line)
@@ -578,6 +588,7 @@ class KeyboardInput:
         if job is None:invalid('Keyboard FILE READ capacity or clock domain is busy')
         binding['input_mode']='raw';observed=False;complete=False;steps=0
         claim=self._capture_file_read(state,handle,job)
+        deadline = min(MAX_SEQUENCE, self.elapsed_ms + handle.read_timeout_ms) if handle.read_timeout_ms else None
         operation=0;consumed=0;scan=0;extent=0;slices=[]
         def deliver(values=None,error=None):
             previous=state._read
@@ -614,9 +625,14 @@ class KeyboardInput:
                 if len(binding['pending'])>=4096:
                     raise runtime.KarelRuntimeError('ATR_PASSALL keyboard READ exceeds 4096 raw bytes',line)
                 job.update(text=binding['pending'][-254:],cursor=len(binding['pending']))
-                event=self.event(job)
+                event=self.event(job, deadline=deadline)
                 if event is None:
-                    yield from self.wait(state,job,None,line);continue
+                    if deadline is not None and self.elapsed_ms >= deadline:
+                        handle.status = runtime.FILE_READ_TIMEOUT_STATUS
+                        record('timeout', handle.status)
+                        complete = True
+                        return
+                    yield from self.wait(state,job,deadline,line);continue
                 steps+=1;key=event['key'];code,_=key_info(key)
                 if steps>4096:raise runtime.KarelRuntimeError('ATR_PASSALL keyboard READ exceeds 4096 processed keys',line)
                 if len(key)!=1 and key not in ('ENTER','DELETE','REFRESH'):

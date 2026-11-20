@@ -185,6 +185,76 @@ class SerialWaitInputTests(unittest.TestCase):
         self.assertEqual(bank.snapshot()[2]['input'],b'17 ')
 
 
+class SerialReadTimeoutTests(unittest.TestCase):
+    def test_timeout_keeps_partial_input_and_allows_retry(self):
+        bank, ctx = streams(b'17 ')
+        delays = []
+
+        def sleeper(delay):
+            delays.append(delay)
+            if len(delays) == 3:
+                bank.feed(2, b'29\n')
+
+        task, _ = compile_program(
+            'SET_FILE_ATR(f,ATR_TIMEOUT,13) ' + OPEN +
+            'n=77 m=88 READ f(n,m,CR) timeout=IO_STATUS(f) prior_n=n prior_m=m '
+            'cursor=GET_FILE_POS(f) READ f(n,m,CR) done=IO_STATUS(f) CLOSE FILE f',
+            decl=DECL + ' timeout,prior_n,prior_m,cursor,done:INTEGER',
+            context=ctx, sleep=sleeper,
+        )
+        result = task.run()
+        self.assertEqual((result['TIMEOUT'], result['PRIOR_N'], result['PRIOR_M'], result['CURSOR']),
+                         (4, 77, 88, 0))
+        self.assertEqual((result['N'], result['M'], result['DONE']), (17, 29, 0))
+        self.assertEqual(delays, [.01, .003, .01])
+        self.assertEqual(len(task.read_requests), 1)
+        self.assertEqual((bank.snapshot()[2]['input'], bank._pending), (b'', {}))
+
+    def test_binary_timeout_uses_scheduler_without_publishing_short_input(self):
+        bank, _ = streams(b'\x11')
+        project = pending_project(bank,
+            "SET_FILE_ATR(f,ATR_TIMEOUT,13) OPEN FILE f('RB','P2:') "
+            'n=77 READ f(n) m=IO_STATUS(f) count=GET_FILE_POS(f) CLOSE FILE f')
+        project.scheduler.run()
+        result = project.programs['MAIN'].snapshot()
+        self.assertEqual((result['N'], result['M'], result['COUNT']), (77, 4, 0))
+        self.assertEqual((bank.snapshot()[2]['input'], bank._pending), (b'\x11', {}))
+
+    def test_ready_input_finishes_on_final_poll(self):
+        bank, ctx = streams(b'17')
+        delays = []
+
+        def sleeper(delay):
+            delays.append(delay)
+            if len(delays) == 2:
+                bank.feed(2, b'\n')
+
+        result = run('SET_FILE_ATR(f,ATR_TIMEOUT,13) ' + OPEN +
+                     'READ f(n,CR) m=IO_STATUS(f) CLOSE FILE f', decl=DECL, context=ctx, sleep=sleeper)
+        self.assertEqual((result['N'], result['M'], delays), (17, 0, [.01, .003]))
+
+    def test_positive_timeout_requires_a_readable_waiting_endpoint(self):
+        for name, mode, ctx in (
+            ('P2:', 'RO', rt.ExecutionContext(serial_streams=rt.SerialStreams({2: {}}))),
+            ('P2:', 'WO', streams()[1]),
+            ('data', 'RW', rt.ExecutionContext(files=rt.MemoryFiles())),
+        ):
+            with self.subTest(name=name, mode=mode):
+                task, _ = compile_program(
+                    f"SET_FILE_ATR(f,ATR_TIMEOUT,1) OPEN FILE f('{mode}','{name}')",
+                    decl=DECL, context=ctx,
+                )
+                with self.assertRaisesRegex(rt.KarelRuntimeError, 'ATR_TIMEOUT requires'):
+                    task.run()
+                self.assertFalse(task.snapshot()['F']['open'])
+
+    def test_negative_timeout_is_rejected_before_open(self):
+        bank, ctx = streams()
+        with self.assertRaisesRegex(rt.KarelRuntimeError, 'milliseconds in 0'):
+            run('SET_FILE_ATR(f,ATR_TIMEOUT,-1) ' + OPEN, decl=DECL, context=ctx)
+        self.assertEqual(bank.handles, [])
+
+
 class SerialWaitFinalInputTests(unittest.TestCase):
     def test_finalization_supplies_last_cr_at_exact_capacity(self):
         bank,ctx=streams(b'123',capacity=3);calls=[]

@@ -119,6 +119,31 @@ Ordinary feeds append to the original RX buffer, finalization updates its EOF
 flag, and host TX drains retain the same outbox object, so those operations remain
 available within their existing bounds.
 
+## READ deadlines
+
+Set `ATR_TIMEOUT` before opening a readable waiting FILE.
+
+```karel
+SET_FILE_ATR(channel,ATR_TIMEOUT,25)
+OPEN FILE channel('RO','P2:')
+READ channel(quantity,CR)
+status = IO_STATUS(channel)
+```
+
+The attribute accepts 0 through 86400000 milliseconds. A positive timeout is
+the maximum logical wait for each typed READ. The runtime shortens the final poll interval to reach the deadline. A
+complete response found on that poll succeeds. If the response is incomplete
+and the stream is still open for input, READ returns with portable IO_STATUS 4.
+It keeps the original destinations, receive cursor and buffered bytes. The
+next READ can retry the same input, and the pending-operation slot is released.
+
+Zero is the default and uses the existing wait policy. A positive timeout also
+allows a bounded standalone wait with the normal sleeper. Scheduled reads use
+the scheduler clock, so elapsed scheduler time while paused counts toward the
+deadline. Finalized input and format errors follow the existing error rules.
+Handler actions can only read data that is already ready. Finite or write-only
+serial FILEs reject a positive setting at OPEN.
+
 ## Persistence and boundaries
 
 Live serial handles prevent context serialization, including after a stopped

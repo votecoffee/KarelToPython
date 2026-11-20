@@ -41,9 +41,12 @@ Each binding requires name and mode, with optional attributes. Supported modes
 are R/RO, W/WO, RW, UD, A and AP. Ordinary files use the
 [update and append rules](offline-services.md#update-and-append-modes).
 Attributes are the existing binary, reverse, field,
-xml, passall, noecho, interactive, eol, pipe_wait and pipe_overflow settings;
-Boolean flags and integer domains are checked before any resource opens.
-Backend-specific restrictions still apply.
+xml, passall, noecho, interactive, eol, pipe_wait, pipe_overflow and
+read_timeout_ms settings. Boolean flags and integer domains are checked before
+any resource opens. A positive read_timeout_ms applies to typed READ on a
+[keyboard FILE](keyboard-file-read.md#read-deadlines) or a
+[waiting serial FILE](serial-waiting.md#read-deadlines). Backend restrictions are
+checked when the binding first opens.
 
 Descriptions are detached from constructor input. The predefined_files property
 returns a defensive configuration copy. First use, including a status or UNINIT

@@ -153,6 +153,39 @@ class KeyboardFileEditingTests(unittest.TestCase):
         self.assertEqual((values['X'],values['TEXT'],values['S']),(4,'new',0))
 
 
+class KeyboardFileTimeoutTests(unittest.TestCase):
+    def test_edited_timeout_keeps_submitted_lines_and_later_events(self):
+        events = [dict(key=key, at_ms=at) for value, at in (('7', 0), ('9', 18))
+                  for key in line_keys(value)]
+        ctx = context(events=events)
+        task, _ = compile_program(
+            'SET_FILE_ATR(f,ATR_TIMEOUT,13) ' + OPEN +
+            'x=1 y=2 READ f(x,CR,y,CR) s=IO_STATUS(f) token=x count=y '
+            'READ f(x,CR,y,CR) device_stat=IO_STATUS(f)' + CLOSE,
+            decl=DECL, context=ctx, sleep=lambda _: None,
+        )
+        result = task.run()
+        self.assertEqual((result['S'], result['TOKEN'], result['COUNT']), (4, 1, 2))
+        self.assertEqual((result['X'], result['Y'], result['DEVICE_STAT']), (7, 9, 0))
+        self.assertEqual(ctx.keyboard.elapsed_ms, 18)
+        self.assertEqual([row['outcome'] for row in ctx.keyboard.history], ['timeout', 'completed'])
+        self.assertEqual(len(task.read_requests), 1)
+
+    def test_passall_timeout_keeps_partial_bytes_for_retry(self):
+        ctx = context(events=[dict(key='a', at_ms=0), dict(key='b', at_ms=10)])
+        task, _ = compile_program(
+            'SET_FILE_ATR(f,ATR_TIMEOUT,7) SET_FILE_ATR(f,ATR_PASSALL) ' + OPEN +
+            "text='old' READ f(text::2) s=IO_STATUS(f) other=text "
+            'READ f(text::2) device_stat=IO_STATUS(f)' + CLOSE,
+            decl=DECL, context=ctx, sleep=lambda _: None,
+        )
+        result = task.run()
+        self.assertEqual((result['S'], result['OTHER'], result['TEXT'], result['DEVICE_STAT']),
+                         (4, 'old', 'ab', 0))
+        self.assertEqual(ctx.keyboard.history[0]['data']['sample_hex'], '61')
+        self.assertEqual(ctx.keyboard.snapshot()['active'], [])
+
+
 class KeyboardFileFailureTests(unittest.TestCase):
     def failing(self,body,keys,pattern=None,**options):
         ctx=context(keys=keys);p,_=compile_program(OPEN+body,decl=DECL,context=ctx,sleep=lambda _:None,**options)

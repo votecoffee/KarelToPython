@@ -86,6 +86,17 @@ and CLOSE is blocked while a read is active. Saving context requires all keyboar
 FILEs closed, active reads finished and suspension frames popped. Saved events
 never include consumed keys or closed-handle buffers.
 
+### READ deadlines
+
+Set `ATR_TIMEOUT` before OPEN to apply a per-READ deadline in milliseconds.
+Zero uses the existing wait policy. The same setting applies to edited and
+PASSALL reads. A complete batch using events timestamped by the deadline can
+succeed. If the batch is still incomplete, READ returns with portable
+IO_STATUS 4 and records a timeout. It leaves destinations and the committed
+cursor intact. Submitted lines or partial PASSALL bytes remain available for
+a retry. Unsubmitted editor text is discarded, and keys scheduled after the
+deadline stay queued. READ_KB uses its own explicit timeout argument.
+
 ## Pending FILE binding checks
 
 Edited and PASSALL FILE reads retain the exact open handle, descriptor attributes,

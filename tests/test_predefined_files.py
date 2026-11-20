@@ -76,6 +76,11 @@ class PredefinedConfigurationTests(unittest.TestCase):
     def test_pipe_attribute_domains_checked(self):
         for attrs in (dict(pipe_wait=2),dict(pipe_wait=True),dict(pipe_overflow=-2),dict(pipe_overflow=True)):
             with self.subTest(attrs=attrs),self.assertRaises(ValueError):rt.ExecutionContext(predefined_files={'INPUT':binding(**attrs)})
+    def test_read_timeout_requires_bounded_integer(self):
+        for value in (-1, 86_400_001, True, '4'):
+            with self.subTest(value=value), self.assertRaisesRegex(ValueError, 'read_timeout_ms'):
+                rt.ExecutionContext(predefined_files={'INPUT': binding(read_timeout_ms=value)})
+
     def test_json_null_is_rejected(self):
         with self.assertRaises(ValueError):rt.ExecutionContext.from_config({'predefined_files':None})
     def test_json_unknown_field_still_rejected(self):
@@ -136,6 +141,15 @@ class PredefinedBackendTests(unittest.TestCase):
     def test_binary_input(self):self.assertEqual(execute('READ(n) CLOSE FILE TPDISPLAY',context(initial={'data':struct.pack('<i',7)},bindings={'TPDISPLAY':binding(binary=True)}))[0]['N'],7)
     def test_binary_output(self):
         ctx=context(initial={},bindings={'TPDISPLAY':binding('out','WO',binary=True)});execute('WRITE(7) CLOSE FILE TPDISPLAY',ctx);self.assertEqual(bytes(ctx.files.files['out']),struct.pack('<i',7))
+    def test_default_keyboard_timeout_from_saved_binding(self):
+        ctx = rt.ExecutionContext(keyboard=rt.KeyboardInput(), predefined_files={
+            'TPDISPLAY': binding('KB:TPKB', read_timeout_ms=3),
+        })
+        restored = rt.ExecutionContext.from_config(json.loads(json.dumps(ctx.to_config())))
+        state, _, _, _ = execute('n=7 READ(n) s=IO_STATUS(TPDISPLAY) CLOSE FILE TPDISPLAY', restored,
+                                 cooperative=True, sleep=lambda _: None)
+        self.assertEqual((state['N'], state['S'], restored.keyboard.elapsed_ms), (7, 4, 3))
+
     def test_reverse_binary_input(self):self.assertEqual(execute('READ(n) CLOSE FILE TPDISPLAY',context(initial={'data':struct.pack('>i',7)},bindings={'TPDISPLAY':binding(binary=True,reverse=True)}))[0]['N'],7)
     def test_eol_output(self):
         ctx=context(initial={},bindings={'TPDISPLAY':binding('out','WO',eol=13)});execute("WRITE('ready',CR) CLOSE FILE TPDISPLAY",ctx);self.assertEqual(bytes(ctx.files.files['out']),b'ready\r')

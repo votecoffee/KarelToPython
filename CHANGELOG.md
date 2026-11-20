@@ -1,5 +1,11 @@
 # Changelog
 
+## 26.1120.134457 - 2026-11-20
+
+- Accept ATR_TIMEOUT for typed READ on offline waiting serial and keyboard
+  FILEs, including PASSALL and declarative predefined bindings. Incomplete
+  reads return with IO_STATUS 4 and retain destinations and buffered input.
+
 ## 26.1120.133646 - 2026-11-20
 
 - Apply separate UD and AP access rules to ordinary offline FILE backends.

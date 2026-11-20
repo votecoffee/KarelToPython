@@ -4827,6 +4827,8 @@ class State:
         from .serial_io import serial_address
         if serial_address(name):return self.execution.require('serial_streams',line).open_for(self,handle,mode,name,line)
         if name.upper().startswith('KB:') or name.upper().startswith('WD:') and '/' in name:return self.execution.require('keyboard',line).open_for(self,handle,mode,name,line)
+        if handle.read_timeout_ms:
+            raise KarelRuntimeError('ATR_TIMEOUT requires a waiting serial or keyboard FILE', line)
         if name.upper().startswith('WD:'):return self.execution.require('pendant',line).open_for(self,handle,mode,name,line)
         if message_address(name):return self.execution.require('messaging',line).open_for(self,handle,mode,name,line)
         if name.upper().startswith('PIP:'):
@@ -5053,7 +5055,7 @@ class _FileReadCancelled(GeneratorExit):
 def _file_identity(handle):
     return (handle.owner,handle.name,handle.logical_name,handle.mode,handle.binary,
         handle.reverse,handle.field,handle.eol,handle.xml,handle.passall,
-        handle.noecho,handle.interactive,handle.pipe_wait,handle.pipe_overflow)
+        handle.noecho,handle.interactive,handle.pipe_wait,handle.pipe_overflow,handle.read_timeout_ms)
 
 
 def _validate_file_read(handle,operation,line=None):
@@ -5143,7 +5145,7 @@ def cooperative_file_read(state,handle,targets,line=None,*,line_breaks=(),format
 
 
 from .extended import (ExecutionContext, StringRegisters, PositionRegisters, PortBank, RegisterComments, CallParameters, ProgramCatalog, ProgramAttributes, PROGRAM_CONSTANTS, PeerBanks, PEER_UNAVAILABLE,
-                       SerialPorts,SERIAL_CONSTANTS,XML_CONSTANTS,
+                       SerialPorts,SERIAL_CONSTANTS,XML_CONSTANTS,MAX_FILE_TIMEOUT_MS,FILE_READ_TIMEOUT_STATUS,
                        VariableStore, variable_value, variable_reference, MemoryFiles, FileHandle, PathValue, QueueValue, RobotContext, RobotState, file_piece,
                         TaskRegistry, KarelPause, KarelStop, update_timers, timer_clock, connect_timer, disconnect_timer, release_frame_timers, finish_timers,
                         define_condition, condition_control, checkpoint, cooperative_test, pause_execution,abort_execution,
