@@ -47,20 +47,26 @@ and selected rows or planes with matching component dimensions.
 Resource fields and FILE ARRAYs remain excluded.
 Whole FILE transfer and ordinary generic ANY acceptance remain excluded.
 
-## Selecting a node or a field
+## Selecting a header, node or field
 
-A named variable path can select a one-based PATH node, a field inside the node,
-or a typed ARRAY row or plane inside a field.
+A named variable path can select a declared header at zero or an existing node
+at a positive index. Either can be followed by field names and ARRAY selectors.
+For example, `ROUTE[0].COUNT` and `ROUTE.COUNT` address the same field.
+For PATH ARRAY cells, `ROUTES[1,0]` and `ROUTES[1][0]` select the same header.
 
 ```karel
 GET_VAR(entry,'LIB','ROUTE[1].VALUE',amount,status)
 SET_VAR(entry,'LIB','ROUTE[1].VALUE',amount,status)
+GET_VAR(entry,'LIB','ROUTE[0]',header,status)
+SET_VAR(entry,'LIB','ROUTES[1,0]',header,status)
 ```
 
-These selections use the normal typed data conversion and output checks.
-Replacing a compatible node through SET_VAR updates its existing record storage.
-A missing node can be copied as missing data with status 12311. An invalid index
-or mismatched node storage returns status 1 without allocating a cache entry.
+These selections use ordinary typed data conversion and output checks. SET_VAR
+preserves an existing compatible header or node record and its field aliases.
+A missing selected record can be copied with status 12311. An absent header,
+invalid index or mismatched record storage returns status 1 without allocating
+a cache entry. An exact typed routine formal can also borrow selected header
+storage through BYNAME.
 
 ## Identity and aliases
 

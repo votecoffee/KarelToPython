@@ -511,7 +511,7 @@ def add_policies(report, *, array_context, cooperative):
         guide='docs/path-archives.md',controller_validated=False)
     report['path_transfer_policy']=dict(
         procedures=['GET_VAR','SET_VAR'],
-        source='Pythonic whole-PATH copies accept exact or compatible NODEDATA and PATHHEADER layouts. Model-backed fields use an explicit robot context. Named PATH node and field selections retain ordinary data rules.',
+        source='Pythonic whole-PATH copies accept exact or compatible NODEDATA and PATHHEADER layouts. Model-backed fields use an explicit robot context. Named PATH index zero selects a declared header in a scalar PATH or ARRAY cell. Header, node and field selections use ordinary data rules.',
         capture='SET snapshots source once before later selectors; GET resolves and snapshots named source after output selectors; validate bounded schemas and complete source/receiver data before publication',
         limits='At most 64 data-schema levels and 32767 header-plus-node scalar leaves on each side; charge source and existing receiver snapshots plus the converted source and output when layouts differ; validate bounds before payload allocation; existing PATH collection/persistence limits remain independent',
         receiver='Preserve existing PathValue identity; retain compatible header containers through ordinary stable data replacement; install a fresh detached nodes list so captured old node references are not retargeted; applies to self-copy',
@@ -532,7 +532,7 @@ def add_policies(report, *, array_context, cooperative):
         guide='docs/queue-transfers.md',controller_validated=False)
     report['variable_inspection_policy']=dict(
         procedures=['VAR_INFO','VAR_LIST'],type_codes=dict(VARIABLE_TYPE_CODES),
-        lookup='Current and attached declared globals and explicit VariableStore roots. VAR_INFO accepts static fields, ARRAY elements and prefixes, PATH nodes and supplied robot frame/tool paths.',
+        lookup='Current and attached declared globals and explicit VariableStore roots. VAR_INFO accepts static fields, ARRAY elements and prefixes, PATH headers and nodes, and supplied robot frame/tool paths.',
         metadata='Canonical resolved leaf type and code, remaining logical ARRAY dimensions and STRING element capacity. Supplied robot paths are checked through detached frame/tool reads.',
         initialization='Content-based missing leaves for data aggregates; unknown BYTE is not initialization-tracked; FILE tracks open state; PATH inspects supplied header/nodes; unsupported QUEUE_TYPE code returns status 4',
         inspection_budget='VAR_INFO charges each inspected value and aggregate member to the execution budget. Check every member before publishing any metadata output.',

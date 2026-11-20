@@ -30,8 +30,10 @@ class ReferenceLowering:
             helper = 'config_read_reference' if config_read else 'field_reference'
             return f'_rt.{helper}({base}, {expr.value!r}, {line})', member
         if spec[0] == 'PATH':
-            index, node = self._path_node_index(expr, spec)
-            return f'_rt.index_reference({base},{index},{line})', node
+            index, selected = self._path_node_index(expr, spec)
+            if self.path_header_index(expr.args[1]):
+                return f'_rt.path_header_reference({base},{spec!r},{line})', selected
+            return f'_rt.index_reference({base},{index},{line})', selected
 
         self._check_indexable_schema(expr, spec)
         count = len(expr.args) - 1
@@ -44,7 +46,8 @@ class ReferenceLowering:
             check = ',check=self._state.tick' if collection_io and resource else ''
             return f'_rt.{helper}({base},{index},{spec!r},{line}{check})', selected
         if self.mode == 'pythonic' and rt.collection_array_node_type(spec, count) is not None:
-            return f'_rt.collection_path_reference({base},{index},{spec!r},{line})', selected
+            header = ',allow_header=True' if self.path_header_index(expr.args[-1]) else ''
+            return f'_rt.collection_path_reference({base},{index},{spec!r},{line}{header})', selected
         if self.mode == 'pythonic' and rt.joint_axis_access(spec, count):
             return f'_rt.joint_index_reference({base},{index},{spec!r},{line})', selected
         return f'_rt.index_reference({base}, {index}, {line})', selected
@@ -57,7 +60,7 @@ class ReferenceLowering:
         if len(expr.args) != 2:
             self.error('E_ARRAY_RANK', 'PATH requires one node index', expr.token)
         index = self.require_type(expr.args[1], 'INTEGER')
-        return index, rt.PathValue(spec).node_spec
+        return index, self.path_index_type(spec, expr.args[1])
 
     def index_code(self, expr, spec, *, allow_prefix=False, prefix_target=False, collection_prefix=False):
         indexes = expr.args[1:]
@@ -69,8 +72,10 @@ class ReferenceLowering:
         prefix = rt.array_prefix_type(spec, count) if allow_prefix and pythonic else None
         if prefix is not None and not (rt.aggregate_write_type(prefix) or collection_prefix and rt.collection_array_type(prefix)):
             self.error('E_ARRAY_RANK', 'ARRAY prefix values require resource-free data', expr.token)
-        path_node = rt.collection_array_node_type(spec, count) if pythonic else None
-        selected = ('REAL',) if axis else path_node
+        path_record = None
+        if pythonic and rt.collection_array_node_type(spec, count) is not None:
+            path_record = self.path_index_type(rt.array_leaf_spec(spec), indexes[-1])
+        selected = ('REAL',) if axis else path_record
         if selected is None:
             selected = prefix
         if selected is None:
@@ -146,14 +151,18 @@ class ReferenceLowering:
             return f'self._state.port_read({receiver.value!r},{index},{line})', (ex.PORT_TYPES[receiver.value],)
         base, spec = self.expression(receiver, raw=True)
         if spec[0] == 'PATH':
-            index, node = self._path_node_index(expr, spec)
-            return f'{base}.node({index},{line})', node
+            index, selected = self._path_node_index(expr, spec)
+            if self.path_header_index(expr.args[1]):
+                value = f'_rt.path_header_reference({base},{spec!r},{line}).raw()'
+                return (value if raw else f'_rt.require({value},{line})'), selected
+            return f'{base}.node({index},{line})', selected
         self._check_indexable_schema(expr, spec)
         resource = pythonic and rt.collection_array_type(spec)
         index, selected = self.index_code(expr, spec, allow_prefix=True, collection_prefix=resource)
         count = len(expr.args) - 1
         if pythonic and rt.collection_array_node_type(spec, count) is not None:
-            reference = f'_rt.collection_path_reference({base},{index},{spec!r},{line})'
+            header = ',allow_header=True' if self.path_header_index(expr.args[-1]) else ''
+            reference = f'_rt.collection_path_reference({base},{index},{spec!r},{line}{header})'
             return (reference + '.raw()' if raw else f'_rt.require({reference}.raw(),{line})'), selected
         if pythonic and rt.array_prefix_type(spec, count) is not None:
             if collection_io and resource:

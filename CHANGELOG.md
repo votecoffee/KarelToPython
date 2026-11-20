@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1120.153141 - 2026-11-20
+
+- Select a declared PATH header with index zero in typed source expressions,
+  assignment, routine calls and USING.
+- Support named PATH headers and their fields in GET_VAR, SET_VAR, VAR_INFO
+  and BYNAME, including headers in PATH ARRAY cells.
+
 ## 26.1120.152218 - 2026-11-20
 
 - Resolve computed PATH READ and WRITE indexes to the header or an existing

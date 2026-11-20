@@ -3053,7 +3053,9 @@ class ExecutionContext:
                         following=re.match(r'\[([0-9]+(?:,[0-9]+)*)\]',rest[consumed:])
                         if following is None:break
                         numbers+=tuple(int(x) for x in following[1].split(','));consumed+=following.end()
-                if path_nodes and reference.spec[0]=='PATH':
+                if rt._pythonic() and reference.spec[0] == 'PATH' and numbers == (0,):
+                    reference = rt.path_header_reference(value, reference.spec, line)
+                elif path_nodes and reference.spec[0]=='PATH':
                     if len(numbers)!=1:fail('PATH requires one node index',line)
                     if (type(value) is not PathValue or value.spec!=reference.spec
                             or type(value.nodes) is not list or len(value.nodes)>32767):
@@ -3069,7 +3071,7 @@ class ExecutionContext:
                 else:
                     selected=numbers[0] if len(numbers)==1 else numbers
                     if rt._pythonic() and rt.collection_array_node_type(reference.spec,len(numbers)) is not None:
-                        reference=rt.collection_path_reference(value,selected,reference.spec,line,defer_data=defer_node_data)
+                        reference=rt.collection_path_reference(value,selected,reference.spec,line,defer_data=defer_node_data,allow_header=True)
                     elif prefixes and rt._pythonic() and consumed==len(rest) and rt.array_prefix_type(reference.spec,len(numbers)) is not None:
                         if defer_prefix_data:
                             # Explicit callers admit schema/capacity and charge before

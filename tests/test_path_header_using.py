@@ -35,6 +35,25 @@ class PathHeaderStorageTests(unittest.TestCase):
         p,_=build('USING bank[pick()] DO count=42 result=count ENDUSING',routines=MAKE+' ROUTINE pick:INTEGER BEGIN visits=visits+1 RETURN 2 END pick');v=p.run();self.assertEqual((v['VISITS'],v['RESULT']),(1,42))
     def test_multi_index_effect_order_is_left_to_right(self):
         p,_=build('USING bank[row(),col()] DO count=42 ENDUSING',decl=DECL.replace('bank:ARRAY[2]','bank:ARRAY[2,2]'),routines=MAKE+' ROUTINE row:INTEGER BEGIN visits=visits*10+1 RETURN 1 END row ROUTINE col:INTEGER BEGIN visits=visits*10+2 RETURN 2 END col');self.assertEqual(p.run()['VISITS'],12)
+    def test_grouped_indexed_header_keeps_the_original_record_during_read(self):
+        retained = []
+
+        def read(_):
+            path = p._state.values['BANK'].values[0]
+            retained.append(path.data)
+            path.data = rt.Structure(path.spec[2])
+            return [42]
+
+        p, report = build(
+            'index_value=1 bank[1].count=7 USING (bank[index_value][0]) DO '
+            'index_value=2 READ(count) result=count ENDUSING',
+            read=read,
+        )
+        values = p.run()
+        self.assertEqual((values['RESULT'], retained[0].values['COUNT']), (42, 42))
+        self.assertEqual([row['data']['COUNT'] for row in values['BANK']], [U, U])
+        self.assertTrue(report.report['using_scopes'][0]['selector_captures'][0]['path_header'])
+
     def test_rightmost_header_wins(self):
         p,_=build('other.count=9 USING source,other DO count=42 ENDUSING');v=p.run();self.assertEqual((v['SOURCE']['data']['COUNT'],v['OTHER']['data']['COUNT']),(7,42))
     def test_inner_header_wins_and_outer_binding_is_restored(self):

@@ -113,8 +113,10 @@ class UsingNormalization:
                        expression_kind=selector.kind, independent_copy=not reference, copy_back=False)
         if spec[0] == 'PATH':
             capture.update(path_header=True, path_type_spec=spec, selected_type_spec=record)
-        if reference and self.path_node_selector(selector):
-            capture['path_node'] = True
+        if reference:
+            record_selector = self.path_record_selector(selector)
+            if record_selector is not None:
+                capture[record_selector] = True
         binding = Expr('using_ref', selector.token,
                        (name, record, source_root, self.is_position_read_only_access(storage),
                         _selector_text(selector), source_kind, provenance, protection_root))

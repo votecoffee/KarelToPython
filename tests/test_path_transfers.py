@@ -97,6 +97,83 @@ class NamedPathNodeTransferTests(unittest.TestCase):
         self.assertIs(route.nodes[0],old)
 
 
+class PathHeaderSelectorTests(unittest.TestCase):
+    def test_source_selects_whole_header_and_borrows_exact_formal(self):
+        p, _ = prepared(
+            'picked=source[(header_index)] target[0]=picked bump(target[0]) n=target[0].count',
+            prefix=PREFIX + ' CONST header_index=0', decl=DECL + ' picked:header_t',
+            routines='ROUTINE bump(h:header_t) BEGIN h.count=h.count+1 END bump',
+        )
+        target = raw(p)
+        header, nodes = target.data, target.nodes
+        result = p.run()
+        self.assertEqual((result['N'], result['PICKED']), (3, {'COUNT': 2}))
+        self.assertEqual(result['TARGET'], dict(nodes=[{'VALUE': 99}], data={'COUNT': 3}))
+        self.assertIs(target.data, header)
+        self.assertIs(target.nodes, nodes)
+
+    def test_scalar_named_transfer_preserves_header_and_node_storage(self):
+        body = call(path='SOURCE[0]', value='picked')
+        body += 'picked.count=17 ' + call('SET_VAR', path='TARGET[0]', value='picked')
+        p, _ = prepared(body, decl=DECL + ' picked:header_t')
+        target = raw(p)
+        header, nodes = target.data, target.nodes
+        result = p.run()
+        self.assertEqual(result['STATUS'], 0)
+        self.assertEqual(result['TARGET'], dict(nodes=[{'VALUE': 99}], data={'COUNT': 17}))
+        self.assertIs(target.data, header)
+        self.assertIs(target.nodes, nodes)
+        self.assertEqual(raw(p, 'SOURCE').data.values['COUNT'], 2)
+
+    def test_path_array_header_named_prefix_and_byname(self):
+        body = ("n=1 bank[n,2,0].count=17 m=bank[1][2][0].count "
+                "GET_VAR(entry,'','BANK[1,2][0]',picked,status) "
+                "change(BYNAME('','BANK[1][2,0]',entry)) "
+                "observed=bank[1,2,0].count")
+        p, _ = prepared(
+            body, decl=DECL + ' bank:ARRAY[2,2] OF route_t picked:header_t observed:INTEGER',
+            routines='ROUTINE change(v:header_t) BEGIN v.count=v.count+10 END change',
+        )
+        result = p.run()
+        self.assertEqual((result['M'], result['STATUS'], result['OBSERVED']), (17, 0, 27))
+        self.assertEqual(result['PICKED'], {'COUNT': 17})
+
+    def test_named_header_var_info_describes_the_selected_structure(self):
+        p, _ = prepared(
+            "VAR_INFO('','SOURCE[0]',missing,label,code,dims,capacity,status)",
+            decl=DECL + ' missing:BOOLEAN label:STRING[20] code,capacity:INTEGER dims:ARRAY[3] OF INTEGER',
+        )
+        result = p.run()
+        self.assertEqual(
+            (result['MISSING'], result['LABEL'], result['CODE'], result['DIMS'], result['CAPACITY'], result['STATUS']),
+            (False, 'HEADER_T', 210, [0, 0, 0], 0, 0),
+        )
+        self.assertEqual(p._state.execution.entries, {})
+
+    def test_named_header_requires_declared_matching_storage(self):
+        for case in ('absent', 'wrong-schema'):
+            with self.subTest(case=case):
+                prefix = PREFIX.replace(' PATHHEADER=header_t', '') if case == 'absent' else PREFIX
+                p, _ = prepared('entry=77 n=88 ' + call(path='SOURCE[0].COUNT', value='n'), prefix=prefix)
+                if case == 'wrong-schema':
+                    raw(p, 'SOURCE').data = rt.Structure(raw(p, 'SOURCE').node_spec)
+                values = p.run()
+                self.assertEqual((values['ENTRY'], values['N'], values['STATUS']), (77, 88, 1))
+                self.assertEqual(p._state.execution.entries, {})
+
+    def test_source_headerless_zero_reports_missing_pathheader(self):
+        with self.assertRaises(TranslationError) as error:
+            prepared('n=source[0].count', prefix=PREFIX.replace(' PATHHEADER=header_t', ''))
+        self.assertEqual(error.exception.code, 'E_PATH_HEADER')
+
+    def test_set_cannot_target_a_header_field_used_as_its_status(self):
+        p, _ = prepared('entry=77 ' + call('SET_VAR', path='TARGET[0].COUNT', value='7', status='target.count'))
+        with self.assertRaisesRegex(rt.KarelRuntimeError, 'overlaps'):
+            p.run()
+        self.assertEqual((p.snapshot()['ENTRY'], raw(p).data.values['COUNT']), (77, 1))
+        self.assertEqual(p._state.execution.entries, {})
+
+
 class PathCopyValueTests(unittest.TestCase):
     def test_get_and_set_copy_all_nodes_and_header(self):
         for action in ('GET_VAR','SET_VAR'):

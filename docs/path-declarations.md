@@ -27,11 +27,14 @@ choice; it is not native compiler acceptance evidence. Reflow after TYPE `=`,
 VAR/field `:` and ARRAY `OF` is supported without token fusion or macros.
 
 PATH components must resolve to supported named STRUCTURE layouts. Omitted
-NODEDATA uses the portable STD_PTH_NODE layout; omitted PATHHEADER has no
-user-accessible header. Header fields use `path.field`, node fields use
-`path[index].field`. Existing typed reference/value interfaces, copy/range
-operations and nominal layout checks remain. Function PATH results and resource
-fields in STRUCTURE remain outside the supported contract.
+NODEDATA uses the portable STD_PTH_NODE layout. With a declared PATHHEADER,
+`path.field` addresses a header field. A literal or named INTEGER constant
+zero selects the typed header record as `path[0]`. It supports assignment,
+routine arguments and USING, as well as field selection such as `path[0].field`.
+A PATH ARRAY cell accepts `routes[i][0]` or `routes[i,0]`. Ordinary expressions
+that compute a node subscript use the one-based node schema. [FILE transfers](path-io-and-file-initialization.md#header-and-node-range-selections)
+can choose the header or node at runtime because they check the selected record
+before transferring bytes.
 
 ## Predefined data layouts
 

@@ -2,6 +2,7 @@
 from . import extended as ex
 from . import runtime as rt
 from .call_analysis import plan_routine_argument
+from .statement_io_analysis import format_literal
 from .syntax import Expr
 from .compiler_language import (
     BUILTIN_SIGNATURES,
@@ -44,14 +45,26 @@ class TypeQueries:
         while expr.kind in ('index','field','group'):expr=expr.args[0]
         return expr.value[7] if expr.kind=='using_ref' else expr.value
 
-    def path_node_selector(self, selector):
-        """Identify a selected PATH node that needs a stable USING binding."""
+    def path_header_index(self, operand):
+        return self.mode == 'pythonic' and format_literal(operand, constants=self.visible_constants()) == 0
+
+    def path_index_type(self, spec, operand):
+        if self.path_header_index(operand):
+            if spec[2] is None:
+                self.error('E_PATH_HEADER', 'PATH index 0 requires a declared PATHHEADER', operand.token)
+            return spec[2]
+        return spec[1] or rt.PREDEFINED_STRUCTURES['STD_PTH_NODE']
+
+    def path_record_selector(self, selector):
+        """Identify an indexed PATH record that needs a stable USING binding."""
         while selector.kind == 'group':
             selector = selector.args[0]
         if selector.kind != 'index':
-            return False
+            return None
         spec = self.relative_operand_type(selector.args[0])
-        return spec[0] == 'PATH' or rt.collection_array_node_type(spec, len(selector.args) - 1) is not None
+        if spec[0] == 'PATH' or rt.collection_array_node_type(spec, len(selector.args) - 1) is not None:
+            return 'path_header' if self.path_header_index(selector.args[-1]) else 'path_node'
+        return None
 
     def member_type(self, spec, expr):
         if spec[0]=='PATH':
@@ -204,9 +217,10 @@ class TypeQueries:
         if expr.kind == 'field': return self.member_type(self.access_type(expr.args[0]), expr)
         if expr.kind == 'index':
             spec = self.access_type(expr.args[0])
-            if spec[0]=='PATH': return rt.PathValue(spec).node_spec
+            if spec[0]=='PATH': return self.path_index_type(spec, expr.args[-1])
             if self.mode=='pythonic' and rt.joint_axis_access(spec,len(expr.args)-1):return ('REAL',)
-            if self.mode=='pythonic' and rt.collection_array_node_type(spec,len(expr.args)-1) is not None:return rt.collection_array_node_type(spec,len(expr.args)-1)
+            if self.mode=='pythonic' and rt.collection_array_node_type(spec,len(expr.args)-1) is not None:
+                return self.path_index_type(rt.array_leaf_spec(spec), expr.args[-1])
             if spec[0] != 'ARRAY': self.error('E_TYPE', 'Indexing requires ARRAY', expr.token)
             prefix=rt.array_prefix_type(spec,len(expr.args)-1) if self.mode=='pythonic' else None
             if prefix is not None and rt.aggregate_write_type(prefix):return prefix

@@ -19,9 +19,13 @@ class UsingLowering:
                 reference = f'_rt.using_path_header({selected!r},{value},{line},reference={kind=="storage_reference"})'
             elif kind == 'computed_value':
                 reference = f'_rt.value_argument({spec!r},{value},{line})'
-            elif self.path_node_selector(selector):
-                reference = f'_rt.using_path_node_reference({spec!r},{value},{line})'
-                self.features.add('stable PATH node USING capture')
             else:
-                reference = value
+                record_selector = self.path_record_selector(selector)
+                if record_selector is None:
+                    reference = value
+                else:
+                    header = record_selector == 'path_header'
+                    option = ',header=True' if header else ''
+                    self.features.add('stable PATH header USING capture' if header else 'stable PATH node USING capture')
+                    reference = f'_rt.using_path_node_reference({spec!r},{value},{line}{option})'
             self.line(f'{name} = {reference}', selector.token)

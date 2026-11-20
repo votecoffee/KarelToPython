@@ -1338,7 +1338,7 @@ def collection_array_node_type(spec,count):
 
 
 def _collection_path_slot(array,index,expected,line=None):
-    """Resolve checked ARRAY coordinates and the following one-based node index."""
+    """Resolve checked ARRAY coordinates and the following PATH record index."""
     indexes=index if type(index) is tuple else (index,)
     if (not _pythonic() or collection_array_node_type(expected,len(indexes)) is None
             or type(array) is not Array or not parameter_accepts(expected,array.spec)):
@@ -1356,9 +1356,29 @@ def _collection_path_slot(array,index,expected,line=None):
     return current,integer(indexes[-1],line)
 
 
-def collection_path_reference(array,index,expected,line=None,*,defer_data=False):
-    """Capture a node; PC preparation may defer data checks until budget admission."""
+def path_header_reference(path, spec, line=None):
+    """Borrow the declared header record from an exact PATH descriptor."""
+    if (not _pythonic() or type(spec) is not tuple or len(spec) != 3 or spec[0] != 'PATH'
+            or type(path) is not PathValue or getattr(path, 'spec', None) != spec
+            or type(getattr(path, 'nodes', None)) is not list or len(path.nodes) > 32767):
+        raise KarelRuntimeError('PATH header lookup requires matching bounded storage', line)
+    header = spec[2]
+    if type(header) is not tuple or not header or header[0] != 'STRUCTURE':
+        raise KarelRuntimeError('PATH header lookup requires a declared PATHHEADER', line)
+    value = getattr(path, 'data', None)
+    if value is not UNINITIALIZED:
+        fields = dict(record_fields(header))
+        if (type(value) is not Structure or value.spec != header or value.types != fields
+                or type(value.values) is not dict or value.values.keys() != fields.keys()):
+            raise KarelRuntimeError('PATH header lookup found mismatched PATHHEADER storage', line)
+    return Reference(header, vars(path), 'data')
+
+
+def collection_path_reference(array,index,expected,line=None,*,defer_data=False,allow_header=False):
+    """Capture a PATH ARRAY record; PC may defer node data checks until budget admission."""
     current,node=_collection_path_slot(array,index,expected,line)
+    if node == 0 and allow_header:
+        return path_header_reference(current, current.spec, line)
     value=current.node(node,line)
     if defer_data:
         # Keep structural selection checks without copying data before PC charges.
@@ -1782,14 +1802,16 @@ class _ArrayPrefixTarget:
             self.storage[index]=replace_value(self.storage[index],item)
 
 
-def using_path_node_reference(spec,reference,line=None):
-    """Retain the selected node object when its PATH list changes later."""
+def using_path_node_reference(spec,reference,line=None,*,header=False):
+    """Retain a selected PATH record across later replacement of its container."""
     from .variable_archives import ordinary
+    record = 'PATH header' if header else 'PATH node'
     if not _pythonic() or not ordinary(reference) or reference.spec!=spec or spec[0]!='STRUCTURE':
-        raise KarelRuntimeError('USING PATH node requires an ordinary exact record reference',line)
+        raise KarelRuntimeError(f'USING {record} requires an ordinary exact record reference',line)
     value=reference.raw()
     if type(value) is not Structure or value.spec!=spec:
-        raise KarelRuntimeError('USING PATH node requires existing shaped node data',line)
+        detail = 'header data' if header else 'node data'
+        raise KarelRuntimeError(f'USING {record} requires existing shaped {detail}',line)
     _aggregate_value(spec,value,line,allow_partial=True)
     return Reference(spec,{'value':value},'value')
 

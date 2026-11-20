@@ -28,9 +28,10 @@ buffer must be a writable one-dimensional ARRAY of exactly three INTEGERs.
 
 An empty program string selects current globals even when a routine has a local
 with the same name. Lookup is case-insensitive. Static fields, numeric subscripts
-and PATH nodes are supported, for example `PARTS[2].LABEL`, `ROUTE[1].POINT` and
-a PATH header field `ROUTE.ID`. A selected ARRAY row or plane reports its
-remaining dimensions and the initialization of its selected cells. This
+and PATH records are supported, for example `PARTS[2].LABEL`, `ROUTE[1].POINT`,
+and `ROUTE[0]` for a declared header. `ROUTE[0].ID` and `ROUTE.ID` inspect the
+same header field. A selected ARRAY row or plane reports its remaining
+dimensions and the initialization of its selected cells. This
 includes FILE and PATH banks. Read-only POSITION orientation fields can be inspected.
 
 Explicit system bindings such as `$LIMIT` retain their usual precedence.
