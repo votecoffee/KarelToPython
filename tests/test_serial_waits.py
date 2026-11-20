@@ -113,6 +113,31 @@ class SerialWaitInputTests(unittest.TestCase):
         result=run('SET_FILE_ATR(f,ATR_EOL,59) '+OPEN+'READ f(n,CR) CLOSE FILE f',decl=DECL,context=ctx,sleep=sleeper)
         self.assertEqual((result['N'],calls),(17,[.01]))
 
+    def test_waiting_read_retains_port_terminator_until_reopen(self):
+        for passall in (False, True):
+            with self.subTest(passall=passall):
+                bank, ctx = streams(b'17')
+                ctx.serial_ports = rt.SerialPorts({2: {'ATR_EOL': 59}})
+                delays = []
+
+                def sleeper(delay):
+                    delays.append(delay)
+                    self.assertEqual(len(delays), 1)
+                    self.assertEqual(task.snapshot()['N'], 77)
+                    self.assertEqual(ctx.serial_ports.write(2, rt.SERIAL_CONSTANTS['ATR_EOL'], 124), 0)
+                    bank.feed(2, b';29|')
+
+                attribute = 'SET_FILE_ATR(f,ATR_PASSALL) ' if passall else ''
+                width = '::2' if passall else ''
+                task, _ = compile_program(
+                    attribute + OPEN + f'n=77 READ f(n{width},CR) CLOSE FILE f '
+                    + OPEN + f'READ f(m{width},CR) CLOSE FILE f',
+                    decl=DECL, context=ctx, sleep=sleeper,
+                )
+                values = task.run()
+                self.assertEqual((values['N'], values['M'], delays), (17, 29, [.01]))
+                self.assertEqual((bank.snapshot()[2]['input'], bank._pending), (b'', {}))
+
     def test_binary_waits_for_every_width_and_records_one_completion(self):
         bank,ctx=streams(struct.pack('<i',17));calls=[]
         def sleeper(delay):

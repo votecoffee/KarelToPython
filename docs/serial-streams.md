@@ -78,11 +78,17 @@ REAL/BOOLEAN fields can carry raw bytes; binary STRING decoding still requires
 ASCII. Serial FILEs reject XML and pipe-specific attributes. The parser uses
 portable ASCII and binary field rules.
 
-The separate SerialPorts service retains baud/parity/data-bit/stop-bit/XON/OFF
-and other metadata. It does not configure these byte streams. In particular,
-GET_PORT_ATR/SET_PORT_ATR ATR_EOL does not silently change a FILE's terminator;
-use SET_FILE_ATR explicitly. Streams perform no automatic echo, including when
-ATR_NOECHO is absent.
+A text serial FILE captures the configured port `ATR_EOL` when it opens.
+The effective terminator applies to text READ, PASSALL record discards, and
+the byte emitted by WRITE CR. `SET_FILE_ATR(file,ATR_EOL,value)` or an
+explicit `eol` on a predefined binding takes precedence, including an
+explicit LF. With no setting at either level, the portable default is LF.
+Changes to the port setting apply on the next open. The inherited terminator
+belongs to one open FILE, so reopening the descriptor on another endpoint uses
+that endpoint's setting. Binary transfers keep their field format.
+
+SerialPorts also stores baud, parity, data bits, stop bits and XON/XOFF as
+metadata. The queue model provides no physical framing, flow control or echo.
 
 ### ATR_PASSALL fixed fields
 

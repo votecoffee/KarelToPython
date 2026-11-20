@@ -150,6 +150,7 @@ class SerialStreams:
         if timeout and (mode in ('W', 'A') or not self.ports[port]['wait']):
             raise runtime.KarelRuntimeError('ATR_TIMEOUT requires a readable waiting serial FILE', line)
         read_ahead_capacity = None
+        port_eol = None
         if state is not None and runtime._pythonic() and state.execution.serial_ports is not None:
             ports = state.execution.serial_ports
             status, units = ports.read(port, runtime.SERIAL_CONSTANTS['ATR_READAHD'], line)
@@ -157,6 +158,13 @@ class SerialStreams:
                 if not ports.valid('ATR_READAHD', units):
                     raise runtime.KarelRuntimeError('Invalid serial read-ahead setting', line)
                 read_ahead_capacity = units * 128
+            if not binary:
+                status, value = ports.read(port, runtime.SERIAL_CONSTANTS['ATR_EOL'], line)
+                if status == 0:
+                    if not ports.valid('ATR_EOL', value):
+                        raise runtime.KarelRuntimeError('Invalid serial EOL setting', line)
+                    port_eol = value
+        handle._port_eol = port_eol
         handle.name=key;handle.logical_name=key;handle.mode=mode;handle.binary=binary
         handle.position=0;handle.status=0;handle.owner=self;handle.xml_session=None
         handle._text_cr=None
@@ -263,6 +271,7 @@ class SerialStreams:
         self._open.pop(id(handle));self.handles=[item for item in self.handles if item is not handle]
         handle.owner=None;handle.position=0;handle.xml_session=None
         handle._text_cr=None
+        handle._port_eol = None
 
     def validate_read(self,handle,state,line=None,*,expected=None):
         runtime=rt()

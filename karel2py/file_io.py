@@ -21,13 +21,27 @@ class FileHandle:
         self.name=None; self.position=0; self.mode=''; self.binary=False; self.status=0; self.owner=None
         self.logical_name=None
         self.xml=False;self.xml_session=None
-        self.interactive=False; self.reverse=False; self.field=False; self.eol=10
+        self.interactive=False; self.reverse=False; self.field=False
+        self._file_eol = 10
+        self._file_eol_explicit = False
+        self._port_eol = None
         self.passall=False;self.noecho=False
         self.pipe_wait=None;self.pipe_overflow=None
         self._read_operation=None;self._write_operation=None
         self._text_cr=None
         self._append_ready = False
         self.read_timeout_ms = 0
+
+    @property
+    def eol(self):
+        if self._file_eol_explicit or self._port_eol is None:
+            return self._file_eol
+        return self._port_eol
+
+    @eol.setter
+    def eol(self, value):
+        self._file_eol = value
+        self._file_eol_explicit = True
 
     @property
     def appends_at_end(self):
@@ -69,6 +83,43 @@ class FileHandle:
             self._text_cr=None
             if self.eol in (10,13) and offset==len(raw) and raw[offset-1]==13:
                 self._bind_text_cr()
+
+
+def set_file_attribute(handle, attribute, value, line=None):
+    if handle.owner is not None:
+        fail('File attributes must be set before OPEN', line)
+    if attribute == 1:
+        handle.interactive = True
+    elif attribute == 2:
+        handle.binary = True
+    elif attribute == 3:
+        handle.reverse = True
+    elif attribute == 4:
+        handle.field = True
+    elif attribute == 5:
+        if not 0 <= value <= 127:
+            fail('ATR_EOL requires an ASCII character code', line)
+        handle.eol = value
+    elif attribute == 6:
+        handle.xml = True
+    elif attribute == 7:
+        handle.passall = True
+    elif attribute == 8:
+        handle.noecho = True
+    elif attribute == 9:
+        if value not in (0, 1):
+            fail('ATR_PIPWAIT requires WAIT_USED or WAIT_NOTUSED', line)
+        handle.pipe_wait = value
+    elif attribute == 10:
+        if not -1 <= value <= 64 * 1024 * 1024:
+            fail('ATR_PIPOVADV requires OVF_EOF or a bounded byte count', line)
+        handle.pipe_overflow = value
+    elif attribute == FILE_TIMEOUT_ATTRIBUTE:
+        if not 0 <= value <= MAX_FILE_TIMEOUT_MS:
+            fail('ATR_TIMEOUT requires milliseconds in 0..86400000', line)
+        handle.read_timeout_ms = value
+    else:
+        fail('Unsupported portable file attribute', line)
 
 
 def binary_format(kind,formats,line=None):

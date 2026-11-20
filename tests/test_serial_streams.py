@@ -187,10 +187,33 @@ class SerialStreamFileTests(unittest.TestCase):
         data=run("SET_FILE_ATR(f,ATR_EOL,59) SET_FILE_ATR(f,ATR_FIELD) OPEN FILE f('RO','P2:') READ f(text,CR) CLOSE FILE f",decl='f:FILE text:STRING[3]',context=ctx)
         self.assertEqual(data['TEXT'],'abc')
 
-    def test_serial_metadata_does_not_implicitly_change_eol(self):
-        ctx=context(b'7\n');ctx.serial_ports=rt.SerialPorts({2:{'ATR_EOL':59}})
-        data=run("OPEN FILE f('RO','P2:') READ f(n,CR) CLOSE FILE f",decl=DECL,context=ctx)
-        self.assertEqual(data['N'],7)
+    def test_port_eol_is_captured_per_open_and_does_not_follow_the_descriptor(self):
+        ctx = rt.ExecutionContext(
+            serial_ports=rt.SerialPorts({2: {}}),
+            serial_streams=SerialStreams({2: {'input': b'7;8|'}, 3: {'input': b'9\n'}}),
+        )
+        values = run(
+            "s=SET_PORT_ATR(PORT_2,ATR_EOL,59) OPEN FILE f('RW','P2:') "
+            "s=SET_PORT_ATR(PORT_2,ATR_EOL,124) READ f(n,CR) WRITE f('first',CR) CLOSE FILE f "
+            "OPEN FILE f('RW','P2:') READ f(m,CR) WRITE f('second',CR) CLOSE FILE f "
+            "OPEN FILE f('RW','P3:') READ f(ahead,CR) WRITE f('third',CR) CLOSE FILE f",
+            decl=DECL, context=ctx,
+        )
+        self.assertEqual((values['N'], values['M'], values['AHEAD'], values['S']), (7, 8, 9, 0))
+        streams = ctx.serial_streams.snapshot()
+        self.assertEqual((streams[2]['input'], streams[2]['output']), (b'', b'first;second|'))
+        self.assertEqual((streams[3]['input'], streams[3]['output']), (b'', b'third\n'))
+
+    def test_explicit_file_lf_takes_precedence_over_port_eol(self):
+        ctx = context(b'7\n')
+        ctx.serial_ports = rt.SerialPorts({2: {'ATR_EOL': 59}})
+        values = run(
+            "SET_FILE_ATR(f,ATR_EOL,10) OPEN FILE f('RW','P2:') "
+            "READ f(n,CR) WRITE f('ready',CR) CLOSE FILE f",
+            decl=DECL, context=ctx,
+        )
+        self.assertEqual(values['N'], 7)
+        self.assertEqual(ctx.serial_streams.snapshot()[2]['output'], b'ready\n')
 
     def test_empty_input_fails_finitely_without_sleeper(self):
         ctx=context();task,_=compile_program("OPEN FILE f('RO','P2:') READ f(n)",decl=DECL,context=ctx)

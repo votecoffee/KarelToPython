@@ -213,6 +213,21 @@ class PredefinedBackendTests(unittest.TestCase):
         self.assertEqual({key: row['mode'] for key, row in restored.predefined_files.items()},
                          {'INPUT': 'RB', 'OUTPUT': 'WB'})
 
+    def test_saved_serial_defaults_capture_port_eol_and_explicit_override(self):
+        ctx = rt.ExecutionContext(
+            serial_ports=rt.SerialPorts({2: {'ATR_EOL': 59}, 3: {'ATR_EOL': 59}}),
+            serial_streams=rt.SerialStreams({2: {'input': b'42;'}, 3: {'output': b'old'}}),
+            predefined_files={'INPUT': binding('P2:'), 'OUTPUT': binding('P3:', 'AO', eol=10)},
+        )
+        restored = rt.ExecutionContext.from_config(json.loads(json.dumps(ctx.to_config())))
+        values, _, _, _ = execute(
+            "READ(n,CR) WRITE('done',CR) CLOSE FILE INPUT CLOSE FILE OUTPUT",
+            restored, prefix='%CRTDEVICE',
+        )
+        self.assertEqual(values['N'], 42)
+        streams = restored.serial_streams.snapshot()
+        self.assertEqual((streams[2]['input'], streams[3]['output']), (b'', b'olddone\n'))
+
     def test_serial_binary_append_output_alias_uses_backend_mode(self):
         ctx = rt.ExecutionContext(
             serial_streams=rt.SerialStreams({2: {'input': b'rx', 'output': b'old'}}),

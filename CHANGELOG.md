@@ -1,5 +1,11 @@
 # Changelog
 
+## 26.1120.150429 - 2026-11-20
+
+- Capture the configured serial port ATR_EOL as the default terminator for
+  Pythonic text FILEs. Explicit FILE and predefined EOL settings take priority.
+- Move SET_FILE_ATR validation to the FILE runtime.
+
 ## 26.1120.145853 - 2026-11-20
 
 - Apply explicit serial ATR_READAHD settings to BYTES_AHEAD on Pythonic FILEs.

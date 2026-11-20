@@ -70,6 +70,7 @@ def add_policies(report, *, array_context, cooperative):
         values='Read-ahead count 0..32767 units of 128 bytes; baud 1200/2400/4800/9600, parity none/odd/even, stop bits 1/1.5/2 through package INTEGER codes, data bits 5..8, XON/XOFF 0/1 and ASCII EOL 0..127',
         status='Function return 0 success, 1 unset attribute, 2 unconfigured port, 3 invalid attribute/value; failed reads retain attribute output, failed writes retain settings; missing service raises',
         read_ahead='Pythonic serial FILE OPEN captures the configured ATR_READAHD for its port. BYTES_AHEAD reports at most that many 128-byte units. Zero returns status 2 and preserves count. An unset value reports all unread RX.',
+        eol='Pythonic text serial FILEs capture the configured ATR_EOL at OPEN as the default record terminator. An explicit FILE or predefined binding EOL takes precedence, including an explicit LF.',
         persistence='Detached canonical port-number JSON attribute mappings; no handles, discovery or allocation of a second read-ahead buffer',
         boundary='Offline configuration metadata with portable constants only; no COM-port/hardware effects or native serial enum equivalence',
         guide='docs/serial-attributes.md',controller_validated=False)

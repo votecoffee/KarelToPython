@@ -2,8 +2,9 @@
 
 GET_PORT_ATR and SET_PORT_ATR are functions returning INTEGER status. They use an
 explicit SerialPorts service, separate from digital/group/analog PortBank and
-operating-system serial ports. A configured ATR_READAHD value is captured by
-an [offline serial FILE](serial-streams.md#read-ahead) when it opens.
+operating-system serial ports. An [offline serial FILE](serial-streams.md#file-behavior)
+captures the configured ATR_READAHD and, for text I/O, the default ATR_EOL
+when it opens.
 
 ```python
 from karel2py import runtime as rt
@@ -26,12 +27,12 @@ are supported. An empty configured port has no inferred attribute defaults.
 | ATR_SBITS | SBITS_1=1, SBITS_15=15, SBITS_2=2; 15 denotes the 1.5-stop-bit choice |
 | ATR_DBITS | DBITS_5..DBITS_8, represented by the number of bits |
 | ATR_XONOFF | XF_NOT_USED=0 or XF_USED=1 |
-| ATR_EOL | ASCII code 0..127 |
+| ATR_EOL | ASCII code 0..127, used as the default text FILE terminator |
 
 Attribute IDs and constants are package identifiers; native enum equality is not
-claimed. ATR_EOL remains the same portable constant used by FILE attributes,
-while the services retain separate state. The report's `serial_attribute_policy`
-lists the complete constant mapping.
+claimed. An explicit FILE ATR_EOL takes precedence over the port setting,
+and a source FILE with neither setting uses LF. The report's
+`serial_attribute_policy` lists the complete constant mapping.
 
 Function return 0 means success, 1 an unset attribute, 2 an unconfigured port and
 3 an invalid attribute/value. Failed reads preserve the attribute output; failed
@@ -45,8 +46,9 @@ value)` returns status. `to_config()` creates a detached canonical mapping;
 JSON uses `serial_ports`, mapping canonical string IDs `"1"`..`"5"` to named
 attribute mappings. It persists settings without opening devices or allocating
 resources. [Finite serial streams](serial-streams.md) model explicit
-`P1:`..`P5:` RX/TX data through FILE statements. ATR_READAHD is the only
-setting applied by those streams.
+`P1:`..`P5:` RX/TX data through FILE statements. The [read-ahead window](serial-streams.md#read-ahead)
+limits the count returned by BYTES_AHEAD. The other five port attributes
+are stored for inspection and round-trip use.
 
 The [authored example](../examples/serial_attributes.kl) sets and reads all seven
 attributes, using an [explicit initial bank](../examples/serial_attributes.services.initial.json).

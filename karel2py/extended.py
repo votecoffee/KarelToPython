@@ -11,7 +11,7 @@ import fnmatch
 import inspect
 from .file_io import (
     FILE_READ_TIMEOUT_STATUS, FILE_TIMEOUT_ATTRIBUTE, MAX_FILE_TIMEOUT_MS, FileHandle,
-    binary_format, binary_read_fields, file_piece, file_read,
+    binary_format, binary_read_fields, file_piece, file_read, set_file_attribute,
 )
 from .teach import TPE_NAMES
 from .vision import VISION_PROCEDURES,VISION_FUNCTIONS
@@ -2965,30 +2965,7 @@ class ExecutionContext:
         if name in ('GET_FILE_POS','BYTES_LEFT','IO_STATUS','SET_FILE_POS','BYTES_AHEAD','SET_FILE_ATR','CLR_IO_STAT'):
             handle=args[0]
             if name=='SET_FILE_ATR':
-                if handle.owner is not None: fail('File attributes must be set before OPEN',line)
-                attribute=args[1]
-                if attribute==1: handle.interactive=True
-                elif attribute==2: handle.binary=True
-                elif attribute==3: handle.reverse=True
-                elif attribute==4: handle.field=True
-                elif attribute==5:
-                    if not 0<=args[2]<=127: fail('ATR_EOL requires an ASCII character code',line)
-                    handle.eol=args[2]
-                elif attribute==6: handle.xml=True
-                elif attribute==7: handle.passall=True
-                elif attribute==8: handle.noecho=True
-                elif attribute==9:
-                    if args[2] not in (0,1): fail('ATR_PIPWAIT requires WAIT_USED or WAIT_NOTUSED',line)
-                    handle.pipe_wait=args[2]
-                elif attribute==10:
-                    if not -1<=args[2]<=64*1024*1024: fail('ATR_PIPOVADV requires OVF_EOF or a bounded byte count',line)
-                    handle.pipe_overflow=args[2]
-                elif attribute == FILE_TIMEOUT_ATTRIBUTE:
-                    if not 0 <= args[2] <= MAX_FILE_TIMEOUT_MS:
-                        fail('ATR_TIMEOUT requires milliseconds in 0..86400000', line)
-                    handle.read_timeout_ms = args[2]
-                else: fail('Unsupported portable file attribute',line)
-                return
+                return set_file_attribute(*args, line=line)
             if name=='CLR_IO_STAT': handle.status=0; return
             if name=='IO_STATUS': return handle.status
             if name=='SET_FILE_POS' and handle.xml: fail('Reopen XML FILE to reset its scanner',line)
