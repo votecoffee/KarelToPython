@@ -109,6 +109,14 @@ class InputDiscoveryTests(unittest.TestCase):
         self.assertTrue(any(row['service'] == 'tasks' for row in report['context_requirements']))
         self.assertTrue(any(row['code'] == 'condition-source' for row in report['unresolved']))
 
+    def test_notification_wait_reads_code_and_reports_unresolved_delivery(self):
+        report, _ = scan('WAIT FOR TRUE OR ERROR[x] OR POWERUP')
+        self.assertEqual(names(report), {('variable', 'X'): 'required'})
+        self.assertTrue(any(row['service'] == 'errors' for row in report['context_requirements']))
+        self.assertEqual(sum(row['code'] == 'condition-source' for row in report['unresolved']), 2)
+        wildcard, _ = scan('WAIT FOR ERROR[*]')
+        self.assertTrue(any(row['service'] == 'errors' for row in wildcard['context_requirements']))
+
     def test_zero_iteration_while_and_at_least_once_repeat(self):
         report,_=scan('WHILE flag DO x=1 ENDWHILE n=x')
         self.assertEqual(names(report),{('variable','FLAG'):'required',('variable','X'):'conditional'})

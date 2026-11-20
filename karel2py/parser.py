@@ -970,10 +970,13 @@ class Parser:
             offset=self.expression();self.skip_lines();direction=self.take()
             if direction.value not in ('BEFORE','AFTER'):self.error('E_MOTION_CONDITION','TIME requires BEFORE/AFTER NODE',direction)
             left=Expr('motion_condition',token,direction.value,[offset,self.motion_node_selector()])
-        elif self.in_condition and token.value=='ERROR':
+        elif (self.in_condition or self.in_wait_condition) and token.value == 'ERROR':
             self.expect('[')
-            arguments=[] if self.accept('*') else [self.expression()]
-            self.expect(']'); left=Expr('error_condition',token,args=arguments)
+            arguments = [] if self.accept('*') else [self.expression()]
+            self.expect(']')
+            left = Expr('wait_error' if self.in_wait_condition else 'error_condition', token, args=arguments)
+        elif self.in_wait_condition and token.value in ('CONTINUE', 'POWERUP'):
+            left = Expr('wait_lifecycle', token, token.value)
         elif token.value == 'PAUSE' and (self.in_wait_condition or self.in_condition and self.current.value == 'PROGRAM'):
             target = None
             if self.accept('PROGRAM'):

@@ -1,5 +1,15 @@
 """Generate checked timing and polling statements for the offline runtime."""
+from collections import Counter
+
 from .syntax import Expr
+
+
+WAIT_SAMPLE_REPORTS = {
+    'wait_edge': ('port_edges', ('ports', 'WAIT FOR port edges')),
+    'wait_pause': ('task_pause_conditions', ('WAIT FOR PAUSE',)),
+    'wait_error': ('error_conditions', ('WAIT FOR ERROR',)),
+    'wait_lifecycle': ('lifecycle_conditions', ('WAIT FOR lifecycle notifications',)),
+}
 
 
 def wait_terms(operand):
@@ -7,7 +17,7 @@ def wait_terms(operand):
     if isinstance(operand, Expr):
         for child in operand.args:
             yield from wait_terms(child)
-        if operand.kind in ('wait_eval', 'wait_edge', 'wait_pause'):
+        if operand.kind == 'wait_eval' or operand.kind in WAIT_SAMPLE_REPORTS:
             yield operand
 
 
@@ -33,13 +43,12 @@ class TimingLowering:
         terms = list(wait_terms(operand))
         captures = [term for term in terms if term.kind == 'wait_eval']
         samples = [term for term in terms if term.kind != 'wait_eval']
-        edge_count = sum(term.kind == 'wait_edge' for term in samples)
-        pause_count = len(samples) - edge_count
+        counts = Counter(term.kind for term in samples)
         originals = []
         try:
             for term in captures:
                 self.emit_wait_capture(term, originals)
-            condition = (self.emit_sampled_wait(operand, samples, originals, edge_count, pause_count)
+            condition = (self.emit_sampled_wait(operand, samples, originals, counts)
                          if samples else self.require_type(operand, 'BOOLEAN'))
         finally:
             # Preserve source operands and operator identities for input discovery.
@@ -58,12 +67,10 @@ class TimingLowering:
         if captures:
             self.features.add('WAIT FOR EVAL capture')
             self.wait_uses[-1]['entry_captures'] = len(captures)
-        if edge_count:
-            self.features.update(('ports', 'WAIT FOR port edges'))
-            self.wait_uses[-1]['port_edges'] = edge_count
-        if pause_count:
-            self.features.add('WAIT FOR PAUSE')
-            self.wait_uses[-1]['task_pause_conditions'] = pause_count
+        for kind, count in counts.items():
+            field, features = WAIT_SAMPLE_REPORTS[kind]
+            self.features.update(features)
+            self.wait_uses[-1][field] = count
 
     @staticmethod
     def bind_wait_temporary(term, temporary, spec, originals):
@@ -72,36 +79,47 @@ class TimingLowering:
 
     def emit_wait_capture(self, term, originals):
         operand = term.args[0]
-        if any(child.kind in ('wait_edge', 'wait_pause') for child in wait_terms(operand)):
-            self.error('E_EVAL', 'EVAL in WAIT FOR cannot capture a port transition or task pause', term.token)
+        if any(child.kind in WAIT_SAMPLE_REPORTS for child in wait_terms(operand)):
+            self.error('E_EVAL', 'EVAL in WAIT FOR cannot capture a live condition event', term.token)
         code, spec = self.expression(operand)
         temporary = self.fresh()
         self.line(f'{temporary} = _rt.assignment_value({code}, {term.token.line})', term.token)
         self.bind_wait_temporary(term, temporary, spec, originals)
 
-    def emit_sampled_wait(self, operand, samples, originals, edge_count, pause_count):
+    def emit_sampled_wait(self, operand, samples, originals, counts):
         predicate = self.fresh()
-        if edge_count:
-            edges = self.fresh()
-            self.line(f'{edges} = {{}}')
-        if pause_count:
-            pauses = self.fresh()
-            self.line(f'{pauses} = _rt.PauseSamples(self._state, include_current=True)')
+        contexts = {}
+        if counts['wait_edge']:
+            contexts['wait_edge'] = self.fresh()
+            self.line(f"{contexts['wait_edge']} = {{}}")
+        if counts['wait_pause']:
+            contexts['wait_pause'] = self.fresh()
+            self.line(f"{contexts['wait_pause']} = _rt.PauseSamples(self._state, include_current=True)")
+        if counts['wait_error'] or counts['wait_lifecycle']:
+            notifications = self.fresh()
+            contexts['wait_error'] = contexts['wait_lifecycle'] = notifications
+            self.line(f'{notifications} = _rt.WaitNotifications(self._state, watch_errors={bool(counts["wait_error"])!r})')
         self.line(f'def {predicate}():')
         self.indent += 1
         for key, term in enumerate(samples):
-            if term.kind == 'wait_edge':
-                evaluation = self.wait_edge_sample(term, edges, key)
-            else:
-                target = term.args[0]
-                number = self.require_type(target, 'INTEGER') if target is not None else 'None'
-                evaluation = f'_rt.sample_wait_pause(self._state, {pauses}, {number}, {key}, {term.token.line})'
+            evaluation = self.wait_sample_expression(term, contexts[term.kind], key)
             temporary = self.fresh()
             self.line(f'{temporary} = {evaluation}', term.token)
             self.bind_wait_temporary(term, temporary, ('BOOLEAN',), originals)
         self.line(f'return {self.require_type(operand, "BOOLEAN")}', operand.token)
         self.indent -= 1
         return f'{predicate}()'
+
+    def wait_sample_expression(self, term, context, key):
+        if term.kind == 'wait_edge':
+            return self.wait_edge_sample(term, context, key)
+        if term.kind == 'wait_lifecycle':
+            return f'{context}.lifecycle({term.value!r}, {key})'
+        selector = term.args[0] if term.args else None
+        number = self.require_type(selector, 'INTEGER') if selector is not None else 'None'
+        if term.kind == 'wait_error':
+            return f'{context}.error({number}, {key}, {term.token.line})'
+        return f'_rt.sample_wait_pause(self._state, {context}, {number}, {key}, {term.token.line})'
 
     def wait_edge_sample(self, term, history, key):
         port = term.args[0]

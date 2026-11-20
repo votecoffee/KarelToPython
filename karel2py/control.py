@@ -189,16 +189,56 @@ def read_error_data(state,arguments,line=None):
     for reference,value in prepared: reference.set(value,line)
 
 
-def error_condition(state,code,key,line=None):
+def error_filter_code(code, line):
     if code is not None:
-        code=rt().integer(code,line)
-        if code<0: raise rt().KarelRuntimeError('ERROR condition code must be nonnegative',line)
+        code = rt().integer(code, line)
+        if code < 0:
+            raise rt().KarelRuntimeError('ERROR condition code must be nonnegative', line)
+    return code
+
+
+def error_condition(state,code,key,line=None):
+    code = error_filter_code(code, line)
     record=error_history(state).latest(task_root(state).program_name,code)
     consumer=(state._scanning_condition,key,'ERROR',code)
     previous=state._event_seen.get(consumer,0)
     if record is None or record['sequence']<=previous: return False
     state._event_seen[consumer]=record['sequence']; state._current_error=record
     return True
+
+
+class WaitNotifications:
+    """Observe notifications posted after entry to one source WAIT."""
+
+    def __init__(self, state, *, watch_errors=False):
+        self.root = task_root(state)
+        self.error_bank = error_history(self.root) if watch_errors else None
+        self.error_start = self.error_bank.sequence if self.error_bank is not None else 0
+        self.lifecycle_start = self.root._lifecycle.copy()
+        self.error_seen = {}
+        self.lifecycle_seen = {}
+
+    @staticmethod
+    def observe(generation, baseline, seen, key):
+        if generation <= seen.get(key, baseline):
+            return False
+        seen[key] = generation
+        return True
+
+    def error(self, code, key, line):
+        code = error_filter_code(code, line)
+        bank = error_history(self.root)
+        if bank is not self.error_bank:
+            self.error_bank = bank
+            self.error_start = bank.sequence
+            self.error_seen.clear()
+        record = bank.latest(self.root.program_name, code)
+        return (record is not None
+                and self.observe(record['sequence'], self.error_start, self.error_seen, (key, code)))
+
+    def lifecycle(self, name, key):
+        generation = self.root._lifecycle.get(name, 0)
+        return self.observe(generation, self.lifecycle_start.get(name, 0), self.lifecycle_seen, (key, name))
 
 
 def handler_action(state,action,line=None):

@@ -129,6 +129,25 @@ cursors reset at run start. This is the same portable latched convention as EVEN
 native scan-time-only notification is not modeled. A very small history limit can
 evict an error before an unscanned consumer sees it.
 
+## WAIT FOR notifications
+
+`WAIT FOR ERROR[n]` and `WAIT FOR ERROR[*]` observe new retained errors
+matching the numeric code or wildcard. Records must apply to the calling task
+or be global. Each wait starts at the current end of the error history. A
+replacement history starts a new baseline. The wait reads the latest matching
+record and leaves message suppression to condition actions.
+
+`WAIT FOR CONTINUE` observes resumption of the current task.
+`WAIT FOR POWERUP` observes explicit recovery of that paused task. During
+powerup both events can satisfy predicates in the same poll. A new wait takes
+its own lifecycle baseline, and a linked invocation observes the calling task.
+Task controls still take effect at checkpoints, so a terminal abort ends
+execution.
+
+These forms use the offline error and recovery models. The KAREL reference
+lists WAIT and its global conditions in MARRC75KR07091E Rev N Appendix E
+figures (t) and (u).
+
 ## Runtime failures stay failures
 
 Cooperative Programs notify handlers of KarelRuntimeError using portable code 1,

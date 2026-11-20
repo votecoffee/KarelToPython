@@ -281,6 +281,124 @@ class WaitTaskPauseTests(unittest.TestCase):
         self.assertEqual(sleeps, [])
 
 
+class WaitNotificationTests(unittest.TestCase):
+    def test_numbered_error_wait_filters_code_scope_and_prior_history(self):
+        history = rt.ErrorHistory()
+        history.post(9000)
+        notices = iter(((9000, 'OTHER'), (9001, ''), (9000, 'T')))
+        observed = []
+
+        def sleep(seconds):
+            observed.append(seconds)
+            code, owner = next(notices)
+            history.post(code, program=owner)
+
+        program, result, _ = compile_program('n=9000 WAIT FOR ERROR[EVAL(n)]; done=TRUE',
+            context=rt.ExecutionContext(errors=history), sleep=sleep)
+        self.assertTrue(program.run(max_steps=30)['DONE'])
+        self.assertEqual(observed, [0.] * 3)
+        self.assertEqual((result.report['waits'][0]['entry_captures'],
+                          result.report['waits'][0]['error_conditions']), (1, 1))
+        self.assertTrue(all(not row['suppressed'] for row in history.snapshot()))
+
+    def test_wildcard_error_waits_take_fresh_baselines(self):
+        history = rt.ErrorHistory(limit=1)
+        posted = []
+
+        def sleep(seconds):
+            posted.append(seconds)
+            history.post(9000 + len(posted))
+
+        program, _, _ = compile_program('WAIT FOR ERROR[*]; n=1 WAIT FOR ERROR[*]; n=2',
+            context=rt.ExecutionContext(errors=history), sleep=sleep)
+        self.assertEqual(program.run(max_steps=20)['N'], 2)
+        self.assertEqual(posted, [0., 0.])
+        self.assertEqual(history.sequence, 2)
+
+    def test_replacing_error_history_does_not_replay_its_existing_records(self):
+        context = rt.ExecutionContext(errors=rt.ErrorHistory())
+        replacement = rt.ErrorHistory()
+        replacement.post(9000)
+        observed = []
+
+        def sleep(seconds):
+            observed.append(seconds)
+            if len(observed) == 1:
+                context.errors = replacement
+            else:
+                replacement.post(9000)
+
+        program, _, _ = compile_program('WAIT FOR ERROR[9000]; done=TRUE',
+            context=context, sleep=sleep)
+        self.assertTrue(program.run(max_steps=20)['DONE'])
+        self.assertEqual(observed, [0., 0.])
+
+    def test_continue_wait_observes_an_explicit_resume(self):
+        def sleep(_):
+            program.pause()
+
+        program, result, _ = compile_program('WAIT FOR CONTINUE; done=TRUE', sleep=sleep)
+        with self.assertRaises(rt.KarelPause):
+            program.run(max_steps=20)
+        self.assertTrue(program.resume()['DONE'])
+        self.assertEqual(result.report['waits'][0]['lifecycle_conditions'], 1)
+
+    def test_powerup_wait_distinguishes_recovery_from_normal_resume(self):
+        def sleep(_):
+            program.pause()
+
+        program, result, _ = compile_program(
+            'WAIT FOR CONTINUE AND POWERUP; done=TRUE', sleep=sleep
+        )
+        with self.assertRaises(rt.KarelPause):
+            program.run(max_steps=30)
+        with self.assertRaises(rt.KarelPause):
+            program.resume()
+        self.assertTrue(program.powerup()['DONE'])
+        self.assertEqual(result.report['waits'][0]['lifecycle_conditions'], 2)
+
+    def test_wait_observes_calling_task_resume_inside_linked_child(self):
+        sources = {
+            'main.kl': ("PROGRAM MAIN VAR n,hint:INTEGER "
+                        "BEGIN CALL_PROG('CHILD',hint) n=8 END MAIN"),
+            'child.kl': 'PROGRAM CHILD VAR n:INTEGER BEGIN WAIT FOR CONTINUE; n=7 END CHILD',
+        }
+
+        def sleep(_):
+            root.pause()
+
+        project = translate_project(sources).instantiate(options={'sleep': sleep})
+        root = project.programs['MAIN']
+        with self.assertRaises(rt.KarelPause):
+            root.run(max_steps=40)
+        self.assertEqual(root.resume()['N'], 8)
+        self.assertEqual(project.programs['CHILD'].snapshot()['N'], 7)
+
+    def test_terminal_abort_preempts_matching_wait_error(self):
+        history = rt.ErrorHistory()
+
+        def sleep(_):
+            history.post(9000, severity=2)
+            rt.request_task_control(program._state, 'ABORT')
+
+        program, _, _ = compile_program('WAIT FOR ERROR[9000]; done=TRUE',
+            context=rt.ExecutionContext(errors=history), sleep=sleep)
+        with self.assertRaises(rt.KarelAbort):
+            program.run(max_steps=20)
+        self.assertEqual(program.snapshot()['DONE'], {'uninitialized': True})
+        self.assertEqual(program.task_state, 'aborted')
+
+    def test_wait_notifications_validate_codes_and_do_not_capture_live_events(self):
+        for condition, error in (('ERROR[TRUE]', 'E_TYPE'), ('EVAL(ERROR[*])', 'E_EVAL')):
+            with self.subTest(condition=condition), self.assertRaises(TranslationError) as caught:
+                compile_program('WAIT FOR ' + condition)
+            self.assertEqual(caught.exception.code, error)
+        program, _, sleeps = compile_program('WAIT FOR ERROR[-1]')
+        with self.assertRaisesRegex(rt.KarelRuntimeError, 'must be nonnegative'):
+            program.run()
+        self.assertEqual(sleeps, [])
+
+
 class WaitIntegrationTests(unittest.TestCase):
     def test_labelled_dispatch_wait(self):
         p,result,calls=compile_program('n=0 WAIT FOR ready_now() after=n',routines=READY,labelled=True)

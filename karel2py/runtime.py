@@ -5168,7 +5168,7 @@ from .scheduling import (TaskScheduler,EventBank,event_condition,edge_condition,
                          configure_task,TASK_DIRECTIVES,TASK_FLAG_DIRECTIVES,TASK_MASKS,
                          SOURCE_DIRECTIVES,SOURCE_FLAG_DIRECTIVES,SOURCE_DIRECTIVE_RANGES,
                          TASK_SETTING_RANGES,valid_task_setting)
-from .control import (SemaphoreBank,ErrorHistory,error_condition,handler_action,cooperative_service,
+from .control import (SemaphoreBank,ErrorHistory,WaitNotifications,error_condition,handler_action,cooperative_service,
                       runtime_failure,powerup_cooperative,task_root,request_task_control,ERROR_SEVERITIES)
 from .diagnostics import DiagnosticLog,DIAGNOSTIC_CONSTANTS
 from .kcl import KclCommands

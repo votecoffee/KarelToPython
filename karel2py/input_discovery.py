@@ -1054,13 +1054,14 @@ class _Analyzer:
             self.statement(node, flow, conditional or after_program_return)
 
     def sample_wait_inputs(self, node, flow, conditional, kinds):
-        if not isinstance(node, dict) or not node.get('args'):
+        if not isinstance(node, dict):
             return node
-        args = [self.sample_wait_inputs(arg, flow, conditional, kinds) for arg in node['args']]
-        kind = node['kind']
+        original = node.get('args', ())
+        args = [self.sample_wait_inputs(arg, flow, conditional, kinds) for arg in original]
+        kind = node.get('kind')
         if kind not in kinds:
-            return dict(node, args=args) if any(a is not b for a, b in zip(args, node['args'])) else node
-        value = self.expr(args[0], flow, conditional, partial=kind == 'wait_eval')
+            return dict(node, args=args) if any(a is not b for a, b in zip(args, original)) else node
+        value = self.expr(args[0], flow, conditional, partial=kind == 'wait_eval') if args else _Value()
         if kind == 'wait_edge':
             self.context('ports', None)
             self.unresolved_at('condition-source', 'Port transitions require offline samples', node)
@@ -1069,6 +1070,11 @@ class _Analyzer:
             if args[0] is not None:
                 self.context('tasks', None)
             self.unresolved_at('condition-source', 'Pause delivery depends on task execution', node)
+            value = _Value(spec=['BOOLEAN'])
+        elif kind in ('wait_error', 'wait_lifecycle'):
+            if kind == 'wait_error':
+                self.context('errors', None)
+            self.unresolved_at('condition-source', 'WAIT notification delivery depends on task execution', node)
             value = _Value(spec=['BOOLEAN'])
         return dict(node, kind='wait_sample', value=value, args=[])
 
@@ -1082,7 +1088,8 @@ class _Analyzer:
         if kind=='call':self.expr(args[0],flow,conditional);return
         if kind == 'wait':
             captured = self.sample_wait_inputs(args[0], flow, conditional, ('wait_eval',))
-            predicate = self.sample_wait_inputs(captured, flow, conditional, ('wait_edge', 'wait_pause'))
+            predicate = self.sample_wait_inputs(captured, flow, conditional,
+                                                ('wait_edge', 'wait_pause', 'wait_error', 'wait_lifecycle'))
             if predicate is not args[0]:
                 self.expr(predicate, flow, conditional)
                 self.unresolved_at('task-wait', 'Waiting and possible task effects require an execution order', node)

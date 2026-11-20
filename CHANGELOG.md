@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1120.130621 - 2026-11-20
+
+- Translate WAIT FOR ERROR with a numeric code or wildcard and WAIT FOR
+  CONTINUE or POWERUP. Observe new notifications per wait and preserve error
+  scope and ordinary terminal task control.
+- Include error selectors and notification dependencies in input discovery.
+
 ## 26.1120.125942 - 2026-11-20
 
 - Translate global PAUSE PROGRAM conditions and WAIT FOR PAUSE with an
