@@ -25,10 +25,11 @@ dedicated compiler modules for capture, storage checks, and lowering. Both
 control-flow engines share FOR counter checks, bound emission, and USING
 entry capture. Dedicated control-flow and SELECT generators handle label
 dispatch, CASE emission, and FOR scope unwinding. Routine effect propagation
-and retained-alias analysis run after declaration resolution. Next, extract
-ARRAY subscript, bare routine call, and USING reference normalization from
-declaration resolution. The runtime and extended services can be split by
-ownership after their boundaries are covered with regressions. See
+and retained-alias analysis run after source normalization. ARRAY subscript,
+bare routine call, and USING reference normalization have dedicated modules.
+Next, extract constant evaluation and dependency ordering from declaration
+resolution. The runtime and extended services can be split by ownership after
+their boundaries are covered with regressions. See
 [compiler architecture](compiler-architecture.md).
 
 ## Python runner and parameter editor

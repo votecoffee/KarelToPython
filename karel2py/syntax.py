@@ -21,6 +21,20 @@ class Statement:
     has_else: bool = False
 
 
+def walk_nodes(node):
+    """Visit source expressions and statements in argument and body order."""
+    if isinstance(node, (Expr, Statement)):
+        yield node
+        for argument in node.args:
+            yield from walk_nodes(argument)
+        if isinstance(node, Statement):
+            yield from walk_nodes(node.body)
+            yield from walk_nodes(node.alternate)
+    elif isinstance(node, (list, tuple)):
+        for child in node:
+            yield from walk_nodes(child)
+
+
 @dataclass
 class Routine:
     name: str

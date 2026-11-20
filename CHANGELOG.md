@@ -1,5 +1,11 @@
 # Changelog
 
+## 26.1120.003902 - 2026-11-20
+
+- Separate source reference normalization from declaration resolution.
+  Preserve chained ARRAY index order, lexical USING capture, and bare
+  routine call resolution before routine effect analysis.
+
 ## 26.1120.003340 - 2026-11-20
 
 - Run routine effect analysis after declaration resolution. Separate direct
