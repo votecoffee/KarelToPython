@@ -3,6 +3,8 @@ from copy import deepcopy
 from dataclasses import dataclass
 import re
 
+from . import passall
+
 
 MAX_SEQUENCE=2147483646
 KEYBOARD_CALLS={'READ_KB','PUSH_KEY_RD','POP_KEY_RD','DISCTRL_ALPH','DISCTRL_PLMN','DISCTRL_SBMN'}
@@ -560,30 +562,18 @@ class KeyboardInput:
 
     def _raw_file_read(self,state,handle,targets,formats,breaks,line=None):
         """Bounded fixed ASCII fields; no line editing, binary or native codes."""
-        runtime=rt();binding=self._handles[handle];fields=[]
+        runtime=rt();binding=self._handles[handle]
         def invalid(message):
             handle.status=1
             raise runtime.KarelRuntimeError(message,line)
         terminator=13 if handle.eol in (10,13) else handle.eol
         if breaks and terminator not in (8,13,23) and not 32<=terminator<=126:
             invalid('ATR_PASSALL CR markers require an injectable ASCII terminator')
-        for target,controls in zip(targets,formats):
-            controls=runtime.read_formats(target.spec,controls,line)
-            quoted=target.spec[0]=='STRING' and len(controls)==2 and controls[1]==2
-            width=controls[0] if controls else 0
-            if quoted and width<2:
-                invalid('ATR_PASSALL quoted STRING fields require an explicit width in 2..254')
-            if not width and target.spec[0]=='STRING':width=target.spec[1]
-            if type(width) is not int or not 1<=width<=254:
-                invalid('ATR_PASSALL keyboard fields require an explicit positive width in 1..254, or a STRING capacity')
-            fields.append((width,target.spec,controls,quoted))
-        required=sum(width for width,_,_,_ in fields)+len(breaks)
-        if required>4096:invalid('ATR_PASSALL keyboard READ exceeds 4096 raw bytes')
-        operations=[];marker=0
-        for index in range(len(fields)+1):
-            while marker<len(breaks) and breaks[marker]==index:
-                operations.append(None);marker+=1
-            if index<len(fields):operations.append(fields[index])
+        try:
+            operations, _ = passall.plan_read(targets, formats, breaks, line, 'keyboard')
+        except runtime.KarelRuntimeError:
+            handle.status = 1
+            raise
         job=self.start(state,'FILE_READ',binding['pane'],255,handle)
         if job is None:invalid('Keyboard FILE READ capacity or clock domain is busy')
         binding['input_mode']='raw';observed=False;complete=False;steps=0
@@ -622,8 +612,8 @@ class KeyboardInput:
                         consumed=end;scan=consumed;extent=consumed;operation+=1
                         continue
                     extent=len(binding['pending'])
-                if len(binding['pending'])>=4096:
-                    raise runtime.KarelRuntimeError('ATR_PASSALL keyboard READ exceeds 4096 raw bytes',line)
+                if len(binding['pending']) >= passall.MAX_READ_BYTES:
+                    raise runtime.KarelRuntimeError(f'ATR_PASSALL keyboard READ exceeds {passall.MAX_READ_BYTES} raw bytes', line)
                 job.update(text=binding['pending'][-254:],cursor=len(binding['pending']))
                 event=self.event(job, deadline=deadline)
                 if event is None:
@@ -645,12 +635,9 @@ class KeyboardInput:
             values=[]
             self.validate_file_read(handle,state,line)
             runtime.check_file_read(handle,line)
-            for start,(width,spec,controls,quoted) in slices:
-                token=binding['pending'][start:start+width]
-                if spec[0]=='STRING' and not quoted:values.append(token)
-                else:
-                    request=dict(targets=[dict(type=spec[0],type_spec=spec,format_specifiers=controls)])
-                    values.extend(runtime.TextInput(token)(request))
+            for start, field in slices:
+                token = binding['pending'][start:start + field[0]]
+                values.append(passall.decode_field(token, field, line))
             observed=True;deliver(values)
             record('completed',0)
             binding['pending']=binding['pending'][consumed:];binding['after_field']=False

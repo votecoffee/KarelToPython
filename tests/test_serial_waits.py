@@ -185,6 +185,63 @@ class SerialWaitInputTests(unittest.TestCase):
         self.assertEqual(bank.snapshot()[2]['input'],b'17 ')
 
 
+class SerialPassallWaitTests(unittest.TestCase):
+    def test_timeout_and_retry_reuse_retained_raw_prefix_and_configured_cr(self):
+        bank, ctx = streams(b'a\n')
+        delays = []
+
+        def sleeper(delay):
+            delays.append(delay)
+            if len(delays) == 3:
+                bank.feed(2, b'b;')
+
+        task, _ = compile_program(
+            'SET_FILE_ATR(f,ATR_PASSALL) SET_FILE_ATR(f,ATR_EOL,59) SET_FILE_ATR(f,ATR_TIMEOUT,13) ' +
+            OPEN + "text='old' READ f(text::3,CR) m=IO_STATUS(f) prior=text "
+            'READ f(text::3,CR) n=IO_STATUS(f) CLOSE FILE f',
+            decl=DECL + ' prior:STRING[16]', context=ctx, sleep=sleeper,
+        )
+        result = task.run()
+        self.assertEqual((result['M'], result['PRIOR'], result['TEXT'], result['N']), (4, 'old', 'a\nb', 0))
+        self.assertEqual(delays, [.01, .003, .01])
+        self.assertEqual(len(task.read_requests), 1)
+        self.assertEqual((bank.snapshot()[2]['input'], bank._pending), (b'', {}))
+
+    def test_cancel_keeps_partial_raw_bytes_and_releases_registration(self):
+        bank, ctx = streams(b'a\n')
+
+        def sleeper(_):
+            rt.cancel_file(task._state, task._state.values['F'])
+
+        task, _ = compile_program(
+            'SET_FILE_ATR(f,ATR_PASSALL) ' + OPEN +
+            "text='old' READ f(text::3) m=IO_STATUS(f) CLOSE FILE f",
+            decl=DECL, context=ctx, sleep=sleeper,
+        )
+        result = task.run()
+        self.assertEqual((result['TEXT'], result['M'], task.read_requests), ('old', 6, ()))
+        self.assertEqual((bank.snapshot()[2]['input'], bank._pending), (b'a\n', {}))
+
+    def test_wait_rejects_changed_passall_mode_before_publication(self):
+        bank, ctx = streams(b'a')
+
+        def sleeper(_):
+            task._state.values['F'].passall = False
+            bank.feed(2, b'b')
+
+        task, _ = compile_program(
+            'SET_FILE_ATR(f,ATR_PASSALL) ' + OPEN + "text='old' READ f(text::2)",
+            decl=DECL, context=ctx, sleep=sleeper,
+        )
+        with self.assertRaisesRegex(rt.KarelRuntimeError, 'PASSALL attribute changed'):
+            task.run()
+        self.assertEqual((task.snapshot()['TEXT'], task.snapshot()['F']['position'], bank._pending), ('old', 0, {}))
+        handle = task._state.values['F']
+        handle.passall = True
+        bank.close(handle)
+        self.assertEqual(bank.snapshot()[2]['input'], b'ab')
+
+
 class SerialReadTimeoutTests(unittest.TestCase):
     def test_timeout_keeps_partial_input_and_allows_retry(self):
         bank, ctx = streams(b'17 ')

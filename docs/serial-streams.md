@@ -75,14 +75,39 @@ Text/binary scalar widths, numeric validation, byte order, bounded STRING rules,
 ATR_FIELD and explicit FILE ATR_EOL use the existing checked FILE parser.
 ATR_REVERSE selects the existing binary byte order. Binary BYTE/SHORT/INTEGER/
 REAL/BOOLEAN fields can carry raw bytes; binary STRING decoding still requires
-ASCII. XML, PASSALL and pipe-specific FILE attributes are rejected. No parser,
-native character encoding or implicit line editing is added.
+ASCII. Serial FILEs reject XML and pipe-specific attributes. The parser uses
+portable ASCII and binary field rules.
 
 The separate SerialPorts service retains baud/parity/data-bit/stop-bit/XON/OFF
 and other metadata. It does not configure these byte streams. In particular,
 GET_PORT_ATR/SET_PORT_ATR ATR_EOL does not silently change a FILE's terminator;
 use SET_FILE_ATR explicitly. Streams perform no automatic echo, including when
 ATR_NOECHO is absent.
+
+### ATR_PASSALL fixed fields
+
+Set `ATR_PASSALL` before opening a readable text FILE.
+
+```karel
+SET_FILE_ATR(channel,ATR_PASSALL)
+OPEN FILE channel('RO','P2:')
+READ channel(label::4,count::2::16)
+CLOSE FILE channel
+```
+
+Each field consumes its exact byte width, including any ASCII terminators inside
+that width. With bytes `41 0A 00 42 32 41` in hexadecimal, the STRING holds
+`A`, LF, NUL and `B`, and the INTEGER is 42. Unquoted STRINGs default to their
+declared capacity. Other scalar fields use an explicit width from 1 through
+254. Quoted STRINGs use an explicit width from 2 through 254 and the existing
+quoted text rules.
+
+An explicit CR marker discards bytes through the exact configured ATR_EOL byte.
+If that byte is absent, the operation is incomplete, including at finite EOF.
+LF is the default. CRLF folding applies to regular text reads. A PASSALL read
+can examine at most 4096 bytes, including explicit CR discards. Parsed fields
+require ASCII. Unread bytes remain queued, and a complete request publishes all
+destinations together. See [cooperative serial input](serial-waiting.md#passall-reads).
 
 ## Atomic reads and close-time consumption
 

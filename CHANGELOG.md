@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1120.135825 - 2026-11-20
+
+- Support ATR_PASSALL fixed ASCII fields on finite and waiting serial FILEs.
+  Use the same field planning and typed decoding as raw keyboard input.
+  Preserve partial input and destinations through incomplete reads,
+  cancellation, and timeout.
+
 ## 26.1120.135235 - 2026-11-20
 
 - Enable reads on serial and plain pipe AP FILEs after the first successful

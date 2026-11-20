@@ -119,6 +119,14 @@ Ordinary feeds append to the original RX buffer, finalization updates its EOF
 flag, and host TX drains retain the same outbox object, so those operations remain
 available within their existing bounds.
 
+## PASSALL reads
+
+Use [ATR_PASSALL](serial-streams.md#atr_passall-fixed-fields) for fixed ASCII
+fields that may include record terminators. Waiting reads complete when all
+fixed widths and explicit CR markers arrive. An explicit CR requires its
+configured byte even after the input is finalized. Timeout and cancellation
+apply to the whole batch and preserve the starting cursor and buffered bytes.
+
 ## READ deadlines
 
 Set `ATR_TIMEOUT` before opening a readable waiting FILE.

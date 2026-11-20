@@ -1456,7 +1456,24 @@ def file_read(state,handle,targets,line=None,*,line_breaks=(),formats=None):
         state.tick(line)
         check(start)
 
-    if handle.binary:
+    serial_passall = type(owner) is rt.SerialStreams and handle.passall
+    if serial_passall:
+        from .communications import StreamRead
+
+        try:
+            request = StreamRead(handle, targets, line_breaks, formats, 'Serial', line, raw_fields=True)
+            raw = request.capture(state, handle, data, start, size - start, lambda: check(start))
+            result = request.probe(handle, raw, final=True)
+            if result is None:
+                fail('End of finite serial input before complete PASSALL READ', line)
+            values, offset = result
+            request.publish(state, values)
+        except Exception:
+            if matches():
+                handle.status = 1
+            raise
+        handle.position = start + offset
+    elif handle.binary:
         if line_breaks: fail('CR is not a binary READ field',line)
         try:fields=binary_read_fields(targets,formats,line)
         except rt.KarelRuntimeError:
@@ -1505,7 +1522,7 @@ def file_read(state,handle,targets,line=None,*,line_breaks=(),formats=None):
         offset=skip+reader.offset
         handle.position=start+offset
     if type(handle.owner) in (rt.Acquisition,rt.Messaging,rt.SerialStreams):handle.owner.after_read(handle,start,line)
-    if handle.binary:handle._text_cr=None
+    if handle.binary or serial_passall:handle._text_cr=None
     else:handle._finish_text_read(raw,offset)
     handle.status=0
 

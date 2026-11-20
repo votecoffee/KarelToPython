@@ -3,6 +3,7 @@ import re
 import fnmatch
 import struct
 from dataclasses import dataclass
+from . import passall
 from .extended import MemoryFiles,fail
 
 
@@ -55,7 +56,7 @@ def access_mode(handle,mode,line,*,append_read=False):
 class StreamRead:
     """A validated scalar request shared by cooperative byte transports."""
 
-    def __init__(self, handle, targets, line_breaks, formats, transport, line):
+    def __init__(self, handle, targets, line_breaks, formats, transport, line, *, raw_fields=False):
         runtime = rt()
         if type(targets) not in (list, tuple):
             fail(transport + ' READ requires scalar references', line)
@@ -69,12 +70,17 @@ class StreamRead:
         self.formats = [runtime.read_formats(target.spec, field, line)
                         for target, field in zip(targets, formats)]
         self.widths = None
+        self.raw_operations = None
         if handle.binary:
             if self.line_breaks:
                 fail('CR is not a binary READ field', line)
             from .extended import binary_read_fields
             self.widths = binary_read_fields(targets, self.formats, line)
             self.field_bytes = sum(width for width, _ in self.widths)
+        elif raw_fields:
+            self.raw_operations, self.field_bytes = passall.plan_read(
+                self.targets, self.formats, self.line_breaks, line, transport.lower(),
+            )
         else:
             self.field_bytes = sum(
                 (field[0] if field else 0)
@@ -92,6 +98,8 @@ class StreamRead:
         self.line = line
 
     def minimum_bytes(self, *, may_finalize):
+        if self.raw_operations is not None:
+            return self.field_bytes
         # Finite text can consume its last unterminated record with CR.
         optional_eol = may_finalize and bool(self.line_breaks) and self.line_breaks[-1] == len(self.targets)
         return self.field_bytes + len(self.line_breaks) - int(optional_eol)
@@ -102,9 +110,12 @@ class StreamRead:
         length = len(retained)
         if not 0 <= start <= start + available <= length:
             fail(self.transport + ' pending READ has an invalid source range', self.line)
-        if self.widths is not None and available < self.field_bytes:
-            return b''  # No binary fields can be probed until all bytes arrive.
-        size = available if self.widths is None else self.field_bytes
+        fixed_size = self.widths is not None or (self.raw_operations is not None and not self.line_breaks)
+        if fixed_size and available < self.field_bytes:
+            return b''
+        size = self.field_bytes if fixed_size else available
+        if self.raw_operations is not None:
+            size = min(size, passall.MAX_READ_BYTES)
         token = handle._read_operation
         # Reclaiming a prefix also moves the retained suffix after publication.
         charged = available if handle.owner._reclaims_input(handle,self.line) else size
@@ -124,6 +135,8 @@ class StreamRead:
             return False
 
     def probe(self, handle, raw, *, final):
+        if self.raw_operations is not None:
+            return passall.probe_bytes(raw, self.raw_operations, handle.eol, self.line)
         runtime = rt()
         if self.widths is not None:
             if len(raw) < self.field_bytes:

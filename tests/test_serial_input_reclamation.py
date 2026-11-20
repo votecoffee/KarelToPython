@@ -84,6 +84,19 @@ class SerialInputReclamationTests(unittest.TestCase):
                     values = task.run()
                     self.assertEqual((values['N'], values['M'], bank.used()), (17, 29, 0))
 
+    def test_passall_reclaims_only_the_complete_prefix(self):
+        for waiting in (False, True):
+            with self.subTest(waiting=waiting):
+                bank, context = streams(b'a\nz', waiting=waiting, capacity=3)
+                task, _ = compile_program(
+                    "SET_FILE_ATR(f,ATR_PASSALL) OPEN FILE f('RO','P2:') "
+                    "READ f(first::2) cursor=GET_FILE_POS(f) CLOSE FILE f",
+                    decl=DECL, context=context,
+                )
+                result = task.run()
+                self.assertEqual((result['FIRST'], result['CURSOR']), ('a\n', 0))
+                self.assertEqual(bank.snapshot()[2]['input'], b'z')
+
     def test_fragmented_crlf_continues_after_reclamation(self):
         bank, context = streams(b'discard\r', waiting=True, capacity=8)
         chunks = iter((b'\nnext\r', b'\ntail\r\n'))

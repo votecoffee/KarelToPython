@@ -122,9 +122,11 @@ class SerialStreams:
         mode={'RO':'R','WO':'W','UD':'RW','AO':'A'}.get(mode,mode)
         if mode not in ('R','W','RW','A','AP'):
             raise runtime.KarelRuntimeError('Unsupported portable serial FILE mode',line)
-        if handle.xml or handle.passall or handle.pipe_wait is not None or handle.pipe_overflow is not None:
-            raise runtime.KarelRuntimeError('Serial FILE does not model XML, PASSALL or pipe attributes',line)
-        if (any(type(value) is not bool for value in (binary,handle.reverse,handle.field,handle.noecho,handle.interactive))
+        if handle.xml or handle.pipe_wait is not None or handle.pipe_overflow is not None:
+            raise runtime.KarelRuntimeError('Serial FILE does not model XML or pipe attributes',line)
+        if handle.passall and (binary or mode in ('W', 'A')):
+            raise runtime.KarelRuntimeError('ATR_PASSALL requires a readable text serial FILE', line)
+        if (any(type(value) is not bool for value in (binary,handle.reverse,handle.field,handle.noecho,handle.interactive,handle.passall))
                 or type(handle.eol) is not int or not 0<=handle.eol<=127):
             raise runtime.KarelRuntimeError('Malformed serial FILE attributes',line)
         timeout = handle.read_timeout_ms
@@ -137,7 +139,7 @@ class SerialStreams:
         handle._text_cr=None
         handle._append_ready = False
         self._open[id(handle)] = (handle, key, mode, binary, handle.reverse, handle.field,
-                                  handle.eol, self.ports[port]['reclaim_input'], timeout)
+                                  handle.eol, self.ports[port]['reclaim_input'], timeout, handle.passall)
         self.handles.append(handle)
 
     def open(self,handle,mode,name,line=None):return self.open_for(None,handle,mode,name,line)
@@ -150,7 +152,7 @@ class SerialStreams:
             raise runtime.KarelRuntimeError('Serial FILE is closed, foreign, stale or has changed endpoint metadata',line)
         if (any(type(value) is not bool for value in (handle.binary,handle.reverse,handle.field,handle.xml,
                     handle.passall,handle.noecho,handle.interactive))
-                or type(handle.eol) is not int or not 0<=handle.eol<=127 or handle.xml or handle.passall
+                or type(handle.eol) is not int or not 0<=handle.eol<=127 or handle.xml
                 or handle.pipe_wait is not None or handle.pipe_overflow is not None):
             raise runtime.KarelRuntimeError('Serial FILE attributes changed or are invalid',line)
         if (type(handle.position) is not int or not 0<=handle.position<=len(self.files[handle.name])
@@ -162,10 +164,12 @@ class SerialStreams:
         if type(row['wait']) is not bool or type(row['final']) is not bool or not row['wait'] and not row['final']:
             raise runtime.KarelRuntimeError('Serial wait/final policy is invalid',line)
         if type(row['wait_output']) is not bool:raise runtime.KarelRuntimeError('Serial wait_output policy is invalid',line)
-        if len(record)!=9 or type(row['reclaim_input']) is not bool or row['reclaim_input'] is not record[7]:
+        if len(record)!=10 or type(row['reclaim_input']) is not bool or row['reclaim_input'] is not record[7]:
             raise runtime.KarelRuntimeError('Serial reclaim_input policy changed or is invalid',line)
         if type(handle.read_timeout_ms) is not int or handle.read_timeout_ms != record[8]:
             raise runtime.KarelRuntimeError('Serial FILE read timeout changed or is invalid', line)
+        if handle.passall is not record[9]:
+            raise runtime.KarelRuntimeError('Serial FILE PASSALL attribute changed', line)
         return row
 
     def _reclaims_input(self,handle,line=None):
@@ -251,7 +255,7 @@ class SerialStreams:
         if not row['wait']:
             return state.file_read(handle,targets,line,line_breaks=line_breaks,formats=formats)
         if id(handle) in self._pending:raise runtime.KarelRuntimeError('Serial FILE already has a pending READ',line)
-        request = StreamRead(handle, targets, line_breaks, formats, 'Serial', line)
+        request = StreamRead(handle, targets, line_breaks, formats, 'Serial', line, raw_fields=handle.passall)
         start = handle.position
         if start + request.minimum_bytes(may_finalize=True) > row['capacity']:
             raise runtime.KarelRuntimeError('Atomic serial READ exceeds retained receive capacity', line)
@@ -278,7 +282,7 @@ class SerialStreams:
                     request.publish(state, values)
                     handle.position = start + offset
                     self.after_read(handle,start,line)
-                    if handle.binary:handle._text_cr=None
+                    if handle.binary or handle.passall:handle._text_cr=None
                     else:handle._finish_text_read(raw,offset)
                     handle.status = 0
                     return

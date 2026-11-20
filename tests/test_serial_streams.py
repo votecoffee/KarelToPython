@@ -183,12 +183,77 @@ class SerialStreamFileTests(unittest.TestCase):
         ctx=rt.ExecutionContext(serial_streams=SerialStreams({5:{'input':'5\n'}}))
         self.assertEqual(run("OPEN FILE f('RO','p5:') READ f(n,CR) CLOSE FILE f",decl=DECL,context=ctx)['N'],5)
 
-    def test_xml_passall_and_pipe_attributes_are_rejected_before_open(self):
-        for attribute in ('SET_FILE_ATR(f,ATR_XML)','SET_FILE_ATR(f,ATR_PASSALL)','SET_FILE_ATR(f,ATR_PIPWAIT,WAIT_USED)'):
-            with self.subTest(attribute=attribute):
-                ctx=context(b'prior');task,_=compile_program(attribute+" OPEN FILE f('RO','P2:')",decl=DECL,context=ctx)
-                with self.assertRaises(rt.KarelRuntimeError):task.run()
-                self.assertEqual(ctx.serial_streams.handles,[]);self.assertEqual(ctx.serial_streams.snapshot()[2]['input'],b'prior')
+    def test_incompatible_file_attributes_are_rejected_before_open(self):
+        for attribute, mode in (
+            ('SET_FILE_ATR(f,ATR_XML)', 'RO'),
+            ('SET_FILE_ATR(f,ATR_PIPWAIT,WAIT_USED)', 'RO'),
+            ('SET_FILE_ATR(f,ATR_PASSALL)', 'RB'),
+            ('SET_FILE_ATR(f,ATR_PASSALL)', 'WO'),
+        ):
+            with self.subTest(attribute=attribute, mode=mode):
+                ctx = context(b'prior')
+                task, _ = compile_program(attribute + f" OPEN FILE f('{mode}','P2:')", decl=DECL, context=ctx)
+                with self.assertRaises(rt.KarelRuntimeError):
+                    task.run()
+                self.assertEqual(ctx.serial_streams.handles, [])
+                self.assertEqual(ctx.serial_streams.snapshot()[2]['input'], b'prior')
+
+
+class SerialPassallTests(unittest.TestCase):
+    def test_fixed_fields_keep_ascii_controls_and_unconsumed_bytes(self):
+        ctx = context(b"a\n\x00b2A'O''B'\xfftail")
+        result = run(
+            "SET_FILE_ATR(f,ATR_PASSALL) OPEN FILE f('RO','P2:') "
+            "READ f(text::4,n::2::16,label::6::2) cursor=GET_FILE_POS(f) CLOSE FILE f",
+            decl=DECL + ' label:STRING[8]', context=ctx,
+        )
+        self.assertEqual((result['TEXT'], result['N'], result['LABEL'], result['CURSOR']),
+                         ('a\n\x00b', 42, "O'B", 12))
+        self.assertEqual(ctx.serial_streams.snapshot()[2]['input'], b'\xfftail')
+
+    def test_cr_scans_to_exact_eol_after_fixed_field(self):
+        ctx = context(b'\n;\xffskip; \x00')
+        result = run(
+            "SET_FILE_ATR(f,ATR_PASSALL) SET_FILE_ATR(f,ATR_EOL,59) OPEN FILE f('RO','P2:') "
+            "READ f(text::2,CR,tail) CLOSE FILE f",
+            decl=DECL + ' tail:STRING[2]', context=ctx,
+        )
+        self.assertEqual((result['TEXT'], result['TAIL']), ('\n;', ' \x00'))
+        self.assertEqual(ctx.serial_streams.snapshot()[2]['input'], b'')
+
+    def test_invalid_later_field_does_not_publish_or_advance(self):
+        ctx = context(b'ok\nxx')
+        task, _ = compile_program(
+            "SET_FILE_ATR(f,ATR_PASSALL) OPEN FILE f('RO','P2:') "
+            "READ f(text::2) text='old' n=7 READ f(text::1,n::2)",
+            decl=DECL, context=ctx,
+        )
+        with self.assertRaisesRegex(rt.KarelRuntimeError, 'invalid INTEGER'):
+            task.run()
+        state = task.snapshot()
+        self.assertEqual((state['TEXT'], state['N'], state['F']['position'], state['F']['status']), ('old', 7, 2, 1))
+        ctx.serial_streams.close(task._state.values['F'])
+        self.assertEqual(ctx.serial_streams.snapshot()[2]['input'], b'\nxx')
+
+    def test_invalid_or_incomplete_request_preserves_input(self):
+        for statement, data, reason in (
+            ('READ f(n)', b'42', 'positive width'),
+            ('READ f(text::4)', b'a\n', 'before complete PASSALL READ'),
+            ('READ f(CR)', b'no delimiter', 'before complete PASSALL READ'),
+            ('READ f(text::1)', b'\xff', 'ASCII'),
+            ('READ f(CR)', b'x' * 4096 + b'\n', 'exceeds 4096 raw bytes'),
+        ):
+            with self.subTest(statement=statement, reason=reason):
+                ctx = context(data, capacity=8192, limit=8192)
+                task, _ = compile_program(
+                    "SET_FILE_ATR(f,ATR_PASSALL) OPEN FILE f('RO','P2:') " + statement,
+                    decl=DECL, context=ctx,
+                )
+                with self.assertRaisesRegex(rt.KarelRuntimeError, reason):
+                    task.run()
+                self.assertEqual(task.snapshot()['F']['position'], 0)
+                ctx.serial_streams.close(task._state.values['F'])
+                self.assertEqual(ctx.serial_streams.snapshot()[2]['input'], data)
 
 
 class SerialStreamBackendTests(unittest.TestCase):
