@@ -394,8 +394,11 @@ class _Analyzer:
         return (self.saved_path_count is not None and loc is not None and loc.kind == 'variable'
                 and not (flow.opaque or flow.path_shape_unknown or conditional))
 
-    def can_publish_path(self, loc, flow, conditional, *, replaces_header=True):
-        if loc is None or flow.opaque or flow.path_shape_unknown or conditional or self.repeat_depth:
+    def definite_path_effect(self, flow, conditional):
+        return not (flow.opaque or flow.path_shape_unknown or conditional or self.repeat_depth)
+
+    def can_publish_path(self, loc, flow, conditional, *, unchanged_nodes=None):
+        if loc is None or not self.definite_path_effect(flow, conditional):
             return False
         if not self.frames:
             return loc.kind == 'variable'
@@ -410,8 +413,15 @@ class _Analyzer:
             if not self.path_contains_reference(loc, ref) or len(ref.parts) <= len(loc.parts):
                 return False
             kind, index = ref.parts[len(loc.parts)]
-            header = kind == 'created-header' or (kind, index) == ('index', 0)
-            return replaces_header or not header
+            if unchanged_nodes is None:
+                return True
+            if kind == 'created-header' or (kind, index) == ('index', 0):
+                return False
+            # Whole-node references are positional. Compare their identities
+            # against the prefix of the current order that keeps its slots.
+            if kind == 'created-node':
+                return -index not in unchanged_nodes
+            return kind != 'index' or index not in unchanged_nodes
 
         return not any(may_retarget(ref) for frame in self.frames for ref in frame['references'])
 
@@ -956,17 +966,18 @@ class _Analyzer:
                 if not 1 <= index <= last:
                     self.write(status, _Value(2, spec=['INTEGER']), flow, node)
                     return _Value()
-                if self.can_publish_path(path, flow, conditional, replaces_header=False):
-                    self.tick(count + 1)
-                    order = flow.path_orders.get(path.key)
-                    if order is None:
-                        order = _PathOrder(tuple(range(1, count + 1)))
-                    offset = index - 1
+                self.tick(count + 1)
+                order = flow.path_orders.get(path.key)
+                if order is None:
+                    order = _PathOrder(tuple(range(1, count + 1)))
+                offset = index - 1
+                prefix = order.nodes[:offset]
+                if self.can_publish_path(path, flow, conditional, unchanged_nodes=set(prefix)):
                     if removing:
-                        nodes = order.nodes[:offset] + order.nodes[index:]
+                        nodes = prefix + order.nodes[index:]
                     else:
                         self.serial += 1
-                        nodes = order.nodes[:offset] + (-self.serial,) + order.nodes[offset:]
+                        nodes = prefix + (-self.serial,) + order.nodes[offset:]
                         record = self.child(path, 'created-node', self.serial, node)
                         value = _Value(complete=False) if seed is None else self.complete_path_record(seed)
                         self.write(record, value, flow, node)
@@ -994,7 +1005,7 @@ class _Analyzer:
         source, first, last, target, status, *flags = operands
         convert = flags[0] if flags else False
         if (source is not None and source.spec[0] == 'PATH' and target is not None and target.spec[0] == 'PATH'
-                and status is not None and self.can_publish_path(target, flow, conditional)
+                and status is not None and self.definite_path_effect(flow, conditional)
                 and not self.path_contains_reference(target, status)):
             source_type, target_type = tuple_spec(source.spec), tuple_spec(target.spec)
             if source_type == target_type:
@@ -1017,11 +1028,12 @@ class _Analyzer:
                 else:
                     self.write(status, _Value(2, spec=['INTEGER']), flow, node)
                     return _Value()
-                captured = self.capture_path_copy(source, indexes, node, flow, conditional)
-                if captured is not None and 'kinematic' not in layout:
-                    self.publish_path_copy(target, captured, node, flow)
-                    self.write(status, _Value(0, spec=['INTEGER']), flow, node)
-                    return _Value()
+                if self.can_publish_path(target, flow, conditional):
+                    captured = self.capture_path_copy(source, indexes, node, flow, conditional)
+                    if captured is not None and 'kinematic' not in layout:
+                        self.publish_path_copy(target, captured, node, flow)
+                        self.write(status, _Value(0, spec=['INTEGER']), flow, node)
+                        return _Value()
 
         flow.path_orders[target.key if target is not None else None] = None
         self.unresolved_at('path-topology', 'COPY_PATH layout, bounds or destination effects require review', node)

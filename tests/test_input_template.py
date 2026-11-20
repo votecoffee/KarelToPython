@@ -705,6 +705,79 @@ class InputTemplateTests(unittest.TestCase):
         self.assertTrue(report['complete'], report['unresolved'])
         self.assertEqual(set(by_path(prepared)), {'WANTED'})
 
+    def test_edits_after_borrowed_node_leave_its_position_live(self):
+        source = (
+            'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t '
+            'VAR route:route_t unused:INTEGER '
+            'ROUTINE edit(v:route_t;held:row_t) VAR s:INTEGER '
+            'BEGIN APPEND_NODE(v,s) INSERT_NODE(v,3,s) DELETE_NODE(v,3,s) '
+            'held.amount=17 v[3].amount=21 END edit '
+            'BEGIN DELETE_NODE(route,1,unused) INSERT_NODE(route,1,unused) '
+            'edit(route,route[1]) IF (PATH_LEN(route)=3) AND (route[1].amount=17) '
+            'THEN WRITE(route[2].amount,route[3].amount) ELSE WRITE(unused) ENDIF END T'
+        )
+        spec = ['PATH', ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]], None]
+        context = {'variables': [dict(program='T', path='ROUTE', type=spec,
+                                      value=dict(nodes=[{'AMOUNT': MISSING}, {'AMOUNT': MISSING}], data=None))]}
+        prepared = prepare_inputs(translate(source).python_source, context=context)
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'ROUTE[2].AMOUNT'})
+
+    def test_saved_node_origin_does_not_override_current_slot_in_alias_guard(self):
+        source = (
+            'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t '
+            'VAR route:route_t s:INTEGER '
+            'ROUTINE update(v:route_t;held:row_t) VAR status:INTEGER '
+            'BEGIN INSERT_NODE(v,2,status) WRITE(held.amount) END update '
+            'BEGIN INSERT_NODE(route,1,s) update(route,route[2]) END T'
+        )
+        spec = ['PATH', ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]], None]
+        context = {'variables': [dict(program='T', path='ROUTE', type=spec,
+                                      value=dict(nodes=[{'AMOUNT': MISSING}], data=None))]}
+        report = prepare_inputs(translate(source).python_source, context=context)['template']['discovery']
+        self.assertFalse(report['inputs'])
+        self.assertTrue(any('Captured PATH reference has an unresolved origin' in row['message']
+                            for row in report['unresolved']))
+
+    def test_rejected_copy_does_not_invalidate_borrowed_header_or_node(self):
+        source = (
+            'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+            'other_t=STRUCTURE count:INTEGER ENDSTRUCTURE '
+            'head_t=STRUCTURE code:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t PATHHEADER=head_t '
+            'VAR route:route_t other:PATH NODEDATA=other_t wanted,unused:INTEGER '
+            'ROUTINE attempt(v:route_t;head:head_t;held:row_t) VAR s:INTEGER '
+            'BEGIN COPY_PATH(other,0,0,v,s) head.code=s '
+            'COPY_PATH(v,1,99,v,s) held.amount=s END attempt '
+            'BEGIN attempt(route,route[0],route[1]) '
+            'IF (route.code=3) AND (PATH_LEN(route)=1) AND (route[1].amount=2) '
+            'THEN WRITE(wanted) ELSE WRITE(unused) ENDIF END T'
+        )
+        spec = ['PATH', ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]],
+                ['STRUCTURE', 'HEAD_T', [['CODE', ['INTEGER']]]]]
+        context = {'variables': [dict(program='T', path='ROUTE', type=spec,
+                                      value=dict(nodes=[{'AMOUNT': MISSING}], data={'CODE': MISSING}))]}
+        prepared = prepare_inputs(translate(source).python_source, context=context)
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'WANTED'})
+
+    def test_valid_copy_may_rebind_a_live_borrow_and_stays_unresolved(self):
+        source = (
+            'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t '
+            'VAR route:route_t '
+            'ROUTINE replace(v:route_t;held:row_t) VAR s:INTEGER '
+            'BEGIN COPY_PATH(v,0,0,v,s) WRITE(held.amount) END replace '
+            'BEGIN replace(route,route[1]) END T'
+        )
+        spec = ['PATH', ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]], None]
+        context = {'variables': [dict(program='T', path='ROUTE', type=spec,
+                                      value=dict(nodes=[{'AMOUNT': MISSING}], data=None))]}
+        report = prepare_inputs(translate(source).python_source, context=context)['template']['discovery']
+        self.assertFalse(report['inputs'])
+        self.assertTrue(any('Captured PATH reference has an unresolved origin' in row['message']
+                            for row in report['unresolved']))
+
     def test_descendant_borrow_in_ancestor_frame_blocks_a_nested_edit(self):
         source = (
             'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t '

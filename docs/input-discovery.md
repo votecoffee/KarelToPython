@@ -454,13 +454,18 @@ preserves any references into its storage. The updated shape belongs to
 the caller, so later queries and transfers use the moved records' original
 saved addresses. These calls can be nested or linked.
 
-In-place node edits preserve borrowed header references. The edit's status
-output must use storage disjoint from the edited PATH. Known rejections
-update that status and leave the shape and live references intact.
+In-place node edits preserve borrowed header references and borrowed nodes
+that occupy the same slot after the edit. Discovery checks each borrowed node
+in the current order, using its original or source-created identity. Appending
+after existing nodes keeps their slots. Inserting or deleting at or before a
+borrowed node can leave the edit unresolved. Whole replacements also require
+proof that header references stay valid.
 
-A sibling node reference can leave an in-place edit unresolved. Whole
-replacements also require proof that header references stay valid. A
-routine invoked to evaluate another operand can run while the caller
+The status output must use storage disjoint from the edited PATH. A known
+rejection of a node edit or COPY_PATH updates that status and preserves the
+shape and live references.
+
+A routine invoked to evaluate another operand can run while the caller
 still holds earlier captured references, so its borrowed structural edits
 remain unresolved. Discovery reports the lost origin before reading or
 writing an affected captured record.

@@ -319,6 +319,32 @@ class SavedProjectTests(unittest.TestCase):
         self.assertEqual(result['text_output'], ' 0 2 12 21\n')
         self.assertEqual(result['programs']['LIB']['values']['TARGET']['data'], {'CODE': 0, 'TOTAL': 2})
 
+    def test_linked_node_borrow_stays_live_when_edits_follow_its_slot(self):
+        types = 'TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t '
+        main = self.module('MAIN', 'edit(routes[2],routes[2,1]) WRITE(routes[2],CR)',
+                           types+'VAR routes FROM LIB:ARRAY[2] OF route_t',
+                           'ROUTINE edit(v:route_t;held:row_t) FROM LIB')
+        lib = self.module('LIB', declarations=types+'VAR routes:ARRAY[2] OF route_t',
+                          routines='ROUTINE edit(v:route_t;held:row_t) VAR s:INTEGER '
+                                   'BEGIN INSERT_NODE(v,3,s) DELETE_NODE(v,3,s) '
+                                   'APPEND_NODE(v,s) v[3].amount=21 held.amount=12 END edit')
+        spec = ['PATH', ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]], None]
+        root = dict(program='LIB', path='ROUTES', type=['ARRAY', 2, spec],
+                    value=[dict(nodes=[], data=None),
+                           dict(nodes=[{'AMOUNT': MISSING}, {'AMOUNT': MISSING}], data=None)])
+        prepared = self.create(main, lib, context={'variables': [root]}, discover=True)
+        report = prepared['inputs']['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        candidate, = report['inputs']
+        self.assertEqual((candidate['program'], candidate['path']), ('LIB', 'ROUTES[2][2]'))
+        runner.save_input_structure(self.document, ('variable', 'LIB', candidate['path']), {'AMOUNT': 34},
+                                    expected=self.document.read_bytes())
+        result = runner.run_document(self.document)['results']
+        self.assertEqual(result['status'], 'completed', result['error'])
+        self.assertEqual(result['text_output'], ' 12 34 21\n')
+        self.assertEqual(result['programs']['LIB']['values']['ROUTES'][1]['nodes'],
+                         [{'AMOUNT': 12}, {'AMOUNT': 34}, {'AMOUNT': 21}])
+
     def test_linked_direct_procedure_copies_into_and_extends_borrowed_path(self):
         types = 'TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t '
         main = self.module('MAIN', 'source[1].amount=12 fill(target,source) WRITE(target,CR)',

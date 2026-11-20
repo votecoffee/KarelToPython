@@ -1,5 +1,11 @@
 # Changelog
 
+## 26.1120.173646 - 2026-11-20
+
+- Discover PATH node edits that preserve the slots of live borrowed nodes.
+- Track rejected COPY_PATH calls with known layouts or bounds while preserving
+  the destination and its borrowed references.
+
 ## 26.1120.171137 - 2026-11-20
 
 - Preserve borrowed PATH header references across in-place node edits in
