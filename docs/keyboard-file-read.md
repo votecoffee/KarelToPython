@@ -1,7 +1,7 @@
 # Typed READ from injected keyboard FILEs
 
-Pythonic `READ file(...)` accepts the explicit `KB:TPKB` and `WD:name/TPKB`
-text endpoints opened through `KeyboardInput`. It consumes supplied key events,
+Pythonic `READ file(...)` accepts `KB:TPKB`, `KB:CRKB`, `WD:name/TPKB`
+and `WD:name/CRKB` through `KeyboardInput`. It consumes supplied key events,
 with cooperative waits and no physical keyboard, desktop window or controller
 connection. `READ_KB` keeps its separate masked key/edit interface.
 
@@ -71,16 +71,17 @@ completed nonempty lines from the same open FILE. Unhandled control/function
 keys are consumed without producing text or terminating the line. Only ENTER
 submits. A full line does not implicitly submit it.
 
-A combined `WD:name/TPKB` endpoint echoes through its existing logical window,
+A combined `WD:name/TPKB` or `WD:name/CRKB` endpoint echoes through its logical window,
 clipped to one row from the current cursor. Editing preserves that cursor.
 `ATR_NOECHO` suppresses this echo while ordinary window output remains available.
-`KB:TPKB` has no output window. No GUI is opened.
+Standalone KB endpoints provide input only.
 
-OPEN captures the root program's DEVICE_STAT pane, defaulting to 1. All keyboard
-consumers use the existing pane and oldest-reader arbitration. Generic READ jobs
-claim all key classes; PUSH_KEY_RD/POP_KEY_RD suspend and resume them using the
-existing masks. Concurrent reads on one FILE are rejected. Different FILEs can
-wait on the same pane, with supplied events consumed once in request order.
+OPEN captures the selected keyboard device and the root program's DEVICE_STAT
+pane, defaulting to 1. CRT readers receive events tagged CRKB. Untagged events
+go to TPKB. Within a device and pane, the oldest eligible reader gets each
+event. Generic READ jobs claim all key classes, and PUSH_KEY_RD/POP_KEY_RD
+suspend and resume them using the existing masks. Different FILEs can wait
+together. Concurrent reads on one FILE are rejected.
 
 READ_KB and typed READ share completed line history. If a typed READ leaves
 nonseparator text in its buffer, READ_KB returns status 1 without changing its

@@ -37,6 +37,7 @@ class _FileInputClaim:
     binding: dict
     past: list
     pane: int
+    device: str
     echo: object
     opener: object
     mode: str
@@ -64,6 +65,17 @@ def key_name(value):
 def key_info(value):return (ord(value),1) if len(value)==1 else KEYS[value]
 
 
+def keyboard_device(value):
+    if type(value) is not str or value.upper() not in ('TPKB', 'CRKB'):
+        raise ValueError('Keyboard device must be TPKB or CRKB')
+    return value.upper()
+
+
+def _device_field(device):
+    # Keep the serialized shape of existing teach-pendant fixtures.
+    return {'device': device} if device == 'CRKB' else {}
+
+
 def pane_for(state):
     root=rt().task_root(state);value=root.values.get('DEVICE_STAT',rt().UNINITIALIZED)
     while isinstance(value,rt().Reference):value=value.raw()
@@ -84,18 +96,24 @@ class KeyboardInput:
         if type(events) is not list or len(events)>4096:raise ValueError('Keyboard event queue exceeds 4096')
         seen=set();highest=0
         for i,event in enumerate(events,1):
-            if type(event) is not dict or set(event)-{'pane','at_ms','key','sequence'} or 'key' not in event:raise ValueError('Malformed keyboard event')
+            if type(event) is not dict or set(event)-{'pane','at_ms','key','sequence','device'} or 'key' not in event:raise ValueError('Malformed keyboard event')
+            device = keyboard_device(event.get('device', 'TPKB'))
             pane=event.get('pane',1);at=event.get('at_ms',0);number=event.get('sequence',i)
             if type(pane) is not int or not 1<=pane<=9 or type(at) is not int or not 0<=at<=MAX_SEQUENCE or type(number) is not int or not 1<=number<=MAX_SEQUENCE or number in seen:raise ValueError('Invalid keyboard event pane/time/sequence')
-            seen.add(number);highest=max(highest,number);self.events.append(dict(pane=pane,at_ms=at,key=key_name(event['key']),sequence=number))
+            seen.add(number);highest=max(highest,number)
+            self.events.append(dict(pane=pane, at_ms=at, key=key_name(event['key']), sequence=number,
+                                    **_device_field(device)))
         self.events.sort(key=lambda row:(row['at_ms'],row['sequence']))
         self.event_sequence=highest if event_sequence is None else event_sequence
         if type(self.event_sequence) is not int or not highest<=self.event_sequence<=MAX_SEQUENCE:raise ValueError('Invalid keyboard event sequence')
         if history is None:history=[]
         if type(history) is not list or len(history)>limit:raise ValueError('Keyboard history exceeds ring limit')
         previous=0
+        required = {'sequence', 'request', 'program', 'operation', 'pane', 'outcome', 'data'}
         for row in history:
-            if type(row) is not dict or set(row)!={'sequence','request','program','operation','pane','outcome','data'}:raise ValueError('Malformed keyboard history row')
+            if type(row) is not dict or not required <= row.keys() or set(row) - required - {'device'}:
+                raise ValueError('Malformed keyboard history row')
+            device = keyboard_device(row.get('device', 'TPKB'))
             if type(row['sequence']) is not int or not previous<row['sequence']<=sequence or type(row['request']) is not int or not 1<=row['request']<=request_sequence:raise ValueError('Invalid keyboard history IDs')
             if not printable(row['program']) or type(row['operation']) is not str or row['operation'] not in KEYBOARD_CALLS|{'ACT_TBL','DISCTRL_TBL','DISCTRL_FORM','FILE_READ'} or row['outcome'] not in ('completed','timeout','cancelled','failed') or type(row['pane']) is not int or not 1<=row['pane']<=9:raise ValueError('Invalid keyboard history metadata')
             data=row['data']
@@ -104,7 +122,10 @@ class KeyboardInput:
                 if printable(value) or type(value) is int and -2147483648<=value<=MAX_SEQUENCE:continue
                 if type(value) is list and len(value)<=35 and all(printable(item) for item in value):continue
                 raise ValueError('Invalid keyboard history value')
-            self.history.append(deepcopy(row));previous=row['sequence']
+            entry = deepcopy(row)
+            entry.pop('device', None)
+            entry.update(_device_field(device))
+            self.history.append(entry);previous=row['sequence']
 
     def reserve(self):
         if self.request_sequence>=MAX_SEQUENCE or self.sequence>=MAX_SEQUENCE:raise rt().KarelRuntimeError('Keyboard request/history sequence exhausted')
@@ -112,39 +133,51 @@ class KeyboardInput:
     def record(self,job,outcome,**data):
         if self.sequence>=MAX_SEQUENCE:return
         self.sequence+=1;self.history.append(dict(sequence=self.sequence,request=job['id'],program=rt().task_root(job['state']).program_name,
-            operation=job['operation'],pane=job['pane'],outcome=outcome,data=data));del self.history[:-self.limit]
+            operation=job['operation'],pane=job['pane'],outcome=outcome,data=data,
+            **_device_field(job.get('device', 'TPKB'))));del self.history[:-self.limit]
 
     def sync(self):
         if self._domain is not None and self._domain['scheduler'] is not None:
             delta=max(0,(self._domain['scheduler'].now_us-self._domain['anchor'])//1000)
             self.elapsed_ms=max(self.elapsed_ms,min(MAX_SEQUENCE,self._domain['base']+delta))
 
-    def feed(self,key,*,pane=1,at_ms=None):
+    def feed(self,key,*,pane=1,at_ms=None,device='TPKB'):
+        device = keyboard_device(device)
         self.sync();key=key_name(key);at_ms=self.elapsed_ms if at_ms is None else at_ms
         if type(pane) is not int or not 1<=pane<=9 or type(at_ms) is not int or not 0<=at_ms<=MAX_SEQUENCE:raise ValueError('Invalid keyboard event pane/time')
         if len(self.events)>=4096 or self.event_sequence>=MAX_SEQUENCE:raise ValueError('Keyboard event capacity exhausted')
-        self.event_sequence+=1;self.events.append(dict(pane=pane,at_ms=at_ms,key=key,sequence=self.event_sequence));self.events.sort(key=lambda row:(row['at_ms'],row['sequence']))
+        self.event_sequence += 1
+        self.events.append(dict(pane=pane, at_ms=at_ms, key=key, sequence=self.event_sequence,
+                                **_device_field(device)))
+        self.events.sort(key=lambda row:(row['at_ms'],row['sequence']))
 
-    def feed_text(self,text,*,pane=1,at_ms=None):
+    def feed_text(self,text,*,pane=1,at_ms=None,device='TPKB'):
+        device = keyboard_device(device)
         if not printable(text,4096):raise ValueError('feed_text requires bounded printable ASCII')
         if len(self.events)+len(text)>4096 or self.event_sequence+len(text)>MAX_SEQUENCE:raise ValueError('Keyboard event capacity exhausted')
         self.sync();at_ms=self.elapsed_ms if at_ms is None else at_ms
         if type(pane) is not int or not 1<=pane<=9 or type(at_ms) is not int or not 0<=at_ms<=MAX_SEQUENCE:raise ValueError('Invalid keyboard event pane/time')
-        for char in text:self.feed(char,pane=pane,at_ms=at_ms)
+        for char in text:self.feed(char,pane=pane,at_ms=at_ms,device=device)
 
     def open_for(self,state,handle,mode,name,line=None):
         mode=rt().ascii_string(mode,line).upper();mode={'RO':'R','RW':'RW','UD':'RW'}.get(mode,mode)
         if handle.owner is not None or handle.binary or handle.xml or mode not in ('R','RW') or len(self._handles)>=256:raise rt().KarelRuntimeError('Keyboard FILE requires an available text input handle',line)
         if type(handle.read_timeout_ms) is not int or not 0 <= handle.read_timeout_ms <= rt().MAX_FILE_TIMEOUT_MS:
             raise rt().KarelRuntimeError('Malformed keyboard FILE read timeout', line)
-        pane=pane_for(state);match=re.fullmatch(r'WD:([A-Za-z_][A-Za-z_0-9]{0,3})/TPKB',name,re.I);echo=None
-        if match:
-            pendant=state.execution.require('pendant',line);echo=rt().FileHandle();pendant.open_for(state,echo,'RW','WD:'+match[1],line)
-            name=echo.name+'/TPKB'
-        elif name.upper()=='KB:TPKB':name='KB:TPKB'
-        else:raise rt().KarelRuntimeError('Keyboard endpoint requires KB:TPKB or WD:name/TPKB',line)
+        pane = pane_for(state)
+        match = re.fullmatch(r'(?:KB:|WD:([A-Za-z_][A-Za-z_0-9]{0,3})/)(TPKB|CRKB)', name, re.I)
+        if match is None:
+            raise rt().KarelRuntimeError('Keyboard endpoint requires KB:TPKB, KB:CRKB or a matching WD:name suffix', line)
+        window, device = match.groups()
+        device = device.upper()
+        echo = None
+        if window is not None:
+            pendant = state.execution.require('pendant', line)
+            echo = rt().FileHandle()
+            pendant.open_for(state, echo, 'RW', 'WD:' + window, line)
+        name = (echo.name + '/' if echo is not None else 'KB:') + device
         handle.owner=self;handle.name=name;handle.logical_name=None;handle.mode=mode;handle.position=0;handle.status=0
-        self._handles[handle]=dict(pane=pane,echo=echo,state=state,past=[],pending='',after_field=False,input_mode=None)
+        self._handles[handle]=dict(pane=pane,device=device,echo=echo,state=state,past=[],pending='',after_field=False,input_mode=None)
 
     def bytes_left(self, handle, line=None):
         """Count the unread suffix of the last committed keyboard record."""
@@ -180,7 +213,7 @@ class KeyboardInput:
         self._frames.clear()
 
     def _read_kb_stamp(self,binding):
-        return (binding['pane'],binding['echo'],binding['state'],binding['pending'],binding['after_field'],binding['input_mode'])
+        return (binding['pane'],binding['device'],binding['echo'],binding['state'],binding['pending'],binding['after_field'],binding['input_mode'])
 
     def _validate_read_kb(self,job,line=None):
         runtime=rt();handle=job.get('handle');binding=self._handles.get(handle)
@@ -193,7 +226,8 @@ class KeyboardInput:
                 or self._active.get(job.get('id')) is not job or job.get('operation')!='READ_KB'
                 or binding is not job.get('_read_binding') or type(binding) is not dict
                 or binding.get('_read_kb_job') is not job
-                or not {'pane','echo','state','past','pending','after_field','input_mode'}<=set(binding)
+                or not {'pane','device','echo','state','past','pending','after_field','input_mode'}<=set(binding)
+                or job.get('device') != binding['device'] or job.get('pane') != binding['pane']
                 or binding['past'] is not job.get('_read_past')
                 or not same(self._read_kb_stamp(binding),job.get('_read_stamp'))
                 or not same(runtime._file_identity(handle),job.get('_read_identity'))
@@ -224,14 +258,15 @@ class KeyboardInput:
         binding=self._handles[handle]
         claim=_FileInputClaim(state,rt().task_root(state),handle,rt()._file_identity(handle),
             handle.position,handle._read_operation,self._handles,binding,binding['past'],
-            binding['pane'],binding['echo'],binding['state'],binding['input_mode'],binding['after_field'],
+            binding['pane'],binding['device'],binding['echo'],binding['state'],binding['input_mode'],binding['after_field'],
             self._active,job,job['id'],self._domain)
         job['_file_read_claim']=claim
         binding['_file_read_job']=job
         return claim
 
     def _record_file_read(self,claim,outcome,**data):
-        self.record(dict(id=claim.number,state=claim.root,operation='FILE_READ',pane=claim.pane),outcome,**data)
+        self.record(dict(id=claim.number, state=claim.root, operation='FILE_READ',
+                         pane=claim.pane, device=claim.device), outcome, **data)
 
     def validate_file_read(self,handle,state,line=None):
         runtime=rt();binding=self._handles.get(handle)
@@ -246,6 +281,7 @@ class KeyboardInput:
                 or job.get('handle') is not handle or job.get('state') is not state
                 or job.get('operation')!='FILE_READ' or type(job.get('id')) is not int
                 or job['id']!=claim.number or type(job.get('pane')) is not int or job['pane']!=claim.pane
+                or job.get('device') != claim.device
                 or type(job.get('interest')) is not int or job['interest']!=255):
             raise runtime.KarelRuntimeError('Keyboard FILE READ identity or registration changed',line)
         identity=runtime._file_identity(handle)
@@ -253,7 +289,8 @@ class KeyboardInput:
                 or any(type(a) is not type(b) or a!=b for a,b in zip(identity,claim.identity))
                 or type(handle.position) is not int or handle.position!=claim.position
                 or binding.get('past') is not claim.past or type(binding.get('pane')) is not int
-                or binding['pane']!=claim.pane or binding.get('echo') is not claim.echo
+                or binding['pane']!=claim.pane or binding.get('device') != claim.device
+                or binding.get('echo') is not claim.echo
                 or binding.get('state') is not claim.opener or binding.get('input_mode')!=claim.mode
                 or binding.get('after_field') is not claim.after_field
                 or type(binding.get('pending')) is not str or not binding['pending'].isascii()
@@ -267,9 +304,12 @@ class KeyboardInput:
         scheduler=state._scheduler;domain=scheduler if scheduler is not None else rt().task_root(state)
         if self._domain is not None and self._domain['identity'] is not domain:return None
         if self._domain is None:self._domain=dict(identity=domain,scheduler=scheduler,anchor=0 if scheduler is None else scheduler.now_us,base=self.elapsed_ms)
-        self.request_sequence+=1;job=dict(id=self.request_sequence,state=state,operation=operation,pane=pane,interest=interest,handle=handle,suspended=set(),text='',cursor=0)
+        binding = self._handles[handle] if handle is not None else None
+        device = binding['device'] if binding is not None else 'TPKB'
+        self.request_sequence += 1
+        job = dict(id=self.request_sequence, state=state, operation=operation, pane=pane, device=device,
+                   interest=interest, handle=handle, suspended=set(), text='', cursor=0)
         if operation=='READ_KB':
-            binding=self._handles[handle]
             job.update(_read_binding=binding,_read_past=binding['past'],_read_stamp=self._read_kb_stamp(binding),
                 _read_identity=rt()._file_identity(handle),_cancel_requested=False)
             binding['_read_kb_job']=job
@@ -298,9 +338,12 @@ class KeyboardInput:
         if job['suspended']:return None
         cutoff = self.elapsed_ms if deadline is None else min(self.elapsed_ms, deadline)
         for event in list(self.events):
-            if event['pane']!=job['pane'] or event['at_ms']>cutoff:continue
+            if (event['pane'] != job['pane'] or event.get('device', 'TPKB') != job['device']
+                    or event['at_ms'] > cutoff):
+                continue
             _,category=key_info(event['key'])
-            owners=[reader for reader in self._active.values() if reader['pane']==job['pane'] and reader['interest']&category]
+            owners = [reader for reader in self._active.values() if reader['pane'] == job['pane']
+                      and reader['device'] == job['device'] and reader['interest'] & category]
             eligible=[reader for reader in owners if not reader['suspended']]
             if eligible and min(eligible,key=lambda reader:reader['id']) is not job:continue
             if not eligible and owners:continue
@@ -310,7 +353,8 @@ class KeyboardInput:
     def wait(self,state,job,deadline,line=None):
         self.sync()
         if deadline is not None and self.elapsed_ms>=deadline:return False
-        future=[event['at_ms'] for event in self.events if event['pane']==job['pane'] and event['at_ms']>self.elapsed_ms]
+        future = [event['at_ms'] for event in self.events if event['pane'] == job['pane']
+                  and event.get('device', 'TPKB') == job['device'] and event['at_ms'] > self.elapsed_ms]
         if state._scheduler is None and deadline is None and not future:raise rt().KarelRuntimeError('Indefinite standalone keyboard wait needs explicit queued input',line)
         delay=min([10]+[at-self.elapsed_ms for at in future]+([] if deadline is None else [deadline-self.elapsed_ms]))
         delay=max(1,delay);due=min(MAX_SEQUENCE,self.elapsed_ms+delay)
@@ -404,7 +448,7 @@ class KeyboardInput:
     def push_pop(self,state,name,args,line=None):
         status=args[-1]
         try:
-            if args[0].upper()!='TPKB':status.set(1,line);return
+            device = keyboard_device(args[0])
             pane=pane_for(state)
             root=rt().task_root(state)
             if name=='PUSH_KEY_RD':
@@ -412,14 +456,17 @@ class KeyboardInput:
                 if not 0<=mask<=255:status.set(1,line);return
                 if len(self._frames)>=64:status.set(5,line);return
                 self.reserve();self.request_sequence+=1;token=self.request_sequence
-                readers=[job for job in self._active.values() if job['pane']==pane and job['interest']&mask]
+                readers = [job for job in self._active.values() if job['pane'] == pane
+                           and job['device'] == device and job['interest'] & mask]
                 for job in readers:job['suspended'].add(token)
-                frame=dict(id=token,state=root,operation=name,pane=pane,readers=[job['id'] for job in readers],owner=root,run=root._task_run)
+                frame=dict(id=token,state=root,operation=name,pane=pane,device=device,
+                           readers=[job['id'] for job in readers],owner=root,run=root._task_run)
                 if root._task_run is not None:root._task_run_services[self]=None
                 self._frames[token]=frame;args[2].set(token,line);self.record(frame,'completed',mask=mask,suspended=len(readers));status.set(0,line)
             else:
                 frame=self._frames.get(args[1])
-                if frame is None or frame['pane']!=pane or frame['owner'] is not root:status.set(3,line);return
+                if frame is None or frame['pane'] != pane or frame['device'] != device or frame['owner'] is not root:
+                    status.set(3,line);return
                 row=dict(frame,operation=name);self.record(row,'completed',resumed=self._release_frame(frame));status.set(0,line)
         except ValueError:status.set(1,line)
 
@@ -740,7 +787,7 @@ class KeyboardInput:
 
     def snapshot(self):
         self.sync()
-        active=[dict(request=job['id'],operation=job['operation'],pane=job['pane'],suspended=bool(job['suspended']),text=job['text'],cursor=job['cursor'],**({'items':list(job['items']),'selected':job['selected']} if 'items' in job else {})) for job in self._active.values()]
+        active=[dict(request=job['id'],operation=job['operation'],pane=job['pane'],suspended=bool(job['suspended']),text=job['text'],cursor=job['cursor'],**_device_field(job['device']),**({'items':list(job['items']),'selected':job['selected']} if 'items' in job else {})) for job in self._active.values()]
         return dict(events=deepcopy(self.events),event_sequence=self.event_sequence,elapsed_ms=self.elapsed_ms,limit=self.limit,history=deepcopy(self.history),sequence=self.sequence,request_sequence=self.request_sequence,
             open_files=sorted(handle.name for handle in self._handles),active=active,suspensions=len(self._frames))
 

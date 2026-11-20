@@ -61,6 +61,13 @@ class KeyboardFileBindingTests(unittest.TestCase):
         def pane(bank,handle):
             bank._handles[handle]['pane']=2
             return lambda:bank._handles[handle].__setitem__('pane',1)
+        def device(bank,handle):
+            bank._handles[handle]['device'] = 'CRKB'
+            return lambda: bank._handles[handle].__setitem__('device', 'TPKB')
+        def job_device(bank,handle):
+            job = bank._handles[handle]['_file_read_job']
+            job['device'] = 'CRKB'
+            return lambda: job.__setitem__('device', 'TPKB')
         def mode(bank,handle):
             old=bank._handles[handle]['input_mode'];bank._handles[handle]['input_mode']='other'
             return lambda:bank._handles[handle].__setitem__('input_mode',old)
@@ -74,7 +81,7 @@ class KeyboardFileBindingTests(unittest.TestCase):
             handle.noecho=0
             return lambda:setattr(handle,'noecho',False)
         for raw in (False,True):
-            for mutate in (row,handles,past,pane,mode,echo,cursor,flag_type):
+            for mutate in (row,handles,past,pane,device,job_device,mode,echo,cursor,flag_type):
                 with self.subTest(raw=raw,mutation=mutate.__name__):
                     project,task,handle,_=waiting(raw)
                     bank=project.context.keyboard

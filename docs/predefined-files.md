@@ -63,6 +63,10 @@ Explicit predefined names require a binding. Declared variables, constants,
 routines and lexical USING fields keep their normal priority over the names.
 Aliases are not discoverable variable data or additional globals.
 
+An explicit `KB:CRKB` binding can supply INPUT or CRTPROMPT from the CRT event
+queue. Under `%CRTDEVICE`, bare READ uses the configured INPUT binding.
+See [keyboard devices and panes](keyboard-input.md#files-and-panes).
+
 Bound operations reuse ordinary text/binary formats, aggregate capture, byte
 cursors and atomic destination publication. A bound [socket FILE in AP mode](communications.md#file-input-and-output)
 can READ after its first successful nonempty WRITE. Default WRITE bypasses its callback

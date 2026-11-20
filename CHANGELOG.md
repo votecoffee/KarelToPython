@@ -1,5 +1,11 @@
 # Changelog
 
+## 26.1120.144402 - 2026-11-20
+
+- Support KB:CRKB and WD:name/CRKB for typed READ and READ_KB. Route supplied
+  keys, suspension tokens and saved history by device and pane. Untagged
+  events continue to select the teach-pendant queue.
+
 ## 26.1120.141946 - 2026-11-20
 
 - Support BYTES_LEFT on keyboard FILEs and predefined bindings, including the

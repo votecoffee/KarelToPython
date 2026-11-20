@@ -9,8 +9,11 @@ events, with no physical keyboard capture, desktop window or controller link.
 ```
 
 Events accept a single printable ASCII character, a supported key name or its
-portable numeric code. Optional pane defaults to 1; at_ms defaults to zero.
-Events sort by logical time, then monotonic sequence. Explicit supported names
+portable numeric code. Optional pane defaults to 1 and at_ms defaults to zero.
+Set device to CRKB for CRT keyboard events. Omitted device and explicit TPKB
+both select teach-pendant input. Events sort by logical time, then monotonic
+sequence, and a reader receives events only from its device and pane.
+Explicit supported names
 include ENTER, DELETE, LEFT/RIGHT, UP/DOWN, HOME/END, PREV/NEXT, NEW_MENU, SELECT
 and F1..F10. Saved context retains only unconsumed events; it never replays input.
 
@@ -18,6 +21,8 @@ and F1..F10. Saved context retains only unconsumed events; it never replays inpu
 keyboard = rt.KeyboardInput(events=[{'key':'ENTER','at_ms':25}])
 keyboard.feed('F1', pane=2)
 keyboard.feed_text('ready', pane=1)
+keyboard.feed_text('crt', device='CRKB')
+keyboard.feed('ENTER', device='CRKB')
 context = rt.ExecutionContext(keyboard=keyboard)
 ```
 
@@ -30,18 +35,21 @@ READ_KB(input_file,text,12,KC_DISPLAY,KC_ENTER_KEY,0,'',count,key,status)
 CLOSE FILE input_file
 ```
 
-KB:TPKB accepts text input modes RO/R or RW/UD. It has no output window.
-WD:name/TPKB also requires an existing window in PendantDisplay. Combined FILEs
+KB:TPKB and KB:CRKB accept text input modes RO/R or RW/UD. WD:name/TPKB and
+WD:name/CRKB also require an existing window in PendantDisplay. Combined FILEs
 forward ordinary WRITE, WRITE_DICT/WRITE_DICT_V and SET_CURSOR to that window.
 Closing releases both handles. [Typed FILE READ](keyboard-file-read.md) parses
-submitted lines through the ordinary scalar format rules. Binary/XML, byte
-positions, seeking and input-availability queries remain explicitly rejected.
-IO_STATUS reports completed reads and accepted cancellation requests; CLR_IO_STAT
+submitted lines and exposes the unread record count through BYTES_LEFT.
+Binary and XML attributes, byte seeking, and BYTES_AHEAD are unsupported.
+IO_STATUS reports completed reads and accepted cancellation requests. CLR_IO_STAT
 clears that value without clearing a pending cancellation.
 
-OPEN captures the calling root program's global DEVICE_STAT, or pane 1 when it
-is missing/uninitialized. Valid panes are 1..9. Later changes to DEVICE_STAT do
-not retarget an open FILE; routine-local values do not select the root pane.
+OPEN captures the device in the endpoint name and the calling root program's
+global DEVICE_STAT pane, or pane 1 when it is missing or uninitialized. Valid
+panes are 1 through 9. The open FILE keeps that choice across later assignments
+and routine calls. CRT READ_KB returns the same portable key codes as the
+teach-pendant model. Native CRT codes and the controller's key table are
+outside this contract. Fileless menu and table controls use the TPKB queue.
 
 Combined input echoes a one-row field at the window's current cursor, clipped
 to the available columns. The full buffer can be longer than its visible field.
@@ -100,12 +108,12 @@ Already consumed events stay consumed on cancellation or failure.
 
 ## PUSH and POP
 
-PUSH_KEY_RD('TPKB',mask,pop_id,status) snapshots existing reads on the root's
-current pane whose accept/termination classes intersect mask. Those reads are
-suspended. A null snapshot still returns a valid token. Later reads are not
-implicitly suspended and can receive input. POP_KEY_RD('TPKB',pop_id,status)
-releases only that token; nested tokens may be popped by ID. Tokens belong to
-the pane/root task that pushed them, including calls through linked routines.
+PUSH_KEY_RD(device,mask,pop_id,status) accepts TPKB or CRKB. It suspends existing
+reads for the selected device on the root's current pane when their key
+classes intersect the mask. A null snapshot still returns a valid token.
+Readers started later can receive keys. POP_KEY_RD(device,pop_id,status)
+releases the matching token. The device, pane and root task must match the
+original PUSH, including calls through linked routines.
 
 Suspension does not stop timeout time. Multiple tokens must all release a reader
 before it is eligible again. Stop, abort and unhandled failure release only the

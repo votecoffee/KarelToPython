@@ -562,10 +562,10 @@ def add_policies(report, *, expansion, filename, mode):
         guide='docs/dynamic-displays.md',recovery_ledger='docs/semantics/dynamic_display_recovery_semantics.json',controller_validated=False)
     report['keyboard_policy']=dict(
         calls=sorted(rt.KEYBOARD_CALLS),constants=dict(rt.KEYBOARD_CONSTANTS),
-        service='Explicit KeyboardInput event queues; KB:TPKB and WD:name/TPKB text endpoints, captured root DEVICE_STAT pane; no host keyboard or GUI acquisition',
+        service='Explicit KeyboardInput events for TPKB and CRKB. KB and WD suffixes select the device; OPEN captures root DEVICE_STAT pane. Untagged input goes to TPKB, and CRT uses portable key codes.',
         editing='Capacity-bounded insertion/deletion/cursor movement and per-open-FILE history; termination classes precede acceptance; unknown input remains explicit rather than synthesized',
         waiting='Cooperative budgeted waits, scheduler virtual clock or logical standalone sleeper completion; zero-time polling, positive timeout and explicit-input indefinite standalone guard',
-        suspension='PUSH snapshots existing matching readers only. Explicit POP or interruption of the issuing task run releases its tokens. Pause and normal completion retain tokens. Each reader still needs all of its tokens released.',
+        suspension='PUSH snapshots existing matching readers on the selected TPKB or CRKB device and pane. Matching POP or interruption of the issuing task run releases its tokens. Pause and normal completion retain tokens. Each reader still needs all of its tokens released.',
         controls='COMM/PROG or dictionary alphabet entry in USER/USER2 windows; bounded dictionary subwindow/pull-up choices and injected key navigation; no native soft-key/form manager',
         files='READ_KB and typed line FILE READ; combined window WRITE/dictionary/SET_CURSOR forwarding, clipped echo and ATR_NOECHO; generic READ supports typed formats/CR, printable EOL, fixed PASSALL fields and complete-batch publication; ATR_TIMEOUT returns portable status 4 and preserves submitted lines or raw bytes; edited input supports record byte counts; no binary/XML',
         persistence='Persist only unconsumed events, finite IDs, logical time and terminal history; close all files, finish/stop active reads and POP frames before save; no input or executable-link replay',

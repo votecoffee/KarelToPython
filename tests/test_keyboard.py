@@ -218,7 +218,82 @@ class KeyboardEndpointTests(unittest.TestCase):
         with self.assertRaisesRegex(rt.KarelRuntimeError,'keyboard'):p.run()
 
 
+class CrtKeyboardTests(unittest.TestCase):
+    def test_read_kb_keeps_same_pane_pendant_and_crt_events_separate(self):
+        events = [dict(key=key) for key in ('T', 'ENTER')]
+        events += [dict(key=key, device='crkb') for key in ('C', 'R', 'ENTER')]
+        values, ctx, _, _ = execute(
+            "OPEN FILE f('RO','kb:crkb') " + READ + " other=buffer " + CLOSE +
+            ' ' + OPEN + READ + CLOSE,
+            ctx=context(events=events),
+        )
+        self.assertEqual((values['OTHER'], values['BUFFER'], values['KEY'], values['S']), ('CR', 'T', 13, 0))
+        self.assertEqual([row.get('device') for row in ctx.keyboard.history], ['CRKB', None])
+        self.assertEqual(ctx.keyboard.events, [])
+        restored = rt.ExecutionContext.from_config(ctx.to_config())
+        self.assertEqual(restored.keyboard.history, ctx.keyboard.history)
+
+    def test_crt_wait_ignores_future_pendant_input(self):
+        ctx = context(events=[dict(key='9', at_ms=1000)])
+        task, _ = compile_program("OPEN FILE f('RO','KB:CRKB') READ f(n)", decl=DECL, context=ctx)
+        with self.assertRaisesRegex(rt.KarelRuntimeError, 'explicit queued input'):
+            task.run()
+        self.assertEqual(ctx.keyboard.elapsed_ms, 0)
+        self.assertEqual([event['key'] for event in ctx.keyboard.events], ['9'])
+        ctx.keyboard.close_all()
+
+    def test_crt_event_feeds_and_save_keep_device_identity(self):
+        bank = rt.KeyboardInput(events=[dict(key='T', device='tpkb')])
+        bank.feed_text('CT', pane=2, device='crkb')
+        bank.feed('ENTER', pane=2, device='CRKB')
+        snapshot = bank.to_config()
+        with self.assertRaisesRegex(ValueError, 'device must be'):
+            bank.feed_text('oops', device='other')
+        with self.assertRaisesRegex(ValueError, 'device must be'):
+            rt.KeyboardInput(events=[dict(key='a', device=None)])
+        self.assertEqual(bank.to_config(), snapshot)
+        restored = rt.KeyboardInput.from_config(json.loads(json.dumps(snapshot)))
+        self.assertEqual(restored.to_config(), snapshot)
+        self.assertEqual([(row['key'], row['pane'], row.get('device')) for row in restored.events],
+                         [('T', 1, None), ('C', 2, 'CRKB'), ('T', 2, 'CRKB'), ('ENTER', 2, 'CRKB')])
+
+
 class KeyboardSuspensionTests(unittest.TestCase):
+    def test_crt_push_and_pop_only_affect_the_selected_device(self):
+        ctx = context(events=[dict(key='F1', at_ms=100),
+                              dict(key='F2', at_ms=100, device='CRKB')])
+        read_key = READ.replace('20,KC_DISPLAY,KC_ENTER_KEY,0', '0,0,KC_FUNC_KEY,500')
+        project = translate_project({
+            'crt': source('CRT', "OPEN FILE f('RW','KB:CRKB') " + read_key + CLOSE, decl=DECL),
+            'tp': source('TP', OPEN + read_key + CLOSE, decl=DECL),
+        }).instantiate(context=ctx)
+        scheduler = project.scheduler
+        scheduler.start('CRT')
+        scheduler.start('TP')
+        for _ in range(30):
+            scheduler.step()
+            if len(ctx.keyboard._active) == 2:
+                break
+        self.assertEqual(len(ctx.keyboard._active), 2)
+        pusher, _ = compile_program(
+            "PUSH_KEY_RD('CRKB',KC_FUNC_KEY,token,s) POP_KEY_RD('TPKB',token,n) "
+            "PAUSE POP_KEY_RD('crkb',token,s)",
+            decl=DECL, context=ctx,
+        )
+        with self.assertRaises(rt.KarelPause):
+            pusher.run()
+        jobs = {row.get('device', 'TPKB'): row for row in ctx.keyboard.snapshot()['active']}
+        self.assertEqual(pusher.snapshot()['N'], 3)
+        self.assertTrue(jobs['CRKB']['suspended'])
+        self.assertFalse(jobs['TPKB']['suspended'])
+        self.assertEqual(pusher.resume()['S'], 0)
+        values = scheduler.run()
+        self.assertEqual(values['CRT']['values']['KEY'], 1102)
+        self.assertEqual(values['TP']['values']['KEY'], 1101)
+        self.assertEqual(ctx.keyboard.snapshot()['suspensions'], 0)
+        self.assertEqual([row['device'] for row in ctx.keyboard.history if row['operation'] in ('PUSH_KEY_RD', 'POP_KEY_RD')],
+                         ['CRKB', 'CRKB'])
+
     def test_null_push_does_not_suspend_future_reads(self):
         body="PUSH_KEY_RD('TPKB',255,token,s) "+OPEN+READ+CLOSE+" POP_KEY_RD('TPKB',token,s)"
         values,ctx,_,_=execute(body,keys=['ENTER'])

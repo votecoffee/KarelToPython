@@ -132,6 +132,22 @@ class KeyboardBytesLeftTests(unittest.TestCase):
         self.assertEqual((values['X'], values['Y'], values['COUNT']), (4, 9, 3))
         self.assertTrue(ctx.pendant.windows['W1']['lines'][0].startswith('ready'))
 
+    def test_crt_window_uses_captured_pane_and_keeps_other_keys_queued(self):
+        events = [dict(key=key, pane=2) for key in line_keys('8')]
+        events += [dict(key=key, device='CRKB', pane=1) for key in line_keys('9')]
+        events += [dict(key=key, device='CRKB', pane=2) for key in line_keys('42 17')]
+        ctx = context(events=events)
+        values = compile_program(
+            WINDOW + "device_stat=2 OPEN FILE f('RW','wd:w1/crkb') device_stat=1 "
+            + 'READ f(x) count=BYTES_LEFT(f) READ f(y,CR)' + CLOSE,
+            decl=DECL, context=ctx,
+        )[0].run()
+        self.assertEqual((values['X'], values['Y'], values['COUNT']), (42, 17, 4))
+        self.assertTrue(ctx.pendant.windows['W1']['lines'][0].startswith('42 17'))
+        self.assertEqual([event['key'] for event in ctx.keyboard.events], line_keys('8', '9'))
+        self.assertEqual([row['device'] for row in ctx.keyboard.history], ['CRKB', 'CRKB'])
+        self.assertEqual(ctx.pendant._handles, {})
+
     def test_raw_passall_is_not_an_edited_keyboard_record(self):
         ctx = context(keys=['a', 'b'])
         task, _ = compile_program(

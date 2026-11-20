@@ -142,10 +142,10 @@ class PredefinedBackendTests(unittest.TestCase):
     def test_binary_output(self):
         ctx=context(initial={},bindings={'TPDISPLAY':binding('out','WO',binary=True)});execute('WRITE(7) CLOSE FILE TPDISPLAY',ctx);self.assertEqual(bytes(ctx.files.files['out']),struct.pack('<i',7))
     def test_default_keyboard_bytes_left_queries_the_bound_record(self):
-        for alias, prefix in (('TPDISPLAY', ''), ('INPUT', '%CRTDEVICE')):
+        for alias, prefix, device in (('TPDISPLAY', '', 'TPKB'), ('INPUT', '%CRTDEVICE', 'CRKB')):
             with self.subTest(alias=alias):
-                ctx = rt.ExecutionContext(keyboard=keyboard_context(keys=['7', ' ', '9', 'ENTER']).keyboard,
-                                          predefined_files={alias: binding('KB:TPKB')})
+                keyboard = rt.KeyboardInput(events=[dict(key=key, device=device) for key in ('7', ' ', '9', 'ENTER')])
+                ctx = rt.ExecutionContext(keyboard=keyboard, predefined_files={alias: binding('KB:' + device)})
                 state, _, _, _ = execute(
                     f'READ(n) count=BYTES_LEFT({alias}) READ(m,CR) s=BYTES_LEFT({alias}) CLOSE FILE {alias}',
                     ctx, prefix=prefix, cooperative=True,
