@@ -321,6 +321,12 @@ class _Analyzer:
         if 'token' in expr:return self.slot(expr['token'],expr)
         if kind=='name':return self.slot(expr['value'],expr)
         if kind=='group':return self.locate(args[0],flow,conditional)
+        if kind=='path_io_range':
+            self.locate(args[0], flow, conditional)
+            for bound in args[1:]:
+                self.expr(bound, flow, conditional)
+            self.unresolved_at('selection', 'PATH range I/O requires existing selected nodes', expr)
+            return None
         if kind=='field':
             base=self.locate(args[0],flow,conditional)
             return self.child(base,'field',expr['value'],expr) if base else None
@@ -488,6 +494,9 @@ class _Analyzer:
             constant=self.constant(value)
             if constant is not UNKNOWN:return _Value(constant)
             if value in self.plan['routines']:return self.result_value(self.call(dict(node,kind='call',args=[]),flow,conditional),node,partial)
+        if kind == 'path_io_range':
+            self.locate(node, flow, conditional)
+            return _Value(complete=False)
         if kind in ('field','index'):
             loc=self.locate(node,flow,conditional)
             if loc:return self.read(loc,node,flow,conditional,partial=partial)

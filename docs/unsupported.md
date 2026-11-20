@@ -358,7 +358,9 @@ Grouped FILE values, copies and generic FILE bank data I/O remain excluded. [Dyn
 checked allocations and closed creation-tagged JSON markers. Whole FILE ARRAY
 copies/results, resource STRUCTURE fields, generic FILE codecs and live descriptor
 restoration remain excluded. Whole ARRAY READ/WRITE follows the separate data, PATH-bank and initialized
-queue-entry policies; FILE banks remain excluded.
+queue-entry policies. [PATH header and range I/O](path-io-and-file-initialization.md#header-and-node-range-selections)
+uses existing selected records and portable scalar fields. Native header layout,
+header-driven resizing and FILE-bank data transfers remain outside this model.
 
 - Physical device mounting/formatting/purging, sockets, serial devices, pipes,
   device discovery and unrestricted absolute-path file access. Six device/storage

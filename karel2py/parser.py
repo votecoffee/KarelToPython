@@ -771,7 +771,7 @@ class Parser:
                     targets.append(Expr('read_cr', self.take()))
                     if self.current.value == '::': self.error('E_READ_FORMAT', 'CR does not accept format specifiers')
                 else:
-                    target = self.expression(allow_relative=False)
+                    target = self.expression(allow_relative=False, path_io=True)
                     formats = []
                     while self.accept('::'):
                         if len(formats) == 2: self.error('E_READ_FORMAT', 'READ accepts at most two INTEGER format expressions')
@@ -914,7 +914,7 @@ class Parser:
                 if self.current.value == '::':
                     self.error('E_WRITE_FORMAT', 'CR does not accept format specifiers')
             else:
-                value = self.expression(write_value=True)
+                value = self.expression(write_value=True, path_io=True)
                 formats = []
                 while self.accept('::'):
                     if len(formats) == 2:
@@ -973,16 +973,19 @@ class Parser:
         kind='ACTIVE_FRAME' if member.value=='$UFRAME' else 'ACTIVE_TOOL'
         return self.access(Expr('system_pose',token,kind,[group]))
 
-    def access(self, base, *, motion_path=False):
+    def access(self, base, *, motion_path=False, path_io=False):
         while self.current.value in ('[', '.'):
             token = self.take()
             if token.value == '[':
                 indexes = [self.expression()]
                 while self.accept(','): indexes.append(self.expression())
-                if motion_path and self.accept('..'):
+                if (motion_path or path_io) and self.accept('..'):
                     end = self.expression()
                     self.expect(']')
-                    return Expr('motion_range', token, args=[base, *indexes, end])
+                    if motion_path:
+                        return Expr('motion_range', token, args=[base, *indexes, end])
+                    receiver = Expr('index', token, args=[base, *indexes[:-1]]) if len(indexes) > 1 else base
+                    return Expr('path_io_range', token, args=[receiver, indexes[-1], end])
                 self.expect(']')
                 base = Expr('index', token, args=[base, *indexes])
             else:
@@ -1008,7 +1011,7 @@ class Parser:
         node=None if self.accept('*') else self.expression()
         self.expect(']');return node
 
-    def expression(self, minimum=0, *, allow_relative=True, write_value=False):
+    def expression(self, minimum=0, *, allow_relative=True, write_value=False, path_io=False):
         self.skip_lines()
         token = self.take()
         if self.mode=='pythonic' and token.value in ('EVENT','SEMAPHORE'):
@@ -1066,7 +1069,7 @@ class Parser:
                                       allow_relative=allow_relative, write_value=write_value)
             left = Expr('unary', token, token.value, [operand])
         elif token.value == '(':
-            child = self.expression()
+            child = self.expression(path_io=path_io)
             self.expect(')')
             # Parentheses around an argument variable change KAREL passing mode.
             left = Expr('group', token, args=[child])
@@ -1078,14 +1081,14 @@ class Parser:
             left=self.system_pose(token)
         elif token.kind == 'NAME' and token.value not in RESERVED:
             if self.accept('('): left = Expr('call', token, token.value, self.arguments())
-            else: left = self.access(Expr('name', token, token.value))
+            else: left = self.access(Expr('name', token, token.value), path_io=path_io)
             if (self.in_condition or self.in_handler_actions) and left.kind=='call' and left.value=='EVAL':
                 if len(left.args)!=1: self.error('E_ARGUMENTS','EVAL requires one captured expression',token)
                 left.kind='eval'
         else:
             self.error('E_EXPRESSION', f'Expected expression, found {token.value}', token)
         if self.mode == 'pythonic' and left.kind in ('call', 'group'):
-            left = self.access(left)
+            left = self.access(left, path_io=path_io)
         if ((self.in_condition or self.in_wait_condition) and left.kind == 'index'
                 and left.args[0].kind == 'name' and ex.PORT_TYPES.get(left.args[0].value) == 'BOOLEAN'
                 and self.current.value in ('+', '-') and self.port_edge_ends_here()):

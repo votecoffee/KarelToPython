@@ -1,14 +1,13 @@
-# Whole-PATH I/O and FILE initialization queries
+# PATH I/O and FILE initialization queries
 
 [PATH-bank I/O](path-array-io.md) extends these scalar transports to whole PATH
 arrays and selected rows/planes, retaining existing supplied headers/nodes and
 normal capture, format and operation bounds. [Queue I/O](queue-io.md) now adds
 initialized entry-value streams; FILE banks remain excluded.
 
-Pythonic mode supports whole-PATH WRITE, in-place whole-PATH READ and UNINIT on
-ordinary FILE descriptors. PATH I/O is an authored portable extension built on
-existing scalar transports. It does not encode or infer a native PATH record.
-FILE queries use the existing offline open-state convention.
+Pythonic mode supports whole and selected PATH WRITE, in-place PATH READ,
+and UNINIT on ordinary FILE descriptors. PATH I/O uses the existing portable
+scalar encodings. FILE queries use the offline open-state convention.
 
 ## PATH scalar order and capture
 
@@ -52,6 +51,25 @@ selectors. Missing scalar leaves are allowed, but shaped header/node/ARRAY/recor
 containers must exist. Deleting or replacing PATH nodes after capture does not
 retarget those original cells. Existing scalar response validation and publication
 rules continue to apply.
+
+## Header and node range selections
+
+Use `READ route_file(route[0])` or `WRITE route_file(route[0])` for the fields
+of a declared PATHHEADER. Zero can be a literal or a named INTEGER constant.
+Header READ updates those fields in place and leaves the existing node count
+intact. `route[n]` selects one existing node.
+
+`route[first..last]` selects an inclusive ordered range. Bounds are evaluated
+once, left to right, before the format expressions. Use `route[3..1]` to
+transfer node records in reverse order. The final bound must select an
+existing node. A first bound of zero includes the declared header, when
+present, before nodes 1 through the final bound.
+
+A PATH cell in an array accepts range syntax such as `routes[i][2..1]` and
+`routes[i,2..1]`. Only selected records contribute fields to the transfer.
+READ fills the selected existing storage and preserves all omitted records.
+The same portable text/binary field rules, budgets and cancellation behavior
+apply to these selections.
 
 ## Formats, empty paths and FILEs
 

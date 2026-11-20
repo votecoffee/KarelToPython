@@ -1,5 +1,11 @@
 # Changelog
 
+## 26.1120.151252 - 2026-11-20
+
+- Add Pythonic PATH header and inclusive node-range READ and WRITE, including
+  descending order and selected PATH array cells. READ fills existing records
+  using the shared portable scalar format.
+
 ## 26.1120.150429 - 2026-11-20
 
 - Capture the configured serial port ATR_EOL as the default terminator for

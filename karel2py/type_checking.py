@@ -35,7 +35,7 @@ class TypeQueries:
 
     @staticmethod
     def root_name(expr):
-        while expr.kind in ('index', 'field', 'group'): expr = expr.args[0]
+        while expr.kind in ('index', 'field', 'group', 'path_io_range'): expr = expr.args[0]
         return expr.value[2] if expr.kind == 'using_ref' else expr.value
 
     @staticmethod

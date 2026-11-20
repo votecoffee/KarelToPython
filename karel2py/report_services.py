@@ -704,7 +704,8 @@ def add_policies(report, *, array_context, cooperative):
         requests='Named/numeric remote pause/abort delivered at target checkpoints, including paused-task ABORT handlers; self identity follows linked caller; synchronous child ABORT/STOP does not terminate caller',
         guide='docs/offline-services.md',controller_validated=False)
     report['path_io_policy']=dict(
-        source='Whole PATH WRITE and in-place READ, including exact linked/borrowed PATH formals; header fields followed by existing nodes in declaration/row-major/joint-axis order',
+        source='Whole and selected PATH WRITE and in-place READ, including exact linked/borrowed PATH formals. Fields follow declaration/row-major/joint-axis order.',
+        selection='A literal or named constant zero selects a declared header. Inclusive node ranges traverse ascending or descending existing positions, with a leading zero including a declared header. Bounds evaluate once before formats and transport.',
         capture='Charge scalar PATH fields before payload validation, formats or transport; WRITE detaches values and READ captures original scalar cells without resizing',
         formats='Reuse uniform scalar aggregate controls and ordinary text/binary/default-input transports; 1024 scalar fields including CR and existing output/file limits',
         empty='Empty PATH WRITE produces one empty item, including declared-domain-checked formats under empty_collection_write_policy; READ requires an existing header or node',

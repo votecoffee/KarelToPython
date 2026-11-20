@@ -70,6 +70,97 @@ class PathCaptureBudgetTests(unittest.TestCase):
         self.assertEqual(text(program),[])
 
 
+class PathSelectionTests(unittest.TestCase):
+    def test_header_only_read_and_write_change_no_nodes(self):
+        p, result = build('READ(p[0]) WRITE(p[0],CR)', values=[42])
+        values = p.run()
+        self.assertEqual(values['P']['data'], {'TOTAL': 42})
+        self.assertEqual(values['P']['nodes'], [
+            {'AMOUNT': 7, 'LABEL': 'abcd'}, {'AMOUNT': 9, 'LABEL': 'wxyz'},
+        ])
+        self.assertEqual(text(p), [' 42\n'])
+        self.assertEqual(result.report['reads'][0]['destinations'][0]['path_selection'], 'header')
+
+    def test_binary_path_ranges_follow_explicit_order(self):
+        p, _, ctx = file_program(
+            "OPEN FILE f('WB','out') WRITE f(p[0..2]) CLOSE FILE f "
+            "INSERT_NODE(q,1,s) INSERT_NODE(q,2,s) INSERT_NODE(q,3,s) q[3].amount=99 "
+            "OPEN FILE f('RB','out') READ f(q[0],q[2..1]) CLOSE FILE f",
+        )
+        values = p.run()
+        self.assertEqual(ctx.files.snapshot()['out'], struct.pack('<ii4si4s', 2, 7, b'abcd', 9, b'wxyz'))
+        self.assertEqual(values['Q']['data'], {'TOTAL': 2})
+        self.assertEqual(values['Q']['nodes'][:2], [
+            {'AMOUNT': 9, 'LABEL': 'wxyz'}, {'AMOUNT': 7, 'LABEL': 'abcd'},
+        ])
+        self.assertEqual(values['Q']['nodes'][2]['AMOUNT'], 99)
+
+    def test_array_cell_selection_and_bounds_evaluated_once(self):
+        p, _ = build(
+            "INSERT_NODE(routes[1],1,s) INSERT_NODE(routes[1],2,s) "
+            "routes[1].total=2 routes[1,1].amount=7 routes[1,1].label='abcd' "
+            "routes[1,2].amount=9 routes[1,2].label='wxyz' visits=0 "
+            "WRITE(routes[1,first()..last()]::4::0,CR) WRITE(routes[1][top])",
+            decl=DECL + ' routes:ARRAY[2] OF PATH NODEDATA=node_t PATHHEADER=header_t',
+            prefix=TYPES + ' CONST top=0',
+            routines='ROUTINE first:INTEGER BEGIN visits=visits*10+1 RETURN 2 END first '
+                     'ROUTINE last:INTEGER BEGIN visits=visits*10+2 RETURN 1 END last',
+            seed=False,
+        )
+        self.assertEqual(p.run()['VISITS'], 12)
+        self.assertEqual(text(p), ['   9wxyz   7abcd\n', ' 2'])
+
+    def test_headerless_range_can_start_at_zero(self):
+        p, _ = build(
+            "INSERT_NODE(p,1,s) p[1].amount=7 p[1].label='abcd' WRITE(p[0..1])",
+            decl='p:PATH NODEDATA=node_t s:INTEGER', seed=False,
+        )
+        p.run()
+        self.assertEqual(text(p), [' 7abcd'])
+
+    def test_out_of_bounds_range_has_no_transport_or_format_effects(self):
+        routines = 'ROUTINE width:INTEGER BEGIN visits=visits+1 RETURN 4 END width'
+        for operation, bounds in (('READ', '2..0'), ('WRITE', '1..3')):
+            with self.subTest(operation=operation):
+                calls = []
+                p, _ = build(f'visits=0 {operation}(p[{bounds}]::width())',
+                             read=calls.append, write=calls.append, routines=routines)
+                with self.assertRaisesRegex(rt.KarelRuntimeError, 'range is outside'):
+                    p.run()
+                self.assertEqual((p.snapshot()['VISITS'], calls), (0, []))
+
+    def test_headerless_zero_and_nonpath_ranges_are_rejected(self):
+        for body, decl in (
+            ('WRITE(p[0])', 'p:PATH NODEDATA=node_t'),
+            ('READ(n[1..2])', 'n:ARRAY[2] OF INTEGER'),
+        ):
+            with self.subTest(body=body), self.assertRaises(TranslationError) as error:
+                build(body, decl=decl, seed=False)
+            self.assertEqual(error.exception.code, 'E_PATH_IO')
+
+    def test_selected_record_replacement_during_budget_fails_before_transport(self):
+        p, _ = build('WRITE(p[1..1])', seed=False)
+        state = p._state
+        path = state.values['P']
+        path.append()
+        saved = path.nodes[0]
+        saved.values.update(AMOUNT=7, LABEL='abcd')
+        replacement = rt.Structure(path.node_spec)
+        replacement.values.update(AMOUNT=9, LABEL='wxyz')
+        tick = state.tick
+
+        def replace(*args, **kwargs):
+            tick(*args, **kwargs)
+            if state.steps == 2:
+                path.nodes[0] = replacement
+
+        with (patch.object(state, 'tick', side_effect=replace),
+              self.assertRaisesRegex(rt.KarelRuntimeError, 'PATH I/O storage changed')):
+            p.run()
+        self.assertIs(path.nodes[0], replacement)
+        self.assertEqual(text(p), [])
+
+
 class PathWriteTests(unittest.TestCase):
     def test_header_then_nodes_follow_declaration_order(self):
         p,_=build('WRITE(p)');p.run();self.assertEqual(text(p),[' 2 7abcd 9wxyz'])
