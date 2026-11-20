@@ -106,6 +106,19 @@ class InputTemplateTests(unittest.TestCase):
         self.assertEqual({row['status'] for row in rows},{'supplied'})
         self.assertEqual({pointer(result['context'],row['context_pointer']) for row in rows},{0.1,'ready',True})
 
+    def test_zero_based_panel_inputs_use_real_bank_bounds_and_value_status(self):
+        context = {'ports': {'counts': {'OPIN': 1, 'TPIN': 1, 'WDI': 1, 'WDO': 1},
+                             'values': {'OPIN': {'0': False}, 'WDI': {'1': True}}}}
+        prepared = prepare('local_flag=OPIN[0] pendant_flag=TPIN[0] WDO[1]=WDI[1]',
+                           decl='local_flag,pendant_flag:BOOLEAN', context=context)
+        self.assertEqual(prepared['context'], context)
+        bindings = by_path(prepared)
+        self.assertEqual({key: row['status'] for key, row in bindings.items()},
+                         {'OPIN[0]': 'supplied', 'TPIN[0]': 'missing', 'WDI[1]': 'supplied'})
+        self.assertEqual(bindings['OPIN[0]']['context_pointer'], '/ports/values/OPIN/0')
+        self.assertEqual(bindings['TPIN[0]']['context_pointer'], '/ports/values/TPIN/0')
+        self.assertFalse(any(row['code'] == 'service' for row in prepared['template']['requirements']))
+
     def test_bank_counts_and_values_are_not_invented(self):
         result=prepare('GET_REG(2,b,n,r,s) GET_STR_REG(3,text,s) b=DIN[4]',decl='b:BOOLEAN n,s:INTEGER r:REAL text:STRING[8]')
         self.assertEqual(result['context'],{})

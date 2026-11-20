@@ -9,6 +9,18 @@ ERROR/POWERUP conditions and pending pause/abort suppression.
 All state belongs to supplied Python objects. A missing service raises a
 source-located error. Strict mode remains a future milestone.
 
+## Weld and panel port addresses
+
+`WDI[n]` and `WDO[n]` are distinct Boolean input and output banks. They use
+explicit one-based capacities and support ordinary reads, output assignments,
+WAIT and handler predicates, and indirect access with supplied type codes.
+See MARRC75KR07091E Rev N, section 6.2.1, for the source port identifiers.
+[Port configuration](port-configuration.md#assignment-and-mode-rules)
+
+The panel banks `OPIN`, `OPOUT`, `TPIN`, and `TPOUT` include channel zero. Input
+discovery and run preparation retain channel zero when it is read before a
+source write. Prepared values come from the supplied PortBank configuration.
+
 ## Equivalence matrix
 
 | KAREL | Python implementation | Contract |
@@ -20,9 +32,9 @@ source-located error. Strict mode remains a future milestone.
 | `GET_POS_REG`, `SET_POS_REG`, `SET_EPOS_REG` | `PositionRegisters` keyed by group and number | Complete independent Cartesian values; getter returns XYZWPREXT and can convert stored joints through an explicit [group model](position-register-models.md). [Mixed setters](position-register-model-writes.md) also convert joint input before guarded publication. |
 | `GET_JPOS_REG`, `SET_JPOS_REG` | Same bank with typed joint values | Getter pads complete narrow joints to nine slots; [model-backed reads](position-register-models.md) also convert complete Cartesian rows. [Model-backed SET_JPOS_REG](position-register-model-writes.md) stores Cartesian inputs as nine-slot joints; matching joint inputs retain their width. |
 | `POS_REG_TYPE`, `CLR_POS_REG` | Stored representation/axes and group value removal | Inspect without conversion. Both calls can use the caller's group by omission. Clear can select all groups with zero. Independent comments are retained. |
-| `DIN/DOUT`, `RDI/RDO`, `RDIN/RDOUT` | `PortBank` Boolean values | Host supplies inputs; translated assignments write output kinds only. |
+| `DIN/DOUT`, `RDI/RDO`, `RDIN/RDOUT`, `WDI/WDO`, `OPIN/OPOUT`, `TPIN/TPOUT` | `PortBank` Boolean values | Host supplies inputs. Translated assignments write output kinds only. |
 | `GIN/GOUT`, `AIN/AOUT` | Nonnegative checked `int`, finite `float` | Explicit counts and values; no zero-filled or hardware defaults. Analog float values are a portable choice. |
-| `PULSE DOUT[n] FOR ms [NOWAIT]` | Timed logical DOUT values | Checked rounded durations, explicit host polling or scheduler virtual time, caller ownership and terminal freeze. |
+| `PULSE DOUT[n]` or `PULSE RDO[n]` | Timed logical output values | Checked rounded durations, explicit host polling or scheduler virtual time, caller ownership and terminal freeze. |
 | `GET_VAR`, `SET_VAR` | Checked references and `VariableStore` | Static globals, bounded ARRAY/partial data, independent logical queue copies and exact [whole-PATH Pythonic copies](path-transfers.md); foreign programs use attached namespaces or explicit bindings. See [variable transfers](variable-transfers.md) and [queue transfers](queue-transfers.md). |
 | `VAR_INFO`, `VAR_LIST` | Static global metadata and bounded name catalogs | Canonical type codes, ARRAY dimensions, capacities, and sorted pages with `*` and `?` patterns. See [variable inspection](variable-inspection.md). |
 | `PROG_LIST` | Attached Programs and explicit immutable program metadata | Type filters, `*` and `?` patterns, sorted pages, 15/39-character formats and optional cursor. See [program listing](program-listing.md). |

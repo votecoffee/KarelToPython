@@ -194,6 +194,16 @@ class RemotePortTests(unittest.TestCase):
         self.assertEqual((state['SIMULATED'],state['N'],state['S']),(True,0,0))
         self.assertIn(('DIN',1),ctx.peers.lookup('RC1')['ports'].simulated)
 
+    def test_remote_weld_ports_use_explicit_peer_codes_and_remain_isolated(self):
+        peer = rt.PortBank({'WDI': 1, 'WDO': 1}, {('WDI', 1): True, ('WDO', 1): True},
+                           type_codes={110: 'WDI', 120: 'WDO'})
+        local = rt.PortBank({'WDI': 1, 'WDO': 1}, {('WDI', 1): False, ('WDO', 1): True})
+        ctx = context({'ports': peer}, ports=local)
+        result = execute("RGET_PORTVAL('RC1',110,1,n,s) RSET_PORTVAL('RC1',120,1,0,s) flag=WDI[1]", ctx)
+        self.assertEqual((result['N'], result['S'], result['FLAG']), (1, 0, False))
+        self.assertFalse(peer.read('WDO', 1))
+        self.assertTrue(local.read('WDO', 1))
+
     def test_unsimulated_input_write_preserves_input(self):
         ctx=context();state=execute("RSET_PORTVAL('RC1',10,1,1,s)",ctx)
         self.assertEqual((state['S'],ctx.peers.lookup('RC1')['ports'].read('DIN',1)),(4,False))

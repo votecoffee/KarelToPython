@@ -127,6 +127,19 @@ class WaitPortEdgeTests(unittest.TestCase):
         )
         self.assertTrue(program.run(max_steps=15)['RECORDS'][0]['READY'])
 
+    def test_weld_input_and_output_edges_use_existing_polling_rules(self):
+        bank = rt.PortBank({'WDI': 1, 'WDO': 1},
+                           {('WDI', 1): False, ('WDO', 1): True})
+
+        def sample(_):
+            bank.update('WDI', 1, True)
+            bank.update('WDO', 1, False)
+
+        program, report, _ = compile_program('WAIT FOR WDI[1]+ AND WDO[1]- done=TRUE',
+            context=rt.ExecutionContext(ports=bank), sleep=sample)
+        self.assertTrue(program.run(max_steps=12)['DONE'])
+        self.assertEqual(report.report['waits'][0]['port_edges'], 2)
+
     def test_simultaneous_edges(self):
         ports = rt.PortBank({'DIN': 2}, {('DIN', 1): False, ('DIN', 2): True})
         levels = iter(((True, True), (True, False), (False, True), (True, False)))

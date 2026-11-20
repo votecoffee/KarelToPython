@@ -124,6 +124,16 @@ class InputDiscoveryTests(unittest.TestCase):
         self.assertEqual(names(report), {})
         self.assertTrue(report['complete'])
 
+    def test_weld_ports_and_zero_based_panel_ports_are_discovered(self):
+        report, _ = scan('flag=WDI[1] WDO[1]=flag b=WDO[1] c=OPIN[0] d=TPIN[0]',
+                         decl='flag,b,c,d:BOOLEAN')
+        self.assertEqual(names(report), {('port', 'WDI[1]'): 'required',
+                                         ('port', 'OPIN[0]'): 'required',
+                                         ('port', 'TPIN[0]'): 'required'})
+        report, _ = scan('flag=WDI[0]')
+        self.assertEqual(names(report), {})
+        self.assertTrue(any(row['code'] == 'dynamic-address' for row in report['unresolved']))
+
     def test_zero_iteration_while_and_at_least_once_repeat(self):
         report,_=scan('WHILE flag DO x=1 ENDWHILE n=x')
         self.assertEqual(names(report),{('variable','FLAG'):'required',('variable','X'):'conditional'})

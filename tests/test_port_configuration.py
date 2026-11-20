@@ -50,6 +50,23 @@ class PortInputSamplingTests(unittest.TestCase):
         self.assertEqual((values['FLAG'],values['WORD'],values['VOLTS']),(True,5,1.25))
         self.assertTrue(ctx.ports.read('DOUT',1))
 
+    def test_weld_port_assignment_uses_matching_digital_directions(self):
+        config = topology()
+        config.pop('assignments')
+        bank = rt.PortBank({'WDI': 1, 'WDO': 1}, type_codes={110: 'WDI', 120: 'WDO'},
+                           configuration=config)
+        ctx = rt.ExecutionContext(ports=bank)
+        result = run('SET_PORT_ASG(110,1,0,1,10,2,1,s) SET_PORT_ASG(120,1,0,1,20,3,1,s) '
+                     'SET_PORT_ASG(110,1,0,1,20,3,1,bad)', decl='s,bad:INTEGER', context=ctx)
+        self.assertEqual((result['S'], result['BAD']), (0, 3))
+        self.assertEqual(bank.apply_configuration(), 2)
+        self.assertEqual(bank.sample_inputs({(0, 1, 10, 2): True}), 1)
+        run('WDO[1]=WDI[1]', context=ctx)
+        self.assertEqual(bank.sample_outputs(), {(0, 1, 20, 3): True})
+        restored = rt.ExecutionContext.from_config(json.loads(json.dumps(ctx.to_config())))
+        self.assertEqual(restored.ports.snapshot(), {('WDI', 1): True, ('WDO', 1): True})
+        self.assertEqual(restored.ports.sample_outputs(), bank.sample_outputs())
+
     def test_incomplete_or_out_of_range_batch_keeps_all_logical_values(self):
         ctx=context(self.topology(),initial={('DIN',1):False,('GIN',1):2})
         before=ctx.ports.snapshot()

@@ -50,6 +50,23 @@ class RegisterPortVariableTests(unittest.TestCase):
         bank=rt.PortBank({'DIN':1,'DOUT':1,'GIN':1,'GOUT':1,'AIN':1,'AOUT':1},{('DIN',1):True,('GIN',1):7,('AIN',1):1.5})
         state=run('DOUT[1]=DIN[1] GOUT[1]=GIN[1]+1 AOUT[1]=AIN[1]*2 n=GOUT[1]',context=rt.ExecutionContext(ports=bank))
         self.assertEqual((state['N'],bank.read('DOUT',1),bank.read('AOUT',1)),(8,True,3.))
+    def test_weld_port_source_and_indirect_services_share_boolean_values(self):
+        bank = rt.PortBank({'WDI': 1, 'WDO': 1, 'RDO': 1},
+                           {('WDI', 1): True, ('RDO', 1): False},
+                           type_codes={110: 'WDI', 120: 'WDO'})
+        context = rt.ExecutionContext(ports=bank)
+        state = run('WDO[1]=WDI[1] GET_PORT_VAL(120,1,n,s) '
+                    'SET_PORT_SIM(110,1,FALSE,s) flag=WDI[1]',
+                    decl='n,s:INTEGER flag:BOOLEAN', context=context)
+        self.assertEqual((state['N'], state['S'], state['FLAG']), (1, 0, False))
+        self.assertEqual(bank.snapshot(), {('WDI', 1): False, ('WDO', 1): True, ('RDO', 1): False})
+        self.assertIn(('WDI', 1), bank.simulated)
+        with self.assertRaises(TranslationError) as caught:
+            compile_program('WDI[1]=TRUE', context=context)
+        self.assertEqual(caught.exception.code, 'E_PORT_DIRECTION')
+        with self.assertRaisesRegex(rt.KarelRuntimeError, 'outside its bank'):
+            bank.read('WDI', 0)
+
     def test_input_ports_are_not_writable(self):
         with self.assertRaises(TranslationError) as caught: compile_program('DIN[1]=TRUE')
         self.assertEqual(caught.exception.code,'E_PORT_DIRECTION')

@@ -231,9 +231,10 @@ OPTIONAL_LAST.add('CREATE_VAR')
 OPTIONAL_REFERENCE = {'PROG_LIST'}
 OPTIONAL_PATH_NODE = {'APPEND_NODE','INSERT_NODE'}
 OPTIONAL_GROUP = {'POS_REG_TYPE':1,'CLR_POS_REG':1,'TPE_POS_REG_FRM':1,'TPE_POS_REG_TYPE':1}
-PORT_TYPES = {**{name:'BOOLEAN' for name in ('DIN','DOUT','RDI','RDO','RDIN','RDOUT','OPIN','OPOUT','TPIN','TPOUT')},
+PORT_TYPES = {**{name:'BOOLEAN' for name in ('DIN','DOUT','RDI','RDO','RDIN','RDOUT','OPIN','OPOUT',
+                                           'TPIN','TPOUT','WDI','WDO')},
               **{name:'INTEGER' for name in ('GIN','GOUT')}, **{name:'REAL' for name in ('AIN','AOUT')}}
-OUTPUT_PORTS = {'DOUT','RDO','RDOUT','GOUT','AOUT','OPOUT','TPOUT'}
+OUTPUT_PORTS = {'DOUT','RDO','RDOUT','GOUT','AOUT','OPOUT','TPOUT','WDO'}
 ZERO_BASED_PORTS={'OPIN','OPOUT','TPIN','TPOUT'}
 
 
@@ -562,8 +563,8 @@ class _PortConfiguration:
 
     @staticmethod
     def family(kind):
-        if kind in ('DIN','RDI','RDIN','GIN','OPIN','TPIN'): return 'DIN'
-        if kind in ('DOUT','RDO','RDOUT','GOUT','OPOUT','TPOUT'): return 'DOUT'
+        if PORT_TYPES.get(kind) in ('BOOLEAN', 'INTEGER'):
+            return 'DOUT' if kind in OUTPUT_PORTS else 'DIN'
         return kind
 
     def address(self,kind,number):

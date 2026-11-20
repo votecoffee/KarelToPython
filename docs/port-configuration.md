@@ -97,8 +97,9 @@ assert restored.ports.read("DOUT", 1) is True
 
 ## Assignment and mode rules
 
-DIN/RDI/RDIN and GIN map to physical DIN; DOUT/RDO/RDOUT and GOUT map to
-physical DOUT. Analog ports map to their matching analog direction. Explicit
+DIN, RDI, RDIN, WDI, OPIN, TPIN, and GIN map to explicit digital input points.
+DOUT, RDO, RDOUT, WDO, OPOUT, TPOUT, and GOUT map to explicit digital output
+points. Analog ports map to their matching analog direction. Explicit
 capacities bound both ends of every assignment. Cross-direction mappings fail.
 
 BOOLEAN SET_PORT_ASG batches contain 1..8 consecutive points. Each becomes a

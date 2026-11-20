@@ -5,6 +5,7 @@ import math
 from pathlib import Path
 import re
 
+from .extended import ZERO_BASED_PORTS
 from .input_contract import extract, InputContractError
 from . import runtime as rt
 
@@ -326,10 +327,12 @@ class _Analyzer:
         if kind=='index':
             base=args[0]
             if base.get('kind')=='name' and base['value'] in self.plan.get('port_types',{}):
-                index=self.expr(args[1],flow,conditional).constant
-                if type(index) is int and index>0:
-                    self.context('ports',base['value']+'['+str(index)+']')
-                    return _Location('port','',base['value'],(('index',index),),[self.plan['port_types'][base['value']]])
+                port = base['value']
+                index = self.expr(args[1],flow,conditional).constant
+                minimum = 0 if port in ZERO_BASED_PORTS else 1
+                if type(index) is int and minimum <= index:
+                    self.context('ports', port+'['+str(index)+']')
+                    return _Location('port','',port,(('index',index),),[self.plan['port_types'][port]])
                 self.unresolved_at('dynamic-address','Port index requires an explicit runtime mapping',expr);return None
             loc=self.locate(base,flow,conditional)
             for argument in args[1:]:

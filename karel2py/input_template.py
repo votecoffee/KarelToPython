@@ -71,7 +71,7 @@ def _service_address(context, service, address):
         return bool(re.fullmatch(r'[1-9][0-9]*', str(address)) and 1 <= int(address) <= bank.count)
     if service == 'ports':
         match = re.fullmatch(r'([A-Z]+)\[([0-9]+)\]', str(address))
-        return bool(match and 1 <= int(match[2]) <= bank.counts.get(match[1], 0))
+        return bool(match and bank.contains(match[1], int(match[2])))
     if service == 'positions':
         match = re.fullmatch(r'([0-9]+)\[group=([0-9]+)\]', str(address))
         return bool(match and 1 <= int(match[1]) <= bank.count and int(match[2]) in bank.groups)
@@ -158,7 +158,7 @@ def _prepare(report, context, *, materialize=True):
                     port_key = next((key for key in values if key.upper() == port), port)
                     number_key = next((key for key in values.get(port_key, {}) if int(key) == number), str(number))
                     binding['context_pointer'] = _pointer('ports', 'values', port_key, number_key)
-                    if bank is not None and 1 <= number <= bank.counts.get(port, 0):
+                    if bank is not None and bank.contains(port, number):
                         binding['status'] = 'supplied' if (port, number) in bank.values else 'missing'
                 elif kind == 'position_register':
                     group = candidate.get('group')
