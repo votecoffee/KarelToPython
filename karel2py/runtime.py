@@ -57,6 +57,10 @@ class TextInputIncomplete(KarelRuntimeError):
     """An explicitly unfinished text stream needs more bytes, not a retry of bad data."""
 
 
+class _ProgramReturn(Exception):
+    """Normal early exit caught by the generated main program body."""
+
+
 class KarelAbort(Exception):
     """Intentional offline termination, distinct from an invalid runtime value."""
     def __init__(self, line=None):

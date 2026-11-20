@@ -1041,9 +1041,11 @@ class _Analyzer:
             self.unresolved_at('motion-control', 'Motion control depends on offline group state: '+args[0], node)
 
     def block(self, body, flow, conditional=False):
+        exits_before_block = len(self.exits)
         for node in body:
             if flow.stopped and not flow.opaque:break
-            self.statement(node,flow,conditional)
+            after_program_return = not self.frames and len(self.exits) > exits_before_block
+            self.statement(node, flow, conditional or after_program_return)
 
     def statement(self, node, flow, conditional):
         self.tick();kind=node['kind'];args=node['args']
@@ -1100,8 +1102,11 @@ class _Analyzer:
         if kind=='repeat':
             self.lose_activation_order()
             self.lose_task_order(flow)
+            exits_before_body = len(self.exits)
             flow.constants.clear();self.block(node['body'],flow,conditional)
-            if not flow.stopped:self.expr(args[0],flow,conditional)
+            if not flow.stopped:
+                after_program_return = not self.frames and len(self.exits) > exits_before_body
+                self.expr(args[0], flow, conditional or after_program_return)
             return
         if kind=='select':
             selected=self.expr(args[0],flow,conditional).constant
@@ -1136,7 +1141,8 @@ class _Analyzer:
                 for index in range(count):
                     if flow.stopped:break
                     self.write(loc,_Value(start+step*index),flow,node)
-                    self.block(node['body'],flow,conditional)
+                    after_program_return = not self.frames and len(self.exits) > exit_start
+                    self.block(node['body'], flow, conditional or after_program_return)
             else:
                 self.lose_activation_order()
                 self.lose_task_order(flow)

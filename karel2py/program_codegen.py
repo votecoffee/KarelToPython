@@ -1,5 +1,6 @@
 """Emit the generated Program class metadata, runtime state, and entry points."""
 from . import __version__
+from .syntax import Statement
 
 
 class ProgramLowering:
@@ -113,8 +114,22 @@ class ProgramLowering:
         if sync_entry:
             self._emit_sync_run()
 
+    def emit_program_return(self, operand, token):
+        if self.mode != 'pythonic':
+            self.error('E_RETURN', 'RETURN is only implemented inside routines', token)
+        if operand is not None:
+            self.error('E_RETURN', 'Main program RETURN cannot return a value', token)
+        self.features.add('main program RETURN')
+        if self.active_counters:
+            self.features.add('RETURN from FOR with counter cleanup')
+        self.line('raise _rt._ProgramReturn', token)
+
     def _emit_execution_body(self, sync_entry):
         direct_entry = not self.cooperative and not sync_entry
+        has_program_return = self.mode == 'pythonic' and any(
+            isinstance(node, Statement) and node.kind == 'return'
+            for node in self.walk_nodes(self.program.body)
+        )
         self.line(f'@_rt._with_numeric_mode({self.mode!r})')
         if self.cooperative:
             self.line('def _execute(self):')
@@ -128,12 +143,19 @@ class ProgramLowering:
         if direct_entry:
             self.line('self._state.begin(max_steps)')
             self.line('self._state._driving=True')
-        if self.cooperative or direct_entry:
+        if self.cooperative or direct_entry or has_program_return:
             self.line('try:')
             self.indent += 1
         self.emit_body(self.program.body)
-        if self.cooperative:
+        if self.cooperative or has_program_return:
             self.indent -= 1
+        if has_program_return:
+            # Take the result after inner finally blocks have cleared active counters.
+            self.line('except _rt._ProgramReturn:')
+            self.indent += 1
+            self.line('pass')
+            self.indent -= 1
+        if self.cooperative:
             self.line('except _rt.KarelRuntimeError as _failure:')
             self.indent += 1
             self.line('yield from _rt.runtime_failure(self._state,_failure)')

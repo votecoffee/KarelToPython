@@ -150,8 +150,6 @@ class RoutineLowering:
         return f'(yield from {result})' if self.cooperative else result
 
     def routine_return(self, operand, token):
-        if self.current_routine is None:
-            self.error('E_RETURN', 'RETURN is only implemented inside routines', token)
         if self.active_counters:
             fresh = self.has_fresh_active_counters()
             if self.mode == 'strict' and not fresh:

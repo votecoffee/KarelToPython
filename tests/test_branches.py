@@ -1,11 +1,12 @@
 """Statement transfer, scope boundaries, execution guards and structured-flow parity."""
+from functools import partial
 from pathlib import Path
 import unittest
 
 from karel2py import translate
 from tests.legacy_numeric_support import translate as legacy_translate
 from karel2py.lexer import TranslationError
-from karel2py.runtime import KarelRuntimeError
+from karel2py.runtime import KarelPause, KarelRuntimeError
 
 
 DECLARATIONS = 'x,y,i,total,visits,result: INTEGER\nb,flag: BOOLEAN\na: ARRAY[2] OF INTEGER'
@@ -123,6 +124,50 @@ class LabelTransferTests(unittest.TestCase):
         for node in graph['nodes']: self.assertIn(node['karel_line'], mapped)
 
 
+class ProgramReturnTests(unittest.TestCase):
+    def test_conditional_return_preserves_prior_writes(self):
+        self.assertEqual(execute('x = 7 IF x = 7 THEN RETURN ENDIF x = y')['X'], 7)
+        self.assertEqual(execute('x = 0 IF x = 7 THEN RETURN ENDIF x = 9')['X'], 9)
+
+    def test_return_unwinds_nested_for_counters_before_snapshot(self):
+        body = (
+            'FOR i = 2 TO 3 DO FOR a[1] = 4 DOWNTO 1 DO '
+            'SELECT a[1] OF CASE(4): x = i + a[1] RETURN ELSE: x = 99 ENDSELECT '
+            'ENDFOR ENDFOR x = y'
+        )
+        for prefix in ('', 'marker:: '):
+            for cooperative in (False, True):
+                with self.subTest(prefix=prefix, cooperative=cooperative):
+                    program, result = compile_program(
+                        prefix + body, _translator=partial(translate, cooperative=cooperative)
+                    )
+                    state = program.run()
+                    self.assertEqual(state['X'], 6)
+                    self.assertEqual(state['I'], {'uninitialized': True})
+                    self.assertEqual(state['A'], [{'uninitialized': True}] * 2)
+                    self.assertEqual(state, program.snapshot())
+                    self.assertIn('RETURN from FOR with counter cleanup', result.report['features'])
+                    if cooperative:
+                        self.assertEqual(program.task_state, 'completed')
+
+    def test_label_dispatch_reports_return_as_terminal(self):
+        program, result = compile_program('GOTO done x = 99 done:: x = 7 RETURN; x = y')
+        self.assertEqual(program.run()['X'], 7)
+        nodes = result.report['control_flow']['program']['nodes']
+        returned = next(node for node in nodes if node['statement_kind'] == 'return')
+        self.assertEqual(returned['successors'], [])
+
+    def test_resume_can_reach_return_and_then_finishes(self):
+        program, _ = compile_program('x = 1 PAUSE x = 7 RETURN; x = y')
+        with self.assertRaises(KarelPause):
+            program.run()
+        self.assertEqual(program.snapshot()['X'], 1)
+        self.assertEqual(program.resume()['X'], 7)
+        self.assertEqual(program.task_state, 'completed')
+        with self.assertRaisesRegex(KarelRuntimeError, 'Only a paused task'):
+            program.resume()
+
+
 class RoutineBranchTests(unittest.TestCase):
     def test_procedure_jump_reaches_return_and_unwinds(self):
         routine = 'ROUTINE work BEGIN GOTO done x = 7 done:: RETURN END work'
@@ -237,6 +282,15 @@ class BranchRejectionTests(unittest.TestCase):
     def rejected(self, body, code, routines='', **kwargs):
         with self.assertRaises(TranslationError) as caught: compile_program(body, routines, **kwargs)
         self.assertEqual(caught.exception.code, code, str(caught.exception))
+
+    def test_main_return_rejects_a_value(self):
+        self.rejected('RETURN(7)', 'E_RETURN')
+
+    def test_legacy_main_return_remains_guarded(self):
+        self.rejected('RETURN', 'E_RETURN', _translator=legacy_translate)
+
+    def test_condition_action_cannot_return_from_main(self):
+        self.rejected('CONDITION[1]: WHEN TRUE DO RETURN; ENDCONDITION', 'E_CONDITION_ACTION')
 
     def test_undefined_label(self): self.rejected('GO TO missing', 'E_LABEL')
 

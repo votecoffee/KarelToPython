@@ -1,5 +1,13 @@
 # Changelog
 
+## 26.1120.122652 - 2026-11-20
+
+- Translate bare main-program RETURN in Pythonic mode. Finish normally after
+  FOR counter cleanup in both structured and labelled execution, and return
+  control to the caller of a linked program.
+- Report RETURN as terminal in labelled control flow and account for paths
+  ended by main-program RETURN during input discovery.
+
 ## 26.1120.121835 - 2026-11-20
 
 - Bind wildcard dimensions and repeated bare ARRAY layers in Pythonic

@@ -25,6 +25,14 @@ class SynchronousProgramCallTests(unittest.TestCase):
         self.assertEqual((target.snapshot()['N'],caller.snapshot()['E']),(3,1))
         self.assertFalse(target._state._driving);self.assertEqual(ctx.program_entries,{'CHILD':1})
 
+    def test_child_return_completes_the_call_and_clears_child_scope(self):
+        child = 'FOR s=1 TO 2 DO n=7 RETURN ENDFOR n=99'
+        caller, target, _ = attached(child, "CALL_PROG('CHILD',e) n=8")
+        self.assertEqual(caller.run()['N'], 8)
+        self.assertEqual(target.snapshot(), {'N': 7, 'E': {'uninitialized': True},
+                                             'S': {'uninitialized': True}})
+        self.assertEqual(caller._state._task_frames, [])
+
     def test_repeated_calls_share_globals_and_use_stable_hint(self):
         caller,target,_=attached('IF UNINIT(n) THEN n=0 ENDIF n=n+1',"CALL_PROG('CHILD',e) CALL_PROG('CHILD',s)")
         caller.run();self.assertEqual((target.snapshot()['N'],caller.snapshot()['E'],caller.snapshot()['S']),(2,1,1))

@@ -263,7 +263,10 @@ class Emitter(DeclarationPasses, TypeQueries, ExpressionLowering, AssignmentLowe
         elif kind == 'call':
             self.lower_procedure_statement(stmt)
         elif kind == 'return':
-            self.routine_return(stmt.args[0], token)
+            if self.current_routine is None:
+                self.emit_program_return(stmt.args[0], token)
+            else:
+                self.routine_return(stmt.args[0], token)
         else:
             self.error('E_INTERNAL', f'Unexpected statement {kind}', token)
 

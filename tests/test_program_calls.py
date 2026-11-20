@@ -27,6 +27,14 @@ class ProgramCallTests(unittest.TestCase):
         self.assertEqual(result['CHILD'],{'state':'ready','values':{'N':2,'S':{'uninitialized':True}}})
         self.assertEqual(p.context.program_entries,{'CHILD':1})
 
+    def test_child_return_unwinds_to_caller_and_root_return_completes_task(self):
+        instance = project("CALL_PROG('CHILD',e) n=8 RETURN; n=99",
+                           'FOR s=1 TO 2 DO n=7 RETURN ENDFOR n=99')
+        result = instance.run('MAIN')
+        self.assertEqual((result['MAIN']['state'], result['MAIN']['values']['N']), ('completed', 8))
+        self.assertEqual(result['CHILD'], {'state': 'ready',
+                                          'values': {'N': 7, 'S': {'uninitialized': True}}})
+
     def test_karel_call_line_always_starts_at_beginning(self):
         for line in (0,1,40):
             p=project(f"CALL_PROGLIN('CHILD',{line},e,FALSE)",'n=9')

@@ -57,7 +57,7 @@ class FlowGraph:
                 entry = self.add('label', stmt, [entry], for_scopes)
                 self.labels[stmt.args[0].value] = entry
             elif kind == 'goto': entry = self.add('goto', stmt, [], for_scopes)
-            elif kind == 'abort': entry = self.add('abort', stmt, [], for_scopes)
+            elif kind in ('abort', 'return'): entry = self.add(kind, stmt, [], for_scopes)
             elif kind == 'if':
                 then = self.sequence(stmt.body, entry, for_scopes)
                 otherwise = self.sequence(stmt.alternate, entry, for_scopes)

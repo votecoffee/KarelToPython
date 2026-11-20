@@ -248,7 +248,7 @@ internally and in the historical semantic notes.
 | --- | --- | --- |
 | Source | Case-insensitive ASCII identifiers, comments, four metadata directives, seven task policies and nine additional source policies, explicit nested %INCLUDE expansion, bounded complete-token continuations, doubled apostrophes | DEFGROUP selects offline defaults, CRTDEVICE labels requests; opt-in root and callee group scopes use an explicit bank, while storage/stack/periodic-delay intent remains metadata. Unknown directives, token fusion and multiline literals remain blocked; include sources require explicit mappings or selected roots. |
 | Motion requests | Seven basic MOVE forms, Cartesian VIA, direct PATH-node destinations and inclusive PATH ranges, hand statements and ATTACH/RELEASE | Explicit [MotionRequests](motion-requests.md) capture-only or immediate scripted responses; detached operands, logical group ownership, independent HOLD/UNHOLD/CANCEL, 21 [local WITH settings](motion-controls.md), including [termination/orientation choices](extended-motion-settings.md) [deceleration/acceleration intent](motion-deceleration-settings.md) and [additional scalar options](motion-options.md), [local WHEN/UNTIL and supplied delays](motion-handlers.md), [scheduled node/time predicates](motion-timeline.md), and bounded JSON history. No trajectories, inferred arrival timing, remaining native motion environment, callbacks after defining-frame return or robot feedback updates. Explicit FIFOs, including [NOWAIT handlers](queued-motion-clauses.md), follow [queue_limit](queued-motion.md), including [blocking MOVE waiters](synchronous-motion-queues.md) and [blocking local clauses](blocking-motion-clauses.md). |
-| Control flow | Assignment, IF/ELSE, WHILE, REPEAT, inclusive FOR/DOWNTO, SELECT, RETURN | FOR can capture INTEGER/BYTE/SHORT fields/elements/USING fields with checked counter domains; conservative aggregate-root write/reuse guards and exact cleanup apply. Formal/nonlocal roots in parameterized routines require fresh locals; unproven external calls over global aggregate counters remain blocked. [Scalar SELECT](scalar-select.md) accepts finite numeric, BOOLEAN and ASCII STRING categories, evaluates compatible constant/dynamic labels once in source order before choosing the first matching case and errors without a match/ELSE. |
+| Control flow | Assignment, IF/ELSE, WHILE, REPEAT, inclusive FOR/DOWNTO, SELECT, [RETURN](#program-return) | FOR can capture INTEGER/BYTE/SHORT fields/elements/USING fields with checked counter domains; conservative aggregate-root write/reuse guards and exact cleanup apply. Formal/nonlocal roots in parameterized routines require fresh locals; unproven external calls over global aggregate counters remain blocked. [Scalar SELECT](scalar-select.md) accepts finite numeric, BOOLEAN and ASCII STRING categories, evaluates compatible constant/dynamic labels once in source order before choosing the first matching case and errors without a match/ELSE. |
 | Labels | Body-scoped labels and GOTO, nested/sibling IF/WHILE/REPEAT/SELECT targets and active FOR-body transfers | Ordinary continuation, retained active FOR bounds and exited-counter cleanup; no entry into new FOR or USING scopes or cross-routine transfers. See [nested jumps](nested-jumps.md) and [FOR jumps](for-jumps.md). |
 | Constants | Pure scalar module/routine CONST expressions, 17 whitelisted math/string built-ins and acyclic forward dependencies across repeated sections | Iterative resolution before dependent schemas; module-only interfaces, lexical scope and immutable values. Bounded [compile-time calls](constant-builtins.md) reuse checked numeric/string domains; user/service calls, runtime storage, cycles and namespace collisions remain blocked. See [forward constants](forward-constants.md). |
 | Routines | Internal procedures/functions, bare zero-argument function calls, fresh local frames, local constants, reference/value arguments, recursion | Depth limit 64; chosen Pythonic left-to-right evaluation; fixed/wildcard/mixed [ARRAY formal constraints](array-formal-shapes.md) with concrete entry checks and retained aliases; existing FOR rules and exact FROM project/callback linkage; no native external ABI or local TYPE sections. |
@@ -391,6 +391,20 @@ See [Boolean waits](boolean-waits.md) for repeated condition checks, host yields
 See [time text](time-text.md) for calendar validation, packed bits and complete formatting.
 See [microsecond timers](microsecond-timers.md) for host clocks, rollover and deterministic adapters.
 See [numeric registers](numeric-registers.md) for explicit banks, output checks and script context.
+
+## Program RETURN
+
+Pythonic mode supports a bare KAREL RETURN in the main body, including
+inside loops, SELECT cases and labelled blocks. It skips the remaining
+statements, clears active FOR counters, and completes the current program.
+A linked CALL_PROG resumes its caller. A completed task cannot be resumed.
+Function RETURN still requires a value. Procedure and main-program RETURN
+use the bare form.
+
+The offline motion model applies the usual end-of-program cleanup, including
+cancellation of unfinished NOWAIT requests. The FANUC reference describes
+controller motion completion after RETURN in MARRC75KR07091E Rev N, section
+A.18.17, page 460.
 
 ## Zero-argument function calls
 

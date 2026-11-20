@@ -73,6 +73,23 @@ class InputDiscoveryTests(unittest.TestCase):
         self.assertEqual(report['inputs'],[])
         self.assertTrue(report['complete'])
 
+    def test_program_return_removes_inputs_on_terminated_paths(self):
+        report, _ = scan('IF TRUE THEN RETURN ENDIF n=x')
+        self.assertEqual(report['inputs'], [])
+        self.assertTrue(report['complete'])
+        report, _ = scan('IF flag THEN RETURN ENDIF n=x')
+        self.assertEqual(names(report), {('variable', 'FLAG'): 'required',
+                                         ('variable', 'X'): 'conditional'})
+
+    def test_loop_reads_after_possible_program_return_are_conditional(self):
+        report, _ = scan('REPEAT IF flag THEN RETURN ENDIF UNTIL x=0')
+        self.assertEqual(names(report), {('variable', 'FLAG'): 'required',
+                                         ('variable', 'X'): 'conditional'})
+        report, _ = scan('FOR i=1 TO 2 DO IF i=1 THEN IF flag THEN RETURN ENDIF '
+                         'ELSE n=x ENDIF ENDFOR', decl='i,x,n:INTEGER flag:BOOLEAN')
+        self.assertEqual(names(report), {('variable', 'FLAG'): 'required',
+                                         ('variable', 'X'): 'conditional'})
+
     def test_zero_iteration_while_and_at_least_once_repeat(self):
         report,_=scan('WHILE flag DO x=1 ENDWHILE n=x')
         self.assertEqual(names(report),{('variable','FLAG'):'required',('variable','X'):'conditional'})

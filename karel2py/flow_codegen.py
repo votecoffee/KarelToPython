@@ -104,7 +104,7 @@ class ControlFlowLowering:
             self.features.add('select')
             self.line(f'self._state.tick({line})', token)
             self.emit_dispatch_select(stmt, pc, node.targets)
-        elif kind == 'abort':
+        elif kind in ('abort', 'return'):
             self.statement(stmt)  # Terminal node has no successor.
         else:
             self.statement(stmt)
