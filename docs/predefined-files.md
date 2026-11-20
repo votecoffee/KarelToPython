@@ -68,6 +68,8 @@ Bound sockets can use [cooperative READ and WRITE waits](communications.md#coope
 Both support explicit alias cancellation and pending-operation cleanup guards.
 
 Bare CANCEL FILE selects the bound default input: TPDISPLAY or CRTDEVICE INPUT.
+A same-line assignment or label starts the next statement. An explicit FILE
+selector can still use a field or subscript before a following statement.
 Explicit CANCEL FILE alias and borrowed FILE arguments use the same handle.
 Typed input and READ_KB cancellation preserve existing outputs/cursors, return
 portable status 6, and retain pause, stop, abort and identity checks. Fileless

@@ -414,8 +414,9 @@ subscript selects a different port, that port establishes a new baseline.
 
 Each poll samples every edge operand once before applying the BOOLEAN predicate.
 Several edges joined by AND must occur in the same poll. Other BOOLEAN terms
-keep the existing short-circuit behavior. End an edge expression with a newline
-or a semicolon when a new statement follows.
+keep the existing short-circuit behavior. A trailing edge may precede an
+unambiguous inline statement. See [adjacent statements](source-forms-and-predicates.md#adjacent-statements)
+for when to use a newline or semicolon.
 
 The offline model detects changes between consecutive observations in the
 supplied PortBank. A pulse entirely between polls is invisible. For the KAREL
@@ -445,7 +446,7 @@ inside loops, SELECT cases and labelled blocks. It skips the remaining
 statements, clears active FOR counters, and completes the current program.
 A linked CALL_PROG resumes its caller. A completed task cannot be resumed.
 Function RETURN still requires a value. Procedure and main-program RETURN
-use the bare form.
+use the bare form and can precede an [inline statement](source-forms-and-predicates.md#adjacent-statements).
 
 The offline motion model applies the usual end-of-program cleanup, including
 cancellation of unfinished NOWAIT requests. The FANUC reference describes

@@ -103,6 +103,30 @@ class WaitPortEdgeTests(unittest.TestCase):
                     self.assertEqual(observed, [0., 0.])
                     self.assertEqual(result.report['waits'][0]['port_edges'], 1)
 
+    def test_edge_wait_ends_before_inline_statement(self):
+        for suffix in ('done=TRUE', 'IF TRUE THEN done=TRUE ENDIF',
+                       'after_wait:: done=TRUE', '&\n done=TRUE'):
+            with self.subTest(suffix=suffix):
+                ports = rt.PortBank({'DIN': 1}, {('DIN', 1): False})
+                program, result, _ = compile_program(
+                    'WAIT FOR DIN[1]+ ' + suffix,
+                    context=rt.ExecutionContext(ports=ports),
+                    sleep=lambda _: ports.update('DIN', 1, True)
+                )
+                self.assertTrue(program.run(max_steps=15)['DONE'])
+                self.assertEqual(result.report['waits'][0]['port_edges'], 1)
+
+    def test_edge_wait_ends_before_chained_assignment_with_nested_index(self):
+        ports = rt.PortBank({'DIN': 1}, {('DIN', 1): False})
+        program, _, _ = compile_program(
+            'idx[1]=1 WAIT FOR DIN[1]+ records[idx[1]].ready=TRUE',
+            declarations='idx:ARRAY[1] OF INTEGER records:ARRAY[1] OF item_t',
+            types='TYPE item_t=STRUCTURE ready:BOOLEAN ENDSTRUCTURE',
+            context=rt.ExecutionContext(ports=ports),
+            sleep=lambda _: ports.update('DIN', 1, True)
+        )
+        self.assertTrue(program.run(max_steps=15)['RECORDS'][0]['READY'])
+
     def test_simultaneous_edges(self):
         ports = rt.PortBank({'DIN': 2}, {('DIN', 1): False, ('DIN', 2): True})
         levels = iter(((True, True), (True, False), (False, True), (True, False)))

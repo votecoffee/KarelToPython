@@ -223,6 +223,24 @@ def waiting_serial(bindings=None):
 class PredefinedCancellationTests(unittest.TestCase):
     def test_bare_cancel_cancels_default_typed_read(self):
         ctx=waiting_serial();project,p,h=pending(ctx);execute('CANCEL FILE',ctx);project.scheduler.run();self.assertEqual((p.snapshot()['N'],p.snapshot()['S'],p.task_state),(77,6,'completed'));self.assertEqual(p.read_requests,())
+    def test_inline_bare_cancel_targets_default_before_assignment_or_label(self):
+        for tail in ('n=42', 'after_cancel:: n=42'):
+            with self.subTest(tail=tail):
+                ctx = waiting_serial()
+                project, pending_program, _ = pending(ctx)
+                state, _, _, _ = execute('CANCEL FILE ' + tail, ctx)
+                self.assertEqual(state['N'], 42)
+                project.scheduler.run()
+                self.assertEqual(pending_program.snapshot()['S'], 6)
+
+    def test_inline_explicit_cancel_keeps_indexed_file_selector(self):
+        ctx = context(bindings={})
+        state, _, _, _ = execute(
+            "i=1 OPEN FILE f[i]('RO','data') CANCEL FILE f[i] n=9 CLOSE FILE f[i]",
+            ctx, decl='i,n:INTEGER f:ARRAY[1] OF FILE'
+        )
+        self.assertEqual(state['N'], 9)
+
     def test_explicit_alias_cancels_default_typed_read(self):
         ctx=waiting_serial();project,p,h=pending(ctx);execute('CANCEL FILE TPDISPLAY',ctx);project.scheduler.run();self.assertEqual(p.snapshot()['S'],6)
     def test_cancelled_default_retains_unconsumed_serial_prefix(self):

@@ -1,5 +1,11 @@
 # Changelog
 
+## 26.1120.132015 - 2026-11-20
+
+- Recognize inline statement boundaries after bare RETURN, trailing WAIT FOR
+  port edges, and bare CANCEL FILE. Keep function result expressions and
+  explicit indexed FILE selectors intact.
+
 ## 26.1120.131308 - 2026-11-20
 
 - Translate EVAL in REPEAT UNTIL in both structured and labelled control flow.

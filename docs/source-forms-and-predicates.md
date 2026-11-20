@@ -4,6 +4,21 @@ Pythonic mode accepts explicit VAR storage intent, Boolean unary `+`, Boolean
 port-simulation outputs and both position families in range predicates. These are
 practical offline equivalents; strict/native equivalence remains future work.
 
+## Adjacent statements
+
+Pythonic mode accepts unambiguous statement boundaries on the same line.
+
+| Source | Result |
+| --- | --- |
+| `RETURN WRITE('skipped')` | A main program or procedure returns before the WRITE. |
+| `WAIT FOR DIN[1]+ ready=TRUE` | The wait ends at the rising-edge test. The assignment follows it. |
+| `CANCEL FILE status_code=6` | Cancel the default FILE operation, then assign the ordinary variable. |
+
+An assignment can start with a subscripted or qualified destination. A label
+also makes the boundary explicit. Use a newline or semicolon before a named
+routine call when no intervening token identifies the boundary. A function's
+`RETURN x=1` still returns the Boolean comparison.
+
 ## Declaration storage intent
 
 ```karel

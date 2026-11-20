@@ -17,12 +17,22 @@ from . import extended as ex
 from . import runtime as rt
 
 
+INLINE_STATEMENT_KEYWORDS = frozenset((
+    'IF', 'WHILE', 'REPEAT', 'FOR', 'SELECT', 'USING', 'GO', 'GOTO', 'RETURN',
+    'ABORT', 'STOP', 'PAUSE', 'RESUME', 'CONTINUE', 'UNPAUSE', 'DELAY', 'WAIT',
+    'OPEN', 'CLOSE', 'READ', 'WRITE', 'CANCEL', 'PULSE', 'SIGNAL', 'CONNECT',
+    'DISCONNECT', 'CONDITION', 'ENABLE', 'DISABLE', 'PURGE', 'WITH', 'MOVE',
+    'HOLD', 'UNHOLD', 'NOABORT', 'NOPAUSE', 'NOMESSAGE',
+))
+
+
 class Parser:
     def __init__(self, source, filename, mode='strict'):
         self.continuations = []
         self.motion_setting_constants = {}
         self.in_motion_condition = False
         self.in_wait_condition = False
+        self._function_body = False
         self.escaped_string_literals = []
         self.predefined_uses = []
         self.directive_metadata = []
@@ -420,7 +430,11 @@ class Parser:
         if self.current.value == 'TYPE':
             self.error('E_ROUTINE_LOCALS', 'Routine-local TYPE sections are prohibited by KAREL')
         self.expect('BEGIN')
-        body = self.block({'END'})
+        self._function_body = return_type is not None
+        try:
+            body = self.block({'END'})
+        finally:
+            self._function_body = False
         self.expect('END')
         self.expect(name)
         return Routine(name, token, return_type, body, declarations, parameters=parameters,
@@ -502,6 +516,36 @@ class Parser:
             self._block_end_stack.pop()
         return result
 
+    def inline_assignment_or_label(self, position):
+        """Recognize an unambiguous statement prefix without consuming tokens."""
+        start = self.tokens[position]
+        if start.kind != 'NAME' or start.value in RESERVED or start.value in PREDEFINED_CONSTANTS:
+            return False
+        position += 1
+        if self.tokens[position].value == '::':
+            return True
+        while self.tokens[position].value in ('.', '['):
+            if self.tokens[position].value == '.':
+                if self.tokens[position + 1].kind != 'NAME':
+                    return False
+                position += 2
+                continue
+            depth = 1
+            position += 1
+            while depth:
+                token = self.tokens[position]
+                if token.kind in ('NL', 'EOF'):
+                    return False
+                depth += (token.value == '[') - (token.value == ']')
+                position += 1
+        return self.tokens[position].value == '='
+
+    def inline_statement_starts(self, position):
+        token = self.tokens[position]
+        return (token.value in INLINE_STATEMENT_KEYWORDS
+                or (token.value == 'RELAX' and self.tokens[position + 1].value == 'HAND')
+                or self.inline_assignment_or_label(position))
+
     def statement(self):
         token = self.take()
         name = token.value
@@ -516,7 +560,9 @@ class Parser:
             self.expect('HAND')
             return Statement('motion_action',token,[name+' HAND',self.expression()])
         if self.mode=='pythonic' and name=='CANCEL' and self.accept('FILE'):
-            target=self.storage_selector() if self.current.kind=='NAME' and self.current.value not in RESERVED else None
+            explicit = (self.current.kind == 'NAME' and self.current.value not in RESERVED
+                        and not self.inline_assignment_or_label(self.position))
+            target = self.storage_selector() if explicit else None
             return Statement('file_cancel',token,[target])
         if self.mode=='pythonic' and (name in ('HOLD','UNHOLD','CANCEL')
                                      or name in ('STOP','RESUME') and self.current.value=='GROUP'):
@@ -688,7 +734,10 @@ class Parser:
             self.expect('('); mode=self.expression(); self.expect(','); path=self.expression(); self.expect(')')
             return Statement('file_open',token,[destination,mode,path])
         if name == 'RETURN':
-            result = None if self.current.kind == 'NL' or self.current.value in BLOCK_ENDS | {';'} else self.expression()
+            bare = self.current.kind == 'NL' or self.current.value in BLOCK_ENDS | {';'}
+            if not bare and self.mode == 'pythonic' and not self._function_body:
+                bare = self.inline_statement_starts(self.position)
+            result = None if bare else self.expression()
             return Statement('return', token, [result])
         if name == 'DELAY':
             return Statement('delay', token, [self.expression()])
@@ -1062,7 +1111,8 @@ class Parser:
         if following.value in ('AND', 'OR', ')', '=', '<>'):
             return True
         if self.in_wait_condition:
-            return following.kind in ('NL', 'EOF') or following.value in BLOCK_ENDS | {';'}
+            return (following.kind in ('NL', 'EOF') or following.value in BLOCK_ENDS | {';'}
+                    or self.inline_statement_starts(self.position + 1))
         if self.in_motion_condition:
             return following.kind == 'NL' or following.value in ('DO', 'THEN', 'ENDMOVE', 'WHEN', 'UNTIL')
         return following.value == 'DO'

@@ -129,6 +129,28 @@ class ProgramReturnTests(unittest.TestCase):
         self.assertEqual(execute('x = 7 IF x = 7 THEN RETURN ENDIF x = y')['X'], 7)
         self.assertEqual(execute('x = 0 IF x = 7 THEN RETURN ENDIF x = 9')['X'], 9)
 
+    def test_inline_return_ends_before_assignment_keyword_or_label(self):
+        for tail in ('x=99', 'WRITE(99)', 'after_return:: x=99', "&\n WRITE('skipped')"):
+            with self.subTest(tail=tail):
+                program, _ = compile_program('x=7 RETURN ' + tail)
+                self.assertEqual(program.run()['X'], 7)
+                self.assertEqual(program.write_requests, ())
+
+    def test_inline_return_stops_before_nested_assignment_target(self):
+        declarations = DECLARATIONS + '\nindices: ARRAY[2] OF INTEGER\nitems: ARRAY[1] OF row_t'
+        state = execute('indices[1]=1 RETURN items[indices[1]].value=99', declarations=declarations,
+                        extra='TYPE row_t=STRUCTURE value:INTEGER ENDSTRUCTURE')
+        self.assertEqual(state['ITEMS'][0]['VALUE'], {'uninitialized': True})
+
+    def test_procedure_returns_early_before_same_line_assignment(self):
+        procedure = 'ROUTINE work BEGIN x=7 RETURN x=9 END work'
+        self.assertEqual(execute('work y=x', procedure)['Y'], 7)
+
+    def test_function_return_keeps_an_unparenthesized_comparison(self):
+        function = 'ROUTINE matches:BOOLEAN BEGIN RETURN x=1 END matches'
+        self.assertTrue(execute('x=1 flag=matches()', function)['FLAG'])
+        self.assertFalse(execute('x=2 flag=matches()', function)['FLAG'])
+
     def test_return_unwinds_nested_for_counters_before_snapshot(self):
         body = (
             'FOR i = 2 TO 3 DO FOR a[1] = 4 DOWNTO 1 DO '
@@ -353,7 +375,9 @@ class BranchRejectionTests(unittest.TestCase):
         self.assertEqual(caught.exception.code, code, str(caught.exception))
 
     def test_main_return_rejects_a_value(self):
-        self.rejected('RETURN(7)', 'E_RETURN')
+        for operand in ('(7)', '7', 'x', '(x=7)'):
+            with self.subTest(operand=operand):
+                self.rejected('RETURN ' + operand, 'E_RETURN')
 
     def test_legacy_main_return_remains_guarded(self):
         self.rejected('RETURN', 'E_RETURN', _translator=legacy_translate)
