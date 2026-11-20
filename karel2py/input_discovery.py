@@ -796,12 +796,50 @@ class _Analyzer:
             self.unresolved_at('path-topology', 'PATH_LEN requires a matching saved PATH with a known current node count', node)
         return _Value(spec=['INTEGER'])
 
+    def path_seed_compatible(self, path, seed, convert):
+        """Return True for a modeled copy, False for status 3, or None."""
+        if seed is None:
+            return True
+        target = path.spec[1] or self.plan.get('default_path_node')
+        if not target or not seed.spec:
+            return None
+        target, source = tuple_spec(target), tuple_spec(seed.spec)
+        if source == target:
+            return True
+        if convert is False:
+            return False
+        if convert is True:
+            if rt.record_schema_kind(target, source) == 'structure':
+                return True
+            if rt.kinematic_record_kind(target, source) != 'structure':
+                return False
+        return None
+
     def path_edit(self, node, flow, conditional):
         name = node['value']
-        path_arg, *indexes, status_arg = node['args']
+        path_arg, *operands = node['args']
         path = self.locate(path_arg, flow, conditional)
-        index = self.expr(indexes[0], flow, conditional).constant if indexes else None
+        if flow.stopped and not flow.opaque:
+            return _Value(complete=False)
+        index = None
+        if name != 'APPEND_NODE':
+            index_arg, *operands = operands
+            index = self.expr(index_arg, flow, conditional).constant
+        if flow.stopped and not flow.opaque:
+            return _Value(complete=False)
+        seed = None
+        flags = []
+        if len(operands) > 1:
+            seed_arg, status_arg, *flags = operands
+            seed = self.expr(seed_arg, flow, conditional)
+        else:
+            status_arg = operands[-1]
+        if flow.stopped and not flow.opaque:
+            return _Value(complete=False)
         status = self.locate(status_arg, flow, conditional)
+        if flow.stopped and not flow.opaque:
+            return _Value(complete=False)
+        convert = self.expr(flags[0], flow, conditional).constant if flags else None
         if flow.stopped and not flow.opaque:
             return _Value(complete=False)
 
@@ -817,7 +855,11 @@ class _Analyzer:
             last = count if removing else count + 1
             if name == 'APPEND_NODE':
                 index = last
-            if not aliases_path and type(index) is int and (removing or count < 32767):
+            compatible = self.path_seed_compatible(path, seed, convert)
+            if not aliases_path and compatible is False:
+                self.write(status, _Value(3, spec=['INTEGER']), flow, node)
+                return _Value()
+            if not aliases_path and compatible is True and type(index) is int and (removing or count < 32767):
                 if not 1 <= index <= last:
                     self.write(status, _Value(2, spec=['INTEGER']), flow, node)
                     return _Value()
@@ -832,7 +874,17 @@ class _Analyzer:
                     self.serial += 1
                     flow.path_orders[path.key] = order[:offset] + (-self.serial,) + order[offset:]
                     record = self.child(path, 'created-node', self.serial, node)
-                    self.write(record, _Value(complete=False), flow, node)
+                    if seed is None:
+                        value = _Value(complete=False)
+                    else:
+                        # The runtime captures complete data before evaluating
+                        # the status selector or conversion flag. On success,
+                        # user-supplied seed leaves are initialized as well.
+                        facts = None if seed.facts is None else {
+                            key: _Value(fact.constant, spec=fact.spec) for key, fact in seed.facts.items()
+                        }
+                        value = _Value(spec=seed.spec, facts=facts)
+                    self.write(record, value, flow, node)
                 self.write(status, _Value(0, spec=['INTEGER']), flow, node)
                 return _Value()
 
@@ -847,8 +899,7 @@ class _Analyzer:
         if name in self.plan['routines']:return self.routine(name,args,node,flow,conditional)
         if name in ('PATH_LEN', 'NODE_SIZE'):
             return self.path_metadata_call(node, flow, conditional)
-        if ((name == 'APPEND_NODE' and len(args) == 2)
-                or (name in ('INSERT_NODE', 'DELETE_NODE') and len(args) == 3)):
+        if name in ('APPEND_NODE', 'INSERT_NODE', 'DELETE_NODE'):
             return self.path_edit(node, flow, conditional)
         if name in ('UNINIT','ARRAY_LEN'):
             target=args[0] if args else {};spec=None
@@ -939,9 +990,6 @@ class _Analyzer:
                 else:self.write(bank,_Value(),flow,node)
             else:self.unresolved_at('dynamic-address','Register address requires an explicit runtime mapping',node)
         else:
-            if name in ('APPEND_NODE', 'INSERT_NODE'):
-                path = outputs[0][1] if outputs and outputs[0][0] == 0 else None
-                flow.path_orders[path.key if path is not None else None] = None
             self.unresolved_at('service','Service or external input effects require explicit review: '+name,node)
             self.opaque(flow)
         for index,loc in outputs:

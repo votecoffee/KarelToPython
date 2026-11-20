@@ -214,6 +214,31 @@ class SavedProjectTests(unittest.TestCase):
         route = result['programs']['MAIN']['values']['ROUTE']
         self.assertEqual(route['nodes'], [{'VALUE': 31}, {'VALUE': 41}])
 
+    def test_linked_seed_conversion_keeps_input_owner_and_completes_inserted_record(self):
+        types = ('TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+                 'source_t=STRUCTURE amount:REAL ENDSTRUCTURE ')
+        main = self.module('MAIN', 'INSERT_NODE(route,1,seed,s,TRUE) WRITE(route[1],CR)',
+                           types+'VAR route:PATH NODEDATA=row_t seed FROM LIB:source_t s:INTEGER')
+        lib = self.module('LIB', declarations=types+'VAR seed:source_t')
+        root = dict(program='MAIN', path='ROUTE',
+                    type=['PATH', ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]], None],
+                    value=dict(nodes=[], data=None))
+        seed = dict(program='LIB', path='SEED',
+                    type=['STRUCTURE', 'SOURCE_T', [['AMOUNT', ['REAL']]]], value={'AMOUNT': MISSING})
+        self.create(main, lib, context={'variables': [root, seed]})
+        revised = self.folder/'revised.run.json'
+        prepared = runner.refresh_project_document(self.document, revised, [main, lib])
+        report = prepared['inputs']['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        candidate, = report['inputs']
+        self.assertEqual((candidate['program'], candidate['path']), ('LIB', 'SEED'))
+        runner.save_input_structure(revised, ('variable', 'LIB', 'SEED'), {'AMOUNT': 12.75},
+                                    expected=revised.read_bytes())
+        result = runner.run_document(revised)['results']
+        self.assertEqual(result['status'], 'completed', result['error'])
+        self.assertEqual(result['text_output'], ' 12\n')
+        self.assertEqual(result['programs']['MAIN']['values']['ROUTE']['nodes'], [{'AMOUNT': 12}])
+
     def test_linked_child_after_a_shift_does_not_guess_a_saved_node_origin(self):
         decl = 'TYPE row_t=STRUCTURE value:INTEGER ENDSTRUCTURE '
         main = self.module('MAIN', "DELETE_NODE(route,1,s) RUN_TASK('CHILD',0,FALSE,FALSE,0,s)",

@@ -276,6 +276,78 @@ class InputTemplateTests(unittest.TestCase):
                          [{'AMOUNT': 1}, {'AMOUNT': 2}, {'AMOUNT': MISSING}, {'AMOUNT': 44}])
         self.assertEqual(seed['value']['nodes'][-1], {'AMOUNT': MISSING})
 
+    def test_seeded_insert_reads_the_existing_seed_before_nodes_shift(self):
+        from karel2py.structured_inputs import structured_slot
+
+        spec = ['PATH', ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]], None]
+        seed = dict(program='T', path='ROUTE', type=spec,
+                    value=dict(nodes=[{'AMOUNT': 5}, {'AMOUNT': MISSING}], data=None))
+        prepared = prepare(
+            'INSERT_NODE(route,1,route[2],s) route[3].amount=99 '
+            'IF (s=0) AND (PATH_LEN(route)=3) THEN WRITE(route[1]) ELSE WRITE(unused) ENDIF',
+            decl='route:PATH NODEDATA=row_t s,unused:INTEGER',
+            prefix='TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE', context={'variables': [seed]},
+        )
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        candidate, = report['inputs']
+        self.assertEqual(candidate['path'], 'ROUTE[2]')
+        structured_slot(prepared['context'], candidate, by_path(prepared)['ROUTE[2]']).replace({'AMOUNT': 11})
+        self.assertEqual(prepared['context']['variables'][0]['value']['nodes'], [{'AMOUNT': 5}, {'AMOUNT': 11}])
+
+    def test_seed_is_captured_before_status_and_conversion_flag_effects(self):
+        source = (
+            'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+            'VAR route:PATH NODEDATA=row_t seed:row_t report:ARRAY[2] OF INTEGER wanted,wrong:INTEGER '
+            'ROUTINE slot:INTEGER BEGIN seed.amount=23 RETURN 1 END slot '
+            'ROUTINE flag:BOOLEAN BEGIN seed.amount=31 RETURN TRUE END flag '
+            'BEGIN seed.amount=17 APPEND_NODE(route,seed,report[slot()],flag()) '
+            'IF (route[1].amount=17) AND (seed.amount=31) AND (report[1]=0) '
+            'THEN WRITE(wanted) ELSE WRITE(wrong) ENDIF END T'
+        )
+        spec = ['PATH', ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]], None]
+        context = {'variables': [dict(program='T', path='ROUTE', type=spec, value=dict(nodes=[], data=None))]}
+        prepared = prepare_inputs(translate(source).python_source, context=context)
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'WANTED'})
+
+    def test_incompatible_seed_reports_status_before_rejected_index(self):
+        spec = ['PATH', ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]], None]
+        context = {'variables': [dict(program='T', path='ROUTE', type=spec, value=dict(nodes=[], data=None))]}
+        prepared = prepare(
+            'INSERT_NODE(route,999,seed,s,FALSE) '
+            'IF (s=3) AND (PATH_LEN(route)=0) THEN WRITE(wanted) ELSE WRITE(unused) ENDIF',
+            decl='route:PATH NODEDATA=row_t seed:source_t s,wanted,unused:INTEGER',
+            prefix=('TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+                    'source_t=STRUCTURE amount:REAL ENDSTRUCTURE'), context=context,
+        )
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'SEED', 'WANTED'})
+
+    def test_unknown_conversion_flag_preserves_requirements_without_guessing_shape(self):
+        spec = ['PATH', ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]], None]
+        context = {'variables': [dict(program='T', path='ROUTE', type=spec, value=dict(nodes=[], data=None))]}
+        prepared = prepare('APPEND_NODE(route,seed,s,convert) WRITE(route[1])',
+                           decl='route:PATH NODEDATA=row_t seed:source_t s:INTEGER convert:BOOLEAN',
+                           prefix=('TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+                                   'source_t=STRUCTURE amount:REAL ENDSTRUCTURE'), context=context)
+        report = prepared['template']['discovery']
+        self.assertEqual(set(by_path(prepared)), {'SEED', 'CONVERT'})
+        self.assertIn('path-topology', {row['code'] for row in report['unresolved']})
+
+    def test_model_dependent_seed_conversion_remains_unresolved(self):
+        spec = ['PATH', ['STRUCTURE', 'ROW_T', [['POINT', ['XYZWPR']]]], None]
+        context = {'variables': [dict(program='T', path='ROUTE', type=spec, value=dict(nodes=[], data=None))]}
+        prepared = prepare('APPEND_NODE(route,seed,s,TRUE) WRITE(PATH_LEN(route))',
+                           decl='route:PATH NODEDATA=row_t seed:source_t s:INTEGER',
+                           prefix=('TYPE row_t=STRUCTURE point:XYZWPR ENDSTRUCTURE '
+                                   'source_t=STRUCTURE point:JOINTPOS2 ENDSTRUCTURE'), context=context)
+        report = prepared['template']['discovery']
+        self.assertEqual(set(by_path(prepared)), {'SEED'})
+        self.assertIn('path-topology', {row['code'] for row in report['unresolved']})
+
     def test_unknown_edit_does_not_guess_the_original_slot_of_a_shifted_node(self):
         spec = ['PATH', ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]], None]
         seed = dict(program='T', path='ROUTE', type=spec, value=dict(nodes=[{'AMOUNT': 7}], data=None))

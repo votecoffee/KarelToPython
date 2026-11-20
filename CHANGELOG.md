@@ -1,5 +1,13 @@
 # Changelog
 
+## 26.1120.163804 - 2026-11-20
+
+- Discover seeded Pythonic PATH appends and inserts in capture order.
+  Preserve the seed's saved address and carry successful copies into
+  later node reads and transfers.
+- Follow exact and context-free seed layouts and report known conversion
+  rejections. Keep model-dependent outcomes unresolved.
+
 ## 26.1120.163156 - 2026-11-20
 
 - Track Pythonic PATH inserts and deletions that shift nodes. Preserve each

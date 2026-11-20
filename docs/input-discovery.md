@@ -390,23 +390,31 @@ count or values. Subscript expressions still contribute their own inputs
 and effects. Retranslate older Python to attach the schema when an unresolved
 subscript prevents finding it through the selected location.
 
-For a matching saved shape, discovery follows unseeded `APPEND_NODE`,
-`INSERT_NODE` and `DELETE_NODE` with known indexes in definite program-body
-flow. Known invalid indexes report status 2 and preserve the shape.
+For a matching saved shape, discovery follows `APPEND_NODE`, `INSERT_NODE`
+and `DELETE_NODE` with known indexes in definite program-body flow. Known invalid indexes report status 2 and preserve the shape.
 Successful edits set status 0 and update later `PATH_LEN`, named data selectors
 and FILE transfers. Earlier write facts stay with the records as they move.
 If a source statement reads `ROUTE[1]` after deleting the first node, its
 candidate can be `ROUTE[2]`, the location to edit in the saved context.
 
-New records begin with missing data owned by the source, so their fields
-must be written or read from a stream before use. A deleted record's
+Unseeded records begin with missing data owned by the source, so their
+fields must be written or read from a stream before use. A deleted record's
 values do not become facts for the record now at that index. A range
 outside the edited shape reports a gap for the transfer.
 
-Seeded inserts, aliases into the edited PATH, edits inside routine frames,
-and uncertain or potentially repeated edits leave the topology unresolved.
-When discovery loses the order of a tracked PATH, it reports unknown
-saved origins for its node selectors.
+A seeded append or insert discovers reads of the seed before the edit.
+The capture precedes evaluation of the status selector and conversion flag.
+An exact NODEDATA seed carries its known field values into the new record.
+A compatible context-free conversion with explicit TRUE tracks initialized
+fields after a successful conversion. A statically rejected layout sets
+status 3 before the index check. A shifted PATH record used as a seed
+retains its original saved input address.
+
+Model-dependent seed conversions, unknown conversion choices for different
+layouts, aliases into the edited PATH, edits inside routine frames, and
+uncertain or potentially repeated edits leave the topology unresolved.
+When discovery loses the order of a tracked PATH, it reports unknown saved
+origins for its node selectors.
 
 ### Boolean and INTEGER operators
 
