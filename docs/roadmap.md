@@ -28,9 +28,11 @@ dispatch, CASE emission, and FOR scope unwinding. Routine effect propagation
 and retained-alias analysis run after source normalization. ARRAY subscript,
 bare routine call, and USING reference normalization have dedicated modules.
 Constant evaluation and dependency ordering have their own compiler module.
-Next, extract named TYPE dependency resolution and recursive schema checks
-from declaration validation. The runtime and extended services can be split
-by ownership after their boundaries are covered with regressions. See
+Named TYPE resolution checks expanded schema size and depth and shares the
+dependency walk with CONST. Next, extract ARRAY storage, parameter, and result
+schema resolution from declaration validation. The runtime and extended
+services can be split by ownership after their boundaries are covered with
+regressions. See
 [compiler architecture](compiler-architecture.md).
 
 ## Python runner and parameter editor

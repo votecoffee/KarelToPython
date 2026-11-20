@@ -7,6 +7,7 @@ from .compiler_language import (
     MAX_CONSTANT_BUILTIN_DEPTH,
     PREDEFINED_CONSTANTS,
 )
+from .declaration_dependencies import resolve_dependencies
 
 
 SCALAR_CONSTANT_TYPES = {bool: 'BOOLEAN', int: 'INTEGER', float: 'REAL', str: 'STRING'}
@@ -120,7 +121,7 @@ class ConstantAnalysis:
                 self.error('E_CONSTANT', 'CONST permits only scalar operators and whitelisted pure built-ins over visible constants', node.token)
         return references
 
-    def _record_constant_dependency(self, name, reference, definitions, global_tokens, scope, routine):
+    def _constant_dependency_for(self, name, reference, definitions, global_tokens, scope, routine):
         dependency, token = reference.value, reference.token
         local = dependency in definitions
         if not local and dependency not in self.constants:
@@ -130,6 +131,7 @@ class ConstantAnalysis:
         self.constant_dependency_uses.append(dict(
             scope=scope, routine=routine, name=name, dependency=dependency,
             dependency_scope=scope if local else 'module', line=token.line, column=token.column, forward=forward))
+        return dependency if local else None
 
     def _fold_named_constant(self, name, token, expr):
         previous = self._constant_declaration
@@ -145,33 +147,19 @@ class ConstantAnalysis:
         references = {name: self._constant_references(expr) for name, (_, expr) in definitions.items()}
         global_tokens = {token.value: token for token, _ in self.program.constants}
         scope = 'routine' if routine else 'module'
-        complete = set()
-        for start in definitions:
-            if start in complete:
-                continue
-            stack = [(start, iter(references[start]))]
-            positions = {start: 0}
-            while stack:
-                name, children = stack[-1]
-                reference = next(children, None)
-                if reference is None:
-                    token, expr = definitions[name]
-                    target[name] = self._fold_named_constant(name, token, expr)
-                    self.constant_resolution_order.append(dict(scope=scope, routine=routine, name=name))
-                    complete.add(name)
-                    stack.pop()
-                    del positions[name]
-                    continue
-                dependency = reference.value
-                self._record_constant_dependency(name, reference, definitions, global_tokens, scope, routine)
-                if dependency not in definitions or dependency in complete:
-                    continue
-                if dependency in positions:
-                    cycle = [item for item, _ in stack[positions[dependency]:]] + [dependency]
-                    shown = cycle if len(cycle) <= 32 else cycle[:31] + ['...', dependency]
-                    self.error('E_CONSTANT', 'Cyclic CONST dependency: ' + ' -> '.join(shown), reference.token)
-                positions[dependency] = len(stack)
-                stack.append((dependency, iter(references[dependency])))
+
+        def dependency_for(name, reference):
+            return self._constant_dependency_for(name, reference, definitions, global_tokens, scope, routine)
+
+        def resolve(name):
+            token, expr = definitions[name]
+            target[name] = self._fold_named_constant(name, token, expr)
+            self.constant_resolution_order.append(dict(scope=scope, routine=routine, name=name))
+
+        def on_cycle(reference, path):
+            self.error('E_CONSTANT', 'Cyclic CONST dependency: ' + path, reference.token)
+
+        resolve_dependencies(references, dependency_for=dependency_for, resolve=resolve, on_cycle=on_cycle)
         # Keep declaration order in the generated module and report fold order separately.
         ordered = {name: target[name] for name in definitions}
         target.clear()

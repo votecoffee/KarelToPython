@@ -1,5 +1,11 @@
 # Changelog
 
+## 26.1120.004815 - 2026-11-20
+
+- Separate named TYPE resolution and expanded schema checks from declaration
+  validation. Share the iterative dependency walk with CONST resolution while
+  preserving source order and cycle diagnostics.
+
 ## 26.1120.004338 - 2026-11-20
 
 - Separate scalar constant evaluation, bounded built-in calls, and CONST

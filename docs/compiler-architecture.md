@@ -9,6 +9,7 @@ input-discovery contract to the result.
 | Syntax | `lexer.py`, `parser.py`, `syntax.py` | `Parser.parse()` returns a source AST. The linked-project loader uses the same parser for declaration discovery. |
 | Declaration analysis | `declarations.py`, `compiler_language.py` | `DeclarationPasses` checks declaration names and resolves type schemas. |
 | Constant analysis | `constant_analysis.py` | Evaluates scoped scalar expressions and bounded built-ins. An iterative dependency walk folds constants before their values enter schemas and generated code. |
+| Named TYPE analysis | `named_type_analysis.py`, `declaration_dependencies.py` | Resolves named schemas, preserves ARRAY and STRUCTURE identity, and checks expanded leaf count and depth. TYPE and CONST share the iterative dependency walk. |
 | Source normalization | `source_normalization.py`, `using_analysis.py` | Joins adjacent ARRAY subscript groups, resolves lexical USING fields, and rewrites bare function values into calls. |
 | Routine effects | `routine_effects.py`, `retained_aliases.py` | Collects direct effects and propagates them through routine calls. Records retained writable aliases used by the FOR storage checks. |
 | Type queries | `type_checking.py` | `TypeQueries` inspects schemas, resolves scoped references and FILE prefixes, and checks storage for BYNAME and service operands. Declaration analysis and lowering share these queries. |
@@ -54,7 +55,9 @@ recorded by declaration analysis and uses the shared PATH node type query.
 Constant analysis folds each declaration after its dependencies and preserves
 source declaration order for the generated values. Dependency and fold order
 are recorded separately. Both declaration checks and schema expressions use
-the same scalar evaluator.
+the same scalar evaluator. Named TYPE declarations use the same dependency
+walk, with separate checks for predefined structures, missing types, and
+recursive schema limits.
 ARRAY subscript normalization runs before receiver typing. After declarations
 are resolved, USING normalization binds the enclosing fields and checks selector
 schemas, including selectors that are bare function values. The general bare

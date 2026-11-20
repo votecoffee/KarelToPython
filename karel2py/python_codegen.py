@@ -19,6 +19,7 @@ from .syntax import Expr, Statement
 from .select_codegen import SelectLowering
 from .expression_codegen import ExpressionLowering
 from .motion_codegen import MotionLowering
+from .named_type_analysis import NamedTypeAnalysis
 from .robot_system_codegen import RobotSystemLowering
 from .routine_codegen import RoutineLowering
 from .routine_effects import RoutineEffectAnalysis
@@ -38,20 +39,19 @@ class Emitter(DeclarationPasses, TypeQueries, ExpressionLowering, AssignmentLowe
               RoutineLowering, RobotSystemLowering, ServiceCallLowering, StatementIOLowering,
               MotionLowering, TaskControlLowering, HandlerLowering, LoopLowering, UsingLowering,
               ControlFlowLowering, SelectLowering, SourceNormalization, RoutineEffectAnalysis,
-              ConstantAnalysis):
+              ConstantAnalysis, NamedTypeAnalysis):
     """Emit a Python module from a parsed program and its checked declarations."""
 
     def __init__(self, program, filename, array_shapes=None, mode='strict', cooperative=False):
         self.program, self.filename = program, filename
         self.mode = mode
         self.constants, self.types, self.routines, self.user_types = {}, {}, {}, {}
-        self.type_aliases = []
+        self.initialize_named_type_analysis()
         self.file_prefix_argument_uses=[]
         self.initialize_constant_analysis()
         self.array_formal_uses=[];self.array_forward_uses=[]
         self.string_formal_uses=[];self.string_forward_uses=[]
         self.short_circuit_expressions=set()
-        self.type_dependency_uses=[];self.type_resolution_order=[];self._type_schema_costs={}
         self.predefined_structure_uses = []
         self.lines, self.source_map, self.features = [], [], set()
         self.source_checkpoints=set()
