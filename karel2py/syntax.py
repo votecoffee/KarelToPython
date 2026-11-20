@@ -36,6 +36,14 @@ def walk_nodes(node):
             yield from walk_nodes(child)
 
 
+def expression_postorder(node):
+    """Visit dependencies before their enclosing source expressions."""
+    if isinstance(node, Expr):
+        for child in node.args:
+            yield from expression_postorder(child)
+        yield node
+
+
 @dataclass
 class Routine:
     name: str

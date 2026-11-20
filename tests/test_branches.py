@@ -278,6 +278,75 @@ class StructuredFlowParityTests(unittest.TestCase):
                 self.assertEqual(run_source(source), run_source(labelled))
 
 
+class RepeatEvalTests(unittest.TestCase):
+    def test_captures_first_until_operand_after_body_and_keeps_it(self):
+        body = 'x=0 REPEAT x=x+1 y=4-x UNTIL x>=EVAL(y)'
+        for prefix in ('', 'start_here:: '):
+            for cooperative in (False, True):
+                with self.subTest(prefix=prefix, cooperative=cooperative):
+                    program, result = compile_program(prefix + body,
+                        _translator=partial(translate, cooperative=cooperative))
+                    state = program.run(max_steps=40)
+                    self.assertEqual((state['X'], state['Y']), (3, 1))
+                    self.assertIn('REPEAT UNTIL EVAL capture', result.report['features'])
+
+    def test_lexical_loop_reentry_captures_fresh_for_counter_value(self):
+        body = ('total=0 FOR i=1 TO 2 DO x=0 REPEAT x=x+1 UNTIL x>=EVAL(i) '
+                'total=total+x ENDFOR')
+        for prefix in ('', 'start_here:: '):
+            with self.subTest(prefix=prefix):
+                state = execute(prefix + body)
+                self.assertEqual(state['TOTAL'], 3)
+                self.assertEqual(state['I'], {'uninitialized': True})
+
+    def test_exiting_and_reentering_a_repeat_discards_only_exited_captures(self):
+        source = (
+            'x=0 y=3 visits=0 REPEAT again:: x=x+1 '
+            'IF (x=2) AND (visits=0) THEN GOTO outside ENDIF '
+            'IF x=4 THEN y=2 GOTO check_here ENDIF '
+            'check_here:: UNTIL x>=EVAL(y) GOTO finished '
+            'outside:: visits=1 y=5 GOTO again finished::'
+        )
+        program, report = compile_program(source)
+        state = program.run(max_steps=75)
+        self.assertEqual((state['X'], state['Y'], state['VISITS']), (5, 2, 1))
+        self.assertEqual(report.report['control_flow']['program']['engine'], 'label_dispatcher')
+
+    def test_capture_operands_run_in_source_order_before_boolean_short_circuit(self):
+        routines = ("ROUTINE hit(mark:STRING):BOOLEAN BEGIN "
+                    "trace=trace+mark RETURN FALSE END hit")
+        state = execute("REPEAT trace='' UNTIL TRUE OR (EVAL(hit('A')) AND EVAL(hit('B')))",
+                        routines, declarations=DECLARATIONS+' trace:STRING[8]')
+        self.assertEqual(state['TRACE'], 'AB')
+
+    def test_resume_completes_the_first_capture_without_repeating_it(self):
+        routine = ('ROUTINE capture:INTEGER BEGIN visits=visits+1 PAUSE RETURN 3 END capture')
+        for prefix in ('', 'start_here:: '):
+            with self.subTest(prefix=prefix):
+                program, _ = compile_program(
+                    prefix + 'x=0 visits=0 REPEAT x=x+1 UNTIL x>=EVAL(capture())', routine
+                )
+                with self.assertRaises(KarelPause):
+                    program.run(max_steps=40)
+                self.assertEqual(program.snapshot()['X'], 1)
+                state = program.resume()
+                self.assertEqual((state['X'], state['VISITS']), (3, 1))
+
+    def test_declared_eval_routine_still_runs_per_predicate_check(self):
+        routine = ('ROUTINE EVAL(limit:INTEGER):BOOLEAN '
+                   'BEGIN visits=visits+1 RETURN x>=limit END EVAL')
+        program, result = compile_program('x=0 visits=0 REPEAT x=x+1 UNTIL EVAL(3)', routine)
+        self.assertEqual(program.run()['VISITS'], 3)
+        self.assertNotIn('REPEAT UNTIL EVAL capture', result.report['features'])
+
+    def test_capture_requires_one_operand_and_retains_the_boolean_test(self):
+        for expression, code in (('EVAL()', 'E_ARGUMENTS'), ('EVAL(TRUE,FALSE)', 'E_ARGUMENTS'),
+                                 ('EVAL(3)', 'E_TYPE')):
+            with self.subTest(expression=expression), self.assertRaises(TranslationError) as caught:
+                compile_program('REPEAT x=1 UNTIL ' + expression)
+            self.assertEqual(caught.exception.code, code)
+
+
 class BranchRejectionTests(unittest.TestCase):
     def rejected(self, body, code, routines='', **kwargs):
         with self.assertRaises(TranslationError) as caught: compile_program(body, routines, **kwargs)

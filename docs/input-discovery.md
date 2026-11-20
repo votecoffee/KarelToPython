@@ -337,7 +337,9 @@ Limit exhaustion returns an explicit partial report.
 
 WAIT FOR entry captures are read before the live predicate. Their inputs can
 be required even when a Boolean branch of the predicate is skipped. Port
-edge subscripts are then read at the polling stage.
+edge subscripts are then read at the polling stage. REPEAT UNTIL captures
+read after the first reachable execution of the body and before the Boolean
+test. A body that returns before UNTIL contributes no capture inputs.
 
 Discovery follows the translator's existing Pythonic Boolean short-circuit
 execution. `FALSE AND right` and `TRUE OR right` skip right-hand reads, routines

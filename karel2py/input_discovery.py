@@ -1053,15 +1053,16 @@ class _Analyzer:
             after_program_return = not self.frames and len(self.exits) > exits_before_block
             self.statement(node, flow, conditional or after_program_return)
 
-    def sample_wait_inputs(self, node, flow, conditional, kinds):
+    def sample_condition_inputs(self, node, flow, conditional, kinds):
         if not isinstance(node, dict):
             return node
         original = node.get('args', ())
-        args = [self.sample_wait_inputs(arg, flow, conditional, kinds) for arg in original]
+        args = [self.sample_condition_inputs(arg, flow, conditional, kinds) for arg in original]
         kind = node.get('kind')
         if kind not in kinds:
             return dict(node, args=args) if any(a is not b for a, b in zip(args, original)) else node
-        value = self.expr(args[0], flow, conditional, partial=kind == 'wait_eval') if args else _Value()
+        capture = kind in ('wait_eval', 'repeat_eval')
+        value = self.expr(args[0], flow, conditional, partial=capture) if args else _Value()
         if kind == 'wait_edge':
             self.context('ports', None)
             self.unresolved_at('condition-source', 'Port transitions require offline samples', node)
@@ -1087,8 +1088,8 @@ class _Analyzer:
             self.write(self.locate(args[0],flow,conditional),value,flow,node);return
         if kind=='call':self.expr(args[0],flow,conditional);return
         if kind == 'wait':
-            captured = self.sample_wait_inputs(args[0], flow, conditional, ('wait_eval',))
-            predicate = self.sample_wait_inputs(captured, flow, conditional,
+            captured = self.sample_condition_inputs(args[0], flow, conditional, ('wait_eval',))
+            predicate = self.sample_condition_inputs(captured, flow, conditional,
                                                 ('wait_edge', 'wait_pause', 'wait_error', 'wait_lifecycle'))
             if predicate is not args[0]:
                 self.expr(predicate, flow, conditional)
@@ -1145,8 +1146,9 @@ class _Analyzer:
             exits_before_body = len(self.exits)
             flow.constants.clear();self.block(node['body'],flow,conditional)
             if not flow.stopped:
-                after_program_return = not self.frames and len(self.exits) > exits_before_body
-                self.expr(args[0], flow, conditional or after_program_return)
+                conditionally_reached = conditional or (not self.frames and len(self.exits) > exits_before_body)
+                predicate = self.sample_condition_inputs(args[0], flow, conditionally_reached, ('repeat_eval',))
+                self.expr(predicate, flow, conditionally_reached)
             return
         if kind=='select':
             selected=self.expr(args[0],flow,conditional).constant

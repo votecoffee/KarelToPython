@@ -1,5 +1,10 @@
 """Emit structured control flow and validated label dispatch."""
-from .control_flow import FlowGraph, validate_labels
+from .control_flow import FlowGraph, child_blocks, validate_labels
+from .syntax import expression_postorder
+
+
+def repeat_captures(statement):
+    return [node for node in expression_postorder(statement.args[0]) if node.kind == 'repeat_eval']
 
 
 class ControlFlowLowering:
@@ -16,7 +21,7 @@ class ControlFlowLowering:
         if labelled:
             graph = FlowGraph(statements, lower_for=self.mode == 'pythonic')
             report = graph.report()
-            self._emit_label_dispatch(graph)
+            self._emit_label_dispatch(graph, transfers)
         else:
             report = dict(engine='structured_python', labels={})
             self.block(statements)
@@ -26,9 +31,19 @@ class ControlFlowLowering:
         else:
             self.control_flow['program'] = report
 
-    def _emit_label_dispatch(self, graph):
+    def _emit_label_dispatch(self, graph, transfers):
         self.features.add('label control-flow dispatcher')
         pc = self.fresh()
+        captures = {}
+        for index, node in enumerate(graph.nodes):
+            if node.kind == 'repeat_test':
+                terms = repeat_captures(node.statement)
+                if terms:
+                    captures[index] = terms
+        if captures:
+            repeat_cache = self.fresh()
+            self.line(f'{repeat_cache} = {{}}')
+            exited_repeats = self._repeat_jump_exits(graph, captures, transfers)
         frames = done = None
         if graph.for_scopes:
             self.features.add('FOR dispatcher scopes and checked jumps')
@@ -48,7 +63,14 @@ class ControlFlowLowering:
             previous_counters = self.active_counters
             if frames is not None:
                 self._sync_dispatch_for_scopes(graph, node, frames)
-            self._emit_dispatch_node(index, node, pc, frames, done)
+            if index in captures:
+                self._emit_captured_repeat_test(index, node, pc, repeat_cache, captures[index])
+            else:
+                if captures and node.kind == 'goto':
+                    site = (node.statement.token.line, node.statement.token.column)
+                    for scope in exited_repeats.get(site, ()):
+                        self.line(f'{repeat_cache}.pop({scope}, None)')
+                self._emit_dispatch_node(index, node, pc, frames, done)
             self.active_counters = previous_counters
             self.indent -= 1
         self.line('case _:')
@@ -63,6 +85,32 @@ class ControlFlowLowering:
             self.indent += 1
             self.line(f'{frames}.pop()[1].clear()')
             self.indent -= 2
+
+    @staticmethod
+    def _repeat_jump_exits(graph, captures, transfers):
+        scopes = {next(child_blocks(graph.nodes[index].statement))[0]: index for index in captures}
+        result = {}
+        for transfer in transfers:
+            source, target = transfer['source'], transfer['target']
+            exited = tuple(scopes[block] for block in reversed(source['blocks'])
+                           if block in scopes and block not in target['blocks'])
+            if exited:
+                result[source['line'], source['column']] = exited
+        return result
+
+    def _emit_captured_repeat_test(self, index, node, pc, cache, terms):
+        stmt = node.statement
+        condition = self.emit_repeat_capture_predicate(stmt, terms, cache, index)
+        yes, no = node.targets
+        self.line(f'if {self.test_code(condition, stmt.token.line)}:', stmt.token)
+        self.indent += 1
+        self.line(f'{cache}.pop({index}, None)')
+        self.line(f'{pc} = {yes!r}')
+        self.indent -= 1
+        self.line('else:')
+        self.indent += 1
+        self.line(f'{pc} = {no!r}')
+        self.indent -= 1
 
     def _sync_dispatch_for_scopes(self, graph, node, frames):
         scopes = node.for_scopes
@@ -158,8 +206,34 @@ class ControlFlowLowering:
             self.block(stmt.alternate)
             self.indent -= 1
 
+    def emit_repeat_capture_predicate(self, stmt, terms, cache, key):
+        self.features.update(('repeat', 'REPEAT UNTIL EVAL capture'))
+        predicate = self.fresh()
+        self.line(f'def {predicate}():')
+        self.indent += 1
+        self.line(f'if {key} not in {cache}:')
+        self.indent += 1
+        originals = []
+        try:
+            values = ', '.join(self.emit_condition_capture(term, originals) for term in terms)
+            self.line(f'{cache}[{key}] = ({values},)')
+            self.indent -= 1
+            self.line(f'{values}, = {cache}[{key}]')
+            condition = self.require_type(stmt.args[0], 'BOOLEAN')
+            self.line(f'return {condition}')
+        finally:
+            self.restore_condition_terms(originals)
+        self.indent -= 1
+        return f'{predicate}()'
+
     def emit_structured_repeat(self, stmt):
-        condition = self.require_type(stmt.args[0], 'BOOLEAN')
+        terms = repeat_captures(stmt)
+        if terms:
+            cache = self.fresh()
+            self.line(f'{cache} = {{}}')
+            condition = self.emit_repeat_capture_predicate(stmt, terms, cache, 0)
+        else:
+            condition = self.require_type(stmt.args[0], 'BOOLEAN')
         self.line('while True:', stmt.token)
         self.indent += 1
         self.block(stmt.body)
@@ -167,3 +241,5 @@ class ControlFlowLowering:
         self.indent += 1
         self.line('break')
         self.indent -= 2
+        if terms:
+            self.line(f'{cache}.clear()')

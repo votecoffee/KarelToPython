@@ -69,6 +69,24 @@ class ExpressionLowering:
             return self.lower_function_call(expr, allow_array_result=allow_array_result)
         self.error('E_INTERNAL', 'Unexpected expression node', expr.token)
 
+    @staticmethod
+    def bind_condition_temporary(term, temporary, spec, originals):
+        originals.append((term, term.kind, term.value, term.args))
+        term.kind, term.value, term.args = 'captured', (temporary, spec), []
+
+    @staticmethod
+    def restore_condition_terms(originals):
+        # Keep source operands and operator identities for input discovery.
+        for term, kind, value, args in originals:
+            term.kind, term.value, term.args = kind, value, args
+
+    def emit_condition_capture(self, term, originals):
+        code, spec = self.expression(term.args[0])
+        temporary = self.fresh()
+        self.line(f'{temporary} = _rt.assignment_value({code}, {term.token.line})', term.token)
+        self.bind_condition_temporary(term, temporary, spec, originals)
+        return temporary
+
     def require_type(self, expr, expected):
         code, spec = self.expression(expr)
         if expected == 'INTEGER' and spec[0] in NARROW_TYPES: return f'_rt.integer({code}, {expr.token.line})'

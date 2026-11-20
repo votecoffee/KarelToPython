@@ -117,6 +117,13 @@ class InputDiscoveryTests(unittest.TestCase):
         wildcard, _ = scan('WAIT FOR ERROR[*]')
         self.assertTrue(any(row['service'] == 'errors' for row in wildcard['context_requirements']))
 
+    def test_repeat_capture_discovery_follows_first_body_and_eager_capture(self):
+        report, _ = scan('REPEAT flag=TRUE UNTIL TRUE OR (EVAL(flag) AND EVAL(x>0))')
+        self.assertEqual(names(report), {('variable', 'X'): 'required'})
+        report, _ = scan('REPEAT RETURN UNTIL EVAL(x>0)')
+        self.assertEqual(names(report), {})
+        self.assertTrue(report['complete'])
+
     def test_zero_iteration_while_and_at_least_once_repeat(self):
         report,_=scan('WHILE flag DO x=1 ENDWHILE n=x')
         self.assertEqual(names(report),{('variable','FLAG'):'required',('variable','X'):'conditional'})

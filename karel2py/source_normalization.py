@@ -118,26 +118,27 @@ class SourceNormalization(UsingNormalization):
             routine.body = resolve(routine.body)
         self.current_routine = None
 
-    def normalize_wait_captures(self, bodies):
-        """Bind the WAIT EVAL clause after resolving ordinary routine names."""
+    def normalize_condition_captures(self, bodies):
+        """Bind WAIT and UNTIL EVAL clauses after resolving routine names."""
         if 'EVAL' in self.routines:
             return
+        captures = {'wait': 'wait_eval', 'repeat': 'repeat_eval'}
         for body in bodies:
             for stmt in self.walk_nodes(body):
-                if not isinstance(stmt, Statement) or stmt.kind != 'wait':
+                if not isinstance(stmt, Statement) or stmt.kind not in captures:
                     continue
                 for node in self.walk_nodes(stmt.args[0]):
                     if isinstance(node, Expr) and node.kind == 'call' and node.value == 'EVAL':
                         if len(node.args) != 1:
                             self.error('E_ARGUMENTS', 'EVAL requires one captured expression', node.token)
-                        node.kind = 'wait_eval'
+                        node.kind = captures[stmt.kind]
 
     def normalize_body_references(self):
         self.resolve_using_fields()
         self.resolve_bare_function_calls()
         if self.mode == 'pythonic':
             bodies = (self.program.body, *(routine.body for routine in self.program.routines))
-            self.normalize_wait_captures(bodies)
+            self.normalize_condition_captures(bodies)
             if any(isinstance(node, Expr) and node.kind == 'call' and node.value in ex.COOPERATIVE_PROCEDURES
                    for body in bodies for node in self.walk_nodes(body)):
                 self.cooperative = True

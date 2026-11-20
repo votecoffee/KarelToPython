@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1120.131308 - 2026-11-20
+
+- Translate EVAL in REPEAT UNTIL in both structured and labelled control flow.
+  Capture at the first test, retain values through iterations and same-loop
+  jumps, and discard captures when leaving the loop.
+- Follow the first reachable body and eager capture reads during input discovery.
+
 ## 26.1120.130621 - 2026-11-20
 
 - Translate WAIT FOR ERROR with a numeric code or wildcard and WAIT FOR

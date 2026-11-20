@@ -1,7 +1,7 @@
 """Generate checked timing and polling statements for the offline runtime."""
 from collections import Counter
 
-from .syntax import Expr
+from .syntax import expression_postorder
 
 
 WAIT_SAMPLE_REPORTS = {
@@ -13,12 +13,8 @@ WAIT_SAMPLE_REPORTS = {
 
 
 def wait_terms(operand):
-    """Visit capture and edge operands before their dependents, in source order."""
-    if isinstance(operand, Expr):
-        for child in operand.args:
-            yield from wait_terms(child)
-        if operand.kind == 'wait_eval' or operand.kind in WAIT_SAMPLE_REPORTS:
-            yield operand
+    return (node for node in expression_postorder(operand)
+            if node.kind == 'wait_eval' or node.kind in WAIT_SAMPLE_REPORTS)
 
 
 class TimingLowering:
@@ -51,9 +47,7 @@ class TimingLowering:
             condition = (self.emit_sampled_wait(operand, samples, originals, counts)
                          if samples else self.require_type(operand, 'BOOLEAN'))
         finally:
-            # Preserve source operands and operator identities for input discovery.
-            for term, kind, value, args in originals:
-                term.kind, term.value, term.args = kind, value, args
+            self.restore_condition_terms(originals)
         self.line(f'while not {self.test_code(condition, token.line)}:', token)
         self.indent += 1
         self.line(f'self._state.wait_poll({token.line})', token)
@@ -72,19 +66,11 @@ class TimingLowering:
             self.features.update(features)
             self.wait_uses[-1][field] = count
 
-    @staticmethod
-    def bind_wait_temporary(term, temporary, spec, originals):
-        originals.append((term, term.kind, term.value, term.args))
-        term.kind, term.value, term.args = 'captured', (temporary, spec), []
-
     def emit_wait_capture(self, term, originals):
         operand = term.args[0]
         if any(child.kind in WAIT_SAMPLE_REPORTS for child in wait_terms(operand)):
             self.error('E_EVAL', 'EVAL in WAIT FOR cannot capture a live condition event', term.token)
-        code, spec = self.expression(operand)
-        temporary = self.fresh()
-        self.line(f'{temporary} = _rt.assignment_value({code}, {term.token.line})', term.token)
-        self.bind_wait_temporary(term, temporary, spec, originals)
+        self.emit_condition_capture(term, originals)
 
     def emit_sampled_wait(self, operand, samples, originals, counts):
         predicate = self.fresh()
@@ -105,7 +91,7 @@ class TimingLowering:
             evaluation = self.wait_sample_expression(term, contexts[term.kind], key)
             temporary = self.fresh()
             self.line(f'{temporary} = {evaluation}', term.token)
-            self.bind_wait_temporary(term, temporary, ('BOOLEAN',), originals)
+            self.bind_condition_temporary(term, temporary, ('BOOLEAN',), originals)
         self.line(f'return {self.require_type(operand, "BOOLEAN")}', operand.token)
         self.indent -= 1
         return f'{predicate}()'
