@@ -24,10 +24,12 @@ now have their own modules. Condition handlers and connected timers share
 dedicated compiler modules for capture, storage checks, and lowering. Both
 control-flow engines share FOR counter checks, bound emission, and USING
 entry capture. Dedicated control-flow and SELECT generators handle label
-dispatch, CASE emission, and FOR scope unwinding. Next, extract routine
-effect analysis and retained-alias checks from declaration resolution. The
-runtime and extended services can be split by ownership after their boundaries
-are covered with regressions. See [compiler architecture](compiler-architecture.md).
+dispatch, CASE emission, and FOR scope unwinding. Routine effect propagation
+and retained-alias analysis run after declaration resolution. Next, extract
+ARRAY subscript, bare routine call, and USING reference normalization from
+declaration resolution. The runtime and extended services can be split by
+ownership after their boundaries are covered with regressions. See
+[compiler architecture](compiler-architecture.md).
 
 ## Python runner and parameter editor
 

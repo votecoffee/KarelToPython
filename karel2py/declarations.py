@@ -1,21 +1,16 @@
-"""Resolve declarations, normalize source references and analyze routine effects."""
+"""Resolve declarations and normalize source references before effect analysis."""
 from .compiler_language import (
     ARRAY_ELEMENTS,
     ARRAY_SCALARS,
-    BUILTIN_PROCEDURES,
     BUILTIN_SIGNATURES,
-    CONFIG_TEXT_PROCEDURES,
     CONSTANT_BUILTINS,
     DATA_RECORD_TYPES,
     MAX_CONSTANT_BUILTIN_CALLS,
     MAX_CONSTANT_BUILTIN_DEPTH,
-    MULTI_OUTPUT_PROCEDURES,
     NARROW_TYPES,
     POSITIONAL_VALUE_TYPES,
     PREDEFINED_CONSTANTS,
     RECORD_TYPES,
-    REGISTER_PROCEDURES,
-    TIME_TEXT_PROCEDURES,
     blocked_controller_names,
 )
 from .syntax import Expr, Statement
@@ -557,7 +552,6 @@ class DeclarationPasses:
         if self.mode=='pythonic' and any(isinstance(node,Expr) and node.kind=='call' and node.value in ex.COOPERATIVE_PROCEDURES
                 for body in (self.program.body,*[routine.body for routine in self.program.routines]) for node in self.walk_nodes(body)):
             self.cooperative=True
-        self.analyze_routine_effects()
 
     def normalize_array_chains(self):
         """Complete adjacent subscript groups use the existing comma path.
@@ -790,238 +784,3 @@ class DeclarationPasses:
                 yield from DeclarationPasses.walk_nodes(node.alternate)
         elif isinstance(node, (list, tuple)):
             for child in node: yield from DeclarationPasses.walk_nodes(child)
-
-    def analyze_routine_effects(self):
-        edges, calls_by_routine = {}, {}
-        for routine in self.program.routines:
-            if routine.external:
-                routine.parameter_writes.update(token.value for token,_ in routine.parameters)
-                routine.may_services=True
-            local_names = {token.value for token, _ in routine.declarations}
-            parameter_names = {token.value for token, _ in routine.parameters}
-            calls, call_nodes = set(), []
-            for node in self.walk_nodes(routine.body):
-                if (self.mode=='pythonic' and isinstance(node,Expr) and node.kind=='name' and node.value in ex.PREDEFINED_FILE_NAMES
-                        and node.value not in self.types.keys() | self.constants.keys() | self.routines.keys() | self.user_types.keys() | routine.local_types.keys() | routine.local_constants.keys()):routine.may_services=True
-                if isinstance(node,Statement) and node.kind in ('motion','motion_action','motion_control','file_cancel','system_pose_assign','system_selection_assign'):routine.may_services=True
-                if isinstance(node,Statement) and node.kind=='pulse':
-                    routine.may_services=True;routine.may_delay|=not node.args[2]
-                if isinstance(node, Statement) and node.kind in ('delay','wait'):
-                    routine.may_delay = True
-                if isinstance(node, Statement) and node.kind in ('write', 'write_items'):
-                    routine.may_write = True
-                if isinstance(node, Statement) and node.kind == 'read':
-                    routine.may_read = True
-                    for target in node.args:
-                        if target.kind == 'read_cr': continue
-                        if target.kind == 'read_item': target = target.args[0]
-                        name = self.root_name(target)
-                        if name is not None and name not in local_names: routine.side_effecting = True
-                        if name in parameter_names: routine.parameter_writes.add(name)
-                        if name in self.types and name not in local_names | parameter_names: routine.global_writes.add(name)
-                if isinstance(node, Statement) and node.kind == 'abort':
-                    routine.may_abort = True
-                if isinstance(node, Expr) and node.kind == 'call' and self.mode == 'pythonic' and node.value == 'GET_USEC_TIM' and node.value not in self.routines:
-                    routine.may_clock = True
-                if isinstance(node,Expr) and node.kind in ('system_pose','system_selection'):routine.may_services=True
-                if isinstance(node,Expr) and node.kind=='call' and self.mode=='pythonic' and node.value in ex.PROCEDURES.keys()|ex.FUNCTIONS.keys() and node.value not in self.routines:
-                    routine.may_services=True
-                    if node.value=='PRINT_FILE': routine.may_write=True
-                    signature=ex.signature_for(node.value,len(node.args))
-                    for argument,(mode,_) in zip(node.args,signature):
-                        if mode not in ('o','r','m'): continue
-                        name=self.root_name(argument)
-                        if name is not None and name not in local_names: routine.side_effecting=True
-                        if name in parameter_names: routine.parameter_writes.add(name)
-                        if name in self.types and name not in local_names|parameter_names: routine.global_writes.add(name)
-                    if ex.variable_write_call(node.value,node.args): routine.global_writes.update(self.types)
-                if isinstance(node, Statement) and node.kind in ('assign', 'for','timer_connect','timer_disconnect'):
-                    name = self.root_name(node.args[0])
-                    if node.kind in ('timer_connect','timer_disconnect') and name in parameter_names:routine.timer_parameter_writes.add(name)
-                    if name is not None and name not in local_names: routine.side_effecting = True
-                    if name in parameter_names: routine.parameter_writes.add(name)
-                    if name in self.types and name not in local_names | parameter_names: routine.global_writes.add(name)
-                if isinstance(node, Statement) and node.kind == 'call':
-                    call = node.args[0]
-                    if call.value in MULTI_OUTPUT_PROCEDURES:
-                        for output in call.args[1:]:
-                            name = self.root_name(output)
-                            if name is not None and name not in local_names: routine.side_effecting = True
-                            if name in parameter_names: routine.parameter_writes.add(name)
-                            if name in self.types and name not in local_names | parameter_names: routine.global_writes.add(name)
-                    if self.mode == 'pythonic' and call.value in CONFIG_TEXT_PROCEDURES | TIME_TEXT_PROCEDURES and call.value not in self.routines:
-                        outputs=call.args[1:3] if call.value=='CNV_STR_CONF' else call.args[1:]
-                        for output in outputs:
-                            name = self.root_name(output)
-                            if name is not None and name not in local_names: routine.side_effecting = True
-                            if name in parameter_names: routine.parameter_writes.add(name)
-                            if name in self.types and name not in local_names | parameter_names: routine.global_writes.add(name)
-                    if self.mode == 'pythonic' and call.value in REGISTER_PROCEDURES and call.value not in self.routines:
-                        if call.value == 'GET_REG': routine.may_read_registers = True
-                        else: routine.may_write_registers = True
-                        for output in call.args[1:] if call.value == 'GET_REG' else call.args[2:]:
-                            name = self.root_name(output)
-                            if name is not None and name not in local_names: routine.side_effecting = True
-                            if name in parameter_names: routine.parameter_writes.add(name)
-                            if name in self.types and name not in local_names | parameter_names: routine.global_writes.add(name)
-                    if call.value in BUILTIN_PROCEDURES and call.args:
-                        name = self.root_name(call.args[-1])
-                        if name is not None and name not in local_names:
-                            routine.side_effecting = True
-                        if name in parameter_names: routine.parameter_writes.add(name)
-                        if name in self.types and name not in local_names | parameter_names: routine.global_writes.add(name)
-                if isinstance(node, Expr) and node.kind == 'call' and node.value in self.routines:
-                    calls.add(node.value)
-                    call_nodes.append(node)
-            edges[routine.name] = calls
-            calls_by_routine[routine.name] = call_nodes
-        changed = True
-        while changed:
-            changed = False
-            for routine in self.program.routines:
-                self.current_routine=routine
-                if self.mode=='pythonic' and not routine.may_services:
-                    for node in self.walk_nodes(routine.body):
-                        if not isinstance(node,Statement) or node.kind!='assign':continue
-                        target=node.args[0]
-                        while target.kind=='group':target=target.args[0]
-                        if not self.is_array_prefix_value(target):continue
-                        expected=self.access_type(target);actual=self.access_type(node.args[1])
-                        if rt.kinematic_array_kind(expected,actual) or rt.kinematic_record_kind(expected,actual):
-                            routine.may_services=True;changed=True;break
-                if not routine.side_effecting and any(self.routines[name].side_effecting for name in edges[routine.name]):
-                    routine.side_effecting = True
-                    changed = True
-                if not routine.may_delay and any(self.routines[name].may_delay for name in edges[routine.name]):
-                    routine.may_delay = True
-                    changed = True
-                if not routine.may_write and any(self.routines[name].may_write for name in edges[routine.name]):
-                    routine.may_write = True
-                    changed = True
-                if not routine.may_read and any(self.routines[name].may_read for name in edges[routine.name]):
-                    routine.may_read = True
-                    changed = True
-                if not routine.may_abort and any(self.routines[name].may_abort for name in edges[routine.name]):
-                    routine.may_abort = True
-                    changed = True
-                if not routine.may_clock and any(self.routines[name].may_clock for name in edges[routine.name]):
-                    routine.may_clock = True
-                    changed = True
-                for effect in ('may_read_registers','may_write_registers'):
-                    if not getattr(routine,effect) and any(getattr(self.routines[name],effect) for name in edges[routine.name]):
-                        setattr(routine,effect,True)
-                        changed = True
-                if not routine.may_services and any(self.routines[name].may_services for name in edges[routine.name]):
-                    routine.may_services=True; changed=True
-                parameter_names = {token.value for token, _ in routine.parameters}
-                local_names = {token.value for token, _ in routine.declarations}
-                for call in calls_by_routine[routine.name]:
-                    callee = self.routines[call.value]
-                    inherited = callee.global_writes - routine.global_writes
-                    if inherited:
-                        routine.global_writes.update(inherited)
-                        changed = True
-                    for argument, (formal, expected) in zip(call.args, callee.parameters):
-                        # Only bare storage lets a callee write back to a formal.
-                        # Grouping makes a temporary copy instead.
-                        if formal.value not in callee.parameter_writes or argument.kind not in ('name', 'index', 'field'):
-                            continue
-                        name = self.root_name(argument)
-                        if not self.argument_is_reference(argument,expected):continue
-                        if formal.value in callee.timer_parameter_writes and name in parameter_names and name not in routine.timer_parameter_writes:
-                            routine.timer_parameter_writes.add(name);changed=True
-                        if name in parameter_names and name not in routine.parameter_writes:
-                            routine.parameter_writes.add(name)
-                            changed = True
-                        if (name in self.types and name not in local_names | parameter_names
-                                and name not in routine.global_writes):
-                            routine.global_writes.add(name)
-                            changed = True
-
-        unknown={routine.name for routine in self.program.routines if routine.external}
-        while True:
-            inherited={name for name,targets in edges.items() if targets&unknown}
-            if inherited<=unknown:break
-            unknown.update(inherited)
-        self.external_write_routines=unknown
-        # Only explicitly passed references can expose a private value to a
-        # callee. Calls capable of retaining handlers or unknown external links
-        # may keep writable aliases after returning, so block later counters on
-        # those lexical roots. Detached value arguments have independent roots.
-        retaining={routine.name for routine in self.program.routines if routine.external or
-                   any(isinstance(node,Statement) and node.kind in ('condition','timer_connect')
-                       for node in self.walk_nodes(routine.body))}
-        while True:
-            inherited={name for name,targets in edges.items() if targets&retaining}
-            if inherited<=retaining:break
-            retaining.update(inherited)
-        for routine in (None,*self.program.routines):
-            self.current_routine=routine
-            for node in self.walk_nodes(routine.body if routine else self.program.body):
-                if not isinstance(node,Expr) or node.kind!='call' or node.value not in retaining:continue
-                callee=self.routines[node.value]
-                for argument,(formal,expected) in zip(node.args,callee.parameters):
-                    identity=self.protection_root(argument)
-                    if (identity not in self.private_using_roots or formal.value not in callee.parameter_writes
-                            or argument.kind not in ('name','field','index')):continue
-                    if not self.argument_is_reference(argument,expected):continue
-                    self.escaped_private_using_roots.add(identity)
-        handler_retaining={routine.name for routine in self.program.routines if
-            any(isinstance(node,Statement) and node.kind=='condition' for node in self.walk_nodes(routine.body))}
-        while True:
-            inherited={name for name,targets in edges.items() if targets&handler_retaining}
-            if inherited<=handler_retaining:break
-            handler_retaining.update(inherited)
-        for routine in (None,*self.program.routines):
-            self.current_routine=routine
-            locals_={token.value for token,_ in routine.declarations} if routine else set()
-            formals={token.value for token,_ in routine.parameters} if routine else set()
-            for node in self.walk_nodes(routine.body if routine else self.program.body):
-                if not isinstance(node,Expr) or node.kind!='call' or node.value not in handler_retaining:continue
-                callee=self.routines[node.value]
-                for argument,(formal,expected) in zip(node.args,callee.parameters):
-                    root=self.protection_root(argument)
-                    if formal.value not in callee.timer_parameter_writes or root in self.private_using_roots:continue
-                    if not self.argument_is_reference(argument,expected):continue
-                    if root in locals_:self.retained_timer_alias_roots.add((routine.name,root))
-                    elif root in self.types and root not in formals:self.retained_timer_alias_roots.add((None,root))
-        # A retained writable reference must not outlive the counter's root proof.
-        path_retaining=handler_retaining|{r.name for r in self.program.routines if r.external}
-        while True:
-            inherited={name for name,targets in edges.items() if targets&path_retaining}
-            if inherited<=path_retaining:break
-            path_retaining.update(inherited)
-        for routine in (None,*self.program.routines):
-            self.current_routine=routine
-            locals_={token.value for token,_ in routine.declarations} if routine else set()
-            formals={token.value for token,_ in routine.parameters} if routine else set()
-            types=self.types|(routine.local_types if routine else {})|self.private_using_roots
-            for node in self.walk_nodes(routine.body if routine else self.program.body):
-                if not isinstance(node,Expr) or node.kind!='call' or node.value not in path_retaining:continue
-                callee=self.routines[node.value]
-                for argument,(formal,expected) in zip(node.args,callee.parameters):
-                    if formal.value not in callee.parameter_writes:continue
-                    if argument.kind=='call' and argument.value=='BYNAME':
-                        self.unknown_path_counter_alias=True;continue
-                    if not self.argument_is_reference(argument,expected):continue
-                    root=self.protection_root(argument)
-                    if root not in types or not rt.path_counter_root(types[root]):continue
-                    if root in locals_:self.retained_path_counter_roots.add((routine.name,root))
-                    elif root in self.types and root not in formals:self.retained_path_counter_roots.add((None,root))
-        self.current_routine=None
-
-    def has_external_effect_call(self, expr):
-        return any(isinstance(node, Expr) and node.kind == 'call' and node.value in self.routines
-                   and (self.routines[node.value].side_effecting or self.routines[node.value].may_delay
-                        or self.routines[node.value].may_write or self.routines[node.value].may_read or self.routines[node.value].may_abort
-                        or self.routines[node.value].may_clock or self.routines[node.value].may_read_registers
-                        or self.routines[node.value].may_write_registers or self.routines[node.value].may_services)
-                   for node in self.walk_nodes(expr))
-
-    def has_fresh_active_counters(self):
-        locals_only=set(self.private_using_roots)
-        if self.current_routine:locals_only.update(token.value for token,_ in self.current_routine.declarations)
-        return self.active_counters <= locals_only
-
-    def named_active_counters(self):
-        return self.active_counters-self.private_using_roots.keys()

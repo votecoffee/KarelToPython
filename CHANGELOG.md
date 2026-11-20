@@ -1,5 +1,11 @@
 # Changelog
 
+## 26.1120.003340 - 2026-11-20
+
+- Run routine effect analysis after declaration resolution. Separate direct
+  effect collection, call propagation, and retained-alias checks that protect
+  FOR counter storage.
+
 ## 26.1120.002847 - 2026-11-20
 
 - Give body dispatch and FOR scope unwinding a dedicated Python generator.

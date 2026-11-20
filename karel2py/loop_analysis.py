@@ -64,3 +64,12 @@ class LoopAnalysis:
     def check_for_bound_effects(self, initial: Expr, final: Expr, token):
         if self.mode == 'strict' and (self.has_routine_call(initial) or self.has_routine_call(final)):
             self.error('E_EVALUATION_ORDER', 'FOR bounds with routine calls are blocked', token)
+
+    def has_fresh_active_counters(self):
+        local_roots = set(self.private_using_roots)
+        if self.current_routine:
+            local_roots.update(token.value for token, _ in self.current_routine.declarations)
+        return self.active_counters <= local_roots
+
+    def named_active_counters(self):
+        return self.active_counters - self.private_using_roots.keys()

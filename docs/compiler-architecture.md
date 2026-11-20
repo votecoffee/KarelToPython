@@ -7,7 +7,8 @@ input-discovery contract to the result.
 | Stage | Modules | Interface |
 | --- | --- | --- |
 | Syntax | `lexer.py`, `parser.py`, `syntax.py` | `Parser.parse()` returns a source AST. The linked-project loader uses the same parser for declaration discovery. |
-| Declaration analysis | `declarations.py`, `compiler_language.py` | `DeclarationPasses` resolves declarations, constants, and types. It normalizes source references and records routine effects in the emitter's current scope. |
+| Declaration analysis | `declarations.py`, `compiler_language.py` | `DeclarationPasses` resolves declarations, constants, and types and normalizes source references. |
+| Routine effects | `routine_effects.py`, `retained_aliases.py` | Collects direct effects and propagates them through routine calls. Records retained writable aliases used by the FOR storage checks. |
 | Type queries | `type_checking.py` | `TypeQueries` inspects schemas, resolves scoped references and FILE prefixes, and checks storage for BYNAME and service operands. Declaration analysis and lowering share these queries. |
 | Operator rules | `operator_types.py` | Unary and binary rules check operand schemas and return a result schema. Python generation applies evaluation order, source diagnostics, and reporting. |
 | Call analysis | `call_analysis.py` | Plans routine arguments and results, including conversion, storage, and collection rules. Validates bindings and protected counter use, resolves service signatures, and checks PATH node compatibility. |
@@ -48,6 +49,11 @@ FOR lowering initializes the captured counter before evaluating the final
 bound. Structured loops clear it on exit, and labelled bodies track it in the
 dispatcher scope stack. USING entry generation consumes the capture kinds
 recorded by declaration analysis and uses the shared PATH node type query.
+Routine effect propagation runs after declaration normalization. It keeps
+timer-formal writes alongside ordinary parameter and global writes. Retained
+alias checks use those effects and the reference-binding rules to identify
+private USING roots, borrowed timer roots, and PATH roots that may still be
+writable after a routine returns.
 Keep label validation independent of Python emission. The report modules are
 applied in order because later policies extend earlier entries.
 
