@@ -349,6 +349,22 @@ retains uncertainty about task and handler effects across FILE lifecycle
 operations. Configure the endpoint and supply any PATH storage and input
 stream data through the run context.
 
+### PATH records
+
+Discovery supports statically located PATH headers, nodes and their fields,
+including PATH ARRAY cells. `ROUTE.COUNT` and `ROUTE[0].COUNT` share the
+same input address, `ROUTE[0].COUNT`. READ and WRITE can also use a computed
+selector when analysis proves its value. An inclusive range with known bounds
+visits its selected records in source order. Unknown selectors remain explicit
+in the discovery report. Retranslate older output to add the header-selector
+and default-node metadata.
+
+Provide the exact typed PATH root in `inputs.context.variables` to edit its
+selected scalar or structure. The template can bind to a supplied header,
+node or field, keeping the remaining PATH values and node count intact.
+A missing root or unavailable node is reported as a `path-storage` requirement.
+Whole-PATH operations whose shape depends on runtime data remain unresolved.
+
 ### Boolean and INTEGER operators
 
 WAIT FOR entry captures are read before the live predicate. Their inputs can

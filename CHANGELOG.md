@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1120.155439 - 2026-11-20
+
+- Discover PATH header, node and range inputs in Pythonic code, including
+  selected PATH ARRAY cells and implicit node schemas.
+- Bind discovered PATH fields and records to saved storage for scalar or
+  structured input edits. Report missing PATH roots and unavailable nodes.
+
 ## 26.1120.154356 - 2026-11-20
 
 - Discover source inputs in explicit FILE transfers, including handle

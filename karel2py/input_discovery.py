@@ -300,7 +300,12 @@ class _Analyzer:
 
     def child(self, loc, kind, value, node):
         spec=loc.spec
-        if kind=='field':
+        if spec and spec[0] == 'PATH':
+            if kind == 'field':
+                header = self.child(loc, 'index', 0, node)
+                return self.child(header, kind, value, node) if header else None
+            selected = spec[2] if value == 0 else (spec[1] or self.plan.get('default_path_node')) if 1 <= value <= 32767 else None
+        elif kind=='field':
             fields=dict(spec[2]) if spec and spec[0]=='STRUCTURE' else self.plan.get('record_fields',{}).get(spec[0],{}) if spec else {}
             selected=fields.get(value)
         else:
@@ -315,18 +320,36 @@ class _Analyzer:
             return None
         return _Location(loc.kind,loc.owner,loc.root,(*loc.parts,(kind,value)),selected,loc.root_spec)
 
-    def locate(self, expr, flow, conditional):
+    def path_io_locations(self, expr, flow, conditional):
+        """Resolve a bounded transfer's ordered records before publishing any writes."""
+        while expr['kind'] == 'group':
+            expr = expr['args'][0]
+        if expr['kind'] != 'path_io_range':
+            return [self.locate(expr, flow, conditional, path_io=True)]
+        receiver, first_arg, last_arg = expr['args']
+        path = self.locate(receiver, flow, conditional)
+        first = self.expr(first_arg, flow, conditional).constant
+        last = self.expr(last_arg, flow, conditional).constant
+        if (path is None or not path.spec or path.spec[0] != 'PATH'
+                or type(first) is not int or type(last) is not int
+                or not 0 <= first <= 32767 or not 1 <= last <= 32767):
+            self.unresolved_at('selection', 'PATH range requires known bounds and a declared PATH receiver', expr)
+            return [None]
+        if first == 0 and path.spec[2] is None:
+            first = 1
+        step = 1 if first <= last else -1
+        indexes = range(first, last + step, step)
+        if len(indexes) > 1024:
+            self.unresolved_at('selection', 'PATH range exceeds the bounded FILE transfer limit', expr)
+            return [None]
+        return [self.child(path, 'index', index, expr) for index in indexes]
+
+    def locate(self, expr, flow, conditional, *, path_io=False):
         if not isinstance(expr,dict):return None
         kind=expr.get('kind');args=expr.get('args',[])
         if 'token' in expr:return self.slot(expr['token'],expr)
         if kind=='name':return self.slot(expr['value'],expr)
-        if kind=='group':return self.locate(args[0],flow,conditional)
-        if kind=='path_io_range':
-            self.locate(args[0], flow, conditional)
-            for bound in args[1:]:
-                self.expr(bound, flow, conditional)
-            self.unresolved_at('selection', 'PATH range I/O requires existing selected nodes', expr)
-            return None
+        if kind=='group':return self.locate(args[0],flow,conditional,path_io=path_io)
         if kind=='field':
             base=self.locate(args[0],flow,conditional)
             return self.child(base,'field',expr['value'],expr) if base else None
@@ -341,11 +364,19 @@ class _Analyzer:
                     return _Location('port','',port,(('index',index),),[self.plan['port_types'][port]])
                 self.unresolved_at('dynamic-address','Port index requires an explicit runtime mapping',expr);return None
             loc=self.locate(base,flow,conditional)
-            for argument in args[1:]:
+            for position, argument in enumerate(args[1:], 1):
                 index=self.expr(argument,flow,conditional).constant
                 if type(index) is not int:
-                    self.unresolved_at('dynamic-address','ARRAY/joint index is not statically known for '+(loc.path if loc else '<computed>'),expr);loc=None
-                elif loc:loc=self.child(loc,'index',index,expr)
+                    self.unresolved_at('dynamic-address','Index is not statically known for '+(loc.path if loc else '<computed>'),expr);loc=None
+                elif loc:
+                    header_allowed = position == len(args) - 1 and (
+                        expr.get('static_zero_subscript') or path_io and self.plan.get('path_index_io')
+                    )
+                    if loc.spec[0] == 'PATH' and index == 0 and not header_allowed:
+                        self.unresolved_at('selection', 'PATH header requires a statically selected zero subscript', expr)
+                        loc = None
+                    else:
+                        loc = self.child(loc, 'index', index, expr)
             return loc
         if kind in ('call','binary','unary','literal','real_literal','predefined'):
             self.expr(expr,flow,conditional)
@@ -446,7 +477,11 @@ class _Analyzer:
             self.unresolved_at('write-target','Writable target is not statically resolved',node);return
         leaves=self.leaves(loc)
         if leaves is None:
-            self.unresolved_at('schema','Resource or unsupported write: '+loc.path,node);return
+            self.unresolved_at('schema','Resource or unsupported write: '+loc.path,node)
+            _, terminal = _array_dimensions(loc.spec)
+            if terminal and terminal[0] == 'PATH':
+                self.opaque(flow)
+            return
         stored=self.stored(loc,value,leaves,node)
         for leaf in leaves:
             key=leaf.key;flow.maybe.add(key);flow.constants.pop(key,None)
@@ -478,7 +513,7 @@ class _Analyzer:
             self.unresolved_at('derived-value','Aggregate result consumed without proven complete data',node)
         return value
 
-    def expr(self, node, flow, conditional=False, *, partial=False):
+    def expr(self, node, flow, conditional=False, *, partial=False, path_io=False):
         self.tick()
         if not isinstance(node,dict):return _Value()
         kind=node.get('kind');args=node.get('args',[]);value=node.get('value')
@@ -495,13 +530,15 @@ class _Analyzer:
             if constant is not UNKNOWN:return _Value(constant)
             if value in self.plan['routines']:return self.result_value(self.call(dict(node,kind='call',args=[]),flow,conditional),node,partial)
         if kind == 'path_io_range':
-            self.locate(node, flow, conditional)
+            for location in self.path_io_locations(node, flow, conditional):
+                if location is not None:
+                    self.read(location, node, flow, conditional)
             return _Value(complete=False)
         if kind in ('field','index'):
-            loc=self.locate(node,flow,conditional)
+            loc=self.locate(node,flow,conditional,path_io=path_io)
             if loc:return self.read(loc,node,flow,conditional,partial=partial)
             self.unresolved_at('selection','Computed or dynamic data read is unresolved',node);return _Value(complete=False)
-        if kind=='group':return self.expr(args[0],flow,conditional,partial=partial)
+        if kind=='group':return self.expr(args[0],flow,conditional,partial=partial,path_io=path_io)
         if kind in ('unary','binary'):
             if kind=='binary' and value in ('AND','OR'):
                 left=self.expr(args[0],flow,conditional);evaluation=node.get('evaluation')
@@ -561,7 +598,8 @@ class _Analyzer:
             self.unresolved_at('condition-source', 'Runtime condition state requires review: '+kind, node)
             return _Value(spec=['BOOLEAN'])
         if kind in ('write_item','read_item','eval'):
-            values=[self.expr(item,flow,conditional) for item in args]
+            values = [self.expr(item, flow, conditional, path_io=kind == 'write_item' and index == 0)
+                      for index, item in enumerate(args)]
             return values[0] if values else _Value()
         if kind=='write_cr':return _Value()
         self.unresolved_at('expression','Expression form requires further analysis: '+str(kind),node)
@@ -1257,7 +1295,7 @@ class _Analyzer:
                     continue
                 formatted = argument['kind'] == 'read_item'
                 target = argument['args'][0] if formatted else argument
-                destinations.append(self.locate(target, flow, conditional))
+                destinations.extend(self.path_io_locations(target, flow, conditional))
                 if formatted:
                     for control in argument['args'][1:]:
                         if flow.stopped and not flow.opaque:
@@ -1266,6 +1304,8 @@ class _Analyzer:
             if flow.stopped and not flow.opaque:
                 return
             self.unresolved_at('input-stream','READ requires explicitly supplied input data',node)
+            if any(location is None for location in destinations):
+                self.opaque(flow)
             for location in destinations:
                 self.write(location, _Value(), flow, node, definite=False)
             return

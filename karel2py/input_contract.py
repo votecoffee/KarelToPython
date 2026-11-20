@@ -160,6 +160,8 @@ def build(program, emitter):
             row['args'] = encode(value.args, depth + 1)
             if kind == 'Expr':
                 row['value'] = encode(value.value, depth + 1)
+                if value.kind == 'index' and emitter.path_header_index(value.args[-1]):
+                    row['static_zero_subscript'] = True
                 if value.kind=='binary' and value.value in ('AND','OR'):
                     row['evaluation']=encode('short-circuit' if id(value) in emitter.short_circuit_expressions else 'eager',depth+1)
                 if value.kind == 'call' and value.value in emitter.routines:
@@ -202,12 +204,19 @@ def build(program, emitter):
         groups = set(row['group'] for row in emitter.group_uses)
         if group is None and len(groups) == 1:
             group = next(iter(groups))
-        from .runtime import DATA_RECORD_FIELDS
+        from .runtime import DATA_RECORD_FIELDS, PREDEFINED_STRUCTURES
         from .extended import PORT_TYPES
         fields = {}
+        default_path_node = None
+
         def collect(spec):
+            nonlocal default_path_node
             if type(spec) is not tuple:
                 return
+            if len(spec) == 3 and spec[0] == 'PATH' and spec[1] is None:
+                if default_path_node is None:
+                    default_path_node = PREDEFINED_STRUCTURES['STD_PTH_NODE']
+                    collect(default_path_node)
             if spec and type(spec[0]) is str and spec[0] in DATA_RECORD_FIELDS and spec[0] not in fields:
                 fields[spec[0]] = dict(DATA_RECORD_FIELDS[spec[0]])
                 for member in fields[spec[0]].values():
@@ -223,6 +232,7 @@ def build(program, emitter):
                     types=encode(emitter.types), constants=encode(emitter.constants),
                     imports=encode(program.imported_variables), default_group=group,
                     record_fields=encode(fields), port_types=encode(PORT_TYPES),
+                    path_index_io=True, default_path_node=encode(default_path_node),
                     source_map=encode(emitter.source_map),
                     body=body, routines=routines)
     except (InputContractError, RecursionError) as error:

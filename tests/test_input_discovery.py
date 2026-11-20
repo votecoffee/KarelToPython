@@ -269,6 +269,70 @@ class InputDiscoveryTests(unittest.TestCase):
             {'dynamic-address', 'file-state', 'file-transport'},
         )
 
+    def test_path_header_field_aliases_share_write_facts(self):
+        prefix = ('TYPE node_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+                  'header_t=STRUCTURE total:INTEGER ENDSTRUCTURE')
+        report, _ = scan(
+            'route.total=7 n=route[0].total+route[1].amount',
+            decl='route:PATH NODEDATA=node_t PATHHEADER=header_t n:INTEGER', prefix=prefix,
+        )
+        self.assertEqual(names(report), {('variable', 'ROUTE[1].AMOUNT'): 'required'})
+        self.assertEqual(report['inputs'][0]['selectors'], [('index', 1), ('field', 'AMOUNT')])
+
+    def test_analyzes_known_path_ranges_and_runtime_header_index(self):
+        report, _ = scan(
+            'first=0 WRITE(routes[1][first]) first=2 WRITE channel(routes[1,first..1])',
+            decl='channel:FILE routes:ARRAY[1] OF PATH NODEDATA=node_t PATHHEADER=header_t first:INTEGER',
+            prefix=('TYPE node_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+                    'header_t=STRUCTURE total:INTEGER ENDSTRUCTURE'),
+        )
+        self.assertEqual(names(report), {
+            ('variable', 'ROUTES[1][1]'): 'required',
+            ('variable', 'ROUTES[1][2]'): 'required',
+            ('variable', 'ROUTES[1][0]'): 'required',
+        })
+
+    def test_read_range_does_not_treat_destinations_as_initial_reads(self):
+        report, _ = scan('READ(route[1..2]) n=route[2].amount',
+                         decl='route:PATH NODEDATA=node_t n:INTEGER',
+                         prefix='TYPE node_t=STRUCTURE amount:INTEGER ENDSTRUCTURE')
+        self.assertEqual(names(report), {('variable', 'ROUTE[2].AMOUNT'): 'conditional'})
+        self.assertEqual({row['code'] for row in report['unresolved']}, {'input-stream'})
+
+    def test_path_data_discovery_includes_implicit_node_schema_and_named_header(self):
+        report, _ = scan(
+            "GET_VAR(entry,'','ROUTE[0].TOTAL',n,status) WRITE(route[1].node_pos.location.x)",
+            decl='route:PATH PATHHEADER=header_t entry,n,status:INTEGER',
+            prefix='TYPE header_t=STRUCTURE total:INTEGER ENDSTRUCTURE',
+        )
+        self.assertEqual(names(report), {
+            ('variable', 'ROUTE[0].TOTAL'): 'required',
+            ('variable', 'ROUTE[1].NODE_POS.LOCATION.X'): 'required',
+        })
+
+    def test_path_replacement_invalidates_prior_node_value_facts(self):
+        report, _ = scan(
+            'route[1].amount=0 route=other '
+            'IF route[1].amount=0 THEN n=x ELSE n=y ENDIF',
+            decl='route,other:PATH NODEDATA=node_t n,x,y:INTEGER',
+            prefix='TYPE node_t=STRUCTURE amount:INTEGER ENDSTRUCTURE',
+        )
+        self.assertEqual(names(report), {
+            ('variable', 'ROUTE[1].AMOUNT'): 'conditional',
+            ('variable', 'X'): 'conditional',
+            ('variable', 'Y'): 'conditional',
+        })
+
+    def test_computed_ordinary_zero_keeps_its_unresolved_node_selection(self):
+        report, _ = scan(
+            'i=0 n=route[i].amount',
+            decl='route:PATH NODEDATA=node_t PATHHEADER=header_t n,i:INTEGER',
+            prefix=('TYPE node_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+                    'header_t=STRUCTURE total:INTEGER ENDSTRUCTURE'),
+        )
+        self.assertEqual(report['inputs'], [])
+        self.assertIn('selection', {row['code'] for row in report['unresolved']})
+
     def test_explicit_file_read_discovers_path_bounds_and_format_controls(self):
         report, _ = scan(
             'READ channel[which](route[first..last]::width)',

@@ -43,6 +43,18 @@ def _supplied(value):
     return value is not None
 
 
+def _path_record_slot(payload, spec, index):
+    """Locate a supplied PATH record in a context snapshot."""
+    if type(payload) is not dict or type(index) is not int:
+        raise InputTemplateError('PATH input needs an existing saved receiver.')
+    if index == 0 and spec[2] is not None:
+        return payload, 'data', spec[2]
+    nodes = payload.get('nodes')
+    if type(nodes) is not list or not 1 <= index <= len(nodes):
+        raise InputTemplateError('The PATH node is outside its saved shape.')
+    return nodes, index - 1, spec[1] or rt.PREDEFINED_STRUCTURES['STD_PTH_NODE']
+
+
 def _selected(spec, payload, selectors):
     """Walk canonical snapshots; retain a whole-root edit pointer separately."""
     for kind, value in selectors:
@@ -56,6 +68,9 @@ def _selected(spec, payload, selectors):
         elif kind == 'index' and spec[0] == 'JOINTPOS':
             spec = rt.REAL
             payload = payload['axes'][value - 1]
+        elif kind == 'index' and spec[0] == 'PATH':
+            container, key, spec = _path_record_slot(payload, spec, value)
+            payload = container[key]
         else:
             raise InputTemplateError('Unsupported input selector')
     return payload
@@ -114,11 +129,17 @@ def _prepare(report, context, *, materialize=True):
                 binding['selectors'] = [list(item) for item in candidate['selectors']]
                 try:
                     spec = tuple_spec(candidate['root_type'])
-                    count = rt._validate_data_schema(spec)
+                    path_storage = spec[0] == 'PATH' or rt.path_array_io_type(spec)
+                    count = 0 if path_storage else rt._validate_data_schema(spec)
                 except (rt.KarelRuntimeError, TypeError, ValueError, IndexError) as error:
                     if key not in failures:
                         failures[key] = str(error)
                         require('schema', 'Cannot construct root '+key[1]+': '+str(error), program=key[0], path=key[1])
+                    continue
+                if path_storage and key not in roots:
+                    if key not in failures:
+                        failures[key] = 'Supply the typed PATH root with its existing records'
+                        require('path-storage', failures[key], program=key[0], path=key[1])
                     continue
                 if key in roots:
                     reference = execution.variables.bindings.get(key)
@@ -147,6 +168,11 @@ def _prepare(report, context, *, materialize=True):
                     selected = _selected(spec, payload, candidate['selectors'])
                     binding['status'] = 'supplied' if _supplied(selected) else 'missing'
                 except (KeyError, TypeError, IndexError, rt.KarelRuntimeError, InputTemplateError):
+                    if path_storage:
+                        binding['context_pointer'] = None
+                        require('path-storage', 'Supply the selected PATH storage in the saved context',
+                                program=key[0], path=candidate['path'])
+                        continue
                     binding['status'] = 'missing'
             else:
                 kind = candidate['kind']

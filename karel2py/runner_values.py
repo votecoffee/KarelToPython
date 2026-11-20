@@ -4,7 +4,7 @@ import json
 from math import prod
 
 from . import runtime as rt
-from .input_template import InputTemplateError
+from .input_template import InputTemplateError, _path_record_slot
 from .storage import array_state_values, restore_value, tuple_spec
 
 
@@ -128,6 +128,8 @@ def variable_location(context, candidate):
                 raise InputTemplateError('The joint axis is outside its saved width.')
             axes = next((payload[name] for name in ('axes', 'joints', 'values') if name in payload), None) if isinstance(payload, dict) else payload
             container, key, spec = axes, value - 1, ('REAL',)
+        elif kind == 'index' and spec[0] == 'PATH':
+            container, key, spec = _path_record_slot(payload, spec, value)
         else:
             raise InputTemplateError('This selector requires Edit context.')
     if (type(key) is int and not isinstance(container, list)) or (type(key) is str and not isinstance(container, dict)):

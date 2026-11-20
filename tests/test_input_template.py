@@ -92,6 +92,66 @@ class InputTemplateTests(unittest.TestCase):
             row['code'] for row in bound['template']['discovery']['unresolved']
         })
 
+    def test_path_header_and_node_inputs_bind_to_supplied_records(self):
+        from karel2py.runner_values import scalar_slot
+        from karel2py.structured_inputs import structured_slot
+
+        prefix = ('TYPE node_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+                  'header_t=STRUCTURE total:INTEGER ENDSTRUCTURE')
+        context = {'variables': [{
+            'program': 'T', 'path': 'ROUTE',
+            'type': ['PATH', ['STRUCTURE', 'NODE_T', [['AMOUNT', ['INTEGER']]]],
+                     ['STRUCTURE', 'HEADER_T', [['TOTAL', ['INTEGER']]]]],
+            'value': {'nodes': [{'AMOUNT': MISSING}, {'AMOUNT': 9}], 'data': {'TOTAL': 7}},
+        }]}
+        result = prepare('WRITE(route[0],route[1].amount)',
+                         decl='route:PATH NODEDATA=node_t PATHHEADER=header_t', prefix=prefix, context=context)
+        header, node = result['template']['discovery']['inputs']
+        bindings = by_path(result)
+        self.assertEqual(bindings['ROUTE[0]']['status'], 'supplied')
+        self.assertEqual(bindings['ROUTE[1].AMOUNT']['status'], 'missing')
+        editable = result['context']
+        structured_slot(editable, header, bindings[header['path']]).replace({'TOTAL': 12})
+        scalar_slot(editable, node, bindings[node['path']]).set_text('INTEGER', '17')
+        self.assertEqual(editable['variables'][0]['value'],
+                         {'nodes': [{'AMOUNT': 17}, {'AMOUNT': 9}], 'data': {'TOTAL': 12}})
+        self.assertEqual(context['variables'][0]['value']['data'], {'TOTAL': 7})
+
+    def test_missing_path_root_or_node_is_explicit_and_never_allocated(self):
+        args = dict(decl='route:PATH NODEDATA=node_t',
+                    prefix='TYPE node_t=STRUCTURE amount:INTEGER ENDSTRUCTURE')
+        missing = prepare('WRITE(route[2].amount)', **args)
+        self.assertNotIn('variables', missing['context'])
+        self.assertEqual(by_path(missing)['ROUTE[2].AMOUNT']['status'], 'unmapped')
+        self.assertEqual([row['code'] for row in missing['template']['requirements']], ['path-storage'])
+        context = {'variables': [{
+            'program': 'T', 'path': 'ROUTE',
+            'type': ['PATH', ['STRUCTURE', 'NODE_T', [['AMOUNT', ['INTEGER']]]], None],
+            'value': {'nodes': [{'AMOUNT': 7}], 'data': None},
+        }]}
+        short = prepare('WRITE(route[2].amount)', context=context, **args)
+        self.assertEqual(short['context'], context)
+        self.assertIsNone(by_path(short)['ROUTE[2].AMOUNT']['context_pointer'])
+        self.assertEqual([row['code'] for row in short['template']['requirements']], ['path-storage'])
+
+    def test_path_array_selection_binds_to_the_original_saved_cell(self):
+        from karel2py.runner_values import scalar_slot
+
+        node_type = ['STRUCTURE', 'NODE_T', [['AMOUNT', ['INTEGER']]]]
+        context = {'variables': [{
+            'program': 'T', 'path': 'ROUTES',
+            'type': ['ARRAY', [1, 2], ['PATH', node_type, None]],
+            'value': [[{'nodes': [], 'data': None}, {'nodes': [{'AMOUNT': 7}], 'data': None}]],
+        }]}
+        result = prepare('WRITE(routes[1,2,1].amount)',
+                         decl='routes:ARRAY[1,2] OF PATH NODEDATA=node_t',
+                         prefix='TYPE node_t=STRUCTURE amount:INTEGER ENDSTRUCTURE', context=context)
+        candidate, = result['template']['discovery']['inputs']
+        binding = by_path(result)['ROUTES[1][2][1].AMOUNT']
+        self.assertEqual(binding['status'], 'supplied')
+        scalar_slot(result['context'], candidate, binding).set_text('INTEGER', '31')
+        self.assertEqual(result['context']['variables'][0]['value'][0][1]['nodes'], [{'AMOUNT': 31}])
+
     def test_existing_root_type_conflicts_are_rejected(self):
         context={'variables':[dict(program='T',path='X',type=['REAL'],value=1.0)]}
         with self.assertRaisesRegex(InputTemplateError,'type differs'):
