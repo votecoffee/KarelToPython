@@ -180,9 +180,27 @@ python converted.py --context examples/offline_services.services.initial.json
 
 `MemoryFiles({"input.txt":"42\n"})` holds named files. `snapshot()` returns
 independent `bytes`. The per-file limit defaults to 16 MiB and can be explicitly
-set up to 64 MiB. Access modes are `RO/R`, `WO/W`, `RW/UD`, and `AP/A`; writes
-truncate in W and append in A. RW preserves existing contents. Handle assignment
-aliases the same open handle, including close and cursor state.
+set up to 64 MiB. Handle assignment aliases the same open handle, including
+close and cursor state.
+
+### Update and append modes
+
+The ordinary offline file backends (`MemoryFiles`, explicitly rooted
+`DirectoryFiles`, and `DeviceFiles`) support these access modes.
+
+| Mode | Behavior |
+| --- | --- |
+| `RO` or `R` | Read an existing file from its beginning. |
+| `WO` or `W` | Create or truncate a file for writing. |
+| `RW` | Read and write from the beginning, preserving existing bytes until overwritten. Creates a missing file. |
+| `UD` | Read and update an existing file from the beginning. Writes replace bytes at the cursor within the original length. An out-of-range write leaves the bytes and cursor intact. |
+| `AP` | Open at the end of the file, creating it if absent. After the first successful nonempty write, reads use the current cursor. Writes always go to the end, including after a seek. Each open starts with reads disabled. |
+| `A` | Open at the end of the file for write-only append, creating it if absent. |
+
+Use a `B` suffix (for example, `UDB` or `APB`) or the binary FILE attribute
+for binary transfers. The portable `UD` and `AP` rules follow the KAREL
+Reference Manual, section 7.2.3. Other endpoints use their documented
+access rules.
 
 Text transfers use the existing ASCII READ/WRITE formatters and CR defaults to LF.
 ATR_EOL selects a custom ASCII record boundary. ATR_FIELD reads unformatted

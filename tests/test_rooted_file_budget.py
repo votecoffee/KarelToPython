@@ -126,6 +126,35 @@ class RootedFileBudgetTests(unittest.TestCase):
             self.assertEqual(files.files['data'], RETAINED)
             self.assertEqual(path.read_bytes(), b'external update')
 
+    def test_interactive_update_commits_only_in_range_writes(self):
+        with TemporaryDirectory() as folder:
+            files = rt.DirectoryFiles(folder)
+            path = files.root / 'data'
+            path.write_bytes(b'abcd')
+            task, _ = compile_program(
+                "SET_FILE_ATR(f,ATR_IA) OPEN FILE f('UDB','data') "
+                "SET_FILE_POS(f,1,s) WRITE f('XY') WRITE f('!!')",
+                decl='f: FILE s: INTEGER',
+                context=rt.ExecutionContext(files=files),
+            )
+            with self.assertRaisesRegex(rt.KarelRuntimeError, 'within the existing file'):
+                task.run()
+            self.assertEqual(task.snapshot()['F']['position'], 3)
+            self.assertEqual(files.snapshot(), {'data': b'aXYd'})
+            self.assertEqual(path.read_bytes(), b'aXYd')
+
+    def test_interactive_binary_append_can_read_after_publication(self):
+        with TemporaryDirectory() as folder:
+            files = rt.DirectoryFiles(folder)
+            task, _ = compile_program(
+                "SET_FILE_ATR(f,ATR_IA) OPEN FILE f('APB','data') "
+                "WRITE f('ab') SET_FILE_POS(f,0,s) READ f(text::2)",
+                decl='f: FILE s: INTEGER text: STRING[2]',
+                context=rt.ExecutionContext(files=files),
+            )
+            self.assertEqual(task.run()['TEXT'], 'ab')
+            self.assertEqual((files.root / 'data').read_bytes(), b'ab')
+
     def test_failed_atomic_replace_preserves_exact_interactive_buffer(self):
         with TemporaryDirectory() as folder:
             files = rt.DirectoryFiles(folder)
@@ -146,6 +175,8 @@ class RootedFileBudgetTests(unittest.TestCase):
             self.assertIs(files.files['data'], captured[0])
             self.assertEqual(files.files['data'], RETAINED)
             self.assertEqual(task._state.values['F'].position, len(RETAINED))
+            with self.assertRaisesRegex(rt.KarelRuntimeError, 'nonempty WRITE before READ'):
+                task._state.values['F'].require_readable()
             self.assertEqual(path.read_bytes(), RETAINED)
 
 

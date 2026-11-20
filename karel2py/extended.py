@@ -1337,6 +1337,25 @@ class FileHandle:
         self.pipe_wait=None;self.pipe_overflow=None
         self._read_operation=None;self._write_operation=None
         self._text_cr=None
+        self._append_ready = False
+
+    @property
+    def appends_at_end(self):
+        return self.mode in ('A', 'AP')
+
+    def require_readable(self, line=None):
+        self.require_open(line)
+        if self.mode in ('W', 'A'):
+            fail('FILE is not readable', line)
+        if self.mode == 'AP' and not self._append_ready:
+            fail('AP FILE requires a successful nonempty WRITE before READ', line)
+
+    def _finish_write(self, end, data):
+        self.position = end
+        self.status = 0
+        if self.mode == 'AP' and data:
+            self._append_ready = True
+
     def require_open(self,line=None):
         if self.owner is None: fail('FILE is not open',line)
     def tell(self,line=None): self.require_open(line); return self.position
@@ -1464,7 +1483,7 @@ def file_read(state,handle,targets,line=None,*,line_breaks=(),formats=None):
             if isinstance(exc,UnicodeError): raise rt.KarelRuntimeError('Binary STRING requires ASCII data',line) from exc
             raise
     else:
-        if handle.mode in ('W','A'): fail('FILE is not readable',line)
+        handle.require_readable(line)
         read_end=owner.end_position(handle,line) if type(owner) is rt.FilePipes else size
         charge_file_bytes(max(0,read_end-start),charge)
         check(start)
@@ -1501,8 +1520,8 @@ class MemoryFiles:
     def _access_mode(handle,mode,line):
         mode=runtime().ascii_string(mode,line).upper()
         binary='B' in mode or handle.binary; mode=mode.replace('B','')
-        mode={'RO':'R','WO':'W','RW':'RW','UD':'RW','AP':'A'}.get(mode,mode)
-        if mode not in ('R','W','RW','A'): fail('Unsupported memory file access mode',line)
+        mode={'RO':'R','WO':'W'}.get(mode,mode)
+        if mode not in ('R','W','RW','A','UD','AP'): fail('Unsupported memory file access mode',line)
         if handle.xml and (mode!='R' or binary): fail('XML FILE requires text RO access',line)
         return mode,binary
 
@@ -1511,11 +1530,12 @@ class MemoryFiles:
         if self._busy(name): fail('File is already open through this backend',line)
         self._check(name,b'')
         mode,binary=self._access_mode(handle,mode,line)
-        if mode=='R' and name not in self.files: fail('Memory file does not exist',line)
+        if mode in ('R', 'UD') and name not in self.files: fail('Memory file does not exist',line)
         if mode=='W' or name not in self.files: self.files[name]=bytearray()
         handle.name,handle.mode,handle.owner,handle.binary=name,mode,self,binary
         handle.logical_name=None
-        handle.position=len(self.files[name]) if mode=='A' else 0; handle.status=0
+        handle.position=len(self.files[name]) if handle.appends_at_end else 0; handle.status=0
+        handle._append_ready = False
         handle.xml_session=None
         handle._text_cr=None
         self.handles.append(handle)
@@ -1525,7 +1545,9 @@ class MemoryFiles:
     def _busy(self,name): return any(handle.owner is not None and handle.name==name for handle in self.handles)
     def _write_start(self,handle,current_size,data_size,line):
         if handle.mode=='R': fail('FILE is read-only',line)
-        start=current_size if handle.mode=='A' else handle.position
+        start = current_size if handle.appends_at_end else handle.position
+        if handle.mode == 'UD' and start + data_size > current_size:
+            fail('UD FILE WRITE must replace bytes within the existing file', line)
         if start+data_size>self.limit: fail('Memory file size limit exceeded',line)
         return start
 
@@ -1539,10 +1561,9 @@ class MemoryFiles:
         buffer=self.files[handle.name]
         start=self._write_start(handle,len(buffer),len(data),line)
         self._store_bytes(buffer,start,data)
-        handle.position=start+len(data); handle.status=0
+        handle._finish_write(start + len(data), data)
     def read_bytes(self,handle,count,line=None):
-        handle.require_open(line)
-        if handle.mode in ('W','A'): fail('FILE is not readable',line)
+        handle.require_readable(line)
         data=self.files[handle.name][handle.position:handle.position+count]
         if len(data)!=count: handle.status=1; fail('End of memory file',line)
         handle.position+=count; handle.status=0; return bytes(data)

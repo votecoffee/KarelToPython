@@ -140,7 +140,12 @@ class PredefinedBackendTests(unittest.TestCase):
     def test_eol_output(self):
         ctx=context(initial={},bindings={'TPDISPLAY':binding('out','WO',eol=13)});execute("WRITE('ready',CR) CLOSE FILE TPDISPLAY",ctx);self.assertEqual(bytes(ctx.files.files['out']),b'ready\r')
     def test_memory_append(self):
-        ctx=context(initial={'data':'seed'},bindings={'TPDISPLAY':binding(mode='AP')});execute("WRITE('more') CLOSE FILE TPDISPLAY",ctx);self.assertEqual(bytes(ctx.files.files['data']),b'seedmore')
+        ctx = context(bindings={'TPDISPLAY': binding(mode='AP')})
+        state, _, _, _ = execute(
+            "WRITE('8',CR) SET_FILE_POS(TPDISPLAY,0,s) READ(n) CLOSE FILE TPDISPLAY", ctx,
+        )
+        self.assertEqual(state['N'], 7)
+        self.assertEqual(ctx.files.snapshot(), {'data': b'7\n8\n'})
     def test_rooted_directory_is_explicit(self):
         with tempfile.TemporaryDirectory() as directory:
             ctx=rt.ExecutionContext(files=rt.DirectoryFiles(directory),predefined_files={'OUTPUT':binding('out','WO')});execute("WRITE OUTPUT('ready') CLOSE FILE OUTPUT",ctx);self.assertEqual((Path(directory)/'out').read_bytes(),b'ready')

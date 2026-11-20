@@ -123,6 +123,66 @@ class ExtendedBoundaryTests(unittest.TestCase):
         run("OPEN FILE f ('AP','a') SET_FILE_POS(f,0,s) WRITE f ('!') CLOSE FILE f",decl='f: FILE s: INTEGER',context=rt.ExecutionContext(files=files))
         self.assertEqual(files.snapshot()['a'],b'seed!')
 
+    def test_binary_update_replaces_at_cursor_and_keeps_file_length(self):
+        files = rt.MemoryFiles({'data': b'123456'})
+        state = run(
+            "OPEN FILE f('UDB','data') READ f(first::2) WRITE f('XY') "
+            "mark=GET_FILE_POS(f) SET_FILE_POS(f,0,s) READ f(result::6) CLOSE FILE f",
+            decl='f: FILE first: STRING[2] result: STRING[6] mark,s: INTEGER',
+            context=rt.ExecutionContext(files=files),
+        )
+        self.assertEqual((state['FIRST'], state['MARK'], state['RESULT']), ('12', 4, '12XY56'))
+        self.assertEqual(files.snapshot(), {'data': b'12XY56'})
+
+    def test_update_rejects_missing_file_and_extension(self):
+        files = rt.MemoryFiles({'data': b'abcd'})
+        context = rt.ExecutionContext(files=files)
+        missing, _ = compile_program("OPEN FILE f('UD','missing')", decl='f: FILE', context=context)
+        with self.assertRaisesRegex(rt.KarelRuntimeError, 'does not exist'):
+            missing.run()
+        self.assertFalse(missing.snapshot()['F']['open'])
+        self.assertEqual(files.handles, [])
+
+        overrun, _ = compile_program(
+            "OPEN FILE f('UD','data') SET_FILE_POS(f,3,s) WRITE f('XY')",
+            decl='f: FILE s: INTEGER',
+            context=context,
+        )
+        with self.assertRaisesRegex(rt.KarelRuntimeError, 'within the existing file'):
+            overrun.run()
+        self.assertEqual(overrun.snapshot()['F']['position'], 3)
+        self.assertEqual(files.snapshot(), {'data': b'abcd'})
+
+    def test_text_append_reads_after_write_and_keeps_appending(self):
+        files = rt.MemoryFiles({'data': b'7 9\n'})
+        state = run(
+            "OPEN FILE f('AP','data') mark=GET_FILE_POS(f) WRITE f('42',CR) "
+            "SET_FILE_POS(f,0,s) READ f(n) WRITE f('!') CLOSE FILE f",
+            decl='f: FILE n,mark,s: INTEGER',
+            context=rt.ExecutionContext(files=files),
+        )
+        self.assertEqual((state['MARK'], state['N']), (4, 7))
+        self.assertEqual(files.snapshot(), {'data': b'7 9\n42\n!'})
+
+    def test_append_read_requires_nonempty_write_on_each_open(self):
+        for body, expected in (
+            ("OPEN FILE f('AP','data')", b'7\n'),
+            ("OPEN FILE f('AP','data') WRITE f('')", b'7\n'),
+            ("OPEN FILE f('AP','data') WRITE f('8',CR) CLOSE FILE f "
+             "OPEN FILE f('AP','data')", b'7\n8\n'),
+        ):
+            with self.subTest(body=body):
+                files = rt.MemoryFiles({'data': b'7\n'})
+                task, _ = compile_program(
+                    body + ' SET_FILE_POS(f,0,s) READ f(n)',
+                    decl='f: FILE n,s: INTEGER',
+                    context=rt.ExecutionContext(files=files),
+                )
+                with self.assertRaisesRegex(rt.KarelRuntimeError, 'nonempty WRITE before READ'):
+                    task.run()
+                self.assertEqual(task.snapshot()['F']['position'], 0)
+                self.assertEqual(files.snapshot(), {'data': expected})
+
     def test_path_reversed_partial_copy(self):
         state=run('APPEND_NODE(p,s) APPEND_NODE(p,s) p[1].n=7 p[2].n=9 COPY_PATH(p,2,1,q,s)',prefix='TYPE node=STRUCTURE n: INTEGER ENDSTRUCTURE',decl='p,q: PATH NODEDATA=node s: INTEGER')
         self.assertEqual([row['N'] for row in state['Q']['nodes']],[9,7])

@@ -553,8 +553,7 @@ class DirectoryFiles:
         except (OSError, ValueError) as exc:
             raise rt().KarelRuntimeError('Filesystem flush failed: ' + str(exc), line) from exc
         self.files[handle.name] = staged
-        handle.position = end
-        handle.status = 0
+        handle._finish_write(end, data)
 
     def read_bytes(self,handle,count,line=None): return self.memory.read_bytes(handle,count,line)
 

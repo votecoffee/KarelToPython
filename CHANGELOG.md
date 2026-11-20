@@ -1,5 +1,11 @@
 # Changelog
 
+## 26.1120.133646 - 2026-11-20
+
+- Apply separate UD and AP access rules to ordinary offline FILE backends.
+  UD replaces bytes within the existing file. AP always appends and allows
+  reads after the first successful nonempty write on each open.
+
 ## 26.1120.132717 - 2026-11-20
 
 - Add WDI and WDO Boolean source banks, port edges, explicit digital

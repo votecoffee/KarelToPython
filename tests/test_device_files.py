@@ -126,6 +126,19 @@ class VirtualCapacityTests(unittest.TestCase):
         with self.assertRaisesRegex(rt.KarelRuntimeError,'capacity'):p.run()
         self.assertEqual((bank.snapshot()['RD:a'],p.snapshot()['F']['position'],bank.space('RD:')[1]['free']),(b'abcd',4,1))
 
+    def test_source_update_accounts_only_for_committed_overwrite(self):
+        bank = rt.DeviceFiles({'FR:': {'capacity': 8, 'garbage': 2}}, {'FR:a': b'abcd'})
+        task, _ = compile_program(
+            "OPEN FILE f('UD','fr:a') SET_FILE_POS(f,2,s) WRITE f('X') WRITE f('YZ')",
+            decl=DECL,
+            context=rt.ExecutionContext(files=bank),
+        )
+        with self.assertRaisesRegex(rt.KarelRuntimeError, 'within the existing file'):
+            task.run()
+        self.assertEqual(task.snapshot()['F']['position'], 3)
+        self.assertEqual(bank.snapshot(), {'FR:a': b'abXd'})
+        self.assertEqual(bank.to_config()['volumes']['FR:']['garbage'], 3)
+
     def test_flash_overwrite_delete_and_purge_account_for_obsolete_bytes(self):
         bank=rt.DeviceFiles({'FR:':{'capacity':8,'garbage':2}}, {'FR:a':b'abc'})
         h=rt.FileHandle();bank.open(h,'RW','FR:a');bank.write(h,b'xy')

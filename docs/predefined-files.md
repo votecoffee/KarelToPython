@@ -38,7 +38,9 @@ No desktop window, physical keyboard, socket or serial port is opened.
 
 Alias keys and modes are case-insensitive; endpoint names retain their spelling.
 Each binding requires name and mode, with optional attributes. Supported modes
-are R/RO, W/WO, RW/UD and A/AP. Attributes are the existing binary, reverse, field,
+are R/RO, W/WO, RW, UD, A and AP. Ordinary files use the
+[update and append rules](offline-services.md#update-and-append-modes).
+Attributes are the existing binary, reverse, field,
 xml, passall, noecho, interactive, eol, pipe_wait and pipe_overflow settings;
 Boolean flags and integer domains are checked before any resource opens.
 Backend-specific restrictions still apply.

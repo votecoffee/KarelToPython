@@ -98,18 +98,19 @@ class DeviceFiles(MemoryFiles):
         return row,added
 
     def open(self,handle,mode,name,line=None):
-        name=self.canonical(name);text=rt().ascii_string(mode,line).upper().replace('B','')
-        text={'RO':'R','WO':'W','UD':'RW','AP':'A'}.get(text,text)
-        self.require_volume(name.split(':',1)[0],write=text!='R',line=line)
+        name = self.canonical(name)
+        access, _ = self._access_mode(handle, mode, line)
+        self.require_volume(name.split(':',1)[0],write=access!='R',line=line)
         old=len(self.files.get(name,b''));row=None;added=0
-        if text=='W': row,added=self.reserve(name,0,old,line)
-        elif name not in self.files and text!='R': row,added=self.reserve(name,0,line=line)
+        if access=='W': row,added=self.reserve(name,0,old,line)
+        elif name not in self.files and access not in ('R', 'UD'): row,added=self.reserve(name,0,line=line)
         super().open(handle,mode,name,line)
         if row is not None: row['garbage']+=added
 
     def write(self,handle,data,line=None):
         handle.require_open(line);self._check(handle.name,b'')
-        old=len(self.files[handle.name]);start=old if handle.mode=='A' else handle.position
+        old = len(self.files[handle.name])
+        start = self._write_start(handle, old, len(data), line)
         overwritten=min(len(data),max(0,old-start))
         row,added=self.reserve(handle.name,max(old,start+len(data)),overwritten,line)
         super().write(handle,data,line);row['garbage']+=added

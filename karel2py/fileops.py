@@ -1146,8 +1146,9 @@ def compare_files(state,files,left_name,right_name,handle,ascii_flag,line=None):
     if left_code:return left_code,None
     right_code,right=read_right()
     if right_code:return right_code,None
-    start=size if handle.mode=='A' else position
-    capacity=limit-start;records=bytearray();eol=bytes((handle.eol,))
+    start = size if handle.appends_at_end else position
+    end_limit = size if handle.mode == 'UD' else limit
+    capacity=end_limit-start;records=bytearray();eol=bytes((handle.eol,))
     def record(value):
         data=json.dumps(value,ensure_ascii=True,separators=(',',':')).encode('ascii')+eol
         if len(records)+len(data)>capacity: raise runtime.KarelRuntimeError('Comparison report exceeds remaining FILE capacity',line)
