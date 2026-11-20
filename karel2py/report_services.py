@@ -69,7 +69,8 @@ def add_policies(report, *, array_context, cooperative):
         attributes=dict(ex.SERIAL_ATTRIBUTES),
         values='Read-ahead count 0..32767 units of 128 bytes; baud 1200/2400/4800/9600, parity none/odd/even, stop bits 1/1.5/2 through package INTEGER codes, data bits 5..8, XON/XOFF 0/1 and ASCII EOL 0..127',
         status='Function return 0 success, 1 unset attribute, 2 unconfigured port, 3 invalid attribute/value; failed reads retain attribute output, failed writes retain settings; missing service raises',
-        persistence='Detached canonical port-number JSON attribute mappings; no handles, discovery, serial reads/writes or allocation of the modeled read-ahead buffer',
+        read_ahead='Pythonic serial FILE OPEN captures the configured ATR_READAHD for its port. BYTES_AHEAD reports at most that many 128-byte units. Zero returns status 2 and preserves count. An unset value reports all unread RX.',
+        persistence='Detached canonical port-number JSON attribute mappings; no handles, discovery or allocation of a second read-ahead buffer',
         boundary='Offline configuration metadata with portable constants only; no COM-port/hardware effects or native serial enum equivalence',
         guide='docs/serial-attributes.md',controller_validated=False)
     report['virtual_device_policy']=dict(

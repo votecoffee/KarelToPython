@@ -60,7 +60,7 @@ class PredefinedConfigurationTests(unittest.TestCase):
     def test_unknown_row_field_rejected(self):
         with self.assertRaises(ValueError):rt.ExecutionContext(predefined_files={'INPUT':dict(name='data',mode='RO',path='other')})
     def test_invalid_modes_rejected(self):
-        for mode in ('','READ','RWB',7,True):
+        for mode in ('', 'READ', 'B', 'BR', 'RBB', 'R B', 'READB', 7, True):
             with self.subTest(mode=mode),self.assertRaises(ValueError):rt.ExecutionContext(predefined_files={'INPUT':binding(mode=mode)})
     def test_invalid_names_rejected(self):
         for name in ('','é','x'*255,7):
@@ -200,6 +200,35 @@ class PredefinedBackendTests(unittest.TestCase):
         self.assertEqual((serial.snapshot()[2]['input'], serial.snapshot()[2]['output']), (b'', b'oldnew'))
 
     def test_reverse_binary_input(self):self.assertEqual(execute('READ(n) CLOSE FILE TPDISPLAY',context(initial={'data':struct.pack('>i',7)},bindings={'TPDISPLAY':binding(binary=True,reverse=True)}))[0]['N'],7)
+    def test_crt_binary_modes_round_trip_in_saved_context(self):
+        ctx = context(initial={'data': struct.pack('>i', 7)}, bindings={
+            'INPUT': binding(mode='rb', reverse=True), 'OUTPUT': binding('out', 'wb'),
+        })
+        restored = rt.ExecutionContext.from_config(json.loads(json.dumps(ctx.to_config())))
+        values, _, _, _ = execute(
+            'READ(n) WRITE(n) CLOSE FILE INPUT CLOSE FILE OUTPUT', restored, prefix='%CRTDEVICE',
+        )
+        self.assertEqual(values['N'], 7)
+        self.assertEqual(restored.files.snapshot()['out'], struct.pack('<i', 7))
+        self.assertEqual({key: row['mode'] for key, row in restored.predefined_files.items()},
+                         {'INPUT': 'RB', 'OUTPUT': 'WB'})
+
+    def test_serial_binary_append_output_alias_uses_backend_mode(self):
+        ctx = rt.ExecutionContext(
+            serial_streams=rt.SerialStreams({2: {'input': b'rx', 'output': b'old'}}),
+            predefined_files={'TPDISPLAY': binding('P2:', 'aob')},
+        )
+        execute('WRITE(17) CLOSE FILE TPDISPLAY', ctx)
+        row = ctx.serial_streams.snapshot()[2]
+        self.assertEqual((row['input'], row['output']), (b'rx', b'old' + struct.pack('<i', 17)))
+
+    def test_keyboard_binary_suffix_still_rejects_at_first_use(self):
+        keyboard = rt.KeyboardInput()
+        ctx = rt.ExecutionContext(keyboard=keyboard, predefined_files={'TPDISPLAY': binding('KB:TPKB', 'RB')})
+        with self.assertRaisesRegex(rt.KarelRuntimeError, 'Keyboard FILE requires an available text input handle'):
+            execute('READ(n)', ctx)
+        self.assertEqual((ctx._predefined_values, keyboard._handles), ({}, {}))
+
     def test_eol_output(self):
         ctx=context(initial={},bindings={'TPDISPLAY':binding('out','WO',eol=13)});execute("WRITE('ready',CR) CLOSE FILE TPDISPLAY",ctx);self.assertEqual(bytes(ctx.files.files['out']),b'ready\r')
     def test_memory_append(self):

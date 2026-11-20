@@ -103,6 +103,39 @@ class SerialStreamFileTests(unittest.TestCase):
         data=run("OPEN FILE f('RW','P2:') WRITE f('outbox') READ f(n,CR) BYTES_AHEAD(f,ahead,s) m=BYTES_LEFT(f) cursor=GET_FILE_POS(f) CLOSE FILE f",decl=DECL,context=ctx)
         self.assertEqual((data['AHEAD'],data['M'],data['CURSOR'],data['S']),(2,2,2,0))
 
+    def test_source_read_ahead_setting_applies_on_each_open(self):
+        ctx = context(b'7\n' + b'x' * 192, b'old')
+        ctx.serial_ports = rt.SerialPorts({2: {}})
+        values = run(
+            "s=SET_PORT_ATR(PORT_2,ATR_READAHD,1) OPEN FILE f('RO','P2:') "
+            "BYTES_AHEAD(f,ahead,s) READ f(n,CR) "
+            "s=SET_PORT_ATR(PORT_2,ATR_READAHD,2) BYTES_AHEAD(f,ahead,s) "
+            "m=BYTES_LEFT(f) CLOSE FILE f OPEN FILE f('RO','P2:') "
+            "BYTES_AHEAD(f,cursor,s) CLOSE FILE f",
+            decl=DECL, context=ctx,
+        )
+        self.assertEqual(
+            (values['AHEAD'], values['N'], values['M'], values['CURSOR'], values['S']),
+            (128, 7, 192, 192, 0),
+        )
+        row = ctx.serial_streams.snapshot()[2]
+        self.assertEqual((row['input'], row['output']), (b'x' * 192, b'old'))
+
+    def test_disabled_read_ahead_from_saved_context_preserves_count_and_rx(self):
+        ctx = context(b'7\n8\n')
+        ctx.serial_ports = rt.SerialPorts({1: {'ATR_READAHD': 1}, 2: {'ATR_READAHD': 0}})
+        restored = rt.ExecutionContext.from_config(json.loads(json.dumps(ctx.to_config())))
+        values = run(
+            "OPEN FILE f('RO','P2:') ahead=77 BYTES_AHEAD(f,ahead,s) "
+            "cursor=IO_STATUS(f) m=BYTES_LEFT(f) READ f(n,CR) CLOSE FILE f",
+            decl=DECL, context=restored,
+        )
+        self.assertEqual(
+            (values['AHEAD'], values['S'], values['CURSOR'], values['M'], values['N']),
+            (77, 2, 0, 4, 7),
+        )
+        self.assertEqual(restored.serial_streams.snapshot()[2]['input'], b'8\n')
+
     def test_serial_seek_is_rejected_without_changing_cursor(self):
         ctx=context(b'7\n8\n')
         data=run("OPEN FILE f('RO','P2:') READ f(n,CR) SET_FILE_POS(f,0,s) cursor=GET_FILE_POS(f) READ f(m,CR) CLOSE FILE f",decl=DECL,context=ctx)

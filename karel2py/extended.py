@@ -2217,7 +2217,7 @@ def predefined_file_config(config):
         target,mode=row['name'],row['mode']
         if type(target) is not str or not target or len(target)>254 or not target.isascii():
             raise ValueError('Predefined FILE endpoint must be nonempty ASCII up to 254 characters')
-        if type(mode) is not str or mode.upper() not in ('R','W','RW','A','RO','WO','AP','UD'):
+        if type(mode) is not str or mode.upper().removesuffix('B') not in ('R','W','RW','A','AO','RO','WO','AP','UD'):
             raise ValueError('Unsupported predefined FILE access mode')
         attributes=row.get('attributes',{})
         if type(attributes) is not dict or set(attributes)-(flags|{'eol','pipe_wait','pipe_overflow','read_timeout_ms'}):
@@ -2995,10 +2995,16 @@ class ExecutionContext:
             handle.require_open(line)
             if type(handle.owner) is rt.SerialStreams:
                 if name=='SET_FILE_POS':args[-1].set(handle.owner.seek(handle,args[1],line),line);return
-                available=handle.owner.bytes_ahead(handle,line)
-                if name=='GET_FILE_POS':return handle.position
-                if name=='BYTES_LEFT':return available
-                args[1].set(available,line);args[2].set(0,line);return
+                if name=='GET_FILE_POS':
+                    handle.owner.bytes_ahead(handle,line)
+                    return handle.position
+                if name=='BYTES_LEFT':
+                    return handle.owner.bytes_ahead(handle,line)
+                code, available = handle.owner.read_ahead(handle, line)
+                if code == 0:
+                    args[1].set(available, line)
+                args[2].set(code, line)
+                return
             if name=='GET_FILE_POS': return handle.position
             if type(handle.owner) is rt.FilePipes and (handle.pipe_wait is not None or handle.pipe_overflow is not None) and name=='SET_FILE_POS':
                 args[-1].set(handle.owner.seek(handle,args[1],line),line);return

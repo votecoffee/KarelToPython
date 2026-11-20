@@ -1,8 +1,9 @@
 # Offline serial attributes
 
 GET_PORT_ATR and SET_PORT_ATR are functions returning INTEGER status. They use an
-explicit SerialPorts service, independently of digital/group/analog PortBank,
-FILE attributes and actual operating-system serial ports.
+explicit SerialPorts service, separate from digital/group/analog PortBank and
+operating-system serial ports. A configured ATR_READAHD value is captured by
+an [offline serial FILE](serial-streams.md#read-ahead) when it opens.
 
 ```python
 from karel2py import runtime as rt
@@ -19,7 +20,7 @@ are supported. An empty configured port has no inferred attribute defaults.
 
 | Attribute | Portable values |
 | --- | --- |
-| ATR_READAHD | 0..32767 units of 128 bytes; no buffer is allocated |
+| ATR_READAHD | 0..32767 units of 128 bytes for BYTES_AHEAD; zero disables the query |
 | ATR_BAUD | BAUD_1200, BAUD_2400, BAUD_4800, BAUD_9600; represented by the baud rate |
 | ATR_PARITY | PARITY_NONE=0, PARITY_ODD=1, PARITY_EVEN=2 |
 | ATR_SBITS | SBITS_1=1, SBITS_15=15, SBITS_2=2; 15 denotes the 1.5-stop-bit choice |
@@ -43,9 +44,9 @@ value)` returns status. `to_config()` creates a detached canonical mapping;
 `from_config()` rejects unknown/duplicate attributes and invalid values. Context
 JSON uses `serial_ports`, mapping canonical string IDs `"1"`..`"5"` to named
 attribute mappings. It persists settings without opening devices or allocating
-resources. Separate [finite serial streams](serial-streams.md) now model explicit
-`P1:`..`P5:` RX/TX data through FILE statements; they do not infer these attributes
-or access operating-system ports.
+resources. [Finite serial streams](serial-streams.md) model explicit
+`P1:`..`P5:` RX/TX data through FILE statements. ATR_READAHD is the only
+setting applied by those streams.
 
 The [authored example](../examples/serial_attributes.kl) sets and reads all seven
 attributes, using an [explicit initial bank](../examples/serial_attributes.services.initial.json).

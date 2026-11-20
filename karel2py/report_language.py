@@ -763,7 +763,7 @@ def add_policies(report, *, expansion, filename, mode):
         guide='docs/pipe-file-management.md',controller_validated=False)
     report['predefined_file_policy']=dict(
         names=sorted(ex.PREDEFINED_FILE_NAMES),
-        bindings='Explicit ExecutionContext(predefined_files={alias:{name,mode,attributes?}}) or context JSON; detached checked endpoint descriptions, lazy open through existing offline services',
+        bindings='Explicit ExecutionContext(predefined_files={alias:{name,mode,attributes?}}) or context JSON; detached checked endpoint descriptions, ordinary B suffixes and supported serial AO, lazy open through existing offline services',
         source='Unshadowed predefined FILE names supply ordinary borrowed FILE references; declarations and lexical USING fields retain priority; OPEN cannot retarget a predefined binding',
         defaults='Omitted READ/WRITE captures TPDISPLAY, or INPUT/OUTPUT under CRTDEVICE, once before destinations/items/formats; unbound defaults retain existing callbacks and observations',
         transports='Existing text/binary, aggregate, keyboard, serial, socket, pipe and rooted file paths; Pythonic READ supports waiting on configured default and explicit FILEs',
@@ -801,9 +801,9 @@ def add_policies(report, *, expansion, filename, mode):
         handler_reads='Ready reads may complete inside a handler. Reads that would wait fail before sleeping in the caller or a linked routine.',
         input_capacity='Retained RX prefix, fixed fields and required CR bytes must fit the port. A full RX queue can wait only if EOF could complete the retained request. Opted-in successful reclamation frees RX and TX capacity for later operations; failed or canceled requests retain all their input.',
         output='Append retained TX after complete byte-budget checks, preserving RX; optional wait_output follows serial_output_wait_policy; no device call is performed',
-        queries='GET_FILE_POS is the RX cursor; BYTES_LEFT/BYTES_AHEAD report supplied remaining RX; SET_FILE_POS returns unsupported status 2 with cursor unchanged; ordinary IO_STATUS retains portable behavior',
+        queries='GET_FILE_POS is the RX cursor and BYTES_LEFT reports all remaining RX; BYTES_AHEAD uses the port ATR_READAHD captured at OPEN when set; SET_FILE_POS returns unsupported status 2 with cursor unchanged',
         persistence='Canonical bounded port configuration, optional wait/final, wait_output and reclaim_input flags plus remaining RX/TX hex round-trip only after close; reclaim_input is fixed while a FILE is open; no handles, pending I/O, native connections or suspended calls restored',
-        boundary='Manual P1..P4 hardware does not establish physical P5 availability; no SerialPorts attribute inference, COM discovery/access, physical transfer, native producer timing, seek, XML, status equivalence or strict mode',
+        boundary='Manual P1..P4 hardware does not establish physical P5 availability; no inferred SerialPorts attributes, COM discovery/access, physical transfer, native producer timing, seek, XML, status equivalence or strict mode',
         guide='docs/serial-streams.md',controller_validated=False)
     report['vision_alpha_policy']=dict(
         channels={'1':'grayscale','2':'grayscale_alpha','3':'RGB','4':'RGBA'},

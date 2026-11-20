@@ -1,6 +1,7 @@
 """Explicit offline serial byte streams; never open host devices."""
 import re
 from dataclasses import dataclass
+from typing import NamedTuple
 from .communications import StreamRead, StreamReadDeadline, data_bytes
 
 
@@ -29,11 +30,25 @@ def endpoint_name(value):
     return value.upper()
 
 
+class _SerialOpen(NamedTuple):
+    handle: object
+    endpoint: str
+    mode: str
+    binary: bool
+    reverse: bool
+    field: bool
+    eol: int
+    reclaim_input: bool
+    timeout: int
+    passall: bool
+    read_ahead_capacity: int | None
+
+
 @dataclass(frozen=True, slots=True)
 class _SerialRead:
     state: object
     root: object
-    registration: tuple
+    registration: _SerialOpen
     position: int
     token: object
     port: dict
@@ -115,7 +130,7 @@ class SerialStreams:
         except ValueError as exc:raise runtime.KarelRuntimeError(str(exc),line) from exc
         port=int(key[1])
         if port not in self.ports:raise runtime.KarelRuntimeError('Serial FILE requires an explicitly configured port',line)
-        if any(record[1]==key for record in self._open.values()):
+        if any(record.endpoint == key for record in self._open.values()):
             raise runtime.KarelRuntimeError('Serial endpoint already has an open FILE',line)
         mode=runtime.ascii_string(mode,line).upper();binary=handle.binary
         if mode.endswith('B'):binary=True;mode=mode[:-1]
@@ -134,21 +149,33 @@ class SerialStreams:
             raise runtime.KarelRuntimeError('Malformed serial FILE read timeout', line)
         if timeout and (mode in ('W', 'A') or not self.ports[port]['wait']):
             raise runtime.KarelRuntimeError('ATR_TIMEOUT requires a readable waiting serial FILE', line)
+        read_ahead_capacity = None
+        if state is not None and runtime._pythonic() and state.execution.serial_ports is not None:
+            ports = state.execution.serial_ports
+            status, units = ports.read(port, runtime.SERIAL_CONSTANTS['ATR_READAHD'], line)
+            if status == 0:
+                if not ports.valid('ATR_READAHD', units):
+                    raise runtime.KarelRuntimeError('Invalid serial read-ahead setting', line)
+                read_ahead_capacity = units * 128
         handle.name=key;handle.logical_name=key;handle.mode=mode;handle.binary=binary
         handle.position=0;handle.status=0;handle.owner=self;handle.xml_session=None
         handle._text_cr=None
         handle._append_ready = False
-        self._open[id(handle)] = (handle, key, mode, binary, handle.reverse, handle.field,
-                                  handle.eol, self.ports[port]['reclaim_input'], timeout, handle.passall)
+        self._open[id(handle)] = _SerialOpen(
+            handle, key, mode, binary, handle.reverse, handle.field, handle.eol,
+            self.ports[port]['reclaim_input'], timeout, handle.passall, read_ahead_capacity,
+        )
         self.handles.append(handle)
 
     def open(self,handle,mode,name,line=None):return self.open_for(None,handle,mode,name,line)
 
     def _active(self,handle,line=None,*,reading=False):
         runtime=rt();record=self._open.get(id(handle))
-        if (type(handle) is not runtime.FileHandle or record is None or record[0] is not handle or handle.owner is not self
-                or (handle.name,handle.mode,handle.binary,handle.reverse,handle.field,handle.eol)!=record[1:7]
-                or handle.logical_name!=record[1]):
+        if (type(handle) is not runtime.FileHandle or type(record) is not _SerialOpen
+                or record.handle is not handle or handle.owner is not self
+                or (handle.name, handle.mode, handle.binary, handle.reverse, handle.field, handle.eol)
+                != (record.endpoint, record.mode, record.binary, record.reverse, record.field, record.eol)
+                or handle.logical_name != record.endpoint):
             raise runtime.KarelRuntimeError('Serial FILE is closed, foreign, stale or has changed endpoint metadata',line)
         if (any(type(value) is not bool for value in (handle.binary,handle.reverse,handle.field,handle.xml,
                     handle.passall,handle.noecho,handle.interactive))
@@ -164,11 +191,11 @@ class SerialStreams:
         if type(row['wait']) is not bool or type(row['final']) is not bool or not row['wait'] and not row['final']:
             raise runtime.KarelRuntimeError('Serial wait/final policy is invalid',line)
         if type(row['wait_output']) is not bool:raise runtime.KarelRuntimeError('Serial wait_output policy is invalid',line)
-        if len(record)!=10 or type(row['reclaim_input']) is not bool or row['reclaim_input'] is not record[7]:
+        if type(row['reclaim_input']) is not bool or row['reclaim_input'] is not record.reclaim_input:
             raise runtime.KarelRuntimeError('Serial reclaim_input policy changed or is invalid',line)
-        if type(handle.read_timeout_ms) is not int or handle.read_timeout_ms != record[8]:
+        if type(handle.read_timeout_ms) is not int or handle.read_timeout_ms != record.timeout:
             raise runtime.KarelRuntimeError('Serial FILE read timeout changed or is invalid', line)
-        if handle.passall is not record[9]:
+        if handle.passall is not record.passall:
             raise runtime.KarelRuntimeError('Serial FILE PASSALL attribute changed', line)
         return row
 
@@ -187,6 +214,16 @@ class SerialStreams:
 
     def bytes_ahead(self,handle,line=None):
         self._active(handle,line);return len(self.files[handle.name])-handle.position
+
+    def read_ahead(self, handle, line=None):
+        """Report the read-ahead view captured by OPEN, without consuming RX."""
+        available = self.bytes_ahead(handle, line)
+        capacity = self._open[id(handle)].read_ahead_capacity
+        if capacity is None:
+            return 0, available
+        if capacity == 0:
+            return 2, None
+        return 0, min(available, capacity)
 
     def seek(self,handle,position,line=None):
         self._active(handle,line);rt().integer(position,line)

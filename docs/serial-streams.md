@@ -123,9 +123,10 @@ cursor to zero. Remaining input survives for the next OPEN. CR bytes are consume
 only when the ordinary parser consumes them; no extra terminator is stripped.
 A failed later READ therefore cannot discard its partial fields on close.
 
-GET_FILE_POS reports the current relative RX cursor. BYTES_AHEAD/BYTES_LEFT
-report currently unread RX bytes, independently of TX. SET_FILE_POS returns
-portable status 2 without moving the cursor; serial seeking is unsupported.
+GET_FILE_POS reports the current relative RX cursor. BYTES_LEFT reports
+unread RX bytes, independently of TX. BYTES_AHEAD reports the same count by
+default and honors an explicitly configured [read-ahead setting](#read-ahead).
+SET_FILE_POS returns portable status 2 without moving the cursor.
 Handles and byte operations validate endpoint identity, original registration,
 mode, attributes and cursor bounds. Closed, copied, foreign or redirected
 handles fail before changing either queue.
@@ -134,6 +135,20 @@ Pause, completion, abort, stop and runtime failure retain ordinary explicit FILE
 lifetime. They do not automatically close the stream or consume pending RX.
 Close the actual live handle before saving its context. No live FILE state or
 suspended input operation is restored from JSON.
+
+## Read-ahead
+
+Supply `SerialPorts({2: {"ATR_READAHD": 1}})` alongside `SerialStreams` on
+the same execution context to give a P2: FILE a 128-byte read-ahead window.
+Source can also set it with `SET_PORT_ATR(PORT_2, ATR_READAHD, 1)` before the
+FILE opens. OPEN, including the first use of a predefined binding, captures
+the setting for that FILE.
+
+`BYTES_AHEAD` returns the smaller of the unread byte count and the configured
+window, in bytes. A setting of zero returns portable status 2 and preserves
+the caller's count output. The query leaves the cursor and IO_STATUS alone.
+The window affects this query only. READ and BYTES_LEFT retain access to all
+supplied RX bytes. Changes to the attribute apply on the next open.
 
 ## Reclaiming consumed input
 

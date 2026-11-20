@@ -1,5 +1,11 @@
 # Changelog
 
+## 26.1120.145853 - 2026-11-20
+
+- Apply explicit serial ATR_READAHD settings to BYTES_AHEAD on Pythonic FILEs.
+  Capture the read-ahead window at OPEN and preserve the full supplied RX queue.
+- Accept binary mode suffixes and serial AO in saved predefined FILE bindings.
+
 ## 26.1120.145016 - 2026-11-20
 
 - Generate waiting-capable Pythonic READ statements for default FILE bindings.

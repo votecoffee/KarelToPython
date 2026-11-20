@@ -369,8 +369,10 @@ queue-entry policies; FILE banks remain excluded.
   GET_PORT_ATR/SET_PORT_ATR now retain [explicit serial configuration](serial-attributes.md)
   with seven checked attributes; they do not open ports or exchange serial data.
   Separate [finite serial streams](serial-streams.md) now expose supplied RX/TX
-  through P1:..P5: FILEs. Hardware ports, automatic attribute application,
-  physical/native producer waiting and serial timing remain unavailable.
+  through P1:..P5: FILEs. [Read-ahead](serial-streams.md#read-ahead) captures an
+  explicit ATR_READAHD setting for BYTES_AHEAD on open. Other automatic
+  port-attribute effects, native producer waiting and serial timing remain
+  unavailable.
   [Cooperative serial waiting](serial-waiting.md) now accepts explicit host feeds
   and EOF, with atomic outputs and pending-read cleanup. [Serial output waits](serial-output-waits.md)
   now accept explicit TX drains with captured bytes, pending-WRITE cancellation,
