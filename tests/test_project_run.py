@@ -528,6 +528,28 @@ class SavedProjectTests(unittest.TestCase):
         self.assertEqual(result['text_output'], ' 7\n 19\n 12311\n 1\n')
         self.assertEqual(result['programs']['MAIN']['values']['ROUTE']['data'], MISSING)
 
+    def test_linked_status_selector_can_insert_before_a_captured_node(self):
+        types = 'TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t'
+        main = self.module(
+            'MAIN', 'APPEND_NODE(route,s) route[1].amount=7 seed.amount=42 '
+                    "GET_VAR(entry,'','seed',route[1],statuses[shift(route)]) "
+                    'IF (statuses[1]=0) AND (route[1].amount=42) AND (route[2].amount=7) '
+                    'THEN WRITE(route[1].amount,CR) WRITE(route[2].amount,CR) ELSE WRITE(unused) ENDIF',
+            types+' VAR route:route_t seed:row_t entry,s,unused:INTEGER statuses:ARRAY[1] OF INTEGER',
+            'ROUTINE shift(v:route_t):INTEGER FROM LIB',
+        )
+        lib = self.module(
+            'LIB', declarations=types,
+            routines='ROUTINE shift(v:route_t):INTEGER VAR s:INTEGER BEGIN INSERT_NODE(v,1,s) RETURN 1 END shift',
+        )
+        report = self.create(main, lib, discover=True)['inputs']['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertFalse(report['inputs'])
+        result = runner.run_document(self.document)['results']
+        self.assertEqual(result['status'], 'completed', result['error'])
+        self.assertEqual(result['text_output'], ' 42\n 7\n')
+        self.assertEqual(result['programs']['MAIN']['values']['ROUTE']['nodes'], [{'AMOUNT': 42}, {'AMOUNT': 7}])
+
     def test_linked_path_variable_transfers_follow_a_named_program(self):
         types = ('TYPE src_n=STRUCTURE amount:REAL ENDSTRUCTURE '
                  'dst_n=STRUCTURE amount:INTEGER ENDSTRUCTURE '

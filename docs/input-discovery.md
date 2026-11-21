@@ -366,8 +366,14 @@ ARRAY rejects named lookup with status 1. When a whole-record transfer clears a
 PATH slot, borrowed fields keep their original storage and whole-record
 references follow the slot. Earlier reference arguments keep their captured
 storage during evaluation of later arguments, including a named transfer's
-status selector. A later write through the old field leaves a replacement
-record intact. Initializing an uninitialized PATH record in the
+status selector. Discovery follows in-place node edits by a direct routine
+used as a later argument or as the scalar-array status subscript of a
+whole-node `GET_VAR` receiver, when the starting topology and affected
+references are known. A captured node slot follows the current list position.
+A borrowed field keeps its original storage even when its node is removed.
+Compound selectors and PATH descriptor replacement during argument evaluation
+stay open for review. A later write through the old field leaves a
+replacement record intact. Initializing an uninitialized PATH record in the
 saved-run editor refreshes the reachable inputs. Discovery keeps unproved
 argument effects and record layouts open for review.
 

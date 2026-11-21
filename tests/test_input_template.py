@@ -871,17 +871,68 @@ class InputTemplateTests(unittest.TestCase):
         self.assertTrue(report['complete'], report['unresolved'])
         self.assertEqual(set(by_path(prepared)), {'WANTED'})
 
+    def test_get_var_whole_node_status_selector_can_insert_before_captured_slot(self):
+        source = (
+            'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t '
+            'VAR route:route_t seed:row_t entry,s,wanted,unused:INTEGER statuses:ARRAY[1] OF INTEGER '
+            'ROUTINE insert_first BEGIN INSERT_NODE(route,1,s) END insert_first '
+            'ROUTINE slot:INTEGER BEGIN insert_first RETURN 1 END slot '
+            'BEGIN APPEND_NODE(route,s) route[1].amount=7 seed.amount=42 '
+            "GET_VAR(entry,'','seed',route[1],statuses[slot()]) "
+            'IF (statuses[1]=0) AND (route[1].amount=42) AND (route[2].amount=7) '
+            'THEN WRITE(wanted) ELSE WRITE(unused) ENDIF END T'
+        )
+        prepared = prepare_inputs(translate(source).python_source)
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'WANTED'})
+
     def test_get_var_whole_node_reports_unproved_status_selector_edits(self):
         source = (
             'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t '
-            'VAR route:route_t seed:row_t entry,s:INTEGER statuses:ARRAY[1] OF INTEGER '
+            'VAR route,replacement:route_t seed:row_t entry,s:INTEGER statuses:ARRAY[1] OF INTEGER '
             'ROUTINE slot:INTEGER BEGIN INSERT_NODE(route,1,s) RETURN 1 END slot '
-            'BEGIN APPEND_NODE(route,s) route[1].amount=7 seed.amount=42 '
-            "GET_VAR(entry,'','seed',route[1],statuses[slot()]) END T"
+            'ROUTINE swap:INTEGER BEGIN COPY_PATH(replacement,0,0,route,s) RETURN 1 END swap '
+            'BEGIN APPEND_NODE(route,s) APPEND_NODE(replacement,s) '
+            'route[1].amount=7 replacement[1].amount=13 seed.amount=42 '
+            "GET_VAR(entry,'','seed',route[1],statuses[{selector}]) END T"
+        )
+        for selector in ('slot()+0', 'swap()'):
+            with self.subTest(selector=selector):
+                report = prepare_inputs(translate(source.format(selector=selector)).python_source)['template']['discovery']
+                self.assertFalse(report['complete'])
+                self.assertTrue(any('Captured PATH reference has an unresolved origin' in row['message']
+                                    for row in report['unresolved']), report)
+
+    def test_later_argument_deletes_node_and_preserves_slot_and_field_identity(self):
+        source = (
+            'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t '
+            'VAR route:route_t s,wanted,unused:INTEGER '
+            'ROUTINE remove_first(v:route_t):INTEGER BEGIN DELETE_NODE(v,1,s) RETURN s END remove_first '
+            'ROUTINE observe(whole:row_t;held,code:INTEGER) BEGIN '
+            'IF (code=0) AND (held=7) AND (whole.amount=13) THEN '
+            'held=19 whole.amount=42 '
+            'IF (held=19) AND (route[1].amount=42) THEN WRITE(wanted) ELSE WRITE(unused) ENDIF '
+            'ELSE WRITE(unused) ENDIF END observe '
+            'BEGIN APPEND_NODE(route,s) APPEND_NODE(route,s) route[1].amount=7 route[2].amount=13 '
+            'observe(route[1],route[1].amount,remove_first(route)) END T'
+        )
+        prepared = prepare_inputs(translate(source).python_source)
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'WANTED'})
+
+    def test_captured_node_slot_remains_unresolved_when_argument_leaves_it_vacant(self):
+        source = (
+            'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t '
+            'VAR route:route_t s:INTEGER '
+            'ROUTINE remove_first:INTEGER BEGIN DELETE_NODE(route,1,s) RETURN s END remove_first '
+            'ROUTINE observe(whole:row_t;code:INTEGER) BEGIN WRITE(whole.amount) END observe '
+            'BEGIN APPEND_NODE(route,s) route[1].amount=7 observe(route[1],remove_first()) END T'
         )
         report = prepare_inputs(translate(source).python_source)['template']['discovery']
         self.assertFalse(report['complete'])
-        self.assertTrue(any('Captured PATH reference has an unresolved origin' in row['message']
+        self.assertTrue(any('Captured PATH slot is out of bounds' in row['message']
                             for row in report['unresolved']), report)
 
     def test_wholly_missing_scalar_path_record_can_clear_and_reinitialize_a_record(self):
@@ -2001,22 +2052,22 @@ class InputTemplateTests(unittest.TestCase):
         self.assertTrue(report['complete'], report['unresolved'])
         self.assertEqual(set(by_path(prepared)), {'ROUTE[1].AMOUNT', 'ROUTE[2].AMOUNT'})
 
-    def test_operand_call_cannot_rebind_an_earlier_captured_path_argument(self):
+    def test_operand_call_updates_earlier_captured_node_slot(self):
         source = (
             'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t '
-            'VAR route:route_t '
+            'VAR route:route_t unused:INTEGER '
             'ROUTINE edit(v:route_t) VAR s:INTEGER BEGIN INSERT_NODE(v,1,s) v[1].amount=17 END edit '
             'ROUTINE later:INTEGER BEGIN edit(route) RETURN 0 END later '
-            'ROUTINE use(old:row_t;ignored:INTEGER) BEGIN WRITE(old.amount) END use '
+            'ROUTINE use(old:row_t;ignored:INTEGER) BEGIN '
+            'IF old.amount<>17 THEN WRITE(unused) ENDIF WRITE(old.amount) END use '
             'BEGIN use(route[1],later()) END T'
         )
         spec = ['PATH', ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]], None]
         context = {'variables': [dict(program='T', path='ROUTE', type=spec,
                                       value=dict(nodes=[{'AMOUNT': MISSING}], data=None))]}
         report = prepare_inputs(translate(source).python_source, context=context)['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
         self.assertFalse(report['inputs'])
-        self.assertTrue(any('Captured PATH reference has an unresolved origin' in row['message']
-                            for row in report['unresolved']))
 
     def test_unmodeled_effect_hides_captured_slot_origin_without_prior_edit(self):
         source = (

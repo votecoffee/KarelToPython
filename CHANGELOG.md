@@ -1,5 +1,10 @@
 # Changelog
 
+## 26.1121.134718 - 2026-11-21
+
+- Follow captured PATH node slots through bounded in-place edits performed by
+  later argument routines and direct status selectors.
+
 ## 26.1121.134053 - 2026-11-21
 
 - Preserve earlier borrowed PATH fields when a later call argument clears
