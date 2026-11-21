@@ -21,6 +21,7 @@ class Value:
     facts: object = None
     path_records: tuple | None = None
     uninitialized: bool = False  # Positive proof, separate from incomplete knowledge.
+    whole_record_missing: bool = False
 
 
 def array_dimensions(spec):

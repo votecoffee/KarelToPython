@@ -359,9 +359,12 @@ requires the node's other aggregate fields to be present. A missing scalar can
 transfer with status 12311. Discovery follows whole selected headers and nodes
 when their aggregate containers are present, preserving known fields and
 missing scalar markers. Whole-node outputs follow captured list slots through
-modeled edits. Discovery reports unresolved storage when an argument has
-unproved effects on node order or the selected record lacks a proven container
-layout. This includes wholly uninitialized scalar PATH records.
+modeled edits. A wholly uninitialized record in a scalar PATH, or a wholly
+uninitialized PATH header, can transfer with status 12311. Its whole-record
+address also accepts a compatible replacement. A missing node record in a PATH
+ARRAY rejects named lookup with status 1. When you initialize an uninitialized
+PATH record in the saved-run editor, discovery refreshes the reachable inputs.
+Discovery keeps unproved argument effects and record layouts open for review.
 
 Discovery also tracks statically named scalar, record, and ordinary array
 transfers. Equal-rank arrays copy the leading elements in row-major order,

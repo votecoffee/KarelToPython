@@ -73,6 +73,33 @@ class SavedRunEditorTests(unittest.TestCase):
         self.assertEqual(edited['inputs']['context']['variables'][0]['value'], [[1, 2], [3, 13]])
         self.assertEqual(runner.run_document(self.path)['results']['variables']['ROW'], [3, 13])
 
+    def test_initializing_a_wholly_missing_path_record_rediscover_inputs(self):
+        missing = {'uninitialized': True}
+        row = ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]]
+        route = dict(program='DEMO', path='ROUTE', type=['PATH', row, row],
+                     value=dict(nodes=[], data=missing))
+        self.create(
+            "GET_VAR(entry,'','route[0]',out,s) "
+            "IF s=12311 THEN WRITE('missing',CR) ELSE WRITE(new_input,CR) ENDIF",
+            declarations=('TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+                          'route_t=PATH NODEDATA=row_t PATHHEADER=row_t '
+                          'VAR route:route_t out:row_t entry,s,new_input:INTEGER'),
+            context={'variables': [route]},
+        )
+        report = self.saved['inputs']['template']['discovery']
+        self.assertEqual({row['path'] for row in report['inputs']}, {'ROUTE[0]'})
+        key = ('variable', 'DEMO', 'ROUTE[0]')
+        draft = self.draft(key)
+        dict(draft.fields)['ROUTE[0].AMOUNT'].set_text('INTEGER', '42')
+        edited = self.save_structure(key, draft.checked_payload())
+        report = edited['inputs']['template']['discovery']
+        self.assertEqual({row['path'] for row in report['inputs']}, {'ROUTE[0]', 'NEW_INPUT'})
+        self.set_input('variable', 'NEW_INPUT', 'INTEGER', '7')
+        result = runner.run_document(self.path)['results']
+        self.assertEqual(result['status'], 'completed', result['error'])
+        self.assertEqual(result['text_output'], ' 7\n')
+        self.assertEqual(result['variables']['OUT'], {'AMOUNT': 42})
+
     def test_structured_new_position_requires_complete_cartesian_data(self):
         self.create('p=GET_POS_REG(2,s,3)', declarations='VAR p:XYZWPREXT s:INTEGER',
                     context={'positions': {'count': 2, 'groups': [3], 'comments': {'2': 'keep'}}})

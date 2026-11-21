@@ -3,7 +3,7 @@ from copy import deepcopy
 import re
 
 from . import runtime as rt
-from .input_discovery import DEFAULT_EMPTY_PATH, _discover_inputs
+from .input_discovery import DEFAULT_EMPTY_PATH, MISSING_PATH_RECORD, _discover_inputs
 from .storage import collection_array_cost, collection_data_spec, restore_value, tuple_spec
 
 
@@ -164,6 +164,8 @@ def _saved_path_count(execution, *, migrate_path=None):
         except InputTemplateError:
             return None
         record = container[key]
+        if whole_record and not validate_record and record == {'uninitialized': True}:
+            return MISSING_PATH_RECORD
         if type(record) is not dict or record.keys() != dict(rt.record_fields(record_spec)).keys():
             return None if whole_record and not validate_record else False
         if validate_record or whole_record:

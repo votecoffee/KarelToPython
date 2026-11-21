@@ -18,6 +18,7 @@ from . import runtime as rt
 
 
 DEFAULT_EMPTY_PATH = object()
+MISSING_PATH_RECORD = object()
 MAX_STEPS = 100000
 MAX_INPUTS = 2048
 MAX_CALL_DEPTH = 32
@@ -146,13 +147,16 @@ class _Flow:
     path_orders: dict = field(default_factory=dict)
     uninitialized: set = field(default_factory=set)
     changed_path_aggregates: set = field(default_factory=set)
+    # True is a shaped record, False is the whole missing marker, None is an
+    # overwritten record with no proof. Missing keys may use the saved layout.
+    record_storage: dict = field(default_factory=dict)
 
     def copy(self):
         return _Flow(self.defined.copy(),self.assigned.copy(),self.maybe.copy(),
                      self.constants.copy(),self.stopped,self.opaque,self.handlers.copy(),
                      self.requested_tasks.copy(),self.paused_tasks.copy(),self.task_order_unknown,
                      self.path_shape_unknown,self.path_orders.copy(),self.uninitialized.copy(),
-                     self.changed_path_aggregates.copy())
+                     self.changed_path_aggregates.copy(),self.record_storage.copy())
 
     def take(self, other):
         self.handlers = other.handlers
@@ -163,6 +167,7 @@ class _Flow:
         self.stopped,self.opaque = other.stopped,other.opaque
         self.uninitialized = other.uninitialized
         self.changed_path_aggregates = other.changed_path_aggregates
+        self.record_storage = other.record_storage
 
 
 def _merge(flows):
@@ -187,6 +192,10 @@ def _merge(flows):
     for key in set().union(*(flow.path_orders for flow in live)):
         order = first.path_orders.get(key)
         path_orders[key] = order if all(flow.path_orders.get(key) == order for flow in live) else None
+    record_storage = {}
+    for key in set().union(*(flow.record_storage for flow in live)):
+        state = first.record_storage.get(key)
+        record_storage[key] = state if all(flow.record_storage.get(key) is state for flow in live) else None
     return _Flow(set.intersection(*(flow.defined for flow in live)),
                  set.intersection(*(flow.assigned for flow in live)),
                  set.union(*(flow.maybe for flow in live)),constants,False,any(flow.opaque for flow in live),
@@ -194,7 +203,7 @@ def _merge(flows):
                  set.union(*(flow.requested_tasks for flow in live)),
                  pauses,uncertain,any(flow.path_shape_unknown for flow in live),path_orders,
                  set.intersection(*(flow.uninitialized for flow in live)),
-                 set.union(*(flow.changed_path_aggregates for flow in live)))
+                 set.union(*(flow.changed_path_aggregates for flow in live)), record_storage)
 
 
 def _path_record_identity(part):
@@ -316,6 +325,7 @@ class _Analyzer:
         flow.opaque=True;flow.defined.clear();flow.assigned.clear();flow.constants.clear()
         flow.uninitialized.clear()
         flow.changed_path_aggregates.clear()
+        flow.record_storage.clear()
         flow.path_orders = dict.fromkeys(flow.path_orders)
 
     def context(self, service, address):
@@ -878,7 +888,33 @@ class _Analyzer:
             facts[key]=fact
         return _Value(stored.constant,all(fact.complete for fact in facts.values()),loc.spec,facts)
 
-    def write(self, loc, value, flow, node, *, definite=True, track_path_storage=True):
+    def update_record_storage(self, loc, value, flow, definite, shaped_record):
+        """Forget overwritten shapes and publish current whole-record markers."""
+        if flow.opaque or loc.spec[0] in SCALARS:
+            return
+        shaped = definite and (value.complete or shaped_record)
+        key = loc.key
+        tracked = key in flow.record_storage
+        self.tick(len(flow.record_storage))
+        for prior in tuple(flow.record_storage):
+            if prior[:3] != key[:3]:
+                continue
+            if prior[3][:len(loc.parts)] == loc.parts:
+                del flow.record_storage[prior]
+            elif not shaped and loc.parts[:len(prior[3])] == prior[3]:
+                flow.record_storage[prior] = None
+        if loc.spec[0] == 'STRUCTURE' and (tracked or shaped_record or value.whole_record_missing
+                                         or self.whole_path_record(loc)):
+            state = True if shaped else False if definite and value.whole_record_missing else None
+            flow.record_storage[key] = state
+            if len(flow.record_storage) > MAX_FACTS:
+                raise _Limit('Analysis storage limit reached')
+            if state is True and flow.changed_path_aggregates:
+                self.tick(len(flow.changed_path_aggregates))
+                flow.changed_path_aggregates = {old for old in flow.changed_path_aggregates
+                                                if old[:3] != key[:3] or old[3][:len(loc.parts)] != loc.parts}
+
+    def write(self, loc, value, flow, node, *, definite=True, track_path_storage=True, shaped_record=False):
         if loc is None:
             flow.path_shape_unknown = True
             self.unresolved_at('write-target','Writable target is not statically resolved',node);return
@@ -895,7 +931,8 @@ class _Analyzer:
                     flow.path_orders[loc.key] = None
                 self.opaque(flow)
             return
-        if loc.spec[0] not in SCALARS and track_path_storage and not (definite and value.complete):
+        self.update_record_storage(loc, value, flow, definite, shaped_record)
+        if loc.spec[0] not in SCALARS and track_path_storage and not (definite and (value.complete or shaped_record)):
             dimensions, terminal = _array_dimensions(loc.root_spec)
             if terminal and terminal[0] == 'PATH' and len(loc.parts) > len(dimensions):
                 record = loc.parts[len(dimensions)]
@@ -1217,7 +1254,7 @@ class _Analyzer:
               and not self.lost_path_reference(loc, flow)):
             leaves = self.leaves(loc)
             if leaves is not None:
-                if any(self.leaf_uninitialized(leaf, flow) for leaf in leaves):
+                if flow.record_storage.get(loc.key) is False or any(self.leaf_uninitialized(leaf, flow) for leaf in leaves):
                     result.constant = True
                 elif all(leaf.key in flow.defined for leaf in leaves):
                     result.constant = False
@@ -1388,7 +1425,7 @@ class _Analyzer:
                         self.tick(len(inserted))
                         inserted = inserted | {-self.serial}
                         record = self.child(path, 'created-node', self.serial, node)
-                        self.write(record, value, flow, node, track_path_storage=False)
+                        self.write(record, value, flow, node, track_path_storage=False, shaped_record=True)
                     flow.path_orders[path.key] = replace(
                         order, nodes=nodes, detached=detached,
                         previous_max_size=max(order.previous_max_size, count), inserted=inserted,
@@ -1818,14 +1855,25 @@ class _Analyzer:
             if origin not in order.nodes and origin not in order.detached:
                 return None
             inserted = origin in order.inserted
+        bank_node = bool(dimensions) and not _path_header_part(part)
+        record_key = (*loc.key[:3], loc.parts[:depth + 1])
+        if record_key in flow.record_storage:
+            current = flow.record_storage[record_key]
+            if current is False:
+                if bank_node:
+                    return False if named_lookup else None
+                return MISSING_PATH_RECORD if whole_record else False
+            if current is True:
+                return True
         aggregate = loc.spec[0] not in SCALARS
         changed = any((*loc.key[:3], loc.parts[:end]) in flow.changed_path_aggregates
                       for end in range(depth + 1, len(loc.parts) + aggregate))
         if changed:
             return None
-        bank_node = bool(dimensions) and not _path_header_part(part)
         if loc.key in flow.defined and not bank_node:
             return True
+        if record_key in flow.record_storage:
+            return None
         if inserted:
             return True
         # Whole PATH copies can introduce missing aggregate containers. Known
@@ -1939,6 +1987,12 @@ class _Analyzer:
         for cell in self.variable_array_locations(loc, count, node):
             yield self.read(cell, node, flow, conditional, partial=True, raw_scalar=True)
 
+    def read_variable_data(self, loc, node, flow, conditional, storage=None):
+        value = self.read(loc, node, flow, conditional, partial=True, raw_scalar=True)
+        if storage is MISSING_PATH_RECORD or flow.record_storage.get(loc.key) is False:
+            return _Value(complete=False, spec=loc.spec, uninitialized=True, whole_record_missing=True)
+        return value
+
     def capture_variable_operand(self, expression, flow, conditional):
         while expression['kind'] == 'group':
             expression = expression['args'][0]
@@ -1952,7 +2006,7 @@ class _Analyzer:
                     self.unresolved_at('path-topology', 'SET_VAR operand has missing PATH storage: '+location.path, expression)
                     flow.stopped = True
                     return _Value(complete=False), None, False
-                if storage is None and not whole_record:
+                if storage is None and (not whole_record or flow.record_storage.get(location.key) is False):
                     self.unresolved_at('path-topology', 'SET_VAR operand requires proven PATH storage: '+location.path, expression)
                     value = self.read(location, expression, flow, conditional, partial=True, raw_scalar=True)
                     return replace(value, spec=None), None, False
@@ -1960,8 +2014,9 @@ class _Analyzer:
                 if (location.spec[0] == 'ARRAY' and location.kind in ('variable', 'local')
                         and element[0] in (*SCALARS, *rt.RECORD_TYPES, 'JOINTPOS')):
                     return _Value(spec=location.spec), (location, flow.copy()), False
-                value = self.read(location, expression, flow, conditional, partial=True, raw_scalar=True)
-                return value, None, whole_record and storage is True
+                value = self.read_variable_data(location, expression, flow, conditional, storage)
+                shaped = whole_record and storage is True or flow.record_storage.get(location.key) is True
+                return value, None, shaped
             if kind != 'name':
                 self.unresolved_at('selection', 'Computed or dynamic data read is unresolved', expression)
                 return _Value(complete=False), None, False
@@ -1989,9 +2044,14 @@ class _Analyzer:
         prepared = []
         try:
             for destination, source in pairs:
-                converted, unproven = convert_value_facts(destination.spec, source, tick=self.tick)
-                if unproven:
-                    self.unresolved_at('conversion-value', 'Variable conversion requires complete source data', node)
+                if source.whole_record_missing:
+                    # An admitted record conversion preserves the whole marker.
+                    converted = _Value(complete=False, spec=destination.spec, uninitialized=True,
+                                       whole_record_missing=True)
+                else:
+                    converted, unproven = convert_value_facts(destination.spec, source, tick=self.tick)
+                    if unproven:
+                        self.unresolved_at('conversion-value', 'Variable conversion requires complete source data', node)
                 prepared.append((destination, converted))
         except rt.KarelRuntimeError as error:
             self.unresolved_at('variable-conversion', str(error), node)
@@ -2007,8 +2067,15 @@ class _Analyzer:
                 return
         codes = []
         for destination, converted in prepared:
-            preserves_shape = shaped_source_record and self.whole_path_record(destination)
-            self.write(destination, converted, flow, node, track_path_storage=not preserves_shape)
+            if converted.whole_record_missing and any(
+                ref is None or (len(ref.parts) > len(destination.parts)
+                                and self.path_contains_reference(destination, ref))
+                for frame in self.frames for ref in frame['references']
+            ):
+                self.unresolved_at('path-topology', 'Clearing a record may detach captured field references', node)
+                self.opaque(flow)
+                return
+            self.write(destination, converted, flow, node, shaped_record=shaped_source_record)
             codes.append(self.variable_transfer_status(converted))
         result = 12311 if 12311 in codes else 0 if all(code == 0 for code in codes) else UNKNOWN
         self.write(entry, _Value(spec=['INTEGER']), flow, node)
@@ -2069,12 +2136,13 @@ class _Analyzer:
 
         destination = target if getting else named
         destination_storage = named_storage if not getting else target_storage
-        if getting and target_storage is True:
+        if getting and target_storage in (True, MISSING_PATH_RECORD):
             destination_storage = self.variable_path_storage(target, flow, conditional)
         source_spec = named.spec if getting and named is not None else operand_spec if not getting else None
         if (named is not None and destination is not None and source_spec and not flow.opaque
                 and entry is not None and status is not None and entry.key != status.key
-                and named_storage is True and destination_storage is True
+                and named_storage in (True, MISSING_PATH_RECORD)
+                and destination_storage in (True, MISSING_PATH_RECORD)
                 and self.ordinary_variable_output(destination, node)
                 and not any(self.path_contains_reference(destination, loc) for loc in (entry, status))):
             policy = variable_transfer_policy(destination.spec, source_spec)
@@ -2088,14 +2156,15 @@ class _Analyzer:
                               else array_prefix_values(value, count, tick=self.tick))
                     prefix = count, values
                 elif capture is not None and (policy != 'rejected' or capture.spec[0] != 'ARRAY'):
-                    value = self.read(capture, args[3] if not getting else node, captured_flow, conditional,
-                                      partial=True, raw_scalar=True)
+                    value = self.read_variable_data(capture, args[3] if not getting else node, captured_flow,
+                                                    conditional, named_storage if getting else None)
                 source_array_storage = False
                 if capture is not None:
                     _, source_root = _array_dimensions(capture.root_spec)
                     source_array_storage = source_root and source_root[0] == 'PATH'
                 if getting:
-                    shaped_source_record = self.whole_path_record(named)
+                    shaped_source_record = (self.whole_path_record(named) and named_storage is True
+                                            or flow.record_storage.get(named.key) is True)
                 self.variable_data_copy(destination, value, entry, status, policy, node, flow, prefix=prefix,
                                         source_array_storage=source_array_storage,
                                         shaped_source_record=shaped_source_record)

@@ -1,5 +1,11 @@
 # Changelog
 
+## 26.1121.132500 - 2026-11-21
+
+- Discover transfers of wholly uninitialized PATH node and header records.
+  Track the missing marker and later initialization separately from lookup
+  failures.
+
 ## 26.1121.131527 - 2026-11-21
 
 - Discover whole PATH header and node transfers with proven record storage,

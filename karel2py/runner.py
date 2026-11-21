@@ -13,7 +13,7 @@ import sys
 
 from . import __version__, runtime as rt
 from .fileio import check_output
-from .storage import atomic_bytes
+from .storage import atomic_bytes, tuple_spec
 
 
 SCHEMA = 'karel2py.run.v1'
@@ -316,11 +316,13 @@ def _save_discovered_value(path, selected, update, *, expected, protected):
     report = template['discovery']
     for candidate, binding in zip(report['inputs'], template['bindings']):
         if input_key(candidate) == selected:
-            update(context, candidate, binding)
+            refresh_layout = update(context, candidate, binding)
             break
     else:
         raise RunDocumentError('This input is no longer in the discovery report.')
-    _replace_prepared_inputs(document, _prepare(report, context, materialize=False))
+    updated = (_prepare_edited_context(document, target_paths, context) if refresh_layout
+               else _prepare(report, context, materialize=False))
+    _replace_prepared_inputs(document, updated)
     revision = _store_edited_inputs(path, document, original, target_paths, protected)
     return document, revision
 
@@ -340,7 +342,16 @@ def save_input_structure(path, selected, payload, *, expected, protected=()):
     from .structured_inputs import structured_slot
 
     def update(context, candidate, binding):
-        structured_slot(context, candidate, binding).replace(payload)
+        slot = structured_slot(context, candidate, binding)
+        previously_missing = (candidate['kind'] == 'variable'
+                              and slot.container[slot.key] == {'uninitialized': True})
+        slot.replace(payload)
+        # Materializing this record may change the status of a named lookup
+        # or transfer, which can change the branches that read other inputs.
+        if previously_missing:
+            root = tuple_spec(candidate['root_type'])
+            return rt.array_leaf_spec(root)[0] == 'PATH'
+        return False
 
     return _save_discovered_value(path, selected, update, expected=expected, protected=protected)
 
