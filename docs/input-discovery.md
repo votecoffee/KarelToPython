@@ -373,12 +373,15 @@ references are known. A captured node slot follows the current list position.
 A borrowed field keeps its original storage even when its node is removed.
 A checked `COPY_PATH` in the same argument positions can replace the descriptor.
 Previously captured slots and fields retain the old descriptor's storage.
-Discovery reports a gap when a later argument replaces an already evaluated
-raw PATH source or index base. Compound selectors and unproved copy storage
-also stay open for review. A later write through the old field leaves a
-replacement record intact. Initializing an uninitialized PATH record in the
-saved-run editor refreshes the reachable inputs. Discovery keeps unproved
-argument effects and record layouts open for review.
+Discovery also follows the already evaluated raw source of `COPY_PATH` and
+the separately evaluated PATH base of a node subscript through a checked
+replacement. The retained descriptor sees edits made before replacement and
+writes through its borrowed slots afterward. A flattened ARRAY and node
+subscript resolves the cell after evaluating both subscripts. A selected
+aggregate READ with a PATHHEADER follows its writable PATH reference when
+resolving the node. Initializing an uninitialized PATH record in the saved-run
+editor refreshes the reachable inputs. Discovery reports unresolved compound
+selectors, ambiguous edits, and unproved record storage.
 
 Discovery also tracks statically named scalar, record, and ordinary array
 transfers. Equal-rank arrays copy the leading elements in row-major order,

@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1121.140424 - 2026-11-21
+
+- Follow evaluated raw PATH descriptors through checked replacements during
+  `COPY_PATH` argument evaluation and node indexing. Preserve writes through
+  borrowed slots and count records from the captured descriptor.
+  Follow the lowered lookup order for PATH ARRAY subscripts and selected I/O.
+
 ## 26.1121.135451 - 2026-11-21
 
 - Follow COPY_PATH descriptor replacements in direct argument routines and

@@ -938,23 +938,104 @@ class InputTemplateTests(unittest.TestCase):
         self.assertTrue(report['complete'], report['unresolved'])
         self.assertEqual(set(by_path(prepared)), {'WANTED'})
 
-    def test_path_descriptor_replacement_reports_captured_raw_values(self):
+    def test_path_descriptor_replacement_keeps_evaluated_raw_values(self):
         common = (
             'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t '
-            'VAR route,replacement,target:route_t s,dummy:INTEGER '
+            'VAR route,replacement,target:route_t s,dummy,wanted,unused:INTEGER '
             'ROUTINE swap:INTEGER BEGIN COPY_PATH(replacement,0,0,route,s) RETURN 1 END swap '
             'ROUTINE choose(n:INTEGER;ignored:INTEGER):INTEGER BEGIN RETURN n END choose '
+            'ROUTINE observe(earlier:INTEGER;held:row_t) BEGIN held.amount=41 '
+            'IF (earlier=41) AND (route[1].amount=13) THEN WRITE(wanted) ELSE WRITE(unused) ENDIF END observe '
             'BEGIN APPEND_NODE(route,s) APPEND_NODE(replacement,s) '
             'route[1].amount=7 replacement[1].amount=13 dummy=1 '
         )
-        for statement, message in (
-            ('COPY_PATH(route,choose(dummy,swap()),1,target,s)', 'COPY_PATH source descriptor changed'),
-            ('WRITE(route[choose(dummy,swap())].amount)', 'PATH descriptor changed or became unresolved during index evaluation'),
+        for statement in (
+            'COPY_PATH(route,choose(dummy,swap()),1,target,s) '
+            'IF (s=0) AND (target[1].amount=7) AND (route[1].amount=13) THEN WRITE(wanted) ELSE WRITE(unused) ENDIF',
+            'IF (route[choose(dummy,swap())].amount=7) AND (route[1].amount=13) THEN WRITE(wanted) ELSE WRITE(unused) ENDIF',
+            'observe(route[1].amount,route[choose(dummy,swap())])',
         ):
             with self.subTest(statement=statement):
-                report = prepare_inputs(translate(common + statement + ' END T').python_source)['template']['discovery']
-                self.assertFalse(report['complete'])
-                self.assertTrue(any(message in row['message'] for row in report['unresolved']), report)
+                prepared = prepare_inputs(translate(common + statement + ' END T').python_source)
+                report = prepared['template']['discovery']
+                self.assertTrue(report['complete'], report['unresolved'])
+                self.assertEqual(set(by_path(prepared)), {'WANTED'})
+
+    def test_path_array_index_and_selected_transfer_follow_lowered_order(self):
+        common = (
+            'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+            'route_t=PATH NODEDATA=row_t PATHHEADER=row_t '
+            'VAR routes:ARRAY[1] OF route_t replacement:route_t s,dummy,wanted,unused:INTEGER '
+            'ROUTINE swap:INTEGER BEGIN COPY_PATH(replacement,0,0,routes[1],s) RETURN 1 END swap '
+            'ROUTINE choose(n:INTEGER;ignored:INTEGER):INTEGER BEGIN RETURN n END choose '
+            'BEGIN APPEND_NODE(routes[1],s) APPEND_NODE(replacement,s) '
+            'routes[1,1].amount=7 routes[1].amount=8 replacement[1].amount=13 replacement.amount=23 dummy=1 '
+        )
+        for selector, value in (
+            ('routes[1,choose(dummy,swap())]', 13),
+            ('routes[1][choose(dummy,swap())]', 13),
+        ):
+            with self.subTest(selector=selector):
+                source = common + (
+                    f'IF {selector}.amount={value} THEN WRITE(wanted) ELSE WRITE(unused) ENDIF END T'
+                )
+                prepared = prepare_inputs(translate(source).python_source)
+                report = prepared['template']['discovery']
+                self.assertTrue(report['complete'], report['unresolved'])
+                self.assertEqual(set(by_path(prepared)), {'WANTED'})
+
+        source = common + 'WRITE(routes[1,choose(dummy,swap())]) END T'
+        report = prepare_inputs(translate(source).python_source)['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+
+        source = common + 'READ(routes[1,choose(dummy,swap())]) END T'
+        report = prepare_inputs(translate(source).python_source)['template']['discovery']
+        self.assertEqual([row['code'] for row in report['unresolved']], ['input-stream'])
+
+    def test_copy_path_sees_edits_before_and_after_detaching_the_source_descriptor(self):
+        source = (
+            'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+            'route_t=PATH NODEDATA=row_t PATHHEADER=row_t '
+            'VAR route,replacement,target:route_t s,dummy,wanted,unused:INTEGER '
+            'ROUTINE swap(held:row_t):INTEGER BEGIN INSERT_NODE(route,1,s) route[1].amount=12 '
+            'COPY_PATH(replacement,0,0,route,s) held.amount=17 RETURN 0 END swap '
+            'ROUTINE choose(n:INTEGER;ignored:INTEGER):INTEGER BEGIN RETURN n END choose '
+            'BEGIN APPEND_NODE(route,s) APPEND_NODE(replacement,s) '
+            'route[1].amount=7 route.amount=8 replacement[1].amount=13 replacement.amount=23 dummy=0 '
+            'COPY_PATH(route,choose(dummy,swap(route[1])),0,target,s) '
+            'IF (s=0) AND (PATH_LEN(target)=2) AND (target[1].amount=17) AND (target[2].amount=7) '
+            'AND (target.amount=8) AND (route[1].amount=13) AND (route.amount=23) '
+            'THEN WRITE(wanted) ELSE WRITE(unused) ENDIF END T'
+        )
+        prepared = prepare_inputs(translate(source).python_source)
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'WANTED'})
+
+    def test_copy_path_checks_saved_storage_of_replaced_raw_source(self):
+        source = (
+            'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t '
+            'VAR route,replacement,target:route_t s,dummy,wanted,unused:INTEGER '
+            'ROUTINE swap:INTEGER BEGIN COPY_PATH(replacement,0,0,route,s) RETURN 1 END swap '
+            'ROUTINE choose(n:INTEGER;ignored:INTEGER):INTEGER BEGIN RETURN n END choose '
+            'BEGIN APPEND_NODE(replacement,s) replacement[1].amount=13 dummy=1 '
+            'COPY_PATH(route,choose(dummy,swap()),1,target,s) '
+            'IF (s=0) AND (PATH_LEN(target)=1) THEN WRITE(wanted) ELSE WRITE(unused) ENDIF END T'
+        )
+        python = translate(source).python_source
+        row = ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]]
+        route = dict(program='T', path='ROUTE', type=['PATH', row, None])
+        ready = dict(route, value=dict(nodes=[{'AMOUNT': 71}], data=None))
+        prepared = prepare_inputs(python, context={'variables': [ready]})
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'ROUTE[1]', 'WANTED'})
+        self.assertEqual(prepared['context']['variables'][0]['value'], ready['value'])
+
+        missing = dict(route, value=dict(nodes=[MISSING], data=None))
+        report = prepare_inputs(python, context={'variables': [missing]})['template']['discovery']
+        self.assertFalse(report['complete'])
+        self.assertTrue(any('COPY_PATH layout' in row['message'] for row in report['unresolved']), report)
 
     def test_copy_path_uses_live_source_nodes_after_in_place_argument_edit(self):
         source = (
