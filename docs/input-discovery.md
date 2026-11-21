@@ -167,9 +167,11 @@ python -m karel2py.runner create .local/discovery.py .local/editable.run.json --
 This saves the usual `inputs.context` and `results`, plus `inputs.template` with
 the discovery report, input bindings and requirements. Variable bindings point
 to whole-root values through `context_pointer` (a JSON Pointer relative to
-`inputs.context`) and retain logical `selectors` for the required fields or
-one-based KAREL indexes. Fill those values in `inputs.context`, then run the
-document normally. For the authored example set SELECTOR to true and SOURCE.B
+`inputs.context`) and retain `root_path` and logical `selectors` for the
+required fields or one-based KAREL indexes. An exact saved row and a field or
+element selected through a different root can share a displayed path. The
+editor labels their backing roots and applies each edit to its selected row.
+Fill the values in `inputs.context`, then run the document normally. For the authored example set SELECTOR to true and SOURCE.B
 to 41; SOURCE.A may retain its missing marker because the program writes it.
 
 Preparation builds concrete scalar, ARRAY, STRUCTURE, built-in record and

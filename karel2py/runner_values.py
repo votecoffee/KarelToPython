@@ -13,7 +13,10 @@ EDITABLE_KINDS = {'variable', 'numeric_register', 'string_register', 'port'}
 
 
 def input_key(row):
-    return row.get('kind'), row.get('program'), row.get('path')
+    """Identify a variable input by its saved root as well as its display path."""
+    key = row.get('kind'), row.get('program'), row.get('path')
+    root = row.get('root_path')
+    return (*key, root) if key[0] == 'variable' and isinstance(root, str) else key
 
 
 def scalar_options(candidate):

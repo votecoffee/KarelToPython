@@ -1,4 +1,5 @@
 """Desktop editor for standalone and linked Pythonic run documents."""
+from collections import Counter
 from copy import deepcopy
 import json
 from pathlib import Path
@@ -180,10 +181,17 @@ class RunWindow:
         if not selection or self.document is None or 'template' not in self.document['inputs']:
             return {}, {}
         template = self.document['inputs']['template']
-        binding = template['bindings'][int(selection[0])]
-        candidates = template['discovery'].get('inputs')
-        candidate = next((row for row in candidates if isinstance(row, dict) and
-                          input_key(row) == input_key(binding)), {}) if isinstance(candidates, list) else {}
+        try:
+            index = int(selection[0])
+            binding = template['bindings'][index]
+            candidate = template['discovery']['inputs'][index]
+        except (IndexError, KeyError, TypeError, ValueError):
+            return {}, {}
+        if not isinstance(candidate, dict) or not isinstance(binding, dict):
+            return {}, {}
+        key = input_key(binding)
+        if input_key(candidate)[:len(key)] != key:
+            return {}, {}
         return candidate, binding
 
     def _configure_value_editor(self, editable):
@@ -223,7 +231,9 @@ class RunWindow:
     def _input_label(self, binding):
         path = str(binding.get('path', ''))
         program = binding.get('program')
-        return f'{program}.{path}' if self._linked() and program else path
+        if program and (self._linked() or program != self.document['target']['program']):
+            return f'{program}.{path}'
+        return path
 
     def edit_selected(self):
         if str(self.edit_value['state']) != 'normal':
@@ -234,7 +244,7 @@ class RunWindow:
         candidate, binding = self._selected_rows()
         try:
             context = deepcopy(self.document['inputs']['context'])
-            label = self._input_label(binding)
+            label = self.inputs.set(self.inputs.selection()[0], 'path')
             if supports_structure(candidate):
                 draft = structured_slot(context, candidate, binding).draft(label)
                 payload = prompt_structure(self.window, label, draft, _prompt_value)
@@ -274,9 +284,21 @@ class RunWindow:
 
         self.tabs.add(self.inputs_page)
         self.tabs.tab(self.requirements_page, text='Requirements')
-        for index, row in enumerate(template.get('bindings', ())):
+        bindings = template.get('bindings', ())
+        labels = [self._input_label(row) for row in bindings]
+        counts = Counter(labels)
+        candidates = template.get('discovery', {}).get('inputs')
+        if not isinstance(candidates, list):
+            candidates = []
+        for index, (row, label) in enumerate(zip(bindings, labels)):
+            if counts[label] > 1:
+                root = row.get('root_path')
+                if not root and index < len(candidates) and isinstance(candidates[index], dict):
+                    root = candidates[index].get('root_path')
+                if root:
+                    label = f'{label} (root {root})'
             self.inputs.insert('', 'end', iid=str(index),
-                               values=(str(row.get('kind', '')), self._input_label(row),
+                               values=(str(row.get('kind', '')), label,
                                        str(row.get('certainty', '')), str(row.get('status', ''))))
         requirements.update(
             requirements=template.get('requirements', []),

@@ -1,5 +1,13 @@
 # Changelog
 
+## 26.1121.152145 - 2026-11-21
+
+- Distinguish same-name saved-run inputs by their backing roots. Save scalar
+  values and structured fields to the selected row, including exact saved
+  paths and fields reached through a root binding.
+- Refresh discovery after edits to an external saved binding so readiness and
+  later input requirements reflect the new initialization state.
+
 ## 26.1121.150639 - 2026-11-21
 
 - Resolve BYNAME, GET_VAR and SET_VAR against typed saved bindings in

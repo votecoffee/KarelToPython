@@ -314,12 +314,21 @@ def _save_discovered_value(path, selected, update, *, expected, protected):
     prepared = _prepare_edited_context(document, target_paths, document['inputs']['context'])
     template, context = prepared['template'], prepared['context']
     report = template['discovery']
-    for candidate, binding in zip(report['inputs'], template['bindings']):
-        if input_key(candidate) == selected:
-            refresh_layout = update(context, candidate, binding)
-            break
-    else:
+    if not isinstance(selected, (tuple, list)) or len(selected) not in (3, 4):
+        raise RunDocumentError('Select an input by its kind, program, path, and saved root for variables.')
+    selected = tuple(selected)
+    matches = [(candidate, binding) for candidate, binding in zip(report['inputs'], template['bindings'])
+               if input_key(candidate)[:len(selected)] == selected]
+    if not matches:
         raise RunDocumentError('This input is no longer in the discovery report.')
+    if len(matches) != 1:
+        raise RunDocumentError('This input name is ambiguous. Select its saved root.')
+    candidate, binding = matches[0]
+    refresh_layout = update(context, candidate, binding)
+    if candidate['kind'] == 'variable':
+        backing = candidate['program'], candidate['root_path']
+        refresh_layout = refresh_layout or any((row['program'], row['path']) == backing
+                                               for row in report.get('binding_storage', ()))
     updated = (_prepare_edited_context(document, target_paths, context) if refresh_layout
                else _prepare(report, context, materialize=False))
     _replace_prepared_inputs(document, updated)
@@ -333,6 +342,7 @@ def save_input_value(path, selected, kind, text, *, expected, protected=()):
 
     def update(context, candidate, binding):
         scalar_slot(context, candidate, binding).set_text(kind, text)
+        return False
 
     return _save_discovered_value(path, selected, update, expected=expected, protected=protected)
 

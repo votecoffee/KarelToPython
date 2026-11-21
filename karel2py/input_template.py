@@ -259,7 +259,8 @@ def _prepare(report, context, *, materialize=True, execution=None):
             bindings.append(binding)
             if candidate['kind'] == 'variable':
                 key = candidate['program'], candidate['root_path']
-                binding['selectors'] = [list(item) for item in candidate['selectors']]
+                binding.update(root_path=candidate['root_path'],
+                               selectors=[list(item) for item in candidate['selectors']])
                 try:
                     spec = tuple_spec(candidate['root_type'])
                     path_storage = spec[0] == 'PATH' or rt.path_array_io_type(spec)

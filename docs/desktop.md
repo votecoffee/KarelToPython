@@ -86,7 +86,9 @@ the JSON layouts and current coverage.
    its owning program. Use **Open run** for existing JSON from the CLI or
    desktop, then choose **Prepare inputs** to add or update the input template.
 4. Select a discovered input and choose **Edit value** or **Edit fields**.
-   **Requirements** shows the module pins and remaining input or service needs.
+   If two inputs share a path, use the root shown in the label to select the
+   backing context row. **Requirements** shows the module pins and remaining
+   input or service needs.
    **Discovery report** shows the owner and source location of each candidate.
 5. Use **Edit context** and **Save inputs** to configure services or edit the
    JSON directly. Set each linked variable's `program` field to its owner.

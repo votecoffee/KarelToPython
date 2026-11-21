@@ -4,9 +4,11 @@ from copy import deepcopy
 from pathlib import Path
 import tempfile
 from threading import Event, Thread
+from types import SimpleNamespace
 import unittest
 
 from karel2py import runner, translate
+from karel2py.runner_values import input_key
 from karel2py.structured_inputs import structured_slot
 
 
@@ -34,12 +36,94 @@ class SavedRunEditorTests(unittest.TestCase):
         template = document['inputs']['template']
         candidate, binding = next((candidate, binding) for candidate, binding in
                                   zip(template['discovery']['inputs'], template['bindings'])
-                                  if (candidate['kind'], candidate['program'], candidate['path']) == key)
+                                  if input_key(candidate)[:len(key)] == key)
         return structured_slot(document['inputs']['context'], candidate, binding).draft(candidate['path'])
 
     def save_structure(self, key, payload):
         document, self.revision = runner.save_input_structure(self.path, key, payload, expected=self.revision)
         return document
+
+    def test_same_name_scalar_edits_use_the_selected_saved_root(self):
+        rows = [
+            dict(program='CACHE', path='GRID', type=['ARRAY', 2, ['INTEGER']], value=[7, 8]),
+            dict(program='CACHE', path='GRID[1]', type=['INTEGER'], value=13),
+        ]
+        self.create(
+            "show_values(BYNAME('CACHE','grid[1]',a),BYNAME('CACHE','grid',b))",
+            declarations=('VAR a,b:INTEGER ROUTINE show_values(exact:INTEGER;grid:ARRAY OF INTEGER) '
+                          'BEGIN WRITE(exact,grid[1],CR) END show_values'),
+            context={'variables': rows},
+        )
+        with self.assertRaisesRegex(runner.RunDocumentError, 'ambiguous'):
+            self.set_input('variable', 'GRID[1]', 'INTEGER', '41', owner='CACHE')
+        self.assertEqual(self.path.read_bytes(), self.revision)
+
+        for root, text in (('GRID', '31'), ('GRID[1]', '42')):
+            document, self.revision = runner.save_input_value(
+                self.path, ('variable', 'CACHE', 'GRID[1]', root), 'INTEGER', text, expected=self.revision)
+        self.assertEqual(document['inputs']['context']['variables'], [
+            dict(rows[0], value=[31, 8]), dict(rows[1], value=42),
+        ])
+        self.assertEqual(runner.run_document(self.path)['results']['text_output'], ' 42 31\n')
+
+    def test_saved_run_selection_shows_the_right_candidate_and_root_without_opening_a_window(self):
+        from karel2py.gui_runner import RunWindow
+
+        rows = [
+            dict(program='CACHE', path='GRID', type=['ARRAY', [2, 2], ['INTEGER']], value=[[7, 8], [9, 10]]),
+            dict(program='CACHE', path='GRID[1]', type=['INTEGER'], value=13),
+        ]
+        self.create(
+            "show_values(BYNAME('CACHE','grid[1]',a),BYNAME('CACHE','grid',b))",
+            declarations=('VAR a,b:INTEGER ROUTINE show_values(exact:INTEGER;grid:ARRAY[2,2] OF INTEGER) '
+                          'BEGIN WRITE(exact,grid[1],CR) END show_values'),
+            context={'variables': rows},
+        )
+        run = RunWindow.__new__(RunWindow)
+        run.document = deepcopy(self.saved)
+        template = run.document['inputs']['template']
+        # Older templates carry the same binding order without root_path.
+        for binding in template['bindings']:
+            binding.pop('root_path')
+        selected = next(index for index, candidate in enumerate(template['discovery']['inputs'])
+                        if candidate['root_path'] == 'GRID')
+        items = {}
+        run.inputs = SimpleNamespace(selection=lambda: (str(selected),), get_children=lambda: (),
+                                     delete=lambda *_: None,
+                                     insert=lambda *_, iid, values: items.update({iid: values}))
+        run.detail = run.location = SimpleNamespace(set=lambda _: None)
+        run.tabs = SimpleNamespace(add=lambda *_, **__: None, tab=lambda *_, **__: None)
+        run.inputs_page = run.requirements_page = run.requirements = None
+        run._display = lambda *_: None
+        run._show_inputs(self.saved['target'], self.path, template)
+        candidate, binding = run._selected_rows()
+        self.assertEqual(candidate['type'], ['ARRAY', 2, ['INTEGER']])
+        self.assertEqual(candidate['root_path'], 'GRID')
+        self.assertEqual(binding['context_pointer'], '/variables/0/value')
+        self.assertEqual(items[str(selected)][1], 'CACHE.GRID[1] (root GRID)')
+        self.assertIn('CACHE.GRID[1] (root GRID[1])', [row[1] for row in items.values()])
+
+        key = input_key(candidate)
+        draft = self.draft(key)
+        dict(draft.fields)['GRID[1][2]'].set_text('INTEGER', '31')
+        edited = self.save_structure(key, draft.checked_payload())
+        self.assertEqual(edited['inputs']['context']['variables'], [
+            dict(rows[0], value=[[7, 31], [9, 10]]), rows[1],
+        ])
+        self.assertEqual(runner.run_document(self.path)['results']['text_output'], ' 13 7 31\n')
+
+    def test_saved_external_scalar_edit_refreshes_copy_initialization_proof(self):
+        self.create(
+            "GET_VAR(entry,'CACHE','item',out,s) WRITE(out,CR)",
+            declarations='VAR entry,out,s:INTEGER',
+            context={'variables': [dict(program='CACHE', path='ITEM', type=['INTEGER'],
+                                        value={'uninitialized': True})]},
+        )
+        report = self.saved['inputs']['template']['discovery']
+        self.assertEqual([gap['code'] for gap in report['unresolved']], ['derived-value'])
+        updated = self.set_input('variable', 'ITEM', 'INTEGER', '19', owner='CACHE')
+        self.assertTrue(updated['inputs']['template']['discovery']['complete'])
+        self.assertEqual(runner.run_document(self.path)['results']['text_output'], ' 19\n')
 
     def test_structured_record_draft_keeps_other_roots_and_missing_leaves(self):
         missing = {'uninitialized': True}
