@@ -1,5 +1,13 @@
 # Changelog
 
+## 26.1121.153030 - 2026-11-21
+
+- Track statically resolved CREATE_VAR storage and status in Pythonic input
+  discovery. Follow created fields, ARRAY cells and PATH records through
+  GET_VAR, SET_VAR and BYNAME, including types from pinned linked modules.
+- Retain saved variable rows on refresh when they determine name collisions
+  or consume creation capacity.
+
 ## 26.1121.152145 - 2026-11-21
 
 - Distinguish same-name saved-run inputs by their backing roots. Save scalar

@@ -118,8 +118,9 @@ def extract(source, *, inspect_entry=False):
     try:
         tree = ast.parse(source, feature_version=(3, 11))
         fields = {}
+        program = _class(tree)
         for name in (PLAN_FIELD, HASH_FIELD):
-            matches = [node for node in _class(tree).body if _field(node, name)]
+            matches = [node for node in program.body if _field(node, name)]
             if len(matches) != 1:
                 raise InputContractError('Re-translate the target to add its input-analysis contract')
             fields[name] = ast.literal_eval(matches[0].value)
@@ -131,6 +132,15 @@ def extract(source, *, inspect_entry=False):
             raise InputContractError('Input-analysis payload changed; re-translate the target')
         if module_digest(tree) != payload['module_sha256']:
             raise InputContractError('Python execution syntax changed; re-translate before discovery')
+        aliases = [node for node in program.body if _field(node, 'variable_types')]
+        if len(aliases) == 1:
+            try:
+                variable_types = ast.literal_eval(aliases[0].value)
+            except ValueError as error:
+                raise InputContractError('Invalid declared variable types') from error
+            if type(variable_types) is not dict:
+                raise InputContractError('Invalid declared variable types')
+            plan = dict(plan, variable_types=variable_types)
         return dict(plan, entry_checkpoint=_entry_checkpoint(tree)) if inspect_entry else plan
     except (SyntaxError, TypeError, RecursionError) as error:
         raise InputContractError('Invalid generated analysis contract: ' + str(error)) from error

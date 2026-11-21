@@ -121,8 +121,8 @@ points into the generated module. When a FILE transfer, `PATH_LEN`, or
 bounded node edit depends on existing PATH storage, `path_storage` lists the
 exact owner, root path and type of each saved root used. A shape dependency
 can exist without a field input. The `binding_storage` list identifies saved
-rows used for named lookup, including write-only bindings that refresh must
-retain.
+rows used for named lookup, collision checks and reserved creation capacity.
+Refresh retains these rows even when the program never reads their values.
 
 - `required`: a modeled unconditional read has no proven prior source write.
 - `conditional`: the read depends on a branch, a potentially empty loop, a
@@ -420,7 +420,8 @@ with special write guards and robot-dependent operations remain conservative.
 ### Named routine arguments
 
 Discovery follows direct `BYNAME` arguments with a known owner and path to
-declared or saved data and PATH storage. The called routine borrows scalar fields,
+declared, saved or source-created data and PATH storage. The called routine
+borrows scalar fields,
 whole records, and proven ARRAY rows or planes. A whole PATH node or header
 keeps its captured slot across later argument evaluation. A selected field
 keeps its captured record storage. A blank owner selects the calling task
@@ -431,6 +432,17 @@ arguments, using the same offline cache as `GET_VAR` and `SET_VAR`. Proven
 invalid selections, type mismatches, and entry overlap stop discovery at
 the argument. Targets with unsupplied external bindings, unsupported resource
 storage, or unproved addresses retain an explicit discovery gap.
+
+When an input template is prepared against a validated context, discovery
+can follow `CREATE_VAR` with known names, schema, dimensions and pool.
+Declared types are available from the executing module and pinned linked
+modules. A successful creation makes the new data available to `GET_VAR`,
+`SET_VAR` and direct `BYNAME` calls. Discovery follows known creation status
+codes and carries matching storage through branch joins. Freshly created
+values follow their runtime initialization rules and stay out of the input
+template. Analysis reports a gap when creation depends on unresolved values,
+repeat or callback order, or unknown capacity. Renaming and resource use
+continue to require review.
 
 Dynamic addresses, unsupported schemas/resources/services, host or linked
 routine effects, handlers, nonstructured jumps, recursion, fresh uninitialized

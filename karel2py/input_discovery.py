@@ -6,7 +6,7 @@ import math
 from pathlib import Path
 import re
 
-from .dynamic import BYNAME_PATH
+from .dynamic import BYNAME_PATH, MAX_LEAVES, UNKNOWN_CREATION_TYPE, creation_cost, creation_type, normalized_name
 from .extended import PREDEFINED_FILE_NAMES, ZERO_BASED_PORTS, path_conversion_layout, path_node_size
 from .file_io import MAX_PATH_IO_FIELDS, path_io_field_count, path_io_indexes
 from .input_contract import extract, InputContractError
@@ -15,7 +15,7 @@ from .input_value_conversions import (
     array_prefix_addresses, array_prefix_values, convert_value_facts,
     stored_value as _stored_value, variable_array_prefix_size, variable_transfer_policy,
 )
-from .storage import collection_array_cost, tuple_spec
+from .storage import collection_array_cost, list_spec, tuple_spec
 from . import runtime as rt
 
 
@@ -72,8 +72,8 @@ class _Location:
     saved_binding: bool = field(default=False, compare=False, hash=False)
 
     @property
-    def saved_data(self):
-        return (self.saved_binding and self.root_spec[0] != 'PATH'
+    def named_data(self):
+        return ((self.saved_binding or self.kind == 'created-variable') and self.root_spec[0] != 'PATH'
                 and not _path_array_cell_type(self.root_spec))
 
     @property
@@ -173,6 +173,9 @@ class _Flow:
     # None for a key means predecessor flows disagree on its presence or number.
     variable_entries: dict = field(default_factory=dict)
     next_variable_entry: int | None = 1
+    # A branch-dependent binding has no common schema.
+    created_variables: dict = field(default_factory=dict)
+    allocated_variable_units: int | None = 0
 
     def copy(self):
         return _Flow(self.defined.copy(),self.assigned.copy(),self.maybe.copy(),
@@ -180,7 +183,8 @@ class _Flow:
                      self.requested_tasks.copy(),self.paused_tasks.copy(),self.task_order_unknown,
                      self.path_shape_unknown,self.path_orders.copy(),self.uninitialized.copy(),
                      self.changed_path_aggregates.copy(),self.record_storage.copy(),self.retired_paths.copy(),
-                     self.variable_entries.copy(),self.next_variable_entry)
+                     self.variable_entries.copy(),self.next_variable_entry,
+                     self.created_variables.copy(),self.allocated_variable_units)
 
     def take(self, other):
         self.handlers = other.handlers
@@ -194,6 +198,8 @@ class _Flow:
         self.record_storage = other.record_storage
         self.retired_paths = other.retired_paths
         self.variable_entries, self.next_variable_entry = other.variable_entries, other.next_variable_entry
+        self.created_variables = other.created_variables
+        self.allocated_variable_units = other.allocated_variable_units
 
 
 def _merge(flows):
@@ -231,6 +237,13 @@ def _merge(flows):
     next_entry = first.next_variable_entry
     if any(flow.next_variable_entry != next_entry for flow in live[1:]):
         next_entry = None
+    created = {}
+    for key in set().union(*(flow.created_variables for flow in live)):
+        schema = first.created_variables.get(key)
+        created[key] = schema if all(flow.created_variables.get(key) == schema for flow in live) else None
+    units = first.allocated_variable_units
+    if any(flow.allocated_variable_units != units for flow in live[1:]):
+        units = None
     return _Flow(set.intersection(*(flow.defined for flow in live)),
                  set.intersection(*(flow.assigned for flow in live)),
                  set.union(*(flow.maybe for flow in live)),constants,False,any(flow.opaque for flow in live),
@@ -239,7 +252,7 @@ def _merge(flows):
                  pauses,uncertain,any(flow.path_shape_unknown for flow in live),path_orders,
                  set.intersection(*(flow.uninitialized for flow in live)),
                  set.union(*(flow.changed_path_aggregates for flow in live)), record_storage, retired_paths,
-                 variable_entries, next_entry)
+                 variable_entries, next_entry, created, units)
 
 
 def _path_record_identity(part):
@@ -308,7 +321,7 @@ class _Analyzer:
         stable_context = linked_plans is None or track_handlers and track_tasks
         self.saved_path_count = saved_path_count if stable_context else None
         self.saved_bindings = saved_bindings if stable_context else None
-        self.saved_storage_revision = 0
+        self.named_storage_revision = 0
         self.path_storage = {}
         self.binding_storage = {}
         self.steps = 0
@@ -371,6 +384,8 @@ class _Analyzer:
         flow.retired_paths.clear()
         flow.variable_entries.clear()
         flow.next_variable_entry = None
+        flow.created_variables.clear()
+        flow.allocated_variable_units = None
 
     def context(self, service, address):
         self.contexts.setdefault((service,str(address)),dict(service=service,address=address))
@@ -446,17 +461,35 @@ class _Analyzer:
         if self.frames and name in self.frames[-1]['constants']:return self.frames[-1]['constants'][name]
         return self.plan['constants'].get(name,UNKNOWN)
 
+    def record_fields(self, loc):
+        spec = loc.spec
+        if not spec:
+            return None
+        if spec[0] == 'STRUCTURE':
+            return dict(spec[2])
+        fields = self.plan.get('record_fields', {}).get(spec[0])
+        if fields is None and loc.kind == 'created-variable':
+            fields = rt.DATA_RECORD_FIELDS.get(spec[0])
+            if fields is not None:
+                return {name: list_spec(schema) for name, schema in fields}
+        return fields
+
+    def path_node_schema(self, loc):
+        node = loc.spec[1] or self.plan.get('default_path_node')
+        if node is None and loc.kind == 'created-variable':
+            return list_spec(rt.PREDEFINED_STRUCTURES['STD_PTH_NODE'])
+        return node
+
     def child(self, loc, kind, value, node):
         spec=loc.spec
         if spec and spec[0] == 'PATH':
             if value == 0 or kind == 'created-header':
                 selected = spec[2]
             else:
-                node_type = spec[1] or self.plan.get('default_path_node')
+                node_type = self.path_node_schema(loc)
                 selected = node_type if kind == 'created-node' or 1 <= value <= 32767 else None
         elif kind=='field':
-            fields=dict(spec[2]) if spec and spec[0]=='STRUCTURE' else self.plan.get('record_fields',{}).get(spec[0],{}) if spec else {}
-            selected=fields.get(value)
+            selected=(self.record_fields(loc) or {}).get(value)
         else:
             selected=None
             if spec and spec[0]=='ARRAY':
@@ -578,7 +611,7 @@ class _Analyzer:
         if loc is None or not self.definite_path_effect(flow, conditional):
             return False
         if not self.frames:
-            return loc.kind == 'variable'
+            return loc.kind in ('variable', 'created-variable')
         current = self.frames[-1]
         return ((loc.kind == 'local' and loc.owner == current['owner'])
                 or current['borrowed_path_edits'] or argument_edit and current['argument_path_edits'])
@@ -761,6 +794,8 @@ class _Analyzer:
         if loc.key in flow.path_orders:
             order = flow.path_orders[loc.key]
             return len(order.nodes) if order is not None else None
+        if loc.kind == 'created-variable':
+            return 0
         if loc.kind == 'local' and any(
             frame['owner'] == loc.owner and loc.root in frame['fresh_path_banks'] for frame in self.frames
         ):
@@ -866,20 +901,22 @@ class _Analyzer:
             flow.path_orders[path.key] = replace(current, retired_slots=slots)
         return replace(record, path_slot=slot)
 
-    def saved_container_present(self, loc, flow):
+    def named_container_present(self, loc, flow):
         if flow.opaque or flow.task_order_unknown:
             return None
         for end in range(len(loc.parts), -1, -1):
             key = (*loc.key[:3], loc.parts[:end])
             if key in flow.record_storage:
                 return flow.record_storage[key]
+        if loc.kind == 'created-variable':
+            return True
         return self.saved_bindings.container_present(loc.owner, loc.root, loc.parts)
 
-    def check_saved_container(self, loc, node, flow):
-        present = self.saved_container_present(loc, flow)
+    def check_named_container(self, loc, node, flow):
+        present = self.named_container_present(loc, flow)
         if present is True:
             return True
-        self.unresolved_at('variable-storage', 'Saved variable container is missing or unresolved: '+loc.path, node)
+        self.unresolved_at('variable-storage', 'Named variable container is missing or unresolved: '+loc.path, node)
         if present is False:
             flow.stopped = True
         else:
@@ -897,7 +934,7 @@ class _Analyzer:
                                selector_path_edits=selector_path_edits, reading=reading)
         if kind=='field':
             base=self.locate(args[0],flow,conditional)
-            if base is not None and base.saved_data and not self.check_saved_container(base, expr, flow):
+            if base is not None and base.named_data and not self.check_named_container(base, expr, flow):
                 return None
             return self.field_child(base, expr['value'], expr, flow) if base else None
         if kind=='index':
@@ -912,14 +949,14 @@ class _Analyzer:
                 self.unresolved_at('dynamic-address','Port index requires an explicit runtime mapping',expr);return None
             loc=self.locate(base,flow,conditional)
             saved_parents = []
-            saved_revision = self.saved_storage_revision
+            saved_revision = self.named_storage_revision
             # A plain scalar array's subscript does not hold an untracked PATH receiver.
             safe_selector = False
             if selector_path_edits and loc is not None and not loc.parts and loc.spec[0] == 'ARRAY':
                 _, element = _array_dimensions(loc.spec)
                 safe_selector = element[0] in SCALARS
             for position, argument in enumerate(args[1:], 1):
-                if loc is not None and loc.saved_data:
+                if loc is not None and loc.named_data:
                     saved_parents.append(loc)
                 path_base = loc is not None and loc.spec[0] == 'PATH'
                 generation = self.path_descriptor_generation(loc, flow) if path_base else None
@@ -967,11 +1004,11 @@ class _Analyzer:
                                 and loc.spec[0] == 'PATH' and index >= 0):
                             selected = self.borrow_path_record(loc, index, selected, flow, archived=archived)
                         loc = selected
-            if saved_parents and saved_revision != self.saved_storage_revision:
+            if saved_parents and saved_revision != self.named_storage_revision:
                 self.unresolved_at('variable-storage', 'Saved aggregate storage may change during index evaluation', expr)
                 self.opaque(flow)
                 return None
-            if any(not self.check_saved_container(parent, expr, flow) for parent in saved_parents):
+            if any(not self.check_named_container(parent, expr, flow) for parent in saved_parents):
                 return None
             return loc
         if kind in ('call','binary','unary','literal','real_literal','predefined'):
@@ -994,7 +1031,7 @@ class _Analyzer:
                 return all(visit(self.child(current,'index',index,{})) for index in range(1,shape[0]+1))
             if spec[0]=='JOINTPOS':
                 return all(visit(self.child(current,'index',index,{})) for index in range(1,spec[1]+1))
-            fields=dict(spec[2]) if spec[0]=='STRUCTURE' else self.plan.get('record_fields',{}).get(spec[0])
+            fields = self.record_fields(current)
             if fields is None:return False
             return all(visit(self.child(current,'field',name,{})) for name in fields)
         return leaves if visit(loc) else None
@@ -1006,7 +1043,7 @@ class _Analyzer:
             return False
         if key in flow.uninitialized:
             return True
-        return key not in flow.maybe and (loc.kind == 'local' or any(
+        return key not in flow.maybe and (loc.kind in ('local', 'created-variable') or any(
             kind in ('created-node', 'created-header') for kind, _ in loc.parts
         ))
 
@@ -1048,6 +1085,9 @@ class _Analyzer:
                     self.unresolved_at('derived-value', 'Source-created PATH data may be uninitialized: '+loc.path, node)
             elif not initial:
                 if not partial_copy:self.unresolved_at('derived-value','Read follows a write whose complete value is not proven: '+loc.path,node)
+            elif loc.kind == 'created-variable':
+                if not partial_copy:
+                    self.unresolved_at('derived-value', 'Source-created variable is read before initialization: '+loc.path, node)
             elif loc.kind=='local':
                 if not partial_copy:self.unresolved_at('local-value','Fresh routine-local value is read before initialization: '+loc.path,node)
             else:
@@ -1124,9 +1164,9 @@ class _Analyzer:
         """Forget overwritten shapes and publish current whole-record markers."""
         if flow.opaque or loc.spec[0] in SCALARS:
             return
-        saved_data = loc.saved_data
+        saved_data = loc.named_data
         if saved_data:
-            self.saved_storage_revision += 1
+            self.named_storage_revision += 1
         shaped = definite and (value.complete or shaped_record and not saved_data)
         key = loc.key
         tracked = key in flow.record_storage
@@ -1166,9 +1206,9 @@ class _Analyzer:
                     flow.path_orders[loc.key] = None
                 self.opaque(flow)
             return
-        if (loc.saved_data and loc.spec[0] not in SCALARS and not (definite and value.complete)
+        if (loc.named_data and loc.spec[0] not in SCALARS and not (definite and value.complete)
                 and any(True for _ in self.active_path_borrows(loc))):
-            self.unresolved_at('variable-storage', 'Saved aggregate write may detach borrowed fields: '+loc.path, node)
+            self.unresolved_at('variable-storage', 'Named aggregate write may detach borrowed fields: '+loc.path, node)
             self.opaque(flow)
             return
         self.update_record_storage(loc, value, flow, definite, shaped_record)
@@ -1492,7 +1532,7 @@ class _Analyzer:
                 result.constant = True
             elif value.complete and value.spec:
                 result.constant = False
-        elif (loc is not None and loc.kind in ('variable', 'local') and spec[0] not in ('FILE', 'QUEUE_TYPE')
+        elif (loc is not None and loc.kind in ('variable', 'local', 'created-variable') and spec[0] not in ('FILE', 'QUEUE_TYPE')
               and not self.lost_path_reference(loc, flow)):
             leaves = self.leaves(loc)
             if leaves is not None:
@@ -1576,7 +1616,7 @@ class _Analyzer:
     def path_seed_layout(self, path, seed, convert):
         if seed is None:
             return 'exact'
-        target = path.spec[1] or self.plan.get('default_path_node')
+        target = self.path_node_schema(path)
         if not target or not seed.spec:
             return None
         target, source = tuple_spec(target), tuple_spec(seed.spec)
@@ -1684,7 +1724,7 @@ class _Analyzer:
                             self.tick(len(inserted))
                             inserted = inserted - {removed}
                     else:
-                        node_type = path.spec[1] or self.plan.get('default_path_node')
+                        node_type = self.path_node_schema(path)
                         value = (_Value(complete=False, spec=node_type, uninitialized=True) if seed is None
                                  else self.convert_path_seed(node_type, seed, node, flow))
                         if value is None:
@@ -2106,13 +2146,19 @@ class _Analyzer:
             return False
         return True
 
-    def saved_named_root(self, owner, selected, path, root, flow):
-        if self.saved_bindings is None or flow.opaque or flow.task_order_unknown:
+    def named_root_binding(self, owner, selected, path, root, flow):
+        if flow.opaque or flow.task_order_unknown:
             return None
-        # Exact saved rows win over navigation inside a saved root. A checked
-        # declared global, including an import, takes precedence over both.
+        # Exact rows win over navigation inside a root. Declared globals have
+        # already been checked.
         for program, binding in dict.fromkeys(((selected, path), (owner, path), (selected, root), (owner, root))):
-            spec = self.saved_bindings.spec(program, binding)
+            key = program, binding
+            if key in flow.created_variables:
+                spec = flow.created_variables[key]
+                if spec is None:
+                    return None
+                return _Location('created-variable', program, binding, spec=spec, root_spec=spec)
+            spec = self.saved_bindings.spec(program, binding) if self.saved_bindings is not None else None
             if spec is not None:
                 self.binding_storage[program, binding] = spec
                 return _Location('variable', program, binding, spec=spec, root_spec=spec, saved_binding=True)
@@ -2133,11 +2179,11 @@ class _Analyzer:
             plan = self.plan if selected == self.program else (self.linked_plans or {}).get(selected)
             if plan is not None and (plan.get('status') != 'available' or root_name in plan.get('types', {})):
                 return None, False
-            loc = self.saved_named_root(owner, selected, path, root_name, flow)
+            loc = self.named_root_binding(owner, selected, path, root_name, flow)
         rest = path[len(loc.root):] if loc is not None and loc.saved_binding else path[root.end():]
         while rest and loc:
-            if loc.saved_data:
-                present = self.saved_container_present(loc, flow)
+            if loc.named_data:
+                present = self.named_container_present(loc, flow)
                 if present is not True:
                     return None, present is False
             field = re.match(r'\.([A-Za-z_][A-Za-z_0-9]*)', rest)
@@ -2236,6 +2282,8 @@ class _Analyzer:
                 if leaves and all(leaf.key in flow.defined for leaf in leaves):
                     return True
             return None
+        if loc.kind == 'created-variable' and origin == 0:
+            return True
         if loc.kind == 'local' and origin == 0 and order is not None:
             return True
         if not self.stable_path_context(path, flow, conditional):
@@ -2341,7 +2389,7 @@ class _Analyzer:
         return True
 
     def ordinary_variable_output(self, loc, node, *, alias=False):
-        if loc.kind not in ('variable', 'local') or not loc.root_spec:
+        if loc.kind not in ('variable', 'local', 'created-variable') or not loc.root_spec:
             return False
         current = replace(loc, parts=(), spec=loc.root_spec)
         for kind, key in loc.parts:
@@ -2390,7 +2438,7 @@ class _Analyzer:
                     value = self.read(location, expression, flow, conditional, partial=True, raw_scalar=True)
                     return replace(value, spec=None), None, False
                 _, element = _array_dimensions(location.spec)
-                if (location.spec[0] == 'ARRAY' and location.kind in ('variable', 'local')
+                if (location.spec[0] == 'ARRAY' and location.kind in ('variable', 'local', 'created-variable')
                         and element[0] in (*SCALARS, *rt.RECORD_TYPES, 'JOINTPOS')):
                     return _Value(spec=location.spec), (location, flow.copy()), False
                 value = self.read_variable_data(location, expression, flow, conditional, storage)
@@ -2671,6 +2719,84 @@ class _Analyzer:
         self.write(status, _Value(), flow, node)
         return _Value()
 
+    def creation_outcome(self, values, flow):
+        owner, root, type_owner, text, group, inner, middle, outer, pool = values
+        if (flow.opaque or flow.task_order_unknown or self.callback_depth or self.repeat_depth
+                or any(type(name) is not str or not name.isascii() for name in (owner, root, type_owner))):
+            return None
+        owner = normalized_name(owner, self.program)
+        root = normalized_name(root)
+        type_owner = normalized_name(type_owner, self.program)
+        if None in (owner, root, type_owner):
+            return 2
+        key = owner, root
+        if key in flow.created_variables:
+            return 3 if flow.created_variables[key] is not None else None
+        owner_plan = self.plan if owner == self.program else (self.linked_plans or {}).get(owner)
+        if owner_plan is not None:
+            if owner_plan.get('status') != 'available':
+                return None
+            if root in owner_plan.get('types', {}):
+                return 3
+        if self.saved_bindings is None:
+            return None
+        conflicts = self.saved_bindings.conflicts(owner, root)
+        if conflicts:
+            self.binding_storage.update(conflicts)
+            return 3
+        if pool is UNKNOWN:
+            return None
+        if type(pool) is not int or pool not in (-1, 0):
+            return 2
+        if any(value is UNKNOWN for value in (text, group, inner, middle, outer)):
+            return None
+        type_plan = self.plan if type_owner == self.program else (self.linked_plans or {}).get(type_owner)
+        aliases = type_plan.get('variable_types', {}) if type_plan and type_plan.get('status') == 'available' else None
+        with rt._numeric_scope('pythonic'):
+            try:
+                schema = creation_type(text, group, (inner, middle, outer), aliases)
+            except rt.KarelRuntimeError:
+                return None
+            if schema is UNKNOWN_CREATION_TYPE:
+                return None
+            if schema is None:
+                return 5
+            cost = creation_cost(schema)
+        units = flow.allocated_variable_units
+        if units is None or flow.handlers:
+            return None
+        reserved, bindings = self.saved_bindings.reservation()
+        self.binding_storage.update(bindings)
+        if reserved + units + cost > MAX_LEAVES:
+            return 6
+        flow.allocated_variable_units = units + cost
+        flow.created_variables[key] = list_spec(schema)
+        return 0
+
+    def create_variable(self, node, flow, conditional):
+        args = node['args']
+        with self.capture_operands() as pending:
+            values = []
+            for arg in args[:8]:
+                values.append(self.expr(arg, flow, conditional).constant)
+                if flow.stopped and not flow.opaque:
+                    return _Value(complete=False)
+            status = self.locate(args[8], flow, conditional, capture_node=True, selector_path_edits=True)
+            if flow.stopped and not flow.opaque:
+                return _Value(complete=False)
+            pending.append(status)
+            pool = self.expr(args[9], flow, conditional, argument_path_edits=status is not None).constant if len(args) == 10 else 0
+        if flow.stopped and not flow.opaque:
+            return _Value(complete=False)
+        status = self.resolve_path_slot(status, node, flow) if status is not None else None
+        result = self.creation_outcome([*values, pool], flow) if status is not None else None
+        if result is None:
+            self.unresolved_at('variable-creation', 'CREATE_VAR name, schema, capacity or execution order requires review', node)
+            self.opaque(flow)
+        else:
+            self.write(status, _Value(result, spec=['INTEGER']), flow, node)
+        return _Value()
+
     def call(self, node, flow, conditional, *, statement_call=False, argument_path_edits=False):
         name=node['value'];args=node['args']
         if name in self.plan['routines']:
@@ -2684,6 +2810,8 @@ class _Analyzer:
             return self.path_copy(node, flow, conditional)
         if name in ('GET_VAR', 'SET_VAR'):
             return self.variable_call(node, flow, conditional)
+        if name == 'CREATE_VAR':
+            return self.create_variable(node, flow, conditional)
         if name in ('UNINIT', 'ARRAY_LEN'):
             return self.data_metadata_call(node, flow, conditional)
         if name in SCALAR_PURE:return self.scalar_call(node,flow,conditional)
@@ -2916,7 +3044,7 @@ class _Analyzer:
         if rejected:
             return self.byname_gap(node, flow, 'BYNAME variable selection is invalid: '+path, rejected=True)
         if target is None:
-            return self.byname_gap(node, flow, 'BYNAME target needs a checked declaration or saved binding: '+owner+'.'+path)
+            return self.byname_gap(node, flow, 'BYNAME target needs proven named storage: '+owner+'.'+path)
         _, terminal = _array_dimensions(target.spec)
         if terminal[0] != 'PATH':
             try:

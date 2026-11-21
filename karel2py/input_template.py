@@ -3,8 +3,9 @@ from copy import deepcopy
 import re
 
 from . import runtime as rt
+from .dynamic import reserved as variable_reservation
 from .input_discovery import DEFAULT_EMPTY_PATH, MISSING_PATH_RECORD, _discover_inputs
-from .storage import collection_array_cost, collection_data_spec, restore_value, tuple_spec
+from .storage import collection_array_cost, collection_data_spec, list_spec, restore_value, tuple_spec
 
 
 SCHEMA = 'karel2py.input-template.v1'
@@ -139,16 +140,27 @@ class _SavedBindings:
     def __init__(self, execution):
         self.references = execution.variables.bindings
         self.snapshots = {}
+        self.store = execution.variables
+        self.creation_storage = None
+
+    def reservation(self):
+        if self.creation_storage is None:
+            with rt._numeric_scope('pythonic'):
+                units = variable_reservation(self.store)
+            self.creation_storage = units, {key: self.spec(*key) for key in self.store.metadata}
+        return self.creation_storage
+
+    def conflicts(self, owner, root):
+        return {(program, path): list_spec(reference.spec)
+                for (program, path), reference in self.references.items()
+                if program == owner and (path == root or path.startswith((root+'.', root+'[')))}
 
     def spec(self, owner, path):
         reference = self.references.get((owner, path))
         if reference is None:
             return None
 
-        def lists(schema):
-            return [lists(item) if isinstance(item, tuple) else item for item in schema]
-
-        return lists(reference.spec)
+        return list_spec(reference.spec)
 
     def _selected_value(self, owner, root, selectors):
         key = owner, root

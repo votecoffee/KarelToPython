@@ -1461,6 +1461,82 @@ class InputTemplateTests(unittest.TestCase):
         self.assertTrue(report['complete'], report['unresolved'])
         self.assertEqual(set(by_path(prepared)), {'WANTED'})
 
+    def test_created_array_cell_flows_through_transfer_and_byname(self):
+        source = (
+            'PROGRAM T VAR first,entry,status,out,wanted,unused:INTEGER '
+            'ROUTINE increment(held:INTEGER) BEGIN held=held+2 END increment '
+            "BEGIN CREATE_VAR(' CACHE ','item','','INTEGER',0,2,2,0,status,-1) "
+            "SET_VAR(first,'CACHE','ITEM[2,1]',17,status) "
+            "increment(BYNAME('CACHE','ITEM[2,1]',entry)) "
+            "GET_VAR(entry,'CACHE','ITEM[2,1]',out,status) "
+            'IF (first=1) AND (entry=1) AND (status=0) AND (out=19) '
+            'THEN WRITE(wanted) ELSE WRITE(unused) ENDIF END T'
+        )
+        prepared = prepare_inputs(translate(source).python_source)
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'WANTED'})
+        self.assertEqual([row['path'] for row in prepared['context']['variables']], ['WANTED'])
+
+    def test_created_data_join_and_uninitialized_transfer(self):
+        creation = "CREATE_VAR('CACHE','item','','INTEGER',0,0,0,0,status)"
+        prepared = prepare(
+            f'IF option THEN {creation} ELSE {creation} ENDIF '
+            "out=99 GET_VAR(entry,'CACHE','item',out,status) "
+            'IF (status=12311) AND UNINIT(out) THEN WRITE(wanted) ELSE WRITE(unused) ENDIF',
+            decl='entry,status,out,wanted,unused:INTEGER option:BOOLEAN',
+        )
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'OPTION', 'WANTED'})
+
+    def test_created_path_alias_tracks_header_and_inserted_node(self):
+        source = (
+            'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+            'route_t=PATH NODEDATA=row_t PATHHEADER=row_t '
+            'VAR entry,status,head,out,wanted,unused:INTEGER '
+            'ROUTINE fill(p:route_t) VAR s:INTEGER BEGIN '
+            'APPEND_NODE(p,s) p[1].amount=17 p.amount=19 END fill '
+            "BEGIN CREATE_VAR('CACHE','route','','ROUTE_T',0,0,0,0,status) "
+            "fill(BYNAME('CACHE','route',entry)) "
+            "GET_VAR(entry,'CACHE','route.amount',head,status) "
+            "GET_VAR(entry,'CACHE','route[1].amount',out,status) "
+            'IF (status=0) AND (head=19) AND (out=17) '
+            'THEN WRITE(wanted) ELSE WRITE(unused) ENDIF END T'
+        )
+        prepared = prepare_inputs(translate(source).python_source)
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'WANTED'})
+
+    def test_creation_status_checks_collision_shape_and_storage_budget(self):
+        saved = dict(program='CACHE', path='ITEM[1]', type=['INTEGER'], value=17)
+        prepared = prepare(
+            "CREATE_VAR('CACHE','item','','INTEGER',0,0,0,0,duplicate) "
+            "CREATE_VAR('CACHE','bad.name','','INTEGER',0,0,0,0,bad_name) "
+            "CREATE_VAR('CACHE','bad_shape','','INTEGER',0,0,1,0,bad_shape) "
+            "CREATE_VAR('CACHE','large','','INTEGER',0,32767,0,0,first) "
+            "CREATE_VAR('CACHE','extra','','REAL',0,0,0,0,full) "
+            'IF (duplicate=3) AND (bad_name=2) AND (bad_shape=5) AND (first=0) AND (full=6) '
+            'THEN WRITE(wanted) ELSE WRITE(unused) ENDIF',
+            decl='duplicate,bad_name,bad_shape,first,full,wanted,unused:INTEGER',
+            context={'variables': [saved]},
+        )
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'WANTED'})
+        self.assertEqual([row['path'] for row in report['binding_storage']], ['ITEM[1]'])
+
+    def test_branch_dependent_creation_does_not_become_an_initial_input(self):
+        prepared = prepare(
+            "IF option THEN CREATE_VAR('CACHE','item','','INTEGER',0,0,0,0,status) ENDIF "
+            "GET_VAR(entry,'CACHE','item',out,status) ",
+            decl='entry,status,out:INTEGER option:BOOLEAN',
+        )
+        report = prepared['template']['discovery']
+        self.assertFalse(report['complete'])
+        self.assertEqual(set(by_path(prepared)), {'OPTION'})
+
     def test_saved_byname_and_named_transfers_share_the_same_binding(self):
         source = (
             'PROGRAM T VAR first,entry,status,out,wanted,unused:INTEGER '

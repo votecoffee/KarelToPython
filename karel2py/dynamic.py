@@ -11,6 +11,7 @@ VARIABLE_SUFFIX=rf'(?:\.{IDENTIFIER}|\[ *[0-9]+(?: *, *[0-9]+)* *\])*'
 VARIABLE_SELECTOR=rf'(?:\[({IDENTIFIER})\] *)?({IDENTIFIER})({VARIABLE_SUFFIX})'
 REAL_LITERAL=r'[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[Ee][+-]?[0-9]+)?'
 MAX_LEAVES=32767
+UNKNOWN_CREATION_TYPE = object()
 ARRAY_DIMENSION_TEXT = r'(?:[0-9]{1,5}|\*)'
 ARRAY_TYPE_LAYER = re.compile(
     rf'ARRAY(?: +| *\[ *({ARRAY_DIMENSION_TEXT}(?: *, *{ARRAY_DIMENSION_TEXT}){{0,2}}) *\] *)OF +(.+)'
@@ -143,10 +144,13 @@ def restore_metadata(store,program,path,metadata,spec):
     store.metadata[program,path]=metadata.copy()
 
 
+def normalized_name(value, default=''):
+    value = value.strip().upper() or default
+    return value if re.fullmatch(IDENTIFIER, value) else None
+
+
 def name(value,state,line,*,default=False):
-    value=runtime().ascii_string(value,line).strip().upper()
-    if not value and default: value=state.program_name
-    return value if re.fullmatch(IDENTIFIER,value) else None
+    return normalized_name(runtime().ascii_string(value,line), state.program_name if default else '')
 
 
 def roots(store,program):
@@ -190,7 +194,13 @@ def _array_type_shape(text, slots):
 
 
 def concrete_type(context,state,program,text,group,dimensions,line):
-    """Portable data and Pythonic root resources; validate before allocation."""
+    owner=state if program==state.program_name else context.variables.programs.get(program)
+    aliases=getattr(getattr(owner,'program',None),'variable_types',{})
+    return creation_type(text, group, dimensions, aliases, line)
+
+
+def creation_type(text, group, dimensions, aliases, line=None):
+    """Resolve a concrete creation schema without allocating storage."""
     rt=runtime()
     text=rt.ascii_string(text,line).strip().upper()
     if (type(dimensions) not in (tuple,list) or len(dimensions)!=3
@@ -223,8 +233,9 @@ def concrete_type(context,state,program,text,group,dimensions,line):
         if not dimensions[0]: return None
         spec=(text.split()[-1],)
     else:
-        owner=state if program==state.program_name else context.variables.programs.get(program)
-        spec=getattr(getattr(owner,'program',None),'variable_types',{}).get(text)
+        if aliases is None:
+            return UNKNOWN_CREATION_TYPE
+        spec=aliases.get(text)
         if spec is None: return None
     if spec[0] in ('FILE','PATH','QUEUE_TYPE') and not rt._pythonic(): return None
     if shape:

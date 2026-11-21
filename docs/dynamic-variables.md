@@ -117,8 +117,10 @@ Entry numbers are offline cache hints. They need not be initialized and are not
 native table identifiers. Renaming keeps these hints within the current context;
 loading JSON creates a fresh lookup cache. BYNAME operates on declared globals
 and explicit variable-store bindings as a direct routine argument.
-[Input discovery](input-discovery.md#named-routine-arguments) follows declared
-and supplied saved bindings when it can prove the address and storage.
+[Input discovery](input-discovery.md#named-routine-arguments) follows declared,
+saved and source-created data when it can prove the address and storage.
+Template preparation uses the saved context to check creation collisions and
+reserved capacity.
 
 ## Saved context and CLI examples
 

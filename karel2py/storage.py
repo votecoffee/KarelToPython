@@ -21,6 +21,10 @@ def tuple_spec(value):
     return tuple(tuple_spec(item) if isinstance(item,(list,tuple)) else item for item in value)
 
 
+def list_spec(value):
+    return [list_spec(item) if isinstance(item, (list, tuple)) else item for item in value]
+
+
 def typed_value(value, spec=None):
     """Encode the type as well as values, including partially initialized data."""
     runtime=rt()
