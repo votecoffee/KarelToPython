@@ -371,8 +371,11 @@ used as a later argument or as the scalar-array status subscript of a
 whole-node `GET_VAR` receiver, when the starting topology and affected
 references are known. A captured node slot follows the current list position.
 A borrowed field keeps its original storage even when its node is removed.
-Compound selectors and PATH descriptor replacement during argument evaluation
-stay open for review. A later write through the old field leaves a
+A checked `COPY_PATH` in the same argument positions can replace the descriptor.
+Previously captured slots and fields retain the old descriptor's storage.
+Discovery reports a gap when a later argument replaces an already evaluated
+raw PATH source or index base. Compound selectors and unproved copy storage
+also stay open for review. A later write through the old field leaves a
 replacement record intact. Initializing an uninitialized PATH record in the
 saved-run editor refreshes the reachable inputs. Discovery keeps unproved
 argument effects and record layouts open for review.

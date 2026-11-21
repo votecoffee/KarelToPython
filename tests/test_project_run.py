@@ -550,6 +550,31 @@ class SavedProjectTests(unittest.TestCase):
         self.assertEqual(result['text_output'], ' 42\n 7\n')
         self.assertEqual(result['programs']['MAIN']['values']['ROUTE']['nodes'], [{'AMOUNT': 42}, {'AMOUNT': 7}])
 
+    def test_linked_copy_path_status_selector_retains_the_prior_node_slot(self):
+        types = 'TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t'
+        main = self.module(
+            'MAIN', 'APPEND_NODE(route,s) APPEND_NODE(replacement,s) '
+                    'route[1].amount=7 replacement[1].amount=13 seed.amount=42 observe(route[1]) '
+                    'WRITE(route[1].amount,CR)',
+            types+' VAR route,replacement:route_t seed:row_t entry,s:INTEGER statuses:ARRAY[1] OF INTEGER',
+            'ROUTINE swap(v,source:route_t):INTEGER FROM LIB '
+            'ROUTINE observe(held:row_t) BEGIN '
+            "GET_VAR(entry,'','seed',held,statuses[swap(route,replacement)]) "
+            'IF statuses[1]=0 THEN WRITE(held.amount,CR) ENDIF END observe',
+        )
+        lib = self.module(
+            'LIB', declarations=types,
+            routines='ROUTINE swap(v,source:route_t):INTEGER VAR s:INTEGER '
+                     'BEGIN COPY_PATH(source,0,0,v,s) RETURN 1 END swap',
+        )
+        report = self.create(main, lib, discover=True)['inputs']['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertFalse(report['inputs'])
+        result = runner.run_document(self.document)['results']
+        self.assertEqual(result['status'], 'completed', result['error'])
+        self.assertEqual(result['text_output'], ' 42\n 13\n')
+        self.assertEqual(result['programs']['MAIN']['values']['ROUTE']['nodes'], [{'AMOUNT': 13}])
+
     def test_linked_path_variable_transfers_follow_a_named_program(self):
         types = ('TYPE src_n=STRUCTURE amount:REAL ENDSTRUCTURE '
                  'dst_n=STRUCTURE amount:INTEGER ENDSTRUCTURE '

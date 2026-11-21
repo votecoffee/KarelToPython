@@ -504,14 +504,14 @@ class _Analyzer:
     def definite_path_effect(self, flow, conditional):
         return not (flow.opaque or flow.path_shape_unknown or conditional or self.repeat_depth)
 
-    def can_publish_path(self, loc, flow, conditional, *, in_place=False):
+    def can_publish_path(self, loc, flow, conditional, *, argument_edit=False):
         if loc is None or not self.definite_path_effect(flow, conditional):
             return False
         if not self.frames:
             return loc.kind == 'variable'
         current = self.frames[-1]
         return ((loc.kind == 'local' and loc.owner == current['owner'])
-                or current['borrowed_path_edits'] or in_place and current['argument_node_edits'])
+                or current['borrowed_path_edits'] or argument_edit and current['argument_path_edits'])
 
     @contextmanager
     def capture_references(self):
@@ -560,9 +560,10 @@ class _Analyzer:
             return False
         return True
 
-    def replaced_path_borrows(self, path, flow, conditional, *, keep_header=False, complete_header=False):
+    def replaced_path_borrows(self, path, flow, conditional, *, keep_header=False, complete_header=False,
+                              argument_edit=False):
         """Validate borrowed records and retain the last contents of replaced slots."""
-        if not self.can_publish_path(path, flow, conditional):
+        if not self.can_publish_path(path, flow, conditional, argument_edit=argument_edit):
             return None
         order = flow.path_orders.get(path.key)
         detached = order.detached if order is not None else frozenset()
@@ -635,6 +636,12 @@ class _Analyzer:
             path_key in flow.path_orders
             and (flow.path_orders[path_key] is None or flow.opaque or flow.path_shape_unknown)
         )
+
+    def path_descriptor_generation(self, loc, flow):
+        order = flow.path_orders.get(loc.key)
+        if order is not None:
+            return order.header_generation
+        return None if loc.key in flow.path_orders else 0
 
     def known_path_count(self, loc, flow, conditional):
         if loc is None or flow.opaque or flow.path_shape_unknown or conditional or None in flow.path_orders:
@@ -735,14 +742,14 @@ class _Analyzer:
             return None
         return records
 
-    def locate(self, expr, flow, conditional, *, path_io=False, capture_node=False, selector_node_edits=False):
+    def locate(self, expr, flow, conditional, *, path_io=False, capture_node=False, selector_path_edits=False):
         if not isinstance(expr,dict):return None
         kind=expr.get('kind');args=expr.get('args',[])
         if 'token' in expr:return self.slot(expr['token'],expr,flow,capture_node=capture_node)
         if kind=='name':return self.slot(expr['value'],expr,flow,capture_node=capture_node)
         if kind=='group':
             return self.locate(args[0], flow, conditional, path_io=path_io, capture_node=capture_node,
-                               selector_node_edits=selector_node_edits)
+                               selector_path_edits=selector_path_edits)
         if kind=='field':
             base=self.locate(args[0],flow,conditional)
             return self.field_child(base, expr['value'], expr, flow) if base else None
@@ -759,12 +766,17 @@ class _Analyzer:
             loc=self.locate(base,flow,conditional)
             # A plain scalar array's subscript does not hold an untracked PATH receiver.
             safe_selector = False
-            if selector_node_edits and loc is not None and not loc.parts and loc.spec[0] == 'ARRAY':
+            if selector_path_edits and loc is not None and not loc.parts and loc.spec[0] == 'ARRAY':
                 _, element = _array_dimensions(loc.spec)
                 safe_selector = element[0] in SCALARS
             for position, argument in enumerate(args[1:], 1):
-                index=self.expr(argument,flow,conditional,argument_node_edits=safe_selector).constant
-                if type(index) is not int:
+                path_base = loc is not None and loc.spec[0] == 'PATH'
+                generation = self.path_descriptor_generation(loc, flow) if path_base else None
+                index=self.expr(argument,flow,conditional,argument_path_edits=safe_selector).constant
+                if path_base and generation != self.path_descriptor_generation(loc, flow):
+                    self.unresolved_at('path-topology', 'PATH descriptor changed or became unresolved during index evaluation: '+loc.path, expr)
+                    loc = None
+                elif type(index) is not int:
                     self.unresolved_at('dynamic-address','Index is not statically known for '+(loc.path if loc else '<computed>'),expr);loc=None
                 elif loc:
                     header_allowed = position == len(args) - 1 and (
@@ -1109,7 +1121,7 @@ class _Analyzer:
         return _Value(complete=complete)
 
     def expr(self, node, flow, conditional=False, *, partial=False, path_io=False,
-             statement_call=False, raw_scalar=False, argument_node_edits=False):
+             statement_call=False, raw_scalar=False, argument_path_edits=False):
         self.tick()
         if not isinstance(node,dict):return _Value()
         kind=node.get('kind');args=node.get('args',[]);value=node.get('value')
@@ -1128,7 +1140,7 @@ class _Analyzer:
             if constant is not UNKNOWN:return _Value(constant)
             if value in self.plan['routines']:
                 result = self.call(dict(node, kind='call', args=[]), flow, conditional, statement_call=statement_call,
-                                   argument_node_edits=argument_node_edits)
+                                   argument_path_edits=argument_path_edits)
                 return self.result_value(result, node, partial, path_io=path_io)
         if kind == 'path_io_range':
             if self.selects_routine_result(args[0]):
@@ -1153,7 +1165,7 @@ class _Analyzer:
         if kind == 'group':
             return self.expr(args[0], flow, conditional, partial=partial, path_io=path_io,
                              statement_call=statement_call, raw_scalar=raw_scalar,
-                             argument_node_edits=argument_node_edits)
+                             argument_path_edits=argument_path_edits)
         if kind in ('unary','binary'):
             if kind=='binary' and value in ('AND','OR'):
                 left=self.expr(args[0],flow,conditional);evaluation=node.get('evaluation')
@@ -1194,7 +1206,7 @@ class _Analyzer:
             return _Value(spec=['BOOLEAN'] if kind=='binary' and value in ('=','<>','<','<=','>','>=') else None)
         if kind == 'call':
             result = self.call(node, flow, conditional, statement_call=statement_call,
-                               argument_node_edits=argument_node_edits)
+                               argument_path_edits=argument_path_edits)
             return self.result_value(result, node, partial, path_io=path_io)
         if self.linked_plans is not None and kind=='captured':
             name, spec = value
@@ -1437,7 +1449,7 @@ class _Analyzer:
                 if layout == 'kinematic':
                     self.context('robot', None)
                     self.unresolved_at('path-conversion', 'PATH seed conversion requires robot model results', node)
-                elif (self.can_publish_path(path, flow, conditional, in_place=True)
+                elif (self.can_publish_path(path, flow, conditional, argument_edit=True)
                       and self.node_edit_preserves_borrows(path, order, prefix, shifted, removed)):
                     detached = order.detached
                     inserted = order.inserted
@@ -1479,6 +1491,7 @@ class _Analyzer:
 
     def path_copy(self, node, flow, conditional):
         operands = []
+        source_generation = None
         with self.capture_references() as pending:
             for index, argument in enumerate(node['args']):
                 if flow.stopped and not flow.opaque:
@@ -1486,6 +1499,8 @@ class _Analyzer:
                 if index == 0:
                     loc, value = self.metadata_operand(argument, flow, conditional)
                     operands.append(loc if loc is not None else value)
+                    if loc is not None and loc.spec[0] == 'PATH':
+                        source_generation = self.path_descriptor_generation(loc, flow)
                 elif index in (3, 4):
                     loc = self.locate(argument, flow, conditional)
                     pending.append(loc)
@@ -1496,6 +1511,11 @@ class _Analyzer:
             return _Value(complete=False)
         source, first, last, target, status, *flags = operands
         convert = flags[0] if flags else False
+        if (isinstance(source, _Location) and source.spec[0] == 'PATH'
+                and source_generation != self.path_descriptor_generation(source, flow)):
+            self.unresolved_at('path-topology', 'COPY_PATH source descriptor changed or became unresolved during argument evaluation', node)
+            self.opaque(flow)
+            return _Value()
         if (source is not None and source.spec and source.spec[0] == 'PATH'
                 and target is not None and target.spec[0] == 'PATH'
                 and status is not None and self.definite_path_effect(flow, conditional)
@@ -1525,9 +1545,11 @@ class _Analyzer:
                 else:
                     self.write(status, _Value(2, spec=['INTEGER']), flow, node)
                     return _Value()
-                history = self.replaced_path_borrows(target, flow, conditional)
+                history = self.replaced_path_borrows(target, flow, conditional, argument_edit=True)
                 if history is not None:
-                    captured = self.capture_path_copy(source, indexes, node, flow, conditional)
+                    argument_copy = not self.can_publish_path(target, flow, conditional)
+                    captured = self.capture_path_copy(source, indexes, node, flow, conditional,
+                                                      require_storage=argument_copy)
                     if captured is not None:
                         if _path_conversion_needs_model(layout, len(indexes)):
                             self.context('robot', None)
@@ -1785,17 +1807,20 @@ class _Analyzer:
         header = rt.scalar_leaf_count(spec[2]) if spec[2] is not None else 0
         return header + count * rt.scalar_leaf_count(node) <= MAX_FACTS
 
-    def capture_path_copy(self, source, indexes, node, flow, conditional):
+    def capture_path_copy(self, source, indexes, node, flow, conditional, *, require_storage=False):
         """Read the selected records and header before publishing any copy."""
         selected = (0, *indexes) if source.spec[2] is not None else indexes
         self.tick(len(selected))
         if isinstance(source, _Value):
             has_header = source.spec[2] is not None
-            return [source.path_records[index if has_header else index - 1] for index in selected]
+            records = [source.path_records[index if has_header else index - 1] for index in selected]
+            return records if not require_storage or all(record.complete for record in records) else None
         values = []
         for index in selected:
             loc = self.index_child(source, index, node, flow)
             if loc is None:
+                return None
+            if require_storage and self.variable_path_storage(loc, flow, conditional) is not True:
                 return None
             values.append(self.read(loc, node, flow, conditional, partial=True))
         return values
@@ -2199,7 +2224,7 @@ class _Analyzer:
             if flow.stopped and not flow.opaque:
                 return _Value(complete=False)
             status = self.locate(args[4], flow, conditional,
-                                 selector_node_edits=target is not None and target.path_slot is not None)
+                                 selector_path_edits=target is not None and target.path_slot is not None)
         if flow.stopped and not flow.opaque:
             return _Value(complete=False)
         if target is not None and target.path_slot is not None:
@@ -2290,11 +2315,11 @@ class _Analyzer:
         self.write(status, _Value(), flow, node)
         return _Value()
 
-    def call(self, node, flow, conditional, *, statement_call=False, argument_node_edits=False):
+    def call(self, node, flow, conditional, *, statement_call=False, argument_path_edits=False):
         name=node['value'];args=node['args']
         if name in self.plan['routines']:
             return self.routine(name, args, node, flow, conditional, statement_call=statement_call,
-                                argument_node_edits=argument_node_edits)
+                                argument_path_edits=argument_path_edits)
         if name in ('PATH_LEN', 'NODE_SIZE'):
             return self.path_metadata_call(node, flow, conditional)
         if name in ('APPEND_NODE', 'INSERT_NODE', 'DELETE_NODE'):
@@ -2507,7 +2532,7 @@ class _Analyzer:
             return None, None
         return target, routine
 
-    def routine(self, name, args, node, flow, conditional, *, statement_call=False, argument_node_edits=False):
+    def routine(self, name, args, node, flow, conditional, *, statement_call=False, argument_path_edits=False):
         routine=self.plan['routines'][name]
         modes=node.get('passing',[]);actual=[]
         with self.capture_references() as pending:
@@ -2522,7 +2547,7 @@ class _Analyzer:
                     actual.append(ref)
                 elif mode=='value':
                     value = self.expr(item, flow, conditional, partial=True,
-                                      argument_node_edits=len(pending) > start)
+                                      argument_path_edits=len(pending) > start)
                     expected = routine['parameters'][index][1]
                     if not (flow.stopped and not flow.opaque):
                         if expected[0] == 'PATH':
@@ -2563,13 +2588,13 @@ class _Analyzer:
                 self.opaque(flow);return _Value(complete=False)
             bindings.append((formal,spec,item,resolved))
         # Direct procedures can replace a PATH after operand capture.
-        # A checked argument routine can edit the node list in place while
-        # earlier reference arguments remain tracked by the caller.
+        # A checked argument routine can edit the node list or use COPY_PATH
+        # while earlier reference arguments remain tracked by the caller.
         caller = self.frames[-1] if self.frames else None
         procedure = statement_call and routine['result'] is None
         direct = procedure and (caller is None or caller['borrowed_path_edits'])
-        argument_edits = (argument_node_edits or procedure) and (
-            caller is None or caller['borrowed_path_edits'] or caller['argument_node_edits']
+        argument_edits = (argument_path_edits or procedure) and (
+            caller is None or caller['borrowed_path_edits'] or caller['argument_path_edits']
         )
         references = tuple(
             item if isinstance(item, _Location) else None
@@ -2579,7 +2604,7 @@ class _Analyzer:
                      slots={key:_Location('local',owner,key,spec=spec,root_spec=spec)
                             for key,spec in routine['types'].items()},
                      constants=routine['constants'], borrowed_path_edits=direct,
-                     argument_node_edits=argument_edits, references=references)
+                     argument_path_edits=argument_edits, references=references)
         formals = {formal for formal, _, _, _ in bindings}
         frame['fresh_path_banks'] = {
             key for key, slot in frame['slots'].items() if key not in formals and _path_array_cell_type(slot.spec)

@@ -1,5 +1,10 @@
 # Changelog
 
+## 26.1121.135451 - 2026-11-21
+
+- Follow COPY_PATH descriptor replacements in direct argument routines and
+  status selectors. Preserve earlier node, header and field references.
+
 ## 26.1121.134718 - 2026-11-21
 
 - Follow captured PATH node slots through bounded in-place edits performed by

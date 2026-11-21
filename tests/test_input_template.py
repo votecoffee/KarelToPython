@@ -887,22 +887,106 @@ class InputTemplateTests(unittest.TestCase):
         self.assertTrue(report['complete'], report['unresolved'])
         self.assertEqual(set(by_path(prepared)), {'WANTED'})
 
-    def test_get_var_whole_node_reports_unproved_status_selector_edits(self):
+    def test_get_var_whole_node_reports_unproved_compound_status_selector_edits(self):
         source = (
             'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t '
-            'VAR route,replacement:route_t seed:row_t entry,s:INTEGER statuses:ARRAY[1] OF INTEGER '
+            'VAR route:route_t seed:row_t entry,s:INTEGER statuses:ARRAY[1] OF INTEGER '
             'ROUTINE slot:INTEGER BEGIN INSERT_NODE(route,1,s) RETURN 1 END slot '
+            'BEGIN APPEND_NODE(route,s) route[1].amount=7 seed.amount=42 '
+            "GET_VAR(entry,'','seed',route[1],statuses[slot()+0]) END T"
+        )
+        report = prepare_inputs(translate(source).python_source)['template']['discovery']
+        self.assertFalse(report['complete'])
+        self.assertTrue(any('Captured PATH reference has an unresolved origin' in row['message']
+                            for row in report['unresolved']), report)
+
+    def test_get_var_status_selector_copy_path_keeps_old_node_slot(self):
+        source = (
+            'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t '
+            'VAR route,replacement:route_t seed:row_t entry,s,wanted,unused:INTEGER statuses:ARRAY[1] OF INTEGER '
             'ROUTINE swap:INTEGER BEGIN COPY_PATH(replacement,0,0,route,s) RETURN 1 END swap '
+            'ROUTINE observe(whole:row_t;field:INTEGER) BEGIN '
+            "GET_VAR(entry,'','seed',whole,statuses[swap()]) "
+            'IF (statuses[1]=0) AND (whole.amount=42) AND (field=42) AND (route[1].amount=13) '
+            'THEN WRITE(wanted) ELSE WRITE(unused) ENDIF END observe '
             'BEGIN APPEND_NODE(route,s) APPEND_NODE(replacement,s) '
             'route[1].amount=7 replacement[1].amount=13 seed.amount=42 '
-            "GET_VAR(entry,'','seed',route[1],statuses[{selector}]) END T"
+            'observe(route[1],route[1].amount) END T'
         )
-        for selector in ('slot()+0', 'swap()'):
-            with self.subTest(selector=selector):
-                report = prepare_inputs(translate(source.format(selector=selector)).python_source)['template']['discovery']
+        prepared = prepare_inputs(translate(source).python_source)
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'WANTED'})
+
+    def test_later_argument_copy_path_keeps_captured_node_and_header_slots(self):
+        source = (
+            'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+            'route_t=PATH NODEDATA=row_t PATHHEADER=row_t '
+            'VAR route,replacement:route_t s,wanted,unused:INTEGER '
+            'ROUTINE swap:INTEGER BEGIN COPY_PATH(replacement,0,0,route,s) RETURN s END swap '
+            'ROUTINE observe(whole_node,whole_header:row_t;node_field,header_field,code:INTEGER) BEGIN '
+            'whole_node.amount=41 whole_header.amount=42 '
+            'IF (code=0) AND (node_field=41) AND (header_field=42) '
+            'AND (route[1].amount=13) AND (route.amount=23) '
+            'THEN WRITE(wanted) ELSE WRITE(unused) ENDIF END observe '
+            'BEGIN APPEND_NODE(route,s) APPEND_NODE(replacement,s) '
+            'route[1].amount=7 route.amount=8 replacement[1].amount=13 replacement.amount=23 '
+            'observe(route[1],route[0],route[1].amount,route.amount,swap()) END T'
+        )
+        prepared = prepare_inputs(translate(source).python_source)
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'WANTED'})
+
+    def test_path_descriptor_replacement_reports_captured_raw_values(self):
+        common = (
+            'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t '
+            'VAR route,replacement,target:route_t s,dummy:INTEGER '
+            'ROUTINE swap:INTEGER BEGIN COPY_PATH(replacement,0,0,route,s) RETURN 1 END swap '
+            'ROUTINE choose(n:INTEGER;ignored:INTEGER):INTEGER BEGIN RETURN n END choose '
+            'BEGIN APPEND_NODE(route,s) APPEND_NODE(replacement,s) '
+            'route[1].amount=7 replacement[1].amount=13 dummy=1 '
+        )
+        for statement, message in (
+            ('COPY_PATH(route,choose(dummy,swap()),1,target,s)', 'COPY_PATH source descriptor changed'),
+            ('WRITE(route[choose(dummy,swap())].amount)', 'PATH descriptor changed or became unresolved during index evaluation'),
+        ):
+            with self.subTest(statement=statement):
+                report = prepare_inputs(translate(common + statement + ' END T').python_source)['template']['discovery']
                 self.assertFalse(report['complete'])
-                self.assertTrue(any('Captured PATH reference has an unresolved origin' in row['message']
-                                    for row in report['unresolved']), report)
+                self.assertTrue(any(message in row['message'] for row in report['unresolved']), report)
+
+    def test_copy_path_uses_live_source_nodes_after_in_place_argument_edit(self):
+        source = (
+            'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t '
+            'VAR route,target:route_t s,dummy,wanted,unused:INTEGER '
+            'ROUTINE shift:INTEGER BEGIN INSERT_NODE(route,1,s) route[1].amount=13 RETURN 1 END shift '
+            'ROUTINE choose(n,ignored:INTEGER):INTEGER BEGIN RETURN n END choose '
+            'BEGIN APPEND_NODE(route,s) route[1].amount=7 dummy=0 '
+            'COPY_PATH(route,choose(dummy,shift()),0,target,s) '
+            'IF (s=0) AND (PATH_LEN(target)=2) AND (target[1].amount=13) AND (target[2].amount=7) '
+            'THEN WRITE(wanted) ELSE WRITE(unused) ENDIF END T'
+        )
+        prepared = prepare_inputs(translate(source).python_source)
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'WANTED'})
+
+    def test_argument_copy_path_requires_materialized_source_records(self):
+        source = (
+            'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t '
+            'VAR route,replacement:route_t s:INTEGER '
+            'ROUTINE swap:INTEGER BEGIN COPY_PATH(replacement,0,0,route,s) RETURN s END swap '
+            'ROUTINE observe(whole:row_t;code:INTEGER) BEGIN WRITE(whole.amount) END observe '
+            'BEGIN APPEND_NODE(route,s) route[1].amount=7 observe(route[1],swap()) END T'
+        )
+        row = ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]]
+        replacement = dict(program='T', path='REPLACEMENT', type=['PATH', row, None],
+                           value=dict(nodes=[MISSING], data=None))
+        report = prepare_inputs(translate(source).python_source,
+                                context={'variables': [replacement]})['template']['discovery']
+        self.assertFalse(report['complete'])
+        self.assertTrue(any('COPY_PATH layout' in row['message'] for row in report['unresolved']), report)
 
     def test_later_argument_deletes_node_and_preserves_slot_and_field_identity(self):
         source = (
