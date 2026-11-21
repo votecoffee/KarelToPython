@@ -1,5 +1,10 @@
 # Changelog
 
+## 26.1121.131527 - 2026-11-21
+
+- Discover whole PATH header and node transfers with proven record storage,
+  including partial scalar data and captured node slots after edits.
+
 ## 26.1121.130219 - 2026-11-21
 
 - Discover nested PATH record fields, joint axes and array selections in named

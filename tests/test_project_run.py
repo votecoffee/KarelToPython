@@ -445,6 +445,37 @@ class SavedProjectTests(unittest.TestCase):
             {'GROUPDATA': MISSING, 'GRID': [[5, 6], [7, 8]]},
         ])
 
+    def test_linked_whole_named_path_nodes_and_headers(self):
+        types = ('TYPE row_t=STRUCTURE amount:INTEGER flag:BOOLEAN ENDSTRUCTURE '
+                 'route_t=PATH NODEDATA=row_t PATHHEADER=row_t')
+        row = ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']], ['FLAG', ['BOOLEAN']]]]
+        path = ['PATH', row, row]
+        main = self.module(
+            'MAIN', 'source.amount=42 source.flag=TRUE '
+                    "SET_VAR(entry,'LIB','bank[1,1]',source,s) "
+                    "GET_VAR(entry,'LIB','bank[1][1]',out,s) "
+                    "SET_VAR(entry,'LIB','bank[1,0]',out,s) "
+                    "GET_VAR(entry,'LIB','bank[1,0]',out,s) "
+                    'IF (s=0) AND (out.amount=42) AND out.flag THEN WRITE(out.amount,CR) ELSE WRITE(unused) ENDIF '
+                    "entry=88 GET_VAR(entry,'LIB','bank[1,2]',out,s) "
+                    'IF (s=1) AND (entry=88) AND (out.amount=42) THEN WRITE(s,CR) ELSE WRITE(unused) ENDIF',
+            types+' VAR source,out:row_t entry,s,unused:INTEGER',
+        )
+        lib = self.module('LIB', declarations=types+' VAR bank:ARRAY[1] OF route_t')
+        seed = dict(program='LIB', path='BANK', type=['ARRAY', 1, path], value=[
+            dict(nodes=[{'AMOUNT': MISSING, 'FLAG': MISSING}, MISSING],
+                 data={'AMOUNT': MISSING, 'FLAG': MISSING}),
+        ])
+        report = self.create(main, lib, context={'variables': [seed]}, discover=True)['inputs']['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertFalse(report['inputs'])
+        result = runner.run_document(self.document)['results']
+        self.assertEqual(result['status'], 'completed', result['error'])
+        self.assertEqual(result['text_output'], ' 42\n 1\n')
+        self.assertEqual(result['programs']['LIB']['values']['BANK'], [
+            dict(nodes=[{'AMOUNT': 42, 'FLAG': True}, MISSING], data={'AMOUNT': 42, 'FLAG': True}),
+        ])
+
     def test_linked_path_variable_transfers_follow_a_named_program(self):
         types = ('TYPE src_n=STRUCTURE amount:REAL ENDSTRUCTURE '
                  'dst_n=STRUCTURE amount:INTEGER ENDSTRUCTURE '

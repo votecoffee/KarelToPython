@@ -356,8 +356,12 @@ dependency retains the node's original saved address. A missing intermediate
 container, invalid named PATH subscript or undeclared header yields status 1
 and leaves the entry and destination untouched. A PATH ARRAY node lookup also
 requires the node's other aggregate fields to be present. A missing scalar can
-transfer with status 12311. Discovery reports unproved storage after aggregate writes
-and incomplete proof for whole selected node or header transfers.
+transfer with status 12311. Discovery follows whole selected headers and nodes
+when their aggregate containers are present, preserving known fields and
+missing scalar markers. Whole-node outputs follow captured list slots through
+modeled edits. Discovery reports unresolved storage when an argument has
+unproved effects on node order or the selected record lacks a proven container
+layout. This includes wholly uninitialized scalar PATH records.
 
 Discovery also tracks statically named scalar, record, and ordinary array
 transfers. Equal-rank arrays copy the leading elements in row-major order,

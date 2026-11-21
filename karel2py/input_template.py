@@ -139,7 +139,7 @@ def _saved_path_count(execution, *, migrate_path=None):
     validated_nodes = {}
 
     def path_count(program, root, root_type, selectors, *, record_index=None, record_selectors=(), require_value=False,
-                   validate_record=False):
+                   validate_record=False, whole_record=False):
         key = program, root
         reference = execution.variables.bindings.get(key)
         if reference is None:
@@ -165,8 +165,8 @@ def _saved_path_count(execution, *, migrate_path=None):
             return None
         record = container[key]
         if type(record) is not dict or record.keys() != dict(rt.record_fields(record_spec)).keys():
-            return False
-        if validate_record:
+            return None if whole_record and not validate_record else False
+        if validate_record or whole_record:
             node_key = snapshot_key, selectors, record_index
             if node_key not in validated_nodes:
                 try:
@@ -177,7 +177,7 @@ def _saved_path_count(execution, *, migrate_path=None):
                 else:
                     validated_nodes[node_key] = True
             if not validated_nodes[node_key]:
-                return False
+                return False if validate_record else None
         missing = {'uninitialized': True}
         try:
             parent = _selected(record_spec, record, record_selectors[:-1])
