@@ -973,22 +973,68 @@ class InputTemplateTests(unittest.TestCase):
         self.assertTrue(any('SET_VAR operand requires proven PATH storage' in row['message']
                             for row in report['unresolved']), report)
 
-    def test_wholly_missing_record_clear_reports_live_borrowed_fields(self):
+    def test_whole_node_clear_preserves_old_borrowed_fields_and_live_slot(self):
         source = (
             'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t '
-            'VAR route:route_t entry,s:INTEGER '
-            'ROUTINE wipe(v:route_t;held:INTEGER) BEGIN '
-            "GET_VAR(entry,'','route[1]',v[2],s) WRITE(held) END wipe "
-            'BEGIN wipe(route,route[2].amount) END T'
+            'VAR route:route_t seed:row_t entry,s,wanted,unused:INTEGER '
+            'ROUTINE wipe(v:route_t;whole:row_t;held:INTEGER) BEGIN '
+            "GET_VAR(entry,'','route[1]',whole,s) WRITE(held) held=19 "
+            'IF s<>12311 THEN WRITE(unused) ENDIF '
+            "GET_VAR(entry,'','seed',whole,s) "
+            'IF (s=0) AND (held=19) AND (whole.amount=42) AND (v[2].amount=42) '
+            'THEN WRITE(wanted) ELSE WRITE(unused) ENDIF END wipe '
+            'BEGIN seed.amount=42 wipe(route,route[2],route[2].amount) END T'
         )
         row = ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]]
         initial = dict(program='T', path='ROUTE', type=['PATH', row, None],
-                       value=dict(nodes=[MISSING, {'AMOUNT': 7}], data=None))
-        report = prepare_inputs(translate(source).python_source,
-                                context={'variables': [initial]})['template']['discovery']
-        self.assertFalse(report['complete'])
-        self.assertTrue(any('detach captured field references' in row['message']
-                            for row in report['unresolved']), report)
+                       value=dict(nodes=[MISSING, {'AMOUNT': MISSING}], data=None))
+        prepared = prepare_inputs(translate(source).python_source, context={'variables': [initial]})
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'ROUTE[1]', 'ROUTE[2].AMOUNT', 'WANTED'})
+        self.assertEqual(by_path(prepared)['ROUTE[2].AMOUNT']['selectors'], [['index', 2], ['field', 'AMOUNT']])
+
+    def test_whole_header_clear_preserves_old_borrowed_fields_and_live_slot(self):
+        source = (
+            'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+            'route_t=PATH NODEDATA=row_t PATHHEADER=row_t '
+            'VAR route,empty:route_t seed:row_t entry,s,wanted,unused:INTEGER '
+            'ROUTINE wipe(v:route_t;whole:row_t;held:INTEGER) BEGIN '
+            "SET_VAR(entry,'T','route[0]',empty[0],s) "
+            'IF (s<>12311) OR (held<>7) THEN WRITE(unused) ENDIF held=19 '
+            "GET_VAR(entry,'T','seed',whole,s) "
+            'IF (s=0) AND (held=19) AND (whole.amount=42) AND (v.amount=42) '
+            'THEN WRITE(wanted) ELSE WRITE(unused) ENDIF END wipe '
+            'BEGIN route.amount=7 seed.amount=42 wipe(route,route[0],route.amount) END T'
+        )
+        row = ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]]
+        initial = dict(program='T', path='EMPTY', type=['PATH', row, row],
+                       value=dict(nodes=[], data=MISSING))
+        prepared = prepare_inputs(translate(source).python_source, context={'variables': [initial]})
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'EMPTY[0]', 'WANTED'})
+
+    def test_whole_header_clear_can_follow_a_retired_descriptor_slot(self):
+        source = (
+            'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+            'route_t=PATH NODEDATA=row_t PATHHEADER=row_t '
+            'VAR route,substitute,empty:route_t seed:row_t entry,s,wanted,unused:INTEGER '
+            'ROUTINE wipe(v:route_t;whole:row_t;held:INTEGER) BEGIN COPY_PATH(substitute,0,0,v,s) '
+            "GET_VAR(entry,'','empty[0]',whole,s) "
+            'IF (s<>12311) OR (held<>7) THEN WRITE(unused) ENDIF held=19 '
+            "GET_VAR(entry,'','seed',whole,s) "
+            'IF (s=0) AND (held=19) AND (whole.amount=42) AND (v.amount=23) '
+            'THEN WRITE(wanted) ELSE WRITE(unused) ENDIF END wipe '
+            'BEGIN route.amount=7 substitute.amount=23 seed.amount=42 wipe(route,route[0],route.amount) END T'
+        )
+        row = ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]]
+        initial = dict(program='T', path='EMPTY', type=['PATH', row, row],
+                       value=dict(nodes=[], data=MISSING))
+        prepared = prepare_inputs(translate(source).python_source, context={'variables': [initial]})
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'EMPTY[0]', 'WANTED'})
 
     def test_path_variable_transfers_preserve_known_fields_and_partial_status(self):
         types = ('TYPE src_n=STRUCTURE amount:REAL ENDSTRUCTURE '

@@ -476,6 +476,32 @@ class SavedProjectTests(unittest.TestCase):
             dict(nodes=[{'AMOUNT': 42, 'FLAG': True}, MISSING], data={'AMOUNT': 42, 'FLAG': True}),
         ])
 
+    def test_linked_whole_header_clear_keeps_borrowed_fields_on_old_storage(self):
+        types = ('TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+                 'route_t=PATH NODEDATA=row_t PATHHEADER=row_t')
+        declarations = ('ROUTINE clear(v:route_t;whole:row_t;held:INTEGER)')
+        main = self.module(
+            'MAIN', 'route.amount=7 seed.amount=42 clear(route,route[0],route.amount) WRITE(route.amount,CR)',
+            types+' VAR route,empty:route_t seed:row_t',
+            declarations+' FROM LIB',
+        )
+        lib = self.module(
+            'LIB', declarations=types+' VAR entry,s:INTEGER',
+            routines=declarations+' BEGIN '
+                     "GET_VAR(entry,'MAIN','empty[0]',whole,s) WRITE(held,CR) held=19 "
+                     "GET_VAR(entry,'MAIN','seed',whole,s) "
+                     'IF (s=0) AND (held=19) AND (v.amount=42) THEN WRITE(held,CR) ENDIF END clear',
+        )
+        row = ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]]
+        seed = dict(program='MAIN', path='EMPTY', type=['PATH', row, row], value=dict(nodes=[], data=MISSING))
+        report = self.create(main, lib, context={'variables': [seed]}, discover=True)['inputs']['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual({(row['program'], row['path']) for row in report['inputs']}, {('MAIN', 'EMPTY[0]')})
+        result = runner.run_document(self.document)['results']
+        self.assertEqual(result['status'], 'completed', result['error'])
+        self.assertEqual(result['text_output'], ' 7\n 19\n 42\n')
+        self.assertEqual(result['programs']['MAIN']['values']['ROUTE']['data'], {'AMOUNT': 42})
+
     def test_linked_path_variable_transfers_follow_a_named_program(self):
         types = ('TYPE src_n=STRUCTURE amount:REAL ENDSTRUCTURE '
                  'dst_n=STRUCTURE amount:INTEGER ENDSTRUCTURE '

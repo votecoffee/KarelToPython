@@ -1,5 +1,10 @@
 # Changelog
 
+## 26.1121.133345 - 2026-11-21
+
+- Preserve borrowed PATH fields when a whole-record transfer clears their
+  original slot. Whole header and node references follow their respective slots.
+
 ## 26.1121.132500 - 2026-11-21
 
 - Discover transfers of wholly uninitialized PATH node and header records.
