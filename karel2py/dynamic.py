@@ -162,8 +162,12 @@ def declared(context,state,program):
     return owner.types if owner is not None else {}
 
 
+def root_member(path, root):
+    return path == root or path.startswith((root+'.', root+'['))
+
+
 def conflict(paths,root):
-    return any(path==root or path.startswith(root+'.') or path.startswith(root+'[') for path in paths)
+    return any(root_member(path, root) for path in paths)
 
 
 def _array_type_shape(text, slots):
@@ -283,45 +287,73 @@ def create(context,state,args,line):
     return 0
 
 
+def rename_names(values, program):
+    return tuple(normalized_name(value, program if index == 0 else '')
+                 for index, value in enumerate(values))
+
+
+def renamed_key(operation, names, key):
+    owner, path = key
+    if operation == 'RENAME_VAR':
+        program, old, new = names
+        if owner == program and root_member(path, old):
+            return owner, new+path[len(old):]
+    elif owner == names[0]:
+        return names[1], path
+    return key
+
+
+def rename_plan(operation, names, paths, declarations, attached):
+    """Resolve rename status and binding moves without mutating storage."""
+    if None in names:
+        return 2, {}
+    if operation == 'RENAME_VAR':
+        program, old, new = names
+        declared_names = declarations(program)
+        if old in declared_names:
+            return 4, {}
+        source = paths(program)
+        if old not in source:
+            return 1, {}
+        if old == new:
+            return 0, {}
+        if conflict(source, new) or conflict(declared_names, new):
+            return 3, {}
+        keys = ((program, path) for path in source if root_member(path, old))
+    else:
+        old, new = names
+        if attached(old):
+            return 4, {}
+        source = paths(old)
+        if not source:
+            return 1, {}
+        if any(not re.fullmatch(IDENTIFIER, path) for path in source):
+            return 4, {}
+        if old == new:
+            return 0, {}
+        if attached(new) or paths(new):
+            return 3, {}
+        keys = ((old, path) for path in source)
+    return 0, {key: renamed_key(operation, names, key) for key in keys}
+
+
 def rename(context,state,operation,args,line):
     store=context.variables
-    if operation=='RENAME_VAR':
-        program,old,new=args
-        program=name(program,state,line,default=True);old=name(old,state,line);new=name(new,state,line)
-        if None in (program,old,new):return 2
-        if old in declared(context,state,program):return 4
-        key=(program,old)
-        if key not in store.bindings:return 1
-        if old==new:return 0
-        if conflict(roots(store,program)|set(declared(context,state,program)),new):return 3
-        changes={key:(program,new)}
-        for owner,path in store.bindings:
-            if owner==program and (path.startswith(old+'.') or path.startswith(old+'[')):
-                changes[owner,path]=(program,new+path[len(old):])
-        def cache_key(owner,path):
-            if owner==program and (path==old or path.startswith(old+'.') or path.startswith(old+'[')):
-                return owner,new+path[len(old):]
-            return owner,path
-    else:
-        old,new=args;old=name(old,state,line,default=True);new=name(new,state,line)
-        if old is None or new is None:return 2
-        # Compiled program identities and their live references cannot be renamed.
-        if old in store.programs or old==state.program_name:return 4
-        if not roots(store,old):return 1
-        if any(not re.fullmatch(IDENTIFIER,path) for path in roots(store,old)):return 4
-        if old==new:return 0
-        if new in store.programs or new==state.program_name or roots(store,new):return 3
-        changes={key:(new,key[1]) for key in store.bindings if key[0]==old}
-        def cache_key(owner,path): return (new if owner==old else owner),path
+    rt=runtime()
+    names=rename_names((rt.ascii_string(value,line) for value in args),state.program_name)
+    status, changes=rename_plan(operation,names,lambda program: roots(store,program),
+                                lambda program: declared(context,state,program),
+                                lambda program: program==state.program_name or program in store.programs)
+    if not changes:return status
     bindings_before,programs_before=store.bindings.copy(),store.programs.copy()
     variable_checkpoint(state,line)
     if context.variables is not store or store.bindings!=bindings_before or store.programs!=programs_before:
         fail('Variable bindings changed during rename',line)
     bindings={changes.get(key,key):value for key,value in store.bindings.items()}
     metadata={changes.get(key,key):value for key,value in store.metadata.items()}
-    entries={cache_key(owner,path):value for (owner,path),value in context.entries.items()}
+    entries={renamed_key(operation,names,key):value for key,value in context.entries.items()}
     store.bindings=bindings;store.metadata=metadata;context.entries=entries
-    return 0
+    return status
 
 
 def invoke(context,state,operation,args,line):

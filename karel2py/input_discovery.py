@@ -6,7 +6,10 @@ import math
 from pathlib import Path
 import re
 
-from .dynamic import BYNAME_PATH, MAX_LEAVES, UNKNOWN_CREATION_TYPE, creation_cost, creation_type, normalized_name
+from .dynamic import (
+    BYNAME_PATH, MAX_LEAVES, UNKNOWN_CREATION_TYPE, creation_cost, creation_type, normalized_name,
+    rename_names, rename_plan, renamed_key, root_member,
+)
 from .extended import PREDEFINED_FILE_NAMES, ZERO_BASED_PORTS, path_conversion_layout, path_node_size
 from .file_io import MAX_PATH_IO_FIELDS, path_io_field_count, path_io_indexes
 from .input_contract import extract, InputContractError
@@ -20,6 +23,7 @@ from . import runtime as rt
 
 
 DEFAULT_EMPTY_PATH = object()
+INITIAL_BINDING = object()
 MISSING_PATH_RECORD = object()
 MAX_STEPS = 100000
 MAX_INPUTS = 2048
@@ -70,6 +74,7 @@ class _Location:
     root_spec: object = field(default=None, compare=False, hash=False)
     path_slot: _PathRecordSlot | None = field(default=None, compare=False, hash=False)
     saved_binding: bool = field(default=False, compare=False, hash=False)
+    creation_number: int = 0
 
     @property
     def named_data(self):
@@ -78,7 +83,8 @@ class _Location:
 
     @property
     def key(self):
-        return self.kind, self.owner, self.root, self.parts
+        identity = (self.root, self.creation_number) if self.creation_number else self.root
+        return self.kind, self.owner, identity, self.parts
 
     @property
     def path(self):
@@ -173,8 +179,10 @@ class _Flow:
     # None for a key means predecessor flows disagree on its presence or number.
     variable_entries: dict = field(default_factory=dict)
     next_variable_entry: int | None = 1
-    # A branch-dependent binding has no common schema.
-    created_variables: dict = field(default_factory=dict)
+    # Current names point to stable storage. None removes a name, while
+    # UNKNOWN indicates that predecessor flows disagree.
+    named_bindings: dict = field(default_factory=dict)
+    creation_counts: dict = field(default_factory=dict)
     allocated_variable_units: int | None = 0
 
     def copy(self):
@@ -184,7 +192,7 @@ class _Flow:
                      self.path_shape_unknown,self.path_orders.copy(),self.uninitialized.copy(),
                      self.changed_path_aggregates.copy(),self.record_storage.copy(),self.retired_paths.copy(),
                      self.variable_entries.copy(),self.next_variable_entry,
-                     self.created_variables.copy(),self.allocated_variable_units)
+                     self.named_bindings.copy(),self.creation_counts.copy(),self.allocated_variable_units)
 
     def take(self, other):
         self.handlers = other.handlers
@@ -198,7 +206,8 @@ class _Flow:
         self.record_storage = other.record_storage
         self.retired_paths = other.retired_paths
         self.variable_entries, self.next_variable_entry = other.variable_entries, other.next_variable_entry
-        self.created_variables = other.created_variables
+        self.named_bindings = other.named_bindings
+        self.creation_counts = other.creation_counts
         self.allocated_variable_units = other.allocated_variable_units
 
 
@@ -237,10 +246,19 @@ def _merge(flows):
     next_entry = first.next_variable_entry
     if any(flow.next_variable_entry != next_entry for flow in live[1:]):
         next_entry = None
-    created = {}
-    for key in set().union(*(flow.created_variables for flow in live)):
-        schema = first.created_variables.get(key)
-        created[key] = schema if all(flow.created_variables.get(key) == schema for flow in live) else None
+    names = {}
+    for key in set().union(*(flow.named_bindings for flow in live)):
+        binding = first.named_bindings.get(key, INITIAL_BINDING)
+        for flow in live[1:]:
+            other = flow.named_bindings.get(key, INITIAL_BINDING)
+            if binding != other or isinstance(binding, _Location) and binding.spec != other.spec:
+                binding = UNKNOWN
+                break
+        names[key] = binding
+    creation_counts = {}
+    for flow in live:
+        for key, number in flow.creation_counts.items():
+            creation_counts[key] = max(number, creation_counts.get(key, 0))
     units = first.allocated_variable_units
     if any(flow.allocated_variable_units != units for flow in live[1:]):
         units = None
@@ -252,7 +270,7 @@ def _merge(flows):
                  pauses,uncertain,any(flow.path_shape_unknown for flow in live),path_orders,
                  set.intersection(*(flow.uninitialized for flow in live)),
                  set.union(*(flow.changed_path_aggregates for flow in live)), record_storage, retired_paths,
-                 variable_entries, next_entry, created, units)
+                 variable_entries, next_entry, names, creation_counts, units)
 
 
 def _path_record_identity(part):
@@ -384,7 +402,8 @@ class _Analyzer:
         flow.retired_paths.clear()
         flow.variable_entries.clear()
         flow.next_variable_entry = None
-        flow.created_variables.clear()
+        flow.named_bindings.clear()
+        flow.creation_counts.clear()
         flow.allocated_variable_units = None
 
     def context(self, service, address):
@@ -468,7 +487,7 @@ class _Analyzer:
         if spec[0] == 'STRUCTURE':
             return dict(spec[2])
         fields = self.plan.get('record_fields', {}).get(spec[0])
-        if fields is None and loc.kind == 'created-variable':
+        if fields is None and (loc.saved_binding or loc.kind == 'created-variable'):
             fields = rt.DATA_RECORD_FIELDS.get(spec[0])
             if fields is not None:
                 return {name: list_spec(schema) for name, schema in fields}
@@ -476,7 +495,7 @@ class _Analyzer:
 
     def path_node_schema(self, loc):
         node = loc.spec[1] or self.plan.get('default_path_node')
-        if node is None and loc.kind == 'created-variable':
+        if node is None and (loc.saved_binding or loc.kind == 'created-variable'):
             return list_spec(rt.PREDEFINED_STRUCTURES['STD_PTH_NODE'])
         return node
 
@@ -504,8 +523,7 @@ class _Analyzer:
         if selected is None:
             self.unresolved_at('selection','Unsupported or unbounded selected schema for '+loc.path,node)
             return None
-        return _Location(loc.kind, loc.owner, loc.root, (*loc.parts, (kind, value)), selected, loc.root_spec,
-                         saved_binding=loc.saved_binding)
+        return replace(loc, parts=(*loc.parts, (kind, value)), spec=selected, path_slot=None)
 
     def path_io_locations(self, expr, flow, conditional, *, reading=False):
         """Resolve a bounded transfer's ordered records before publishing any writes."""
@@ -2146,23 +2164,37 @@ class _Analyzer:
             return False
         return True
 
+    def named_binding(self, key, flow):
+        if key in flow.named_bindings:
+            return flow.named_bindings[key]
+        if self.saved_bindings is not None:
+            spec = self.saved_bindings.spec(*key)
+            if spec is not None:
+                return _Location('variable', *key, spec=spec, root_spec=spec, saved_binding=True)
+        return INITIAL_BINDING
+
+    def retain_named_bindings(self, bindings):
+        for loc in bindings:
+            if loc.saved_binding:
+                self.binding_storage[loc.owner, loc.root] = loc.root_spec
+
     def named_root_binding(self, owner, selected, path, root, flow):
         if flow.opaque or flow.task_order_unknown:
-            return None
+            return None, len(root), False
         # Exact rows win over navigation inside a root. Declared globals have
-        # already been checked.
-        for program, binding in dict.fromkeys(((selected, path), (owner, path), (selected, root), (owner, root))):
-            key = program, binding
-            if key in flow.created_variables:
-                spec = flow.created_variables[key]
-                if spec is None:
-                    return None
-                return _Location('created-variable', program, binding, spec=spec, root_spec=spec)
-            spec = self.saved_bindings.spec(program, binding) if self.saved_bindings is not None else None
-            if spec is not None:
-                self.binding_storage[program, binding] = spec
-                return _Location('variable', program, binding, spec=spec, root_spec=spec, saved_binding=True)
-        return None
+        # already been checked. Selection follows the current spelling while
+        # the location keeps the original context row or allocation identity.
+        removed = False
+        for key in dict.fromkeys(((selected, path), (owner, path), (selected, root), (owner, root))):
+            loc = self.named_binding(key, flow)
+            if loc is UNKNOWN:
+                return None, len(root), False
+            if loc is None:
+                removed = True
+            elif loc is not INITIAL_BINDING:
+                self.retain_named_bindings((loc,))
+                return loc, len(key[1]), False
+        return None, len(root), removed
 
     def named_variable_location(self, owner, path, node, flow, conditional, *, capture_node=False):
         """Distinguish a rejected selection from an unproved root or storage layout."""
@@ -2175,12 +2207,15 @@ class _Analyzer:
         selected = owner or self.program
         root_name = root[0].upper()
         loc = self.global_slot(root_name, node, program=selected)
+        consumed = root.end()
         if loc is None:
             plan = self.plan if selected == self.program else (self.linked_plans or {}).get(selected)
             if plan is not None and (plan.get('status') != 'available' or root_name in plan.get('types', {})):
                 return None, False
-            loc = self.named_root_binding(owner, selected, path, root_name, flow)
-        rest = path[len(loc.root):] if loc is not None and loc.saved_binding else path[root.end():]
+            loc, consumed, rejected = self.named_root_binding(owner, selected, path, root_name, flow)
+            if loc is None:
+                return None, rejected
+        rest = path[consumed:]
         while rest and loc:
             if loc.named_data:
                 present = self.named_container_present(loc, flow)
@@ -2719,6 +2754,24 @@ class _Analyzer:
         self.write(status, _Value(), flow, node)
         return _Value()
 
+    def binding_plan(self, owner):
+        return self.plan if owner == self.program else (self.linked_plans or {}).get(owner)
+
+    def active_named_bindings(self, owner, flow, *, roots=()):
+        paths = set(self.saved_bindings.paths(owner))
+        paths.update(path for program, path in flow.named_bindings if program == owner)
+        self.tick(len(paths) + len(flow.named_bindings))
+        bindings = {}
+        for path in paths:
+            if roots and not any(root_member(path, root) for root in roots):
+                continue
+            loc = self.named_binding((owner, path), flow)
+            if loc is UNKNOWN:
+                return None
+            if loc is not None and loc is not INITIAL_BINDING:
+                bindings[path] = loc
+        return bindings
+
     def creation_outcome(self, values, flow):
         owner, root, type_owner, text, group, inner, middle, outer, pool = values
         if (flow.opaque or flow.task_order_unknown or self.callback_depth or self.repeat_depth
@@ -2730,9 +2783,7 @@ class _Analyzer:
         if None in (owner, root, type_owner):
             return 2
         key = owner, root
-        if key in flow.created_variables:
-            return 3 if flow.created_variables[key] is not None else None
-        owner_plan = self.plan if owner == self.program else (self.linked_plans or {}).get(owner)
+        owner_plan = self.binding_plan(owner)
         if owner_plan is not None:
             if owner_plan.get('status') != 'available':
                 return None
@@ -2740,9 +2791,11 @@ class _Analyzer:
                 return 3
         if self.saved_bindings is None:
             return None
-        conflicts = self.saved_bindings.conflicts(owner, root)
+        conflicts = self.active_named_bindings(owner, flow, roots=(root,))
+        if conflicts is None:
+            return None
         if conflicts:
-            self.binding_storage.update(conflicts)
+            self.retain_named_bindings(conflicts.values())
             return 3
         if pool is UNKNOWN:
             return None
@@ -2750,7 +2803,7 @@ class _Analyzer:
             return 2
         if any(value is UNKNOWN for value in (text, group, inner, middle, outer)):
             return None
-        type_plan = self.plan if type_owner == self.program else (self.linked_plans or {}).get(type_owner)
+        type_plan = self.binding_plan(type_owner)
         aliases = type_plan.get('variable_types', {}) if type_plan and type_plan.get('status') == 'available' else None
         with rt._numeric_scope('pythonic'):
             try:
@@ -2770,7 +2823,13 @@ class _Analyzer:
         if reserved + units + cost > MAX_LEAVES:
             return 6
         flow.allocated_variable_units = units + cost
-        flow.created_variables[key] = list_spec(schema)
+        number = flow.creation_counts.get(key, 0) + 1
+        flow.creation_counts[key] = number
+        spec = list_spec(schema)
+        flow.named_bindings[key] = _Location('created-variable', *key, spec=spec, root_spec=spec,
+                                              creation_number=number)
+        if len(flow.named_bindings) > MAX_FACTS:
+            raise _Limit('Analysis storage limit reached')
         return 0
 
     def create_variable(self, node, flow, conditional):
@@ -2797,6 +2856,76 @@ class _Analyzer:
             self.write(status, _Value(result, spec=['INTEGER']), flow, node)
         return _Value()
 
+    def rename_outcome(self, operation, values, flow):
+        if (flow.opaque or flow.task_order_unknown or self.callback_depth or self.repeat_depth
+                or any(type(name) is not str or not name.isascii() for name in values)):
+            return None
+        names = rename_names(values, self.program)
+        if None in names:
+            return 2
+        if self.saved_bindings is None:
+            return None
+        namespaces = {}
+        if operation == 'RENAME_VAR':
+            owner, old, new = names
+            plan = self.binding_plan(owner)
+            if plan is not None and plan.get('status') != 'available':
+                return None
+            namespaces[owner] = self.active_named_bindings(owner, flow, roots=(old, new))
+        else:
+            for owner in dict.fromkeys(names):
+                namespaces[owner] = self.active_named_bindings(owner, flow)
+        if any(bindings is None for bindings in namespaces.values()):
+            return None
+        status, changes = rename_plan(
+            operation, names, namespaces.__getitem__,
+            lambda owner: (self.binding_plan(owner) or {}).get('types', {}),
+            lambda owner: self.binding_plan(owner) is not None,
+        )
+        for bindings in namespaces.values():
+            self.retain_named_bindings(bindings.values())
+        if not changes:
+            return status
+        if flow.handlers:
+            return None
+        for old, new in changes.items():
+            flow.named_bindings[old] = None
+            flow.named_bindings[new] = namespaces[old[0]][old[1]]
+        if len(flow.named_bindings) > MAX_FACTS:
+            raise _Limit('Analysis storage limit reached')
+        self.rename_variable_entries(operation, names, flow)
+        return status
+
+    def rename_variable_entries(self, operation, names, flow):
+        self.tick(len(flow.variable_entries))
+        entries = {}
+        for key, number in flow.variable_entries.items():
+            moved = renamed_key(operation, names, key)
+            if moved in entries and entries[moved] != number:
+                number = None
+                flow.next_variable_entry = None
+            entries[moved] = number
+        flow.variable_entries = entries
+
+    def rename_variable(self, node, flow, conditional):
+        args = node['args']
+        values = []
+        for arg in args[:-1]:
+            values.append(self.expr(arg, flow, conditional).constant)
+            if flow.stopped and not flow.opaque:
+                return _Value(complete=False)
+        status = self.locate(args[-1], flow, conditional, capture_node=True, selector_path_edits=True)
+        if flow.stopped and not flow.opaque:
+            return _Value(complete=False)
+        status = self.resolve_path_slot(status, node, flow) if status is not None else None
+        result = self.rename_outcome(node['value'], values, flow) if status is not None else None
+        if result is None:
+            self.unresolved_at('variable-rename', node['value']+' names, bindings or execution order require review', node)
+            self.opaque(flow)
+        else:
+            self.write(status, _Value(result, spec=['INTEGER']), flow, node)
+        return _Value()
+
     def call(self, node, flow, conditional, *, statement_call=False, argument_path_edits=False):
         name=node['value'];args=node['args']
         if name in self.plan['routines']:
@@ -2812,6 +2941,8 @@ class _Analyzer:
             return self.variable_call(node, flow, conditional)
         if name == 'CREATE_VAR':
             return self.create_variable(node, flow, conditional)
+        if name in ('RENAME_VAR', 'RENAME_VARS'):
+            return self.rename_variable(node, flow, conditional)
         if name in ('UNINIT', 'ARRAY_LEN'):
             return self.data_metadata_call(node, flow, conditional)
         if name in SCALAR_PURE:return self.scalar_call(node,flow,conditional)

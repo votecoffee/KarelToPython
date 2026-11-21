@@ -1537,6 +1537,93 @@ class InputTemplateTests(unittest.TestCase):
         self.assertFalse(report['complete'])
         self.assertEqual(set(by_path(prepared)), {'OPTION'})
 
+    def test_rename_keeps_captured_storage_distinct_from_recreated_name(self):
+        source = (
+            'PROGRAM T VAR first,entry,status,missing,moved,fresh,wanted,unused:INTEGER '
+            'ROUTINE shift(held:INTEGER) BEGIN '
+            "RENAME_VAR('CACHE','item','moved_item',status) "
+            "GET_VAR(entry,'CACHE','item',fresh,missing) "
+            "CREATE_VAR('CACHE','item','','INTEGER',0,0,0,0,status) "
+            "SET_VAR(entry,'CACHE','item',7,status) held=held+2 END shift "
+            "BEGIN CREATE_VAR('CACHE','item','','INTEGER',0,0,0,0,status) "
+            "SET_VAR(first,'CACHE','item',19,status) shift(BYNAME('CACHE','item',entry)) "
+            "GET_VAR(entry,'CACHE','moved_item',moved,status) "
+            'IF (entry=first) AND (status=0) AND (moved=21) AND (missing=1) THEN '
+            "GET_VAR(entry,'CACHE','item',fresh,status) "
+            'IF (entry=2) AND (fresh=7) THEN WRITE(wanted) ELSE WRITE(unused) ENDIF '
+            'ELSE WRITE(unused) ENDIF END T'
+        )
+        prepared = prepare_inputs(translate(source).python_source)
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'WANTED'})
+
+    def test_root_rename_preserves_both_saved_row_addresses(self):
+        rows = [
+            dict(program='CACHE', path='ITEM', type=['VECTOR'], value={'X': 7.0, 'Y': 8.0, 'Z': 9.0}),
+            dict(program='CACHE', path='ITEM.X', type=['REAL'], value=42.0),
+        ]
+        prepared = prepare(
+            "RENAME_VAR('CACHE','item','longer_item',status) "
+            "GET_VAR(entry,'CACHE','longer_item.x',out,status) WRITE(out) "
+            "GET_VAR(entry,'CACHE','longer_item.y',out,status) WRITE(out) "
+            'IF status=0 THEN WRITE(wanted) ELSE WRITE(unused) ENDIF',
+            decl='entry,status,wanted,unused:INTEGER out:REAL',
+            context={'variables': rows},
+        )
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        bindings = by_path(prepared)
+        self.assertEqual(set(bindings), {'WANTED', 'ITEM.X', 'ITEM.Y'})
+        self.assertEqual(bindings['ITEM.X']['context_pointer'], '/variables/1/value')
+        self.assertEqual(bindings['ITEM.Y']['context_pointer'], '/variables/0/value')
+        self.assertEqual(prepared['context']['variables'][:2], rows)
+
+    def test_namespace_move_follows_path_layout_and_existing_lookup_entry(self):
+        source = (
+            'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+            'route_t=PATH NODEDATA=row_t PATHHEADER=row_t '
+            'VAR first,entry,status,out,wanted,unused:INTEGER '
+            'ROUTINE fill(p:route_t) VAR s:INTEGER BEGIN '
+            'APPEND_NODE(p,s) p[1].amount=17 END fill '
+            "BEGIN CREATE_VAR('CACHE','road','','ROUTE_T',0,0,0,0,status) "
+            "fill(BYNAME('CACHE','road',entry)) GET_VAR(first,'CACHE','road[1].amount',out,status) "
+            "RENAME_VARS('CACHE','TRANSFERRED',status) "
+            "GET_VAR(entry,'TRANSFERRED','road[1].amount',out,status) "
+            'IF (status=0) AND (out=17) AND (entry=first) '
+            'THEN WRITE(wanted) ELSE WRITE(unused) ENDIF END T'
+        )
+        prepared = prepare_inputs(translate(source).python_source)
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'WANTED'})
+
+    def test_rename_failures_and_branch_dependent_storage(self):
+        protected = dict(program='CACHE', path='BOX[1]', type=['INTEGER'], value=7)
+        prepared = prepare(
+            "RENAME_VAR('','out','next',declared) RENAME_VARS('CACHE','OTHER',nested) "
+            "RENAME_VAR('CACHE','absent','next',missing) "
+            "RENAME_VAR('CACHE','absent','bad.name',bad) "
+            'IF (declared=4) AND (nested=4) AND (missing=1) AND (bad=2) '
+            'THEN WRITE(wanted) ELSE WRITE(unused) ENDIF',
+            decl='out,declared,nested,missing,bad,wanted,unused:INTEGER',
+            context={'variables': [protected]},
+        )
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'WANTED'})
+        self.assertEqual([row['path'] for row in report['binding_storage']], ['BOX[1]'])
+
+        prepared = prepare(
+            "IF option THEN RENAME_VAR('CACHE','item','next',status) ENDIF "
+            "GET_VAR(entry,'CACHE','item',out,status)",
+            decl='entry,out,status:INTEGER option:BOOLEAN',
+            context={'variables': [dict(program='CACHE', path='ITEM', type=['INTEGER'], value=7)]},
+        )
+        report = prepared['template']['discovery']
+        self.assertFalse(report['complete'])
+        self.assertEqual(set(by_path(prepared)), {'OPTION'})
+
     def test_saved_byname_and_named_transfers_share_the_same_binding(self):
         source = (
             'PROGRAM T VAR first,entry,status,out,wanted,unused:INTEGER '

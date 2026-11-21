@@ -1,5 +1,13 @@
 # Changelog
 
+## 26.1121.154816 - 2026-11-21
+
+- Follow resolved RENAME_VAR and RENAME_VARS operations during Pythonic input
+  discovery. Keep named transfers, existing lookup entries and borrowed
+  references bound to their storage across a move or name reuse.
+- Preserve original saved-row addresses and retain rows needed to replay a
+  rename when refreshing linked inputs.
+
 ## 26.1121.153030 - 2026-11-21
 
 - Track statically resolved CREATE_VAR storage and status in Pythonic input

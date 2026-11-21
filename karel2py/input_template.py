@@ -142,6 +142,7 @@ class _SavedBindings:
         self.snapshots = {}
         self.store = execution.variables
         self.creation_storage = None
+        self.namespaces = None
 
     def reservation(self):
         if self.creation_storage is None:
@@ -150,10 +151,12 @@ class _SavedBindings:
             self.creation_storage = units, {key: self.spec(*key) for key in self.store.metadata}
         return self.creation_storage
 
-    def conflicts(self, owner, root):
-        return {(program, path): list_spec(reference.spec)
-                for (program, path), reference in self.references.items()
-                if program == owner and (path == root or path.startswith((root+'.', root+'[')))}
+    def paths(self, owner):
+        if self.namespaces is None:
+            self.namespaces = {}
+            for program, path in self.references:
+                self.namespaces.setdefault(program, []).append(path)
+        return self.namespaces.get(owner, ())
 
     def spec(self, owner, path):
         reference = self.references.get((owner, path))

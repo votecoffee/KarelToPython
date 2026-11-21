@@ -121,8 +121,9 @@ points into the generated module. When a FILE transfer, `PATH_LEN`, or
 bounded node edit depends on existing PATH storage, `path_storage` lists the
 exact owner, root path and type of each saved root used. A shape dependency
 can exist without a field input. The `binding_storage` list identifies saved
-rows used for named lookup, collision checks and reserved creation capacity.
-Refresh retains these rows even when the program never reads their values.
+rows used for named lookup, renaming, collision checks and reserved creation
+capacity. Refresh retains these rows even when the program never reads their
+values.
 
 - `required`: a modeled unconditional read has no proven prior source write.
 - `conditional`: the read depends on a branch, a potentially empty loop, a
@@ -441,8 +442,16 @@ modules. A successful creation makes the new data available to `GET_VAR`,
 codes and carries matching storage through branch joins. Freshly created
 values follow their runtime initialization rules and stay out of the input
 template. Analysis reports a gap when creation depends on unresolved values,
-repeat or callback order, or unknown capacity. Renaming and resource use
-continue to require review.
+repeat or callback order, or unknown capacity. Resource use continues to
+require review.
+
+With a validated context, discovery can follow `RENAME_VAR` and
+`RENAME_VARS` when the names and bindings are known. A renamed saved value
+keeps its original input pointer because the source run performs the move.
+Subsequent named transfers use the new spelling and retain the lookup entry.
+Existing routine aliases keep their captured storage, including when the
+source creates a new variable under the old name. Branches with different
+binding layouts leave affected lookups unresolved.
 
 Dynamic addresses, unsupported schemas/resources/services, host or linked
 routine effects, handlers, nonstructured jumps, recursion, fresh uninitialized
