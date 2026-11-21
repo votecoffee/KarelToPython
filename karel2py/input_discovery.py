@@ -6,6 +6,7 @@ import math
 from pathlib import Path
 import re
 
+from .dynamic import BYNAME_PATH
 from .extended import PREDEFINED_FILE_NAMES, ZERO_BASED_PORTS, path_conversion_layout, path_node_size
 from .file_io import MAX_PATH_IO_FIELDS, path_io_field_count, path_io_indexes
 from .input_contract import extract, InputContractError
@@ -843,6 +844,18 @@ class _Analyzer:
             return None
         return records
 
+    def borrow_path_record(self, path, index, record, flow, *, archived=None):
+        order = archived if archived is not None else flow.path_orders.get(path.key)
+        generation = order.slot_generation(index) if order is not None else 0
+        slot = _PathRecordSlot(path, index, generation)
+        if archived is not None:
+            current = flow.path_orders[path.key]
+            origin = _path_record_identity(record.parts[len(path.parts)])
+            self.tick(len(current.retired_slots))
+            slots = current.retired_slots | {slot.key: origin}
+            flow.path_orders[path.key] = replace(current, retired_slots=slots)
+        return replace(record, path_slot=slot)
+
     def locate(self, expr, flow, conditional, *, path_io=False, capture_node=False,
                selector_path_edits=False, reading=False):
         if not isinstance(expr,dict):return None
@@ -916,16 +929,7 @@ class _Analyzer:
                             selected = None
                         if (selected is not None and capture_node and position == len(args) - 1
                                 and loc.spec[0] == 'PATH' and index >= 0):
-                            order = archived if archived is not None else flow.path_orders.get(loc.key)
-                            generation = order.slot_generation(index) if order is not None else 0
-                            slot = _PathRecordSlot(loc, index, generation)
-                            if archived is not None:
-                                current = flow.path_orders[loc.key]
-                                origin = _path_record_identity(selected.parts[len(loc.parts)])
-                                self.tick(len(current.retired_slots))
-                                slots = current.retired_slots | {slot.key: origin}
-                                flow.path_orders[loc.key] = replace(current, retired_slots=slots)
-                            selected = replace(selected, path_slot=slot)
+                            selected = self.borrow_path_record(loc, index, selected, flow, archived=archived)
                         loc = selected
             return loc
         if kind in ('call','binary','unary','literal','real_literal','predefined'):
@@ -2044,7 +2048,7 @@ class _Analyzer:
             return False
         return True
 
-    def named_variable_location(self, owner, path, node, flow, conditional):
+    def named_variable_location(self, owner, path, node, flow, conditional, *, capture_node=False):
         """Distinguish a rejected selection from an unproved root or storage layout."""
         if type(owner) is not str or type(path) is not str:
             return None, False
@@ -2072,9 +2076,10 @@ class _Analyzer:
             elif indexes:
                 # Runtime treats adjacent brackets as one logical subscript.
                 numbers = [int(item) for item in re.findall(r'[0-9]+', indexes[0])]
-                if not self.named_indexes_valid(loc.spec, numbers, ending=indexes.end() == len(rest)):
+                ending = indexes.end() == len(rest)
+                if not self.named_indexes_valid(loc.spec, numbers, ending=ending):
                     return None, True
-                for index in numbers:
+                for position, index in enumerate(numbers, 1):
                     if loc is None:
                         return None, False
                     if loc.spec[0] == 'PATH':
@@ -2082,7 +2087,11 @@ class _Analyzer:
                         if ((index == 0 and loc.spec[2] is None) or index > 32767
                                 or count is not None and index > count):
                             return None, True
-                    loc = self.index_child(loc, index, node, flow)
+                    selected = self.index_child(loc, index, node, flow)
+                    if (selected is not None and capture_node and ending and loc.spec[0] == 'PATH'
+                            and position == len(numbers)):
+                        selected = self.borrow_path_record(loc, index, selected, flow)
+                    loc = selected
                 rest = rest[indexes.end():]
             else:
                 return None, True
@@ -2191,8 +2200,8 @@ class _Analyzer:
         cells = self.path_array_layout(source, node, flow, conditional)
         return cells is not None and all(count is not None for _, count in cells)
 
-    def publish_variable_result(self, entry, status, result, key, node, flow):
-        """Assign the entry only after the offline named transfer publishes data."""
+    def write_variable_entry(self, entry, key, node, flow):
+        """Publish the offline cache entry for a successful named operation."""
         number = None
         if not (flow.opaque or flow.task_order_unknown or self.callback_depth or self.repeat_depth):
             if key in flow.variable_entries:
@@ -2208,6 +2217,9 @@ class _Analyzer:
             # A branch-dependent key could have just allocated another number.
             flow.next_variable_entry = None
         self.write(entry, _Value(number if number is not None else UNKNOWN, spec=['INTEGER']), flow, node)
+
+    def publish_variable_result(self, entry, status, result, key, node, flow):
+        self.write_variable_entry(entry, key, node, flow)
         self.write(status, _Value(result, spec=['INTEGER']), flow, node)
 
     def variable_path_copy(self, target, value, entry, status, node, flow, conditional, *, layout, entry_key):
@@ -2246,13 +2258,14 @@ class _Analyzer:
         self.publish_variable_result(entry, status, self.variable_transfer_status(value), entry_key, node, flow)
         return True
 
-    def ordinary_variable_output(self, loc, node):
+    def ordinary_variable_output(self, loc, node, *, alias=False):
         if loc.kind not in ('variable', 'local') or not loc.root_spec:
             return False
         current = replace(loc, parts=(), spec=loc.root_spec)
         for kind, key in loc.parts:
             if (current.spec[0] == 'CONFIG'
-                    or current.spec[0] == 'POSITION' and key in rt.POSITION_READ_ONLY_FIELDS):
+                    or current.spec[0] == 'POSITION' and key in rt.POSITION_READ_ONLY_FIELDS
+                    or alias and current.spec[0] in rt.ASSOCIATION_TYPES):
                 return False
             current = self.child(current, kind, key, node)
             if current is None:
@@ -2793,18 +2806,76 @@ class _Analyzer:
             return None, None
         return target, routine
 
+    def byname_gap(self, node, flow, message, *, rejected=False):
+        self.unresolved_at('byname', message, node)
+        if rejected:
+            flow.stopped = True
+        else:
+            self.opaque(flow)
+
+    def byname_reference(self, node, expected, flow, conditional):
+        program_arg, path_arg, entry_arg = node['args']
+        program = self.expr(program_arg, flow, conditional, argument_path_edits=True).constant
+        if flow.stopped and not flow.opaque:
+            return None
+        path = self.expr(path_arg, flow, conditional, argument_path_edits=True).constant
+        if flow.stopped and not flow.opaque:
+            return None
+        entry = self.locate(entry_arg, flow, conditional, selector_path_edits=True)
+        if flow.stopped and not flow.opaque:
+            return None
+        if type(program) is not str or type(path) is not str or entry is None or flow.opaque:
+            return self.byname_gap(node, flow, 'BYNAME requires a statically resolved name and entry output')
+        owner = program.strip().upper() or self.task_roots[-1]
+        path = path.upper()
+        if not BYNAME_PATH.fullmatch(path):
+            return self.byname_gap(node, flow, 'BYNAME requires an ordinary static variable path', rejected=True)
+        target, rejected = self.named_variable_location(owner, path, node, flow, conditional, capture_node=True)
+        if rejected:
+            return self.byname_gap(node, flow, 'BYNAME variable selection is invalid: '+path, rejected=True)
+        if target is None:
+            return self.byname_gap(node, flow, 'BYNAME target needs a checked declared root: '+owner+'.'+path)
+        _, terminal = _array_dimensions(target.spec)
+        if terminal[0] != 'PATH':
+            try:
+                rt._validate_data_schema(tuple_spec(target.spec))
+            except rt.KarelRuntimeError:
+                return self.byname_gap(node, flow, 'BYNAME requires proven data storage: '+path)
+        if not self.ordinary_variable_output(target, node, alias=True):
+            return self.byname_gap(node, flow, 'BYNAME requires ordinary writable storage: '+path, rejected=True)
+        if not rt.parameter_accepts(tuple_spec(expected), tuple_spec(target.spec)):
+            return self.byname_gap(node, flow, 'BYNAME variable type does not match the routine parameter: '+path,
+                                   rejected=True)
+        storage = self.variable_path_storage(target, flow, conditional, named_lookup=True)
+        if storage not in (True, MISSING_PATH_RECORD):
+            return self.byname_gap(node, flow, 'BYNAME target storage is unresolved: '+path, rejected=storage is False)
+        overlap = self.variable_target_overlap(target, (entry,), flow, conditional)
+        if overlap is True:
+            return self.byname_gap(node, flow, 'BYNAME variable overlaps entry output: '+path, rejected=True)
+        if overlap is None:
+            return self.byname_gap(node, flow, 'BYNAME entry output overlap is unresolved: '+path)
+        self.write_variable_entry(entry, (owner, path), node, flow)
+        return target
+
     def routine(self, name, args, node, flow, conditional, *, statement_call=False, argument_path_edits=False):
         routine=self.plan['routines'][name]
         modes=node.get('passing',[]);actual=[]
+        references = []
         with self.capture_operands() as pending:
             start = len(pending)
             for index,item in enumerate(args):
                 if flow.stopped and not flow.opaque:
                     return _Value(complete=False)
                 mode=modes[index] if index<len(modes) else 'unknown'
-                if mode=='reference':
-                    ref = self.locate(item, flow, conditional, capture_node=True)
+                # The plan keeps the BYNAME call expression. Its lowering
+                # supplies an ordinary reference to the formal.
+                byname = (item['kind'] == 'call' and item['value'] == 'BYNAME' and len(item['args']) == 3
+                          and 'BYNAME' not in self.plan['routines'])
+                if byname or mode == 'reference':
+                    ref = (self.byname_reference(item, routine['parameters'][index][1], flow, conditional)
+                           if byname else self.locate(item, flow, conditional, capture_node=True))
                     pending.append(ref)
+                    references.append(ref)
                     actual.append(ref)
                 elif mode=='value':
                     value = self.expr(item, flow, conditional, partial=True,
@@ -2818,6 +2889,7 @@ class _Analyzer:
                     actual.append(value)
                 else:
                     self.unresolved_at('argument','Routine passing mode is unresolved: '+name,node)
+                    references.append(None)
                     actual.append(self.expr(item,flow,conditional))
         if flow.stopped and not flow.opaque:
             return _Value(complete=False)
@@ -2857,15 +2929,11 @@ class _Analyzer:
         argument_edits = (argument_path_edits or procedure) and (
             caller is None or caller['borrowed_path_edits'] or caller['argument_path_edits']
         )
-        references = tuple(
-            item if isinstance(item, _Location) else None
-            for index, item in enumerate(actual) if index >= len(modes) or modes[index] != 'value'
-        )
         frame = dict(name=name, key=routine_key, owner=owner, result=routine['result'],
                      slots={key:_Location('local',owner,key,spec=spec,root_spec=spec)
                             for key,spec in routine['types'].items()},
                      constants=routine['constants'], borrowed_path_edits=direct,
-                     argument_path_edits=argument_edits, references=references)
+                     argument_path_edits=argument_edits, references=tuple(references))
         formals = {formal for formal, _, _, _ in bindings}
         frame['fresh_path_banks'] = {
             key for key, slot in frame['slots'].items() if key not in formals and _path_array_cell_type(slot.spec)

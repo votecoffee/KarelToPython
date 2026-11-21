@@ -2,8 +2,8 @@
 
 Pythonic mode supports `CREATE_VAR`, `RENAME_VAR`, `RENAME_VARS` and `BYNAME`
 over the explicit offline `ExecutionContext.variables` store. These calls share
-storage with `GET_VAR`, `SET_VAR`, `VAR_INFO` and `VAR_LIST`. No controller or
-variable discovery is involved.
+storage with `GET_VAR`, `SET_VAR`, `VAR_INFO` and `VAR_LIST`. The runtime
+resolves names against the configured offline context and attached programs.
 
 ## Creation
 
@@ -115,8 +115,10 @@ write guards, including through nested routines and handlers.
 
 Entry numbers are offline cache hints. They need not be initialized and are not
 native table identifiers. Renaming keeps these hints within the current context;
-loading JSON creates a fresh lookup cache. BYNAME is not an ordinary value
-expression, a dynamic routine lookup or a way to access routine-local variables.
+loading JSON creates a fresh lookup cache. BYNAME operates on declared globals
+and explicit variable-store bindings as a direct routine argument.
+[Input discovery](input-discovery.md#named-routine-arguments) follows declared
+targets and their entry numbers when it can prove the address and storage.
 
 ## Saved context and CLI examples
 

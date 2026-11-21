@@ -409,6 +409,21 @@ earlier `SET_VAR` source capture stays visible. A proved conversion failure
 stops discovery before any receiver, entry, or status update. Destination fields
 with special write guards and robot-dependent operations remain conservative.
 
+### Named routine arguments
+
+Discovery follows direct `BYNAME` arguments with a known owner and path to
+declared data or PATH storage. The called routine borrows scalar fields,
+whole records, and proven ARRAY rows or planes. A whole PATH node or header
+keeps its captured slot across later argument evaluation. A selected field
+keeps its captured record storage. A blank owner selects the calling task
+root, including inside a synchronous linked routine.
+
+A successful `BYNAME` writes the lookup entry before evaluating later
+arguments, using the same offline cache as `GET_VAR` and `SET_VAR`. Proven
+invalid selections, type mismatches, and entry overlap stop discovery at
+the argument. Targets that need external bindings, resource storage, or
+unproved addresses retain an explicit discovery gap.
+
 Dynamic addresses, unsupported schemas/resources/services, host or linked
 routine effects, handlers, nonstructured jumps, recursion, fresh uninitialized
 routine locals and analysis limits produce explicit `unresolved` entries.

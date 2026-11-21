@@ -6,6 +6,7 @@ from .reference_contracts import capture_location,same_location
 
 NAMES={'CREATE_VAR','RENAME_VAR','RENAME_VARS'}
 IDENTIFIER=r'[A-Z_][A-Z_0-9]{0,35}'
+BYNAME_PATH = re.compile(IDENTIFIER+r'(?:\.[A-Z_][A-Z_0-9]*|\[[0-9]+(?:,[0-9]+)*\])*')
 VARIABLE_SUFFIX=rf'(?:\.{IDENTIFIER}|\[ *[0-9]+(?: *, *[0-9]+)* *\])*'
 VARIABLE_SELECTOR=rf'(?:\[({IDENTIFIER})\] *)?({IDENTIFIER})({VARIABLE_SUFFIX})'
 REAL_LITERAL=r'[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[Ee][+-]?[0-9]+)?'
@@ -716,7 +717,7 @@ def byname(state,expected,program,path,entry,line=None):
         outputs_checked(FUNCTIONS['BYNAME'][0],(program,path,entry),line)
         program=rt.ascii_string(program,line).strip().upper() or rt.task_root(state).program_name
         path=rt.ascii_string(path,line).upper()
-        if not re.fullmatch(IDENTIFIER+r'(?:\.[A-Z_][A-Z_0-9]*|\[[0-9]+(?:,[0-9]+)*\])*',path):
+        if not BYNAME_PATH.fullmatch(path):
             fail('BYNAME requires an ordinary static variable path; system variables are excluded',line)
         context=state.execution;target=context.resolve(state,program,path,line,prefixes=True,resources=True)
         if type(target) is rt._ArrayPrefixTarget:target=rt.array_prefix_reference(target,line)

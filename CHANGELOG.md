@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1121.145714 - 2026-11-21
+
+- Discover direct BYNAME arguments for declared data and PATH storage. Preserve
+  borrowed ARRAY prefixes, PATH slots, and fields across later argument edits.
+- Share BYNAME entry allocation with GET_VAR and SET_VAR, and resolve a blank
+  BYNAME owner against the task root during synchronous linked calls.
+
 ## 26.1121.145018 - 2026-11-21
 
 - Track offline GET_VAR and SET_VAR entry numbers through successful transfers,

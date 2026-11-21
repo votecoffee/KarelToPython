@@ -1461,6 +1461,66 @@ class InputTemplateTests(unittest.TestCase):
         self.assertTrue(report['complete'], report['unresolved'])
         self.assertEqual(set(by_path(prepared)), {'WANTED'})
 
+    def test_byname_borrows_declared_scalars_and_array_prefixes_with_shared_entries(self):
+        source = (
+            'PROGRAM T VAR n,out,a,b,entry,s,wanted,unused:INTEGER grid:ARRAY[2,2] OF INTEGER '
+            'ROUTINE fill(cell:INTEGER;row:ARRAY OF INTEGER) BEGIN cell=31 row[2]=41 END fill '
+            "BEGIN fill(BYNAME('','n',a),BYNAME(' T ','grid[1]',b)) "
+            "GET_VAR(entry,'','N',out,s) "
+            'IF (a=1) AND (b=2) AND (entry=1) AND (s=0) AND (out=31) AND (grid[1,2]=41) '
+            'THEN WRITE(wanted) ELSE WRITE(unused) ENDIF END T'
+        )
+        prepared = prepare_inputs(translate(source).python_source)
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'WANTED'})
+
+    def test_byname_distinguishes_borrowed_path_slots_and_record_fields(self):
+        common = (
+            'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t '
+            'VAR route,replacement:route_t a,b,s,wanted,unused:INTEGER '
+            'ROUTINE shift:INTEGER BEGIN INSERT_NODE(route,1,s) route[1].amount=13 RETURN 1 END shift '
+            'ROUTINE swap:INTEGER BEGIN COPY_PATH(replacement,0,0,route,s) RETURN 1 END swap '
+        )
+        for selector, condition in (
+            ('shift()', '(held=7) AND (route[1].amount=41) AND (route[2].amount=7)'),
+            ('swap()', '(held=41) AND (route[1].amount=13)'),
+        ):
+            with self.subTest(selector=selector):
+                source = common + (
+                    'ROUTINE observe(whole:row_t;held,code:INTEGER) BEGIN whole.amount=41 '
+                    f'IF (code=1) AND (a=1) AND (b=2) AND {condition} '
+                    'THEN WRITE(wanted) ELSE WRITE(unused) ENDIF END observe '
+                    'BEGIN APPEND_NODE(route,s) route[1].amount=7 '
+                    'APPEND_NODE(replacement,s) replacement[1].amount=13 '
+                    f"observe(BYNAME('','route[1]',a),BYNAME('','route[1].amount',b),{selector}) END T"
+                )
+                prepared = prepare_inputs(translate(source).python_source)
+                report = prepared['template']['discovery']
+                self.assertTrue(report['complete'], report['unresolved'])
+                self.assertEqual(set(by_path(prepared)), {'WANTED'})
+
+    def test_byname_rejection_stops_before_later_arguments(self):
+        common = (
+            'PROGRAM T VAR data,entry,late,early:INTEGER '
+            "ROUTINE owner_name:STRING[8] BEGIN WRITE(early) RETURN '' END owner_name "
+            'ROUTINE last:INTEGER BEGIN WRITE(late) RETURN 1 END last '
+            'ROUTINE integer_arg(n,unused:INTEGER) BEGIN WRITE(late) END integer_arg '
+            'ROUTINE real_arg(n:REAL;unused:INTEGER) BEGIN WRITE(late) END real_arg '
+            'BEGIN data=7 '
+        )
+        for statement, message in (
+            ("integer_arg(BYNAME(owner_name(),'data',data),last())", 'overlaps entry output'),
+            ("integer_arg(BYNAME(owner_name(),'data[1]',entry),last())", 'selection is invalid'),
+            ("real_arg(BYNAME(owner_name(),'data',entry),last())", 'type does not match'),
+        ):
+            with self.subTest(statement=statement):
+                prepared = prepare_inputs(translate(common + statement + ' WRITE(late) END T').python_source)
+                report = prepared['template']['discovery']
+                self.assertEqual([gap['code'] for gap in report['unresolved']], ['byname'])
+                self.assertIn(message, report['unresolved'][0]['message'])
+                self.assertEqual(set(by_path(prepared)), {'EARLY'})
+
     def test_named_variable_entry_reuses_exact_requested_spellings(self):
         prepared = prepare(
             'grid[1,2]=7 '
