@@ -10,7 +10,7 @@ from .file_io import MAX_PATH_IO_FIELDS, path_io_field_count, path_io_indexes
 from .input_contract import extract, InputContractError
 from .input_value_conversions import (
     SCALARS, UNKNOWN, Value as _Value, array_dimensions as _array_dimensions,
-    convert_record_facts, stored_value as _stored_value,
+    convert_value_facts, stored_value as _stored_value, variable_transfer_policy,
 )
 from .storage import collection_array_cost, tuple_spec
 from . import runtime as rt
@@ -769,7 +769,7 @@ class _Analyzer:
             kind in ('created-node', 'created-header') for kind, _ in loc.parts
         ))
 
-    def read(self, loc, node, flow, conditional, *, partial=False, path_io=False):
+    def read(self, loc, node, flow, conditional, *, partial=False, path_io=False, raw_scalar=False):
         if self.lost_path_reference(loc, flow):
             self.unresolved_at('path-topology', 'Captured PATH reference has an unresolved origin: '+loc.path, node)
             return _Value(complete=False, spec=loc.spec)
@@ -798,7 +798,8 @@ class _Analyzer:
             return _Value(complete=False,spec=loc.spec)
         keys={leaf.key for leaf in leaves}
         missing=keys-flow.defined
-        partial_copy=partial and loc.spec and loc.spec[0] not in SCALARS
+        scalar = loc.spec and loc.spec[0] in SCALARS
+        partial_copy = raw_scalar or partial and loc.spec and not scalar
         if missing:
             initial=missing-flow.assigned
             if any(kind in ('created-node', 'created-header') for kind, _ in loc.parts):
@@ -830,7 +831,7 @@ class _Analyzer:
                 if location not in row['locations']:row['locations'].append(location)
         # A scalar read has a value if execution continues. Aggregate copies can
         # preserve missing leaves, so they do not establish complete receivers.
-        complete=not missing or bool(loc.spec and loc.spec[0] in SCALARS)
+        complete = not missing or bool(scalar and not raw_scalar)
         facts=None
         if loc.spec and loc.spec[0] not in SCALARS:
             facts = {
@@ -840,7 +841,9 @@ class _Analyzer:
                 )
                 for leaf in leaves
             }
-        return _Value(flow.constants.get(loc.key,UNKNOWN) if loc.key in flow.defined else UNKNOWN,complete,loc.spec,facts)
+        uninitialized = bool(scalar and raw_scalar and self.leaf_uninitialized(loc, flow))
+        return _Value(flow.constants.get(loc.key, UNKNOWN) if loc.key in flow.defined else UNKNOWN,
+                      complete, loc.spec, facts, uninitialized=uninitialized)
 
     def copy_requires_complete(self,target,source):
         self.tick()
@@ -1019,7 +1022,8 @@ class _Analyzer:
             self.unresolved_at('derived-value', 'Selected PATH result range has unproven data', node)
         return _Value(complete=complete)
 
-    def expr(self, node, flow, conditional=False, *, partial=False, path_io=False, statement_call=False):
+    def expr(self, node, flow, conditional=False, *, partial=False, path_io=False,
+             statement_call=False, raw_scalar=False):
         self.tick()
         if not isinstance(node,dict):return _Value()
         kind=node.get('kind');args=node.get('args',[]);value=node.get('value')
@@ -1031,7 +1035,9 @@ class _Analyzer:
         if kind=='predefined':return _Value({'ON':True,'OFF':False,'MININT':-2147483648,'MAXINT':2147483647}.get(value,UNKNOWN))
         if kind=='name':
             loc=self.slot(value,node,flow)
-            if loc:return self.read(loc,node,flow,conditional,partial=partial,path_io=path_io)
+            if loc:
+                return self.read(loc, node, flow, conditional, partial=partial, path_io=path_io,
+                                 raw_scalar=raw_scalar)
             constant=self.constant(value)
             if constant is not UNKNOWN:return _Value(constant)
             if value in self.plan['routines']:
@@ -1053,11 +1059,13 @@ class _Analyzer:
                     self.unresolved_at('derived-value', 'Selected routine result has unproven data', node)
                 return selected
             loc=self.locate(node,flow,conditional,path_io=path_io)
-            if loc:return self.read(loc,node,flow,conditional,partial=partial,path_io=path_io)
+            if loc:
+                return self.read(loc, node, flow, conditional, partial=partial, path_io=path_io,
+                                 raw_scalar=raw_scalar)
             self.unresolved_at('selection','Computed or dynamic data read is unresolved',node);return _Value(complete=False)
         if kind == 'group':
             return self.expr(args[0], flow, conditional, partial=partial, path_io=path_io,
-                             statement_call=statement_call)
+                             statement_call=statement_call, raw_scalar=raw_scalar)
         if kind in ('unary','binary'):
             if kind=='binary' and value in ('AND','OR'):
                 left=self.expr(args[0],flow,conditional);evaluation=node.get('evaluation')
@@ -1603,7 +1611,7 @@ class _Analyzer:
         return True
 
     def convert_path_record(self, target, value, node):
-        converted, unproven = convert_record_facts(target, value, tick=self.tick)
+        converted, unproven = convert_value_facts(target, value, tick=self.tick)
         if unproven:
             self.unresolved_at('conversion-value', 'Converted PATH field requires complete source data', node)
         return converted
@@ -1736,15 +1744,13 @@ class _Analyzer:
                 return None
         return loc
 
-    def path_variable_status(self, value):
+    def variable_transfer_status(self, value):
+        if value.uninitialized:
+            return 12311
         if value.complete:
             return 0
-        if value.path_records is not None:
-            if any(_known_missing(record) for record in value.path_records):
-                return 12311
-        elif value.facts and any(self.path_variable_status(cell) == 12311 for cell in value.facts.values()):
-            return 12311
-        return UNKNOWN
+        members = value.path_records if value.path_records is not None else (value.facts or {}).values()
+        return 12311 if any(self.variable_transfer_status(member) == 12311 for member in members) else UNKNOWN
 
     def variable_path_copy(self, target, value, entry, status, node, flow, conditional):
         """Follow a whole PATH or bank transfer using its captured data."""
@@ -1791,8 +1797,44 @@ class _Analyzer:
                 return False
 
         self.write(entry, _Value(spec=['INTEGER']), flow, node)
-        self.write(status, _Value(self.path_variable_status(value), spec=['INTEGER']), flow, node)
+        self.write(status, _Value(self.variable_transfer_status(value), spec=['INTEGER']), flow, node)
         return True
+
+    def ordinary_variable_output(self, loc, node, flow):
+        if loc.kind not in ('variable', 'local') or not loc.root_spec or self.lost_path_reference(loc, flow):
+            return False
+        if loc.root_spec[0] == 'PATH' or _path_array_cell_type(loc.root_spec):
+            return False
+        current = replace(loc, parts=(), spec=loc.root_spec)
+        for kind, key in loc.parts:
+            if (current.spec[0] == 'CONFIG'
+                    or current.spec[0] == 'POSITION' and key in rt.POSITION_READ_ONLY_FIELDS):
+                return False
+            current = self.child(current, kind, key, node)
+            if current is None:
+                return False
+        return True
+
+    def variable_data_copy(self, target, value, entry, status, policy, node, flow):
+        if policy == 'rejected':
+            self.write(status, _Value(3, spec=['INTEGER']), flow, node)
+            return
+        if policy == 'model':
+            self.context('robot', None)
+            self.unresolved_at('variable-model', 'Variable transfer requires robot model results', node)
+            self.opaque(flow)
+            return
+        try:
+            converted, unproven = convert_value_facts(target.spec, value, tick=self.tick)
+        except rt.KarelRuntimeError as error:
+            self.unresolved_at('variable-conversion', str(error), node)
+            flow.stopped = True
+            return
+        if unproven:
+            self.unresolved_at('conversion-value', 'Variable conversion requires complete source data', node)
+        self.write(target, converted, flow, node)
+        self.write(entry, _Value(spec=['INTEGER']), flow, node)
+        self.write(status, _Value(self.variable_transfer_status(converted), spec=['INTEGER']), flow, node)
 
     def variable_call(self, node, flow, conditional):
         name = node['value']
@@ -1808,7 +1850,14 @@ class _Analyzer:
             return _Value(complete=False)
         getting = name == 'GET_VAR'
         target = self.locate(args[3], flow, conditional) if getting else None
-        value = None if getting else self.expr(args[3], flow, conditional, partial=True)
+        value = None if getting else self.expr(args[3], flow, conditional, partial=True, raw_scalar=True)
+        if value is not None and value.spec is None:
+            expression = args[3]
+            while expression['kind'] == 'group':
+                expression = expression['args'][0]
+            if expression['kind'] in ('literal', 'real_literal'):
+                schema = {bool: ['BOOLEAN'], int: ['INTEGER'], float: ['REAL'], str: ['STRING', 254]}
+                value = replace(value, spec=schema.get(type(value.constant)))
         if flow.stopped and not flow.opaque:
             return _Value(complete=False)
         status = self.locate(args[4], flow, conditional)
@@ -1829,6 +1878,20 @@ class _Analyzer:
                 self.unresolved_at('path-topology', name+' PATH source or receiver effects require review', node)
                 self.opaque(flow)
             return _Value()
+
+        destination = target if getting else named
+        source_spec = named.spec if getting and named is not None else operand_spec if not getting else None
+        if (named is not None and destination is not None and source_spec and not flow.opaque
+                and entry is not None and status is not None and entry.key != status.key
+                and self.ordinary_variable_output(destination, node, flow)
+                and not any(self.path_contains_reference(destination, loc) for loc in (entry, status))
+                and named.root_spec[0] != 'PATH' and not _path_array_cell_type(named.root_spec)):
+            policy = variable_transfer_policy(destination.spec, source_spec)
+            if policy is not None:
+                if getting:
+                    value = self.read(named, node, flow, conditional, partial=True, raw_scalar=True)
+                self.variable_data_copy(destination, value, entry, status, policy, node, flow)
+                return _Value()
 
         complete = False
         if named is not None:

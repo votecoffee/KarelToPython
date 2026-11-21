@@ -519,6 +519,74 @@ class InputTemplateTests(unittest.TestCase):
                 self.assertEqual(unresolved['code'], 'path-conversion')
                 self.assertIn('BYTE value outside', unresolved['message'])
 
+    def test_scalar_variable_transfer_uses_capture_order_and_checked_values(self):
+        source = (
+            'PROGRAM T VAR source,out:REAL target:SHORT entry,wanted,unused:INTEGER codes:ARRAY[2] OF INTEGER '
+            'ROUTINE set_slot:INTEGER BEGIN source=99.75 RETURN 1 END set_slot '
+            'ROUTINE get_slot:INTEGER BEGIN target=17 RETURN 2 END get_slot '
+            "BEGIN source=42.75 SET_VAR(entry,'','target',(source),codes[set_slot()]) "
+            'IF target<>42 THEN WRITE(unused) ENDIF '
+            "GET_VAR(entry,'T','target',out,codes[get_slot()]) "
+            'IF (codes[1]=0) AND (codes[2]=0) AND (out=17) AND (source=99.75) '
+            'THEN WRITE(wanted) ELSE WRITE(unused) ENDIF END T'
+        )
+        prepared = prepare_inputs(translate(source).python_source)
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'WANTED'})
+
+    def test_variable_transfer_preserves_raw_scalar_and_record_missing_data(self):
+        declarations = ('source:SHORT target:INTEGER src:src_t dst:dst_t '
+                        'entry,s,wanted,unused:INTEGER')
+        types = ('TYPE src_t=STRUCTURE amount:REAL missing:SHORT ENDSTRUCTURE '
+                 'dst_t=STRUCTURE amount:INTEGER missing:INTEGER ENDSTRUCTURE')
+        for body in (
+            "source=32767 target=7 GET_VAR(entry,'','source',target,s) "
+            'IF (s=12311) AND UNINIT(target) THEN WRITE(wanted) ELSE WRITE(unused) ENDIF',
+            "source=32767 target=7 SET_VAR(entry,'','target',(source),s) "
+            'IF (s=12311) AND UNINIT(target) THEN WRITE(wanted) ELSE WRITE(unused) ENDIF',
+            "src.amount=19.75 src.missing=32767 SET_VAR(entry,'','dst',src,s) "
+            'IF (s=12311) AND (dst.amount=19) AND UNINIT(dst.missing) '
+            'THEN WRITE(wanted) ELSE WRITE(unused) ENDIF',
+        ):
+            with self.subTest(body=body):
+                prepared = prepare(body, decl=declarations, prefix=types)
+                report = prepared['template']['discovery']
+                self.assertTrue(report['complete'], report['unresolved'])
+                self.assertEqual(set(by_path(prepared)), {'WANTED'})
+
+    def test_named_data_array_row_preserves_other_rows_and_converts_record_fields(self):
+        prepared = prepare(
+            "a[1,1].amount=42.75 a[1,2].amount=19.9 b[1,1].amount=7 "
+            "SET_VAR(entry,'','b[2]',a[1],s) "
+            'IF (s=0) AND (b[2,1].amount=42) AND (b[2,2].amount=19) AND (b[1,1].amount=7) '
+            'THEN WRITE(wanted) ELSE WRITE(unused) ENDIF',
+            decl='a:ARRAY[2,2] OF r1 b:ARRAY[2,2] OF r2 entry,s,wanted,unused:INTEGER',
+            prefix='TYPE r1=STRUCTURE amount:REAL ENDSTRUCTURE r2=STRUCTURE amount:INTEGER ENDSTRUCTURE',
+        )
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'WANTED'})
+
+    def test_variable_transfer_rejection_and_invalid_conversion_keep_later_reads_separate(self):
+        prepared = prepare(
+            "entry=88 target=7 SET_VAR(entry,'','target',TRUE,s) "
+            'IF (s=3) AND (entry=88) AND (target=7) THEN WRITE(wanted) ELSE WRITE(unused) ENDIF',
+            decl='target,entry,s,wanted,unused:INTEGER',
+        )
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'WANTED'})
+
+        report = prepare(
+            "entry=88 s=99 target=7 SET_VAR(entry,'','target',256,s) WRITE(unused)",
+            decl='target:BYTE entry,s,unused:INTEGER',
+        )['template']['discovery']
+        self.assertFalse(report['inputs'])
+        unresolved, = report['unresolved']
+        self.assertEqual(unresolved['code'], 'variable-conversion')
+        self.assertIn('BYTE value outside', unresolved['message'])
+
     def test_path_variable_transfers_preserve_known_fields_and_partial_status(self):
         types = ('TYPE src_n=STRUCTURE amount:REAL ENDSTRUCTURE '
                  'dst_n=STRUCTURE amount:INTEGER ENDSTRUCTURE '

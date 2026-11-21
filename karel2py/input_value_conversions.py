@@ -5,6 +5,7 @@ from itertools import product
 import math
 
 from . import runtime as rt
+from .extended import _variable_compatible
 from .storage import tuple_spec
 
 
@@ -126,12 +127,34 @@ def _cast_scalar(expected, actual, source):
     return Value(value, spec=schema)
 
 
-def convert_record_facts(target, value, *, tick):
-    """Convert detached PATH data, retaining proof for independent fields."""
+def variable_transfer_policy(target, source):
+    """Classify checked ordinary transfers without querying contextual services."""
+    expected, actual = tuple_spec(target), tuple_spec(source)
+    try:
+        rt._validate_data_schema(expected)
+        rt._validate_data_schema(actual)
+    except rt.KarelRuntimeError:
+        return None
+    arrays = expected[0] == actual[0] == 'ARRAY'
+    if arrays and rt.array_dimensions(expected) != rt.array_dimensions(actual):
+        return None
+    first, second = (rt.array_leaf_spec(expected), rt.array_leaf_spec(actual)) if arrays else (expected, actual)
+    with rt._numeric_scope('pythonic'):
+        if (_variable_compatible(first, second, numeric=True) or rt.config_word_kind(first, second)
+                or rt.positional_conversion_kind(first, second) or rt.record_schema_kind(first, second)):
+            return 'data'
+        if (rt.kinematic_record_kind(first, second)
+                or rt.kinematic_array_kind(('ARRAY', 1, first), ('ARRAY', 1, second))):
+            return 'model'
+    return 'rejected'
+
+
+def convert_value_facts(target, value, *, tick):
+    """Convert detached data, retaining proof for independent fields."""
     if target == value.spec:
         return value, False
     output = {}
-    source_facts = value.facts or {}
+    source_facts = {(): value} if value.spec[0] in SCALARS else value.facts or {}
     unproven = False
 
     def fact_at(path, schema):
@@ -205,4 +228,6 @@ def convert_record_facts(target, value, *, tick):
 
     with rt._numeric_scope('pythonic'):
         project(tuple_spec(target), tuple_spec(value.spec), ())
+    if target[0] in SCALARS:
+        return output[()], unproven
     return Value(complete=all(fact.complete for fact in output.values()), spec=target, facts=output), unproven

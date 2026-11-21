@@ -348,6 +348,13 @@ markers. Discovery can resolve status 0 for complete data, 12311 for
 proved missing data and 3 for rejected layouts. It leaves the cache entry
 number unknown and reports unproved topology, overlaps and model dependencies.
 
+Discovery also tracks statically named scalar, record, and ordinary array
+transfers with equal logical dimensions. Compatible conversions preserve known
+fields, raw missing values and the resulting status. A proved conversion
+failure stops discovery at the failing transfer. Destination fields with
+special write guards, transfers with different array extents, and operations
+that depend on robot model results remain conservative.
+
 Dynamic addresses, unsupported schemas/resources/services, host or linked
 routine effects, handlers, nonstructured jumps, recursion, fresh uninitialized
 routine locals and analysis limits produce explicit `unresolved` entries.

@@ -339,6 +339,26 @@ class SavedProjectTests(unittest.TestCase):
         self.assertEqual(result['status'], 'completed', result['error'])
         self.assertEqual(result['text_output'], ' 12\n')
 
+    def test_linked_record_variable_transfers_publish_known_values_and_status(self):
+        types = ('TYPE local_t=STRUCTURE amount:REAL ENDSTRUCTURE '
+                 'remote_t=STRUCTURE amount:INTEGER ENDSTRUCTURE')
+        main = self.module(
+            'MAIN', "source.amount=42.75 SET_VAR(entry,'LIB','stored',source,s) "
+                    "IF s<>0 THEN WRITE(unused) ENDIF "
+                    "GET_VAR(entry,'LIB','stored',received,s) "
+                    'IF (s=0) AND (received.amount=42) THEN WRITE(received.amount,CR) '
+                    'ELSE WRITE(unused) ENDIF',
+            types+' VAR source:local_t received:remote_t entry,s,unused:INTEGER',
+        )
+        lib = self.module('LIB', declarations=types+' VAR stored:remote_t')
+        report = self.create(main, lib, discover=True)['inputs']['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertFalse(report['inputs'])
+        result = runner.run_document(self.document)['results']
+        self.assertEqual(result['status'], 'completed', result['error'])
+        self.assertEqual(result['text_output'], ' 42\n')
+        self.assertEqual(result['programs']['LIB']['values']['STORED'], {'AMOUNT': 42})
+
     def test_linked_path_variable_transfers_follow_a_named_program(self):
         types = ('TYPE src_n=STRUCTURE amount:REAL ENDSTRUCTURE '
                  'dst_n=STRUCTURE amount:INTEGER ENDSTRUCTURE '

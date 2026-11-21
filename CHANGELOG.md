@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1121.120921 - 2026-11-21
+
+- Follow statically named GET_VAR and SET_VAR for scalar, record, and
+  equal-dimension ordinary array transfers across current and linked programs.
+- Retain known converted fields and raw missing data, and stop at proved
+  conversion failures before publishing receiver or status changes.
+
 ## 26.1121.115825 - 2026-11-21
 
 - Follow GET_VAR and SET_VAR for statically named PATH storage, including
