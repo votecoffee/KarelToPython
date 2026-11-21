@@ -107,7 +107,10 @@ def structured_slot(context, candidate, binding):
         spec = tuple_spec(candidate['type'])
         if candidate['kind'] == 'variable':
             container, key, actual, _ = variable_location(context, candidate)
-            if spec != actual:
+            same_array = (spec[0] == actual[0] == 'ARRAY'
+                          and rt.array_shape(spec) == rt.array_shape(actual)
+                          and spec[2:] == actual[2:])
+            if spec != actual and not same_array:
                 raise InputTemplateError('The saved aggregate differs from the discovered type.')
             return StructuredSlot(container, key, actual)
 

@@ -114,6 +114,7 @@ class _PathOrder:
     generation: int = 0
     retired_slots: dict = field(default_factory=dict)
     previous_max_size: int = 0
+    inserted: frozenset[int] = frozenset()
 
     def retains_slot(self, slot):
         if slot.generation != self.generation:
@@ -1350,6 +1351,7 @@ class _Analyzer:
                 elif (self.can_publish_path(path, flow, conditional)
                       and self.node_edit_preserves_borrows(path, order, prefix, shifted, removed)):
                     detached = order.detached
+                    inserted = order.inserted
                     if removing:
                         depth = len(path.parts)
                         if any(ref is not None and len(ref.parts) > depth + 1
@@ -1358,6 +1360,9 @@ class _Analyzer:
                             self.tick(len(detached))
                             detached = detached | {removed}
                         nodes = prefix + shifted
+                        if removed in inserted and removed not in detached:
+                            self.tick(len(inserted))
+                            inserted = inserted - {removed}
                     else:
                         node_type = path.spec[1] or self.plan.get('default_path_node')
                         value = (_Value(complete=False, spec=node_type, uninitialized=True) if seed is None
@@ -1366,11 +1371,13 @@ class _Analyzer:
                             return _Value(complete=False)
                         self.serial += 1
                         nodes = prefix + (-self.serial,) + shifted
+                        self.tick(len(inserted))
+                        inserted = inserted | {-self.serial}
                         record = self.child(path, 'created-node', self.serial, node)
                         self.write(record, value, flow, node)
                     flow.path_orders[path.key] = replace(
                         order, nodes=nodes, detached=detached,
-                        previous_max_size=max(order.previous_max_size, count),
+                        previous_max_size=max(order.previous_max_size, count), inserted=inserted,
                     )
                     self.write(status, _Value(0, spec=['INTEGER']), flow, node)
                     return _Value()
@@ -1721,29 +1728,78 @@ class _Analyzer:
         detached, retired_slots = history if history is not None else (frozenset(), {})
         flow.path_orders[target.key] = _PathOrder(tuple(nodes), header, detached, self.serial, retired_slots)
 
-    def named_variable_location(self, owner, path, node, flow):
+    def named_variable_location(self, owner, path, node, flow, conditional):
+        """Return the resolved location and whether PATH addressing rejects it."""
         if type(owner) is not str or type(path) is not str:
-            return None
+            return None, False
         root = re.match(r'[A-Za-z_][A-Za-z_0-9]*', path)
         if root is None:
-            return None
+            return None, False
         loc = self.global_slot(root[0].upper(), node, program=owner.upper())
         rest = path[root.end():]
         while rest and loc:
             field = re.match(r'\.([A-Za-z_][A-Za-z_0-9]*)', rest)
-            index = re.match(r'\[([0-9]+(?:,[0-9]+)*)\]', rest)
+            indexes = re.match(r'(?:\[[0-9]+(?:,[0-9]+)*\])+', rest)
             if field:
+                if loc.spec[0] == 'PATH' and loc.spec[2] is None:
+                    return None, True
                 loc = self.field_child(loc, field[1].upper(), node, flow)
                 rest = rest[field.end():]
-            elif index:
-                for item in index[1].split(','):
+            elif indexes:
+                # Runtime treats adjacent brackets as one logical subscript.
+                numbers = [int(item) for item in re.findall(r'[0-9]+', indexes[0])]
+                dimensions, terminal = _array_dimensions(loc.spec)
+                if terminal[0] == 'PATH' and len(numbers) > len(dimensions) + 1:
+                    return None, True
+                for index in numbers:
                     if loc is None:
-                        return None
-                    loc = self.index_child(loc, int(item), node, flow)
-                rest = rest[index.end():]
+                        return None, False
+                    if loc.spec[0] == 'PATH':
+                        count = self.known_path_count(loc, flow, conditional) if index > 0 else None
+                        if ((index == 0 and loc.spec[2] is None) or index > 32767
+                                or count is not None and index > count):
+                            return None, True
+                    loc = self.index_child(loc, index, node, flow)
+                rest = rest[indexes.end():]
             else:
+                return None, False
+        return loc, False
+
+    def variable_path_field(self, loc, flow, conditional):
+        """Prove that an immediate scalar PATH field has a materialized record."""
+        dimensions, path_spec = _array_dimensions(loc.root_spec)
+        if not path_spec or path_spec[0] != 'PATH':
+            return True
+        depth = len(dimensions)
+        if (len(loc.parts) != depth + 2 or loc.parts[-1][0] != 'field'
+                or loc.spec[0] not in SCALARS or flow.opaque or flow.path_shape_unknown
+                or self.lost_path_reference(loc, flow)):
+            return None
+        path = replace(loc, parts=loc.parts[:depth], spec=path_spec, node_slot=None)
+        part = loc.parts[depth]
+        origin = _path_record_identity(part)
+        order = flow.path_orders.get(path.key)
+        if order is not None and not _path_header_part(part):
+            self.tick(len(order.nodes))
+            if origin not in order.nodes and origin not in order.detached:
                 return None
-        return loc
+            if origin in order.inserted:
+                return True
+        if loc.key in flow.defined:
+            return True
+        # Whole PATH copies can replace a record with a missing container.
+        if origin < 0 or origin == 0 and order is not None and order.generation:
+            return None
+        if loc.kind == 'local' and origin == 0 and order is not None:
+            return True
+        if not self.stable_path_context(path, flow, conditional):
+            return None
+        present = self.saved_path_count(loc.owner, loc.root, loc.root_spec, path.parts, record_index=origin)
+        if present is DEFAULT_EMPTY_PATH:
+            return True if origin == 0 else None
+        if present is not None:
+            self.path_storage[loc.owner, loc.root] = loc.root_spec
+        return present
 
     def variable_transfer_status(self, value):
         if value.uninitialized:
@@ -1801,10 +1857,8 @@ class _Analyzer:
         self.write(status, _Value(self.variable_transfer_status(value), spec=['INTEGER']), flow, node)
         return True
 
-    def ordinary_variable_output(self, loc, node, flow):
-        if loc.kind not in ('variable', 'local') or not loc.root_spec or self.lost_path_reference(loc, flow):
-            return False
-        if loc.root_spec[0] == 'PATH' or _path_array_cell_type(loc.root_spec):
+    def ordinary_variable_output(self, loc, node):
+        if loc.kind not in ('variable', 'local') or not loc.root_spec:
             return False
         current = replace(loc, parts=(), spec=loc.root_spec)
         for kind, key in loc.parts:
@@ -1902,7 +1956,11 @@ class _Analyzer:
         status = self.locate(args[4], flow, conditional)
         if flow.stopped and not flow.opaque:
             return _Value(complete=False)
-        named = self.named_variable_location(owner, path, node, flow)
+        named, rejected = self.named_variable_location(owner, path, node, flow, conditional)
+        named_field = self.variable_path_field(named, flow, conditional) if named is not None else None
+        if (rejected or named_field is False) and status is not None and not flow.opaque:
+            self.write(status, _Value(1, spec=['INTEGER']), flow, node)
+            return _Value()
         operand_spec = target.spec if target is not None else value.spec if value is not None else None
         if (named is not None and operand_spec and (named.spec[0] == 'PATH' or _path_array_cell_type(named.spec))
                 and (operand_spec[0] == 'PATH' or _path_array_cell_type(operand_spec))):
@@ -1919,12 +1977,14 @@ class _Analyzer:
             return _Value()
 
         destination = target if getting else named
+        destination_field = (self.variable_path_field(target, flow, conditional) if getting and target is not None
+                             else named_field if not getting else None)
         source_spec = named.spec if getting and named is not None else operand_spec if not getting else None
         if (named is not None and destination is not None and source_spec and not flow.opaque
                 and entry is not None and status is not None and entry.key != status.key
-                and self.ordinary_variable_output(destination, node, flow)
-                and not any(self.path_contains_reference(destination, loc) for loc in (entry, status))
-                and named.root_spec[0] != 'PATH' and not _path_array_cell_type(named.root_spec)):
+                and named_field is True and destination_field is True
+                and self.ordinary_variable_output(destination, node)
+                and not any(self.path_contains_reference(destination, loc) for loc in (entry, status))):
             policy = variable_transfer_policy(destination.spec, source_spec)
             if policy is not None:
                 capture, captured_flow = (named, flow) if getting else captured_array or (None, None)
@@ -1946,6 +2006,8 @@ class _Analyzer:
             self.read(capture, args[3], captured_flow, conditional, partial=True, raw_scalar=True)
         complete = False
         if named is not None:
+            if named_field is None:
+                self.unresolved_at('path-topology', name+' requires an existing PATH record for '+named.path, node)
             if getting:
                 leaves = self.leaves(named)
                 complete = leaves is not None and all(leaf.key in flow.defined for leaf in leaves)
@@ -1959,6 +2021,8 @@ class _Analyzer:
                 self.lose_task_order(flow)
         self.write(entry, _Value(), flow, node, definite=False)
         if getting:
+            if target is not None and destination_field is not True:
+                self.unresolved_at('path-topology', 'GET_VAR requires an existing PATH receiver record for '+target.path, node)
             self.write(target, _Value(complete=complete), flow, node, definite=False)
         self.write(status, _Value(), flow, node)
         return _Value()

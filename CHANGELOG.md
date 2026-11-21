@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1121.122851 - 2026-11-21
+
+- Track scalar transfers to and from named PATH header and node fields, including
+  PATH ARRAY cells. Preserve the original saved node address after edits and
+  track status 1 when the named PATH record is provably unavailable.
+- Restore structured input editing for discovered rows of multidimensional arrays.
+
 ## 26.1121.121708 - 2026-11-21
 
 - Discover row-major GET_VAR and SET_VAR transfers between ordinary arrays

@@ -656,6 +656,71 @@ class InputTemplateTests(unittest.TestCase):
         self.assertEqual(unresolved['code'], 'variable-conversion')
         self.assertIn('BYTE value outside', unresolved['message'])
 
+    def test_named_path_scalar_transfers_track_capture_order_and_missing_values(self):
+        source = (
+            'PROGRAM T TYPE node_t=STRUCTURE amount:SHORT ENDSTRUCTURE '
+            'head_t=STRUCTURE total:INTEGER ENDSTRUCTURE '
+            'route_t=PATH NODEDATA=node_t PATHHEADER=head_t '
+            'VAR route:route_t bank:ARRAY[1] OF route_t source,out:REAL '
+            'entry,s,wanted,unused:INTEGER codes:ARRAY[2] OF INTEGER '
+            'ROUTINE set_slot:INTEGER BEGIN source=99.75 RETURN 1 END set_slot '
+            'ROUTINE get_slot:INTEGER BEGIN route[1].amount=17 RETURN 2 END get_slot '
+            'BEGIN APPEND_NODE(route,s) APPEND_NODE(bank[1],s) source=42.75 '
+            "GET_VAR(entry,'','bank[1][1].amount',route.total,s) "
+            'IF (s<>12311) OR (NOT UNINIT(route.total)) THEN WRITE(unused) ENDIF '
+            "SET_VAR(entry,'','route[1].amount',source,codes[set_slot()]) "
+            'IF route[1].amount<>42 THEN WRITE(unused) ENDIF '
+            "GET_VAR(entry,'T','route[1].amount',out,codes[get_slot()]) "
+            "SET_VAR(entry,'','bank[1,0].total',out,s) "
+            'IF (codes[1]=0) AND (codes[2]=0) AND (s=0) '
+            'AND (bank[1].total=17) AND (source=99.75) AND (PATH_LEN(bank[1])=1) '
+            'THEN WRITE(wanted) ELSE WRITE(unused) ENDIF END T'
+        )
+        prepared = prepare_inputs(translate(source).python_source)
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'WANTED'})
+
+    def test_named_path_fields_discover_the_saved_origin_after_delete(self):
+        types = 'TYPE node_t=STRUCTURE amount:INTEGER ENDSTRUCTURE'
+        spec = ['PATH', ['STRUCTURE', 'NODE_T', [['AMOUNT', ['INTEGER']]]], None]
+        route = dict(program='T', path='ROUTE', type=spec,
+                     value=dict(nodes=[{'AMOUNT': 5}, {'AMOUNT': MISSING}], data=None))
+        prepared = prepare(
+            "DELETE_NODE(route,1,s) GET_VAR(entry,'','route[1].amount',out,s) "
+            "SET_VAR(entry,'','route[1].amount',10,s) "
+            'IF (s=0) AND (route[1].amount=10) THEN WRITE(wanted) ELSE WRITE(unused) ENDIF',
+            decl='route:PATH NODEDATA=node_t entry,out,s,wanted,unused:INTEGER',
+            prefix=types, context={'variables': [route]},
+        )
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'ROUTE[2].AMOUNT', 'WANTED'})
+        self.assertEqual(by_path(prepared)['ROUTE[2].AMOUNT']['selectors'], [['index', 2], ['field', 'AMOUNT']])
+        self.assertEqual(report['path_storage'], [dict(program='T', path='ROUTE', type=spec)])
+
+    def test_named_missing_path_records_and_bad_indices_leave_outputs_unchanged(self):
+        types = ('TYPE node_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+                 'head_t=STRUCTURE total:INTEGER ENDSTRUCTURE')
+        declarations = ('route:PATH NODEDATA=node_t PATHHEADER=head_t '
+                        'other:PATH entry,out,s,wanted,unused:INTEGER')
+        spec = ['PATH', ['STRUCTURE', 'NODE_T', [['AMOUNT', ['INTEGER']]]],
+                ['STRUCTURE', 'HEAD_T', [['TOTAL', ['INTEGER']]]]]
+        route = dict(program='T', path='ROUTE', type=spec, value=dict(nodes=[MISSING], data=MISSING))
+        for address in ('route.total', 'route[1].amount', 'route[2].amount',
+                        'route[1][1].amount', 'other[0].total'):
+            for transfer in ('GET_VAR', 'SET_VAR'):
+                with self.subTest(address=address, transfer=transfer):
+                    prepared = prepare(
+                        f"entry=88 out=42 {transfer}(entry,'T','{address}',out,s) "
+                        'IF (s=1) AND (entry=88) AND (out=42) '
+                        'THEN WRITE(wanted) ELSE WRITE(unused) ENDIF',
+                        decl=declarations, prefix=types, context={'variables': [route]},
+                    )
+                    report = prepared['template']['discovery']
+                    self.assertTrue(report['complete'], report['unresolved'])
+                    self.assertEqual(set(by_path(prepared)), {'WANTED'})
+
     def test_path_variable_transfers_preserve_known_fields_and_partial_status(self):
         types = ('TYPE src_n=STRUCTURE amount:REAL ENDSTRUCTURE '
                  'dst_n=STRUCTURE amount:INTEGER ENDSTRUCTURE '

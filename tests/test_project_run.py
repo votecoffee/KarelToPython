@@ -377,6 +377,36 @@ class SavedProjectTests(unittest.TestCase):
         self.assertEqual(result['text_output'], ' 42\n')
         self.assertEqual(result['programs']['LIB']['values']['STORED'], {'AMOUNT': 42})
 
+    def test_linked_named_path_fields_keep_their_bank_cell_and_status(self):
+        types = ('TYPE node_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+                 'head_t=STRUCTURE total:INTEGER ENDSTRUCTURE '
+                 'route_t=PATH NODEDATA=node_t PATHHEADER=head_t')
+        main = self.module(
+            'MAIN', "SET_VAR(entry,'LIB','bank[1,1].amount',42,s) "
+                    'IF s<>0 THEN WRITE(unused) ENDIF '
+                    "GET_VAR(entry,'LIB','bank[1][1].amount',out,s) "
+                    "SET_VAR(entry,'LIB','bank[1].total',out,s) "
+                    "GET_VAR(entry,'LIB','bank[1,0].total',out,s) "
+                    'IF (s=0) AND (out=42) THEN WRITE(out,CR) ELSE WRITE(unused) ENDIF',
+            'VAR entry,s,out,unused:INTEGER',
+        )
+        lib = self.module('LIB', declarations=types+' VAR bank:ARRAY[2] OF route_t')
+        path = ['PATH', ['STRUCTURE', 'NODE_T', [['AMOUNT', ['INTEGER']]]],
+                ['STRUCTURE', 'HEAD_T', [['TOTAL', ['INTEGER']]]]]
+        bank = dict(program='LIB', path='BANK', type=['ARRAY', 2, path],
+                    value=[dict(nodes=[{'AMOUNT': MISSING}], data={'TOTAL': MISSING}),
+                           dict(nodes=[{'AMOUNT': 19}], data={'TOTAL': 7})])
+        report = self.create(main, lib, context={'variables': [bank]}, discover=True)['inputs']['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertFalse(report['inputs'])
+        self.assertEqual(report['path_storage'], [dict(program='LIB', path='BANK', type=bank['type'])])
+        result = runner.run_document(self.document)['results']
+        self.assertEqual(result['status'], 'completed', result['error'])
+        self.assertEqual(result['text_output'], ' 42\n')
+        self.assertEqual(result['programs']['LIB']['values']['BANK'], [
+            dict(nodes=[{'AMOUNT': 42}], data={'TOTAL': 42}), bank['value'][1],
+        ])
+
     def test_linked_path_variable_transfers_follow_a_named_program(self):
         types = ('TYPE src_n=STRUCTURE amount:REAL ENDSTRUCTURE '
                  'dst_n=STRUCTURE amount:INTEGER ENDSTRUCTURE '

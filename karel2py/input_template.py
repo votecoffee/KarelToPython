@@ -134,10 +134,10 @@ def _context_state(context):
 
 
 def _saved_path_count(execution, *, migrate_path=None):
-    """Look up the initial topology of a saved, migrated or unseeded root."""
+    """Look up the initial topology or materialized record of a saved PATH."""
     snapshots = {}
 
-    def path_count(program, root, root_type, selectors):
+    def path_count(program, root, root_type, selectors, *, record_index=None):
         key = program, root
         reference = execution.variables.bindings.get(key)
         if reference is None:
@@ -153,7 +153,16 @@ def _saved_path_count(execution, *, migrate_path=None):
                     snapshots[snapshot_key] = migrated.value
         if snapshot_key not in snapshots:
             return None
-        return len(_selected(spec, snapshots[snapshot_key], selectors)['nodes'])
+        path = _selected(spec, snapshots[snapshot_key], selectors)
+        if record_index is None:
+            return len(path['nodes'])
+        path_spec = rt.array_leaf_spec(spec) if spec[0] == 'ARRAY' else spec
+        try:
+            container, key, record_spec = _path_record_slot(path, path_spec, record_index)
+        except InputTemplateError:
+            return None
+        record = container[key]
+        return type(record) is dict and record.keys() == dict(rt.record_fields(record_spec)).keys()
 
     return path_count
 
