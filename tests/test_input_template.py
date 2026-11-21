@@ -448,6 +448,60 @@ class InputTemplateTests(unittest.TestCase):
         self.assertTrue(report['template']['discovery']['complete'], report['template']['discovery']['unresolved'])
         self.assertEqual(set(by_path(report)), {'WANTED'})
 
+    def test_copy_path_converts_known_mixed_scalar_config_and_position_fields(self):
+        source = (
+            'PROGRAM T TYPE from_node=STRUCTURE score:REAL joints:JOINTPOS2 word:INTEGER pose:XYZWPR ENDSTRUCTURE '
+            'to_node=STRUCTURE score:INTEGER joints:JOINTPOS3 word:CONFIG pose:XYZWPREXT ENDSTRUCTURE '
+            'from_path=PATH NODEDATA=from_node to_path=PATH NODEDATA=to_node '
+            'VAR a:from_path b:to_path s,wanted,unused:INTEGER '
+            'BEGIN APPEND_NODE(a,s) a[1].score=42.75 a[1].joints[1]=11 a[1].joints[2]=12 a[1].word=4111 '
+            'a[1].pose.x=1 a[1].pose.y=2 a[1].pose.z=3 a[1].pose.w=0 a[1].pose.p=0 a[1].pose.r=0 '
+            'a[1].pose.config_data.cfg_turn_no1=0 a[1].pose.config_data.cfg_turn_no2=0 '
+            'a[1].pose.config_data.cfg_turn_no3=0 a[1].pose.config_data.cfg_flip=FALSE '
+            'a[1].pose.config_data.cfg_left=FALSE a[1].pose.config_data.cfg_up=FALSE '
+            'a[1].pose.config_data.cfg_front=FALSE COPY_PATH(a,0,0,b,s,TRUE) '
+            'IF (s=0) AND (b[1].score=42) AND (b[1].joints[3]=0) '
+            'AND (b[1].word.cfg_turn_no1=-1) AND b[1].word.cfg_flip '
+            'AND (b[1].pose.z=3) AND (b[1].pose.ext1=0) THEN WRITE(wanted) ELSE WRITE(unused) ENDIF END T'
+        )
+        prepared = prepare_inputs(translate(source).python_source)
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'WANTED'})
+        self.assertFalse(report['context_requirements'])
+
+    def test_copy_path_keeps_missing_config_word_and_known_array_element(self):
+        source = (
+            'PROGRAM T TYPE row_a=STRUCTURE bits:CONFIG amount:REAL ENDSTRUCTURE '
+            'row_b=STRUCTURE bits:INTEGER amount:INTEGER ENDSTRUCTURE '
+            'grid_a=ARRAY[2] OF row_a node_a=STRUCTURE data:ARRAY[2] OF grid_a ENDSTRUCTURE '
+            'node_b=STRUCTURE data:ARRAY[2,2] OF row_b ENDSTRUCTURE '
+            'p1=PATH NODEDATA=node_a p2=PATH NODEDATA=node_b VAR a:p1 b:p2 s,wanted,unused:INTEGER '
+            'BEGIN APPEND_NODE(a,s) a[1].data[2,1].amount=-4.75 '
+            'COPY_PATH(a,0,0,b,s,TRUE) '
+            'IF (b[1].data[2,1].amount=-4) AND UNINIT(b[1].data[2,1].bits) '
+            'THEN WRITE(wanted) ELSE WRITE(unused) ENDIF END T'
+        )
+        prepared = prepare_inputs(translate(source).python_source)
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'WANTED'})
+
+    def test_narrowing_with_known_nonzero_axis_fails_before_destination_selector(self):
+        source = (
+            'PROGRAM T TYPE from_n=STRUCTURE axes:JOINTPOS2 ENDSTRUCTURE '
+            'to_n=STRUCTURE axes:JOINTPOS1 ENDSTRUCTURE p1=PATH NODEDATA=from_n p2=PATH NODEDATA=to_n '
+            'VAR a:p1 b:ARRAY[1] OF p2 s,unused:INTEGER value_input:REAL '
+            'ROUTINE pick:INTEGER BEGIN WRITE(unused) RETURN 1 END pick '
+            'BEGIN APPEND_NODE(a,s) a[1].axes[1]=value_input a[1].axes[2]=2 '
+            'b[pick()]=a WRITE(unused) END T'
+        )
+        report = prepare_inputs(translate(source).python_source)['template']['discovery']
+        self.assertEqual([row['path'] for row in report['inputs']], ['VALUE_INPUT'])
+        unresolved, = report['unresolved']
+        self.assertEqual(unresolved['code'], 'path-conversion')
+        self.assertIn('zero discarded axes', unresolved['message'])
+
     def test_rejected_path_data_conversion_stops_later_reads(self):
         source = (
             'PROGRAM T TYPE from_n=STRUCTURE amount:INTEGER ENDSTRUCTURE '

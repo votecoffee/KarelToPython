@@ -469,6 +469,34 @@ class SavedProjectTests(unittest.TestCase):
         self.assertEqual(result['status'], 'completed', result['error'])
         self.assertEqual(result['text_output'], ' 42 41\n')
 
+    def test_linked_path_joint_padding_uses_proven_shape_with_supplied_axis(self):
+        types = ('TYPE src_n=STRUCTURE axes:JOINTPOS2 ENDSTRUCTURE '
+                 'dst_n=STRUCTURE axes:JOINTPOS3 ENDSTRUCTURE '
+                 'src_t=PATH NODEDATA=src_n dst_t=PATH NODEDATA=dst_n')
+        main = self.module(
+            'MAIN', 'COPY_PATH(build(),0,0,target,s,TRUE) '
+                    'IF (target[1].axes[1]=11) AND (target[1].axes[3]=0) '
+                    'THEN WRITE(target[1].axes[2],CR) ELSE WRITE(unused) ENDIF',
+            types+' VAR target:dst_t s,unused:INTEGER', 'ROUTINE build:src_t FROM LIB',
+        )
+        lib = self.module(
+            'LIB', declarations=types+' VAR axis_input:REAL',
+            routines='ROUTINE build:src_t VAR origin:src_t s:INTEGER '
+                     'BEGIN APPEND_NODE(origin,s) origin[1].axes[1]=11 origin[1].axes[2]=axis_input '
+                     'RETURN origin END build',
+        )
+        report = self.create(main, lib, discover=True)['inputs']['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        candidate, = report['inputs']
+        self.assertEqual((candidate['program'], candidate['path']), ('LIB', 'AXIS_INPUT'))
+        runner.save_input_value(self.document, ('variable', 'LIB', 'AXIS_INPUT'), 'REAL', '12.5',
+                                expected=self.document.read_bytes())
+        result = runner.run_document(self.document)['results']
+        self.assertEqual(result['status'], 'completed', result['error'])
+        self.assertEqual(result['programs']['MAIN']['values']['TARGET']['nodes'][0]['AXES']['axes'],
+                         [11.0, 12.5, 0.0])
+        self.assertEqual(float(result['text_output']), 12.5)
+
     def test_linked_array_result_probe_preserves_operand_order(self):
         main = self.module(
             'MAIN',

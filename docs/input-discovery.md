@@ -395,7 +395,9 @@ discovery report.
 For PATH ARRAYs with known topology, discovery tracks each cell's node count
 and known fields through assignments, selected rows and planes, private
 arguments and routine results. It follows compatible context-free layout
-conversions and retains known checked scalar values and missing markers.
+conversions and retains known values and missing markers through nested
+records and array components. It can prove joint padding and track fields
+from checked CONFIG word and Cartesian conversions when their inputs are known.
 Whole returned-bank WRITE checks the combined scalar field limit.
 Model-dependent conversions report the robot context requirement when the
 conversion would use a model. Retranslate older targets to include the order

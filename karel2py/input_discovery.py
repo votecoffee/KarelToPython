@@ -8,18 +8,20 @@ import re
 from .extended import PREDEFINED_FILE_NAMES, ZERO_BASED_PORTS, path_conversion_layout, path_node_size
 from .file_io import MAX_PATH_IO_FIELDS, path_io_field_count, path_io_indexes
 from .input_contract import extract, InputContractError
+from .input_value_conversions import (
+    SCALARS, UNKNOWN, Value as _Value, array_dimensions as _array_dimensions,
+    convert_record_facts, stored_value as _stored_value,
+)
 from .storage import collection_array_cost, tuple_spec
 from . import runtime as rt
 
 
-UNKNOWN = object()
 DEFAULT_EMPTY_PATH = object()
 MAX_STEPS = 100000
 MAX_INPUTS = 2048
 MAX_CALL_DEPTH = 32
 MAX_FACTS = 32767
 MAX_BYTES = 16 * 1024 * 1024
-SCALARS = {'INTEGER', 'BYTE', 'SHORT', 'REAL', 'BOOLEAN', 'STRING', 'NUMERIC'}
 SCALAR_PURE = {'ABS':1,'ROUND':1,'TRUNC':1,'SQRT':1,'SIN':1,'COS':1,'TAN':1,
                'ASIN':1,'ACOS':1,'ATAN2':2,'EXP':1,'LN':1,'STR_LEN':1,
                'SUB_STR':3,'INDEX':2,'CHR':1,'ORD':2}
@@ -77,16 +79,6 @@ class _Location:
                      else '[' + kind.replace('created-', 'source-created ') + ']' if kind in ('created-node', 'created-header')
                      else '[' + str(value) + ']')
         return text
-
-
-@dataclass
-class _Value:
-    constant: object = UNKNOWN
-    complete: bool = True
-    spec: object = None
-    facts: object = None
-    path_records: tuple | None = None
-    uninitialized: bool = False  # Positive proof, separate from incomplete knowledge.
 
 
 def _known_missing(value):
@@ -212,34 +204,12 @@ def _path_header_part(part):
     return part[0] == 'created-header' or part == ('index', 0)
 
 
-def _array_dimensions(spec):
-    dimensions=[]
-    while spec and spec[0]=='ARRAY':
-        dimensions.extend(spec[1] if type(spec[1]) is list else [spec[1]])
-        spec=spec[2]
-    return dimensions,spec
-
-
 def _path_array_cell_type(spec):
     if spec and spec[0] == 'ARRAY':
         _, terminal = _array_dimensions(spec)
         if terminal and terminal[0] == 'PATH':
             return terminal
     return None
-
-
-def _path_scalar_layout(target, source):
-    """Test whether converted leaves still correspond by field and logical index."""
-    if target == source or target[0] in SCALARS and source[0] in SCALARS:
-        return True
-    if target[0] == source[0] == 'STRUCTURE':
-        left, right = dict(target[2]), dict(source[2])
-        return left.keys() == right.keys() and all(_path_scalar_layout(spec, right[key]) for key, spec in left.items())
-    if target[0] == source[0] == 'ARRAY':
-        target_shape, target_leaf = _array_dimensions(target)
-        source_shape, source_leaf = _array_dimensions(source)
-        return target_shape == source_shape and _path_scalar_layout(target_leaf, source_leaf)
-    return False
 
 
 def _array_value_schema(declared,source):
@@ -260,28 +230,6 @@ def _array_value_schema(declared,source):
         elif element==['STRING',None] and terminal and terminal[0]=='STRING':element=terminal
         return ['ARRAY',sizes if type(spec[1]) is list else sizes[0],element,*spec[3:]]
     return resolve(declared)
-
-
-def _stored_value(spec,value):
-    """Availability/schema facts after storage; narrow casts remain conservative."""
-    constant=value.constant;complete=value.complete
-    uninitialized = value.uninitialized and spec == value.spec
-    if spec==['REAL'] and type(constant) is int:
-        constant=float(constant) if constant.bit_length()<=64 else UNKNOWN
-    if spec and spec[0]=='STRING' and type(constant) is str:
-        capacity=spec[1] if len(spec)>1 else None
-        if type(capacity) is not int or len(constant)>capacity:constant=UNKNOWN
-    elif spec and spec[0] in ('INTEGER','BYTE','SHORT') and type(constant) is float:
-        if spec==['SHORT'] and math.isfinite(constant) and math.trunc(constant)==32767:
-            complete, uninitialized = False, True
-        constant=UNKNOWN
-    if spec==['SHORT'] and constant==32767:
-        complete, uninitialized = False, True
-    if spec==['SHORT'] and value.constant is UNKNOWN and value.spec not in (['SHORT'],['BYTE']):complete=False
-    if spec and spec[0]=='ARRAY' and value.spec and value.spec[0]=='ARRAY':
-        _,target=_array_dimensions(spec);_,source=_array_dimensions(value.spec)
-        if target==['SHORT'] and source!=target:complete=False
-    return _Value(constant, complete, spec, uninitialized=uninitialized)
 
 
 def _merged_value(values,spec=None):
@@ -1645,33 +1593,10 @@ class _Analyzer:
         self.opaque(flow)
 
     def convert_path_record(self, target, value, node):
-        if target == value.spec:
-            return value
-        slot = _Location('local', '@path-value', 'PATH', spec=target)
-        leaves = self.leaves(slot)
-        if leaves is None or not value.facts or not _path_scalar_layout(target, value.spec):
-            return self.stored(slot, value, leaves, node)
-        facts = {}
-        with rt._numeric_scope('pythonic'):
-            for leaf in leaves:
-                source = value.facts.get(leaf.parts, _Value(complete=value.complete))
-                if source.uninitialized:
-                    fact = _Value(complete=False, spec=leaf.spec, uninitialized=True)
-                elif not source.complete or source.constant is UNKNOWN or source.spec is None:
-                    fact = _stored_value(leaf.spec, source)
-                    fact.constant = UNKNOWN
-                else:
-                    spec, actual = tuple_spec(leaf.spec), tuple_spec(source.spec)
-                    constant = rt.checked(actual, source.constant)
-                    if rt.real_integral_kind(spec, actual):
-                        constant = rt.real_integral_value(spec, constant)
-                    constant = rt.checked(spec, constant)
-                    if constant is rt.UNINITIALIZED:
-                        fact = _Value(complete=False, spec=leaf.spec, uninitialized=True)
-                    else:
-                        fact = _Value(constant, spec=leaf.spec)
-                facts[leaf.parts] = fact
-        return _Value(complete=all(fact.complete for fact in facts.values()), spec=target, facts=facts)
+        converted, unproven = convert_record_facts(target, value, tick=self.tick)
+        if unproven:
+            self.unresolved_at('conversion-value', 'Converted PATH field requires complete source data', node)
+        return converted
 
     def convert_path_records(self, target, value, node):
         self.tick(len(value.path_records))

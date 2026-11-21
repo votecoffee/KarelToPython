@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1120.200639 - 2026-11-20
+
+- Preserve facts through mixed PATH record conversions, including scalar
+  fields, nested ARRAY layouts, CONFIG words, joint widths, and known
+  Cartesian representations.
+- Move bounded value conversion out of the input-discovery analyzer.
+
 ## 26.1120.195644 - 2026-11-20
 
 - Follow detached PATH results passed to COPY_PATH and preserve checked
