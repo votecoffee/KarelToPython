@@ -349,8 +349,10 @@ proved missing data and 3 for rejected layouts. It leaves the cache entry
 number unknown and reports unproved topology and model dependencies. Discovery
 stops at a proven output overlap. It checks the `GET_VAR` receiver before
 looking up the named source and checks the `SET_VAR` destination after the name
-resolves. An invalid `SET_VAR` destination still yields status 1 after source
-capture. A field in a retained old record or rebuilt retired slot can receive
+resolves. A declared root with an invalid field or subscript yields status 1
+without a transfer. An invalid `SET_VAR` destination still yields status 1
+after source capture. Roots that may require external bindings remain open for
+review. A field in a retained old record or rebuilt retired slot can receive
 status when its storage is disjoint from the live destination.
 
 For fields of PATH headers and nodes, including PATH ARRAY cells, discovery
@@ -394,8 +396,10 @@ up to the smaller element count. Discovery reports reads from only those
 elements for a statically located source. A computed source can also read
 inputs while constructing its result. The destination tail is preserved, and
 only selected elements determine the missing-data status. A proved rank or
-layout mismatch produces status 3. A proved conversion failure stops
-discovery before any receiver, entry, or status update. Destination fields
+layout mismatch produces status 3. Discovery checks the source topology for a
+rejected `GET_VAR` on a PATH or PATH bank and omits unused payload inputs. An
+earlier `SET_VAR` source capture stays visible. A proved conversion failure
+stops discovery before any receiver, entry, or status update. Destination fields
 with special write guards and robot-dependent operations remain conservative.
 
 Dynamic addresses, unsupported schemas/resources/services, host or linked

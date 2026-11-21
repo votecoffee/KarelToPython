@@ -2008,43 +2008,57 @@ class _Analyzer:
         flow.path_orders[target.key] = _PathOrder(tuple(nodes), header, detached, self.serial, retired_slots,
                                                  header_generation=header_generation)
 
+    def named_indexes_valid(self, spec, numbers, *, ending):
+        """Use the runtime's ARRAY boundaries before following physical storage."""
+        dims, terminal = _array_dimensions(spec)
+        if terminal[0] == 'JOINTPOS':
+            dims = (*dims, terminal[1])
+        if any(index < 1 or type(size) is int and index > size for index, size in zip(numbers, dims)):
+            return False
+        schema = tuple_spec(spec)
+        count = len(numbers)
+        if spec[0] == 'PATH':
+            return count == 1
+        if rt.collection_array_node_type(schema, count) is not None or rt.joint_axis_access(schema, count):
+            return True
+        if ending and rt.array_prefix_type(schema, count) is not None:
+            return True
+        try:
+            rt.indexed_type(schema, count)
+        except rt.KarelRuntimeError:
+            return False
+        return True
+
     def named_variable_location(self, owner, path, node, flow, conditional):
-        """Return the resolved location and whether PATH addressing rejects it."""
+        """Distinguish a rejected selection from an unproved root or storage layout."""
         if type(owner) is not str or type(path) is not str:
             return None, False
         root = re.match(r'[A-Za-z_][A-Za-z_0-9]*', path)
         if root is None:
             return None, False
         loc = self.global_slot(root[0].upper(), node, program=owner.upper())
-        dimensions, terminal = _array_dimensions(loc.root_spec) if loc else ((), None)
-        path_depth = len(dimensions) if terminal and terminal[0] == 'PATH' else None
         rest = path[root.end():]
         while rest and loc:
             field = re.match(r'\.([A-Za-z_][A-Za-z_0-9]*)', rest)
             indexes = re.match(r'(?:\[[0-9]+(?:,[0-9]+)*\])+', rest)
             if field:
-                if loc.spec[0] == 'PATH' and loc.spec[2] is None:
+                record = loc.spec[2] if loc.spec[0] == 'PATH' else loc.spec
+                if record is None:
                     return None, True
-                loc = self.field_child(loc, field[1].upper(), node, flow)
+                member = field[1].upper()
+                try:
+                    fields = dict(rt.record_fields(tuple_spec(record)))
+                except rt.KarelRuntimeError:
+                    return None, True
+                if member not in fields:
+                    return None, True
+                loc = self.field_child(loc, member, node, flow)
                 rest = rest[field.end():]
             elif indexes:
                 # Runtime treats adjacent brackets as one logical subscript.
                 numbers = [int(item) for item in re.findall(r'[0-9]+', indexes[0])]
-                dimensions, terminal = _array_dimensions(loc.spec)
-                if terminal[0] == 'PATH' and len(numbers) > len(dimensions) + 1:
+                if not self.named_indexes_valid(loc.spec, numbers, ending=indexes.end() == len(rest)):
                     return None, True
-                if path_depth is not None and len(loc.parts) > path_depth:
-                    schema = tuple_spec(loc.spec)
-                    dimensions = (*dimensions, terminal[1]) if terminal[0] == 'JOINTPOS' else dimensions
-                    if any(type(size) is int and not 1 <= index <= size for index, size in zip(numbers, dimensions)):
-                        return None, True
-                    joint = rt.joint_axis_access(schema, len(numbers))
-                    prefix = indexes.end() == len(rest) and rt.array_prefix_type(schema, len(numbers)) is not None
-                    if not (joint or prefix) and schema[0] == 'ARRAY':
-                        try:
-                            rt.indexed_type(schema, len(numbers))
-                        except rt.KarelRuntimeError:
-                            return None, True
                 for index in numbers:
                     if loc is None:
                         return None, False
@@ -2056,7 +2070,7 @@ class _Analyzer:
                     loc = self.index_child(loc, index, node, flow)
                 rest = rest[indexes.end():]
             else:
-                return None, False
+                return None, True
         return loc, False
 
     def whole_path_record(self, loc):
@@ -2146,21 +2160,28 @@ class _Analyzer:
         members = value.path_records if value.path_records is not None else (value.facts or {}).values()
         return 12311 if any(self.variable_transfer_status(member) == 12311 for member in members) else UNKNOWN
 
-    def variable_path_copy(self, target, value, entry, status, node, flow, conditional):
+    def variable_path_layout(self, target, source):
+        target, source = tuple_spec(target), tuple_spec(source)
+        if target == source:
+            return 'exact', 'exact'
+        if target[0] == source[0] == 'PATH':
+            return path_conversion_layout(target, source, model=True)
+        return rt.path_array_conversion_layout(target, source)
+
+    def variable_path_source_known(self, source, node, flow, conditional):
+        """Validate the source topology without adding unused payload inputs."""
+        if source.spec[0] == 'PATH':
+            count = self.known_path_count(source, flow, conditional)
+            return count is not None and self.path_snapshot_fits(tuple_spec(source.spec), count)
+        cells = self.path_array_layout(source, node, flow, conditional)
+        return cells is not None and all(count is not None for _, count in cells)
+
+    def variable_path_copy(self, target, value, entry, status, node, flow, conditional, *, layout):
         """Follow a whole PATH or bank transfer using its captured data."""
         if not self.can_publish_path(target, flow, conditional):
             return False
-        source_spec, target_spec = tuple_spec(value.spec), tuple_spec(target.spec)
-        if source_spec == target_spec:
-            conversion = None
-        else:
-            if target.spec[0] == value.spec[0] == 'PATH':
-                conversion = path_conversion_layout(target_spec, source_spec, model=True)
-            else:
-                conversion = rt.path_array_conversion_layout(target_spec, source_spec)
-            if conversion is None:
-                self.write(status, _Value(3, spec=['INTEGER']), flow, node)
-                return True
+        target_spec = tuple_spec(target.spec)
+        conversion = layout if target_spec != tuple_spec(value.spec) else None
 
         if target.spec[0] == 'PATH':
             count = self.known_path_count(target, flow, conditional)
@@ -2429,25 +2450,37 @@ class _Analyzer:
             overlap = self.variable_target_overlap(destination, outputs, flow, conditional)
             if overlap is True:
                 return self.reject_service_overlap(node, flow, 'SET_VAR target overlaps entry/status')
-        operand_spec = target.spec if target is not None else value.spec if value is not None else None
-        if (named is not None and operand_spec and (named.spec[0] == 'PATH' or _path_array_cell_type(named.spec))
-                and (operand_spec[0] == 'PATH' or _path_array_cell_type(operand_spec))):
-            if getting:
-                value = self.read(named, node, flow, conditional, partial=True)
-            else:
-                target = named
-            captured = value.path_records is not None or (
-                value.facts and all(cell.path_records is not None for cell in value.facts.values())
-            )
-            if overlap is not False or not captured or not self.variable_path_copy(target, value, entry, status, node, flow, conditional):
+        source_spec = (named.spec if named is not None else None) if getting else value.spec
+        if source_spec and destination is not None:
+            target_spec = destination.spec
+            source_path = source_spec[0] == 'PATH' or _path_array_cell_type(source_spec)
+            target_path = target_spec[0] == 'PATH' or _path_array_cell_type(target_spec)
+            ordinary = target_spec if source_path else source_spec
+            if (source_path or target_path) and (
+                    source_path and target_path or variable_transfer_policy(ordinary, ordinary) is not None):
+                layout = self.variable_path_layout(target_spec, source_spec) if source_path and target_path else None
+                if getting and layout is None:
+                    captured = (self.variable_path_source_known(named, node, flow, conditional) if source_path
+                                else named_storage in (True, MISSING_PATH_RECORD))
+                else:
+                    if getting:
+                        value = self.read(named, node, flow, conditional, partial=True)
+                    captured = not source_path or value.path_records is not None or (
+                        value.facts and all(cell.path_records is not None for cell in value.facts.values())
+                    )
+                if overlap is False and captured:
+                    if layout is None:
+                        self.write(status, _Value(3, spec=['INTEGER']), flow, node)
+                        return _Value()
+                    if self.variable_path_copy(destination, value, entry, status, node, flow, conditional, layout=layout):
+                        return _Value()
                 self.unresolved_at('path-topology', name+' PATH source or receiver effects require review', node)
                 self.opaque(flow)
-            return _Value()
+                return _Value()
 
         destination_storage = named_storage if not getting else target_storage
         if getting and target_storage in (True, MISSING_PATH_RECORD):
             destination_storage = self.variable_path_storage(target, flow, conditional)
-        source_spec = named.spec if getting and named is not None else operand_spec if not getting else None
         if (named is not None and destination is not None and source_spec and not flow.opaque
                 and overlap is False and named_storage in (True, MISSING_PATH_RECORD)
                 and destination_storage in (True, MISSING_PATH_RECORD)
@@ -2462,7 +2495,7 @@ class _Analyzer:
                                                          captured_flow, conditional) if capture is not None
                               else array_prefix_values(value, count, tick=self.tick))
                     prefix = count, values
-                elif capture is not None and (policy != 'rejected' or capture.spec[0] != 'ARRAY'):
+                elif capture is not None and policy != 'rejected':
                     value = self.read_variable_data(capture, args[3] if not getting else node, captured_flow,
                                                     conditional, named_storage if getting else None)
                 source_array_storage = False

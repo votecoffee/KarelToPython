@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1121.144159 - 2026-11-21
+
+- Resolve invalid named field and subscript selections on declared storage
+  as status 1 across records, ordinary ARRAYs, and PATH banks.
+- Resolve proved incompatible GET_VAR layouts as status 3 without listing
+  unused source fields. Keep SET_VAR captures before named lookup.
+
 ## 26.1121.143414 - 2026-11-21
 
 - Follow direct owner, path, and scalar-array status selectors in named

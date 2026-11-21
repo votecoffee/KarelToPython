@@ -1461,6 +1461,70 @@ class InputTemplateTests(unittest.TestCase):
         self.assertTrue(report['complete'], report['unresolved'])
         self.assertEqual(set(by_path(prepared)), {'WANTED'})
 
+    def test_named_variable_rejects_invalid_suffix_on_known_roots(self):
+        common = (
+            'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t '
+            'VAR route:route_t bank:ARRAY[2,2] OF route_t grid:ARRAY[2,2] OF INTEGER '
+            'row:row_t entry,s,out,wanted,unused:INTEGER '
+            'BEGIN APPEND_NODE(route,s) route[1].amount=7 entry=88 out=19 '
+        )
+        for address in (
+            'grid[0,1]', 'grid[1,3]', 'grid[1].amount', 'row.absent', 'row[1]',
+            'row.amount.', 'route[1].absent', 'route[1,2]', 'bank[1,2,1,0]',
+        ):
+            for getting in (True, False):
+                with self.subTest(address=address, getting=getting):
+                    call = f"GET_VAR(entry,'','{address}',out,s)" if getting else f"SET_VAR(entry,'','{address}',7,s)"
+                    source = common + call + (
+                        ' IF (s=1) AND (entry=88) AND (out=19) THEN WRITE(wanted) ELSE WRITE(unused) ENDIF END T'
+                    )
+                    prepared = prepare_inputs(translate(source).python_source)
+                    report = prepared['template']['discovery']
+                    self.assertTrue(report['complete'], report['unresolved'])
+                    self.assertEqual(set(by_path(prepared)), {'WANTED'})
+
+    def test_rejected_get_var_layout_omits_unused_payload_reads(self):
+        types = ('TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+                 'other_row=STRUCTURE other:INTEGER ENDSTRUCTURE '
+                 'route_t=PATH NODEDATA=row_t other_t=PATH NODEDATA=other_row')
+        declarations = ('source:route_t incompatible:other_t bank:ARRAY[2] OF route_t '
+                        'small_bank:ARRAY[1] OF route_t out,entry,s,wanted,unused:INTEGER message:STRING[12]')
+        setup = ('entry=88 out=19 APPEND_NODE(incompatible,s) incompatible[1].other=23 '
+                 'APPEND_NODE(small_bank[1],s) small_bank[1,1].amount=43 ')
+        seed_type = ['PATH', ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]], None]
+        seed = dict(program='T', path='SOURCE', type=seed_type, value=dict(nodes=[{'AMOUNT': MISSING}], data=None))
+        cases = (
+            ("GET_VAR(entry,'','message',out,s)", 'out=19'),
+            ("GET_VAR(entry,'','source',out,s)", 'out=19'),
+            ("GET_VAR(entry,'','out',incompatible,s)", 'incompatible[1].other=23'),
+            ("GET_VAR(entry,'','source',incompatible,s)", 'incompatible[1].other=23'),
+            ("APPEND_NODE(bank[2],s) GET_VAR(entry,'','bank',small_bank,s)", 'small_bank[1,1].amount=43'),
+        )
+        for call, preserved in cases:
+            with self.subTest(call=call):
+                body = setup + call + (
+                    f' IF (s=3) AND (entry=88) AND ({preserved}) THEN WRITE(wanted) ELSE WRITE(unused) ENDIF'
+                )
+                prepared = prepare(body, decl=declarations, prefix=types, context={'variables': [seed]})
+                report = prepared['template']['discovery']
+                self.assertTrue(report['complete'], report['unresolved'])
+                self.assertEqual(set(by_path(prepared)), {'WANTED'})
+
+    def test_rejected_set_var_path_layout_preserves_earlier_payload_capture(self):
+        row = ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]]
+        path = dict(program='T', path='SOURCE', type=['PATH', row, None],
+                    value=dict(nodes=[{'AMOUNT': MISSING}], data=None))
+        prepared = prepare(
+            "entry=88 out=19 SET_VAR(entry,'','out',source,s) "
+            'IF (s=3) AND (entry=88) AND (out=19) THEN WRITE(wanted) ELSE WRITE(unused) ENDIF',
+            decl='source:PATH NODEDATA=row_t entry,s,out,wanted,unused:INTEGER',
+            prefix='TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE',
+            context={'variables': [path]},
+        )
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'SOURCE[1]', 'WANTED'})
+
     def test_rejected_path_variable_layout_keeps_receiver_and_entry(self):
         types = ('TYPE src_n=STRUCTURE amount:INTEGER ENDSTRUCTURE '
                  'dst_n=STRUCTURE other:INTEGER ENDSTRUCTURE '
