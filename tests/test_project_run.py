@@ -407,6 +407,44 @@ class SavedProjectTests(unittest.TestCase):
             dict(nodes=[{'AMOUNT': 42}], data={'TOTAL': 42}), bank['value'][1],
         ])
 
+    def test_linked_nested_path_fields_and_array_rows(self):
+        types = ('TYPE item_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+                 'node_t=STRUCTURE groupdata:item_t grid:ARRAY[2,2] OF INTEGER ENDSTRUCTURE '
+                 'route_t=PATH NODEDATA=node_t')
+        item = ['STRUCTURE', 'ITEM_T', [['AMOUNT', ['INTEGER']]]]
+        path = ['PATH', ['STRUCTURE', 'NODE_T', [
+            ['GROUPDATA', item], ['GRID', ['ARRAY', [2, 2], ['INTEGER']]],
+        ]], None]
+        main = self.module(
+            'MAIN', 'row[1]=10 row[2]=11 '
+                    "SET_VAR(entry,'LIB','bank[1,1].grid[2]',row,s) "
+                    "SET_VAR(entry,'LIB','bank[1][1].groupdata.amount',42,s) "
+                    "GET_VAR(entry,'LIB','bank[1,1].groupdata.amount',out,s) "
+                    "GET_VAR(entry,'LIB','bank[1,1].grid[2]',row,s) "
+                    'IF (s=0) AND (row[1]=10) AND (row[2]=11) AND (out=42) '
+                    'THEN WRITE(out,CR) ELSE WRITE(unused) ENDIF '
+                    "entry=88 SET_VAR(entry,'LIB','bank[1,2].grid[1,1]',99,s) "
+                    'IF (s=1) AND (entry=88) THEN WRITE(s,CR) ELSE WRITE(unused) ENDIF',
+            'VAR row:ARRAY[2] OF INTEGER entry,s,out,unused:INTEGER',
+        )
+        lib = self.module('LIB', declarations=types+' VAR bank:ARRAY[1] OF route_t')
+        seed = dict(program='LIB', path='BANK', type=['ARRAY', 1, path], value=[
+            dict(nodes=[
+                {'GROUPDATA': {'AMOUNT': MISSING}, 'GRID': [1, 2, 3, 4]},
+                {'GROUPDATA': MISSING, 'GRID': [5, 6, 7, 8]},
+            ], data=None),
+        ])
+        report = self.create(main, lib, context={'variables': [seed]}, discover=True)['inputs']['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertFalse(report['inputs'])
+        result = runner.run_document(self.document)['results']
+        self.assertEqual(result['status'], 'completed', result['error'])
+        self.assertEqual(result['text_output'], ' 42\n 1\n')
+        self.assertEqual(result['programs']['LIB']['values']['BANK'][0]['nodes'], [
+            {'GROUPDATA': {'AMOUNT': 42}, 'GRID': [[1, 2], [10, 11]]},
+            {'GROUPDATA': MISSING, 'GRID': [[5, 6], [7, 8]]},
+        ])
+
     def test_linked_path_variable_transfers_follow_a_named_program(self):
         types = ('TYPE src_n=STRUCTURE amount:REAL ENDSTRUCTURE '
                  'dst_n=STRUCTURE amount:INTEGER ENDSTRUCTURE '

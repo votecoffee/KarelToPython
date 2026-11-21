@@ -1,5 +1,11 @@
 # Changelog
 
+## 26.1121.130219 - 2026-11-21
+
+- Discover nested PATH record fields, joint axes and array selections in named
+  variable transfers. Distinguish missing containers from missing scalar data
+  and keep uncertain aggregate replacements explicit.
+
 ## 26.1121.122851 - 2026-11-21
 
 - Track scalar transfers to and from named PATH header and node fields, including

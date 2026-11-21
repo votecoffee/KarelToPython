@@ -721,6 +721,89 @@ class InputTemplateTests(unittest.TestCase):
                     self.assertTrue(report['complete'], report['unresolved'])
                     self.assertEqual(set(by_path(prepared)), {'WANTED'})
 
+    def test_nested_named_path_fields_and_array_prefixes_follow_definite_values(self):
+        types = ('TYPE item_t=STRUCTURE amount:SHORT axes:JOINTPOS2 grid:ARRAY[2,3] OF INTEGER ENDSTRUCTURE '
+                 'node_t=STRUCTURE item:item_t ENDSTRUCTURE head_t=STRUCTURE item:item_t ENDSTRUCTURE')
+        prepared = prepare(
+            'APPEND_NODE(route,s) route[1].item.grid[2,3]=19 source[1]=7 source[2]=8 '
+            "SET_VAR(entry,'','route[1].item.amount',42.75,s) "
+            "SET_VAR(entry,'','route.item.axes[2]',12.5,s) "
+            "SET_VAR(entry,'','route[1].item.grid[2]',source,s) "
+            "GET_VAR(entry,'T','route[1].item.grid[2]',received,s) "
+            "GET_VAR(entry,'','route[0].item.axes[2]',route[1].item.axes[1],s) "
+            "GET_VAR(entry,'','route[1].item.amount',out,s) "
+            'IF (s=0) AND (out=42) AND (route[1].item.axes[1]=12.5) '
+            'AND (received[1]=7) AND (received[2]=8) AND (received[3]=19) '
+            'THEN WRITE(wanted) ELSE WRITE(unused) ENDIF',
+            decl=('route:PATH NODEDATA=node_t PATHHEADER=head_t source:ARRAY[2] OF INTEGER '
+                  'received:ARRAY[3] OF INTEGER entry,s,out,wanted,unused:INTEGER'),
+            prefix=types,
+        )
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'WANTED'})
+
+    def test_nested_named_path_selected_addresses_keep_saved_origins(self):
+        types = ('TYPE item_t=STRUCTURE samples:ARRAY[2] OF INTEGER ENDSTRUCTURE '
+                 'node_t=STRUCTURE item:item_t ENDSTRUCTURE')
+        spec = ['PATH', ['STRUCTURE', 'NODE_T', [
+            ['ITEM', ['STRUCTURE', 'ITEM_T', [['SAMPLES', ['ARRAY', 2, ['INTEGER']]]]]],
+        ]], None]
+        route = dict(program='T', path='ROUTE', type=spec, value=dict(nodes=[
+            {'ITEM': {'SAMPLES': [3, 4]}}, {'ITEM': {'SAMPLES': [5, MISSING]}},
+        ], data=None))
+        prepared = prepare(
+            "DELETE_NODE(route,1,s) GET_VAR(entry,'','route[1].item.samples[2]',out,s) "
+            "SET_VAR(entry,'','route[1].item.samples[2]',8,s) "
+            'IF (s=0) AND (route[1].item.samples[2]=8) THEN WRITE(wanted) ELSE WRITE(unused) ENDIF',
+            decl='route:PATH NODEDATA=node_t entry,s,out,wanted,unused:INTEGER', prefix=types,
+            context={'variables': [route]},
+        )
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'ROUTE[2].ITEM.SAMPLES[2]', 'WANTED'})
+        self.assertEqual(by_path(prepared)['ROUTE[2].ITEM.SAMPLES[2]']['selectors'],
+                         [['index', 2], ['field', 'ITEM'], ['field', 'SAMPLES'], ['index', 2]])
+
+    def test_nested_named_path_rejects_missing_ancestors_and_bad_coordinate_shapes(self):
+        types = ('TYPE item_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+                 'node_t=STRUCTURE item:item_t grid:ARRAY[2,2] OF item_t ENDSTRUCTURE')
+        item = ['STRUCTURE', 'ITEM_T', [['AMOUNT', ['INTEGER']]]]
+        spec = ['PATH', ['STRUCTURE', 'NODE_T', [
+            ['ITEM', item], ['GRID', ['ARRAY', [2, 2], item]],
+        ]], None]
+        route = dict(program='T', path='ROUTE', type=spec, value=dict(nodes=[
+            {'ITEM': MISSING, 'GRID': [{'AMOUNT': 7}, MISSING, {'AMOUNT': 8}, {'AMOUNT': 9}]},
+        ], data=None))
+        for address in ('route[1].item.amount', 'route[1].grid[1,2].amount',
+                        'route[1].grid[2].amount', 'route[1].grid[3,1].amount'):
+            with self.subTest(address=address):
+                prepared = prepare(
+                    f"entry=88 out=42 GET_VAR(entry,'T','{address}',out,s) "
+                    'IF (s=1) AND (entry=88) AND (out=42) THEN WRITE(wanted) ELSE WRITE(unused) ENDIF',
+                    decl='route:PATH NODEDATA=node_t entry,s,out,wanted,unused:INTEGER',
+                    prefix=types, context={'variables': [route]},
+                )
+                report = prepared['template']['discovery']
+                self.assertTrue(report['complete'], report['unresolved'])
+                self.assertEqual(set(by_path(prepared)), {'WANTED'})
+
+    def test_nested_named_path_does_not_reuse_shape_after_a_partial_aggregate_write(self):
+        source = (
+            'PROGRAM T TYPE item_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+            'node_t=STRUCTURE item:item_t ENDSTRUCTURE '
+            'VAR route:PATH NODEDATA=node_t entry,s,out,wanted,unused:INTEGER '
+            'ROUTINE update VAR value:item_t BEGIN '
+            "SET_VAR(entry,'','route[1].item',value,s) END update "
+            'BEGIN APPEND_NODE(route,s) route[1].item.amount=7 update '
+            "GET_VAR(entry,'','route[1].item.amount',out,s) "
+            'IF s=0 THEN WRITE(wanted) ELSE WRITE(unused) ENDIF END T'
+        )
+        report = prepare_inputs(translate(source).python_source)['template']['discovery']
+        self.assertFalse(report['complete'])
+        self.assertTrue(any(row['code']=='path-topology' for row in report['unresolved']), report)
+        self.assertEqual({row['path'] for row in report['inputs']}, {'WANTED', 'UNUSED'})
+
     def test_path_variable_transfers_preserve_known_fields_and_partial_status(self):
         types = ('TYPE src_n=STRUCTURE amount:REAL ENDSTRUCTURE '
                  'dst_n=STRUCTURE amount:INTEGER ENDSTRUCTURE '

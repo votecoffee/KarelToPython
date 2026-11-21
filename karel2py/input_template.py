@@ -4,7 +4,7 @@ import re
 
 from . import runtime as rt
 from .input_discovery import DEFAULT_EMPTY_PATH, _discover_inputs
-from .storage import collection_array_cost, collection_data_spec, tuple_spec
+from .storage import collection_array_cost, collection_data_spec, restore_value, tuple_spec
 
 
 SCHEMA = 'karel2py.input-template.v1'
@@ -136,8 +136,10 @@ def _context_state(context):
 def _saved_path_count(execution, *, migrate_path=None):
     """Look up the initial topology or materialized record of a saved PATH."""
     snapshots = {}
+    validated_nodes = {}
 
-    def path_count(program, root, root_type, selectors, *, record_index=None):
+    def path_count(program, root, root_type, selectors, *, record_index=None, record_selectors=(), require_value=False,
+                   validate_record=False):
         key = program, root
         reference = execution.variables.bindings.get(key)
         if reference is None:
@@ -162,7 +164,32 @@ def _saved_path_count(execution, *, migrate_path=None):
         except InputTemplateError:
             return None
         record = container[key]
-        return type(record) is dict and record.keys() == dict(rt.record_fields(record_spec)).keys()
+        if type(record) is not dict or record.keys() != dict(rt.record_fields(record_spec)).keys():
+            return False
+        if validate_record:
+            node_key = snapshot_key, selectors, record_index
+            if node_key not in validated_nodes:
+                try:
+                    with rt._numeric_scope('pythonic'):
+                        rt._aggregate_value(record_spec, restore_value(record_spec, record), allow_partial=True)
+                except (ValueError, rt.KarelRuntimeError):
+                    validated_nodes[node_key] = False
+                else:
+                    validated_nodes[node_key] = True
+            if not validated_nodes[node_key]:
+                return False
+        missing = {'uninitialized': True}
+        try:
+            parent = _selected(record_spec, record, record_selectors[:-1])
+        except (KeyError, IndexError, TypeError):
+            return False
+        if parent == missing:
+            return False
+        if require_value and _selected(record_spec, record, record_selectors) == missing:
+            # A missing value may still be a valid Reference. Its aggregate
+            # copy needs facts beyond the presence of its parent.
+            return None
+        return True
 
     return path_count
 

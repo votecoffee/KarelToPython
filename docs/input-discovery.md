@@ -348,13 +348,16 @@ markers. Discovery can resolve status 0 for complete data, 12311 for
 proved missing data and 3 for rejected layouts. It leaves the cache entry
 number unknown and reports unproved topology, overlaps and model dependencies.
 
-For immediate scalar fields of PATH headers and nodes, including PATH ARRAY
-cells, discovery follows `GET_VAR` and `SET_VAR` when it can prove the selected
-record exists. After a node edit, a read-before-write dependency retains the
-node's original saved address. A named out-of-bounds node, missing saved
-record or undeclared header yields status 1 and leaves the entry and
-destination untouched. Nested selections and unproved record storage stay
-open for review.
+For fields of PATH headers and nodes, including PATH ARRAY cells, discovery
+follows `GET_VAR` and `SET_VAR` through proven nested records, joint axes and
+bounded array selections. It follows aggregate-field transfers when the
+selected containers are present. After a node edit, a read-before-write
+dependency retains the node's original saved address. A missing intermediate
+container, invalid named PATH subscript or undeclared header yields status 1
+and leaves the entry and destination untouched. A PATH ARRAY node lookup also
+requires the node's other aggregate fields to be present. A missing scalar can
+transfer with status 12311. Discovery reports unproved storage after aggregate writes
+and incomplete proof for whole selected node or header transfers.
 
 Discovery also tracks statically named scalar, record, and ordinary array
 transfers. Equal-rank arrays copy the leading elements in row-major order,
