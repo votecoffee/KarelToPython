@@ -337,7 +337,16 @@ independent execution and discovery expectations; their
 target execution. These facts use the existing contract and report schemas.
 
 Literal/propagated addresses support direct ports, numeric/string/position
-registers and own-program GET_VAR/SET_VAR data paths.
+registers and statically named GET_VAR/SET_VAR data paths in the current or a
+pinned linked program. For whole PATHs, PATH arrays and bounded row or plane
+selections, discovery follows the captured source data and retains the
+receiver's updated topology. SET_VAR captures its value before resolving the
+status destination, so those reads can appear even if the named target is
+unknown. GET_VAR reads the named source after its arguments have run.
+Exact and compatible context-free layouts preserve known fields and missing
+markers. Discovery can resolve status 0 for complete data, 12311 for
+proved missing data and 3 for rejected layouts. It leaves the cache entry
+number unknown and reports unproved topology, overlaps and model dependencies.
 
 Dynamic addresses, unsupported schemas/resources/services, host or linked
 routine effects, handlers, nonstructured jumps, recursion, fresh uninitialized

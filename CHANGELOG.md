@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1121.115825 - 2026-11-21
+
+- Follow GET_VAR and SET_VAR for statically named PATH storage, including
+  linked programs, bank rows and context-free layout conversions.
+- Preserve known fields and missing data status across variable transfers.
+  Keep SET and GET capture order and reject unproved receiver updates.
+
 ## 26.1120.200639 - 2026-11-20
 
 - Preserve facts through mixed PATH record conversions, including scalar

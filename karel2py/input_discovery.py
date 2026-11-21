@@ -330,11 +330,12 @@ class _Analyzer:
         location=self.where(node);key=(code,message,location.get('program'),location['file'],location['line'],location['column'],location['routine'])
         self.unresolved.setdefault(key,dict(code=code,message=message,location=location))
 
-    def global_slot(self, name, node):
-        if name not in self.plan['types']:
+    def global_slot(self, name, node, *, program=None):
+        owner, root = program or self.program, name
+        plan = self.plan if owner == self.program else (self.linked_plans or {}).get(owner, {})
+        if plan.get('status') != 'available' or name not in plan['types']:
             return None
-        spec = self.plan['types'][name]
-        owner, root = self.program, name
+        spec = plan['types'][name]
         visited = set()
         while root in self.imports.get(owner, {}):
             self.tick()
@@ -399,7 +400,11 @@ class _Analyzer:
             if spec and spec[0]=='ARRAY':
                 shape=spec[1] if type(spec[1]) is list else [spec[1]]
                 if type(shape[0]) is int and 1<=value<=shape[0]:
-                    selected=['ARRAY',shape[1:],spec[2]] if len(shape)>1 else spec[2]
+                    remaining = shape[1:]
+                    if remaining:
+                        selected = ['ARRAY', remaining[0] if len(remaining) == 1 else remaining, spec[2]]
+                    else:
+                        selected = spec[2]
             elif spec and spec[0]=='JOINTPOS' and type(spec[1]) is int and 1<=value<=spec[1]:selected=['REAL']
         if selected is None:
             self.unresolved_at('selection','Unsupported or unbounded selected schema for '+loc.path,node)
@@ -1570,27 +1575,32 @@ class _Analyzer:
         value = self.convert_path_array_value(target.spec, value, node, flow)
         if flow.stopped and not flow.opaque:
             return
-        prepared = []
-        if value.facts and self.can_publish_path(target, flow, conditional):
+        if not self.publish_path_array_value(target, value, node, flow, conditional):
+            self.unresolved_at('path-topology', 'PATH ARRAY assignment source or destination effects require review', node)
+            self.opaque(flow)
+
+    def publish_path_array_value(self, target, value, node, flow, conditional, *, layout=None):
+        if not value.facts or not self.can_publish_path(target, flow, conditional):
+            return False
+        if layout is None:
             layout = self.path_array_layout(target, node, flow, conditional)
-            if layout is not None:
-                for cell, count in layout:
-                    captured = value.facts.get(cell.parts[len(target.parts):])
-                    if count is None or captured is None or captured.path_records is None:
-                        break
-                    records = captured.path_records
-                    complete_header = cell.spec[2] is not None and records[0].complete
-                    history = self.replaced_path_borrows(cell, flow, conditional, keep_header=True,
-                                                         complete_header=complete_header)
-                    if history is None:
-                        break
-                    prepared.append((cell, records, history))
-                else:
-                    for cell, records, history in prepared:
-                        self.publish_path_records(cell, records, node, flow, keep_header=True, history=history)
-                    return
-        self.unresolved_at('path-topology', 'PATH ARRAY assignment source or destination effects require review', node)
-        self.opaque(flow)
+        if layout is None:
+            return False
+        prepared = []
+        for cell, count in layout:
+            captured = value.facts.get(cell.parts[len(target.parts):])
+            if count is None or captured is None or captured.path_records is None:
+                return False
+            records = captured.path_records
+            complete_header = cell.spec[2] is not None and records[0].complete
+            history = self.replaced_path_borrows(cell, flow, conditional, keep_header=True,
+                                                 complete_header=complete_header)
+            if history is None:
+                return False
+            prepared.append((cell, records, history))
+        for cell, records, history in prepared:
+            self.publish_path_records(cell, records, node, flow, keep_header=True, history=history)
+        return True
 
     def convert_path_record(self, target, value, node):
         converted, unproven = convert_record_facts(target, value, tick=self.tick)
@@ -1702,6 +1712,143 @@ class _Analyzer:
         detached, retired_slots = history if history is not None else (frozenset(), {})
         flow.path_orders[target.key] = _PathOrder(tuple(nodes), header, detached, self.serial, retired_slots)
 
+    def named_variable_location(self, owner, path, node, flow):
+        if type(owner) is not str or type(path) is not str:
+            return None
+        root = re.match(r'[A-Za-z_][A-Za-z_0-9]*', path)
+        if root is None:
+            return None
+        loc = self.global_slot(root[0].upper(), node, program=owner.upper())
+        rest = path[root.end():]
+        while rest and loc:
+            field = re.match(r'\.([A-Za-z_][A-Za-z_0-9]*)', rest)
+            index = re.match(r'\[([0-9]+(?:,[0-9]+)*)\]', rest)
+            if field:
+                loc = self.field_child(loc, field[1].upper(), node, flow)
+                rest = rest[field.end():]
+            elif index:
+                for item in index[1].split(','):
+                    if loc is None:
+                        return None
+                    loc = self.index_child(loc, int(item), node, flow)
+                rest = rest[index.end():]
+            else:
+                return None
+        return loc
+
+    def path_variable_status(self, value):
+        if value.complete:
+            return 0
+        if value.path_records is not None:
+            if any(_known_missing(record) for record in value.path_records):
+                return 12311
+        elif value.facts and any(self.path_variable_status(cell) == 12311 for cell in value.facts.values()):
+            return 12311
+        return UNKNOWN
+
+    def variable_path_copy(self, target, value, entry, status, node, flow, conditional):
+        """Follow a whole PATH or bank transfer using its captured data."""
+        if (not self.can_publish_path(target, flow, conditional) or entry is None or status is None
+                or entry.key == status.key
+                or not all(self.path_status_disjoint(target, loc, flow) for loc in (entry, status))):
+            return False
+        source_spec, target_spec = tuple_spec(value.spec), tuple_spec(target.spec)
+        if source_spec == target_spec:
+            conversion = None
+        else:
+            if target.spec[0] == value.spec[0] == 'PATH':
+                conversion = path_conversion_layout(target_spec, source_spec, model=True)
+            else:
+                conversion = rt.path_array_conversion_layout(target_spec, source_spec)
+            if conversion is None:
+                self.write(status, _Value(3, spec=['INTEGER']), flow, node)
+                return True
+
+        if target.spec[0] == 'PATH':
+            count = self.known_path_count(target, flow, conditional)
+            if count is None or not self.path_snapshot_fits(target_spec, count):
+                return False
+            value = self.convert_path_value(target.spec, value, node, flow)
+            if flow.stopped and not flow.opaque:
+                return True
+            if value.path_records is None:
+                return False
+            complete_header = target.spec[2] is not None and value.path_records[0].complete
+            history = self.replaced_path_borrows(target, flow, conditional, keep_header=True,
+                                                 complete_header=complete_header)
+            if history is None:
+                return False
+            self.publish_path_records(target, value.path_records, node, flow, keep_header=True, history=history)
+        else:
+            layout = self.path_array_layout(target, node, flow, conditional)
+            if layout is None or any(count is None for _, count in layout):
+                return False
+            if conversion is not None:
+                value = self.convert_path_array_cells(target.spec, value, conversion, node, flow)
+                if flow.stopped and not flow.opaque:
+                    return True
+            if not self.publish_path_array_value(target, value, node, flow, conditional, layout=layout):
+                return False
+
+        self.write(entry, _Value(spec=['INTEGER']), flow, node)
+        self.write(status, _Value(self.path_variable_status(value), spec=['INTEGER']), flow, node)
+        return True
+
+    def variable_call(self, node, flow, conditional):
+        name = node['value']
+        args = node['args']
+        entry = self.locate(args[0], flow, conditional)
+        if flow.stopped and not flow.opaque:
+            return _Value(complete=False)
+        owner = self.expr(args[1], flow, conditional).constant
+        if flow.stopped and not flow.opaque:
+            return _Value(complete=False)
+        path = self.expr(args[2], flow, conditional).constant
+        if flow.stopped and not flow.opaque:
+            return _Value(complete=False)
+        getting = name == 'GET_VAR'
+        target = self.locate(args[3], flow, conditional) if getting else None
+        value = None if getting else self.expr(args[3], flow, conditional, partial=True)
+        if flow.stopped and not flow.opaque:
+            return _Value(complete=False)
+        status = self.locate(args[4], flow, conditional)
+        if flow.stopped and not flow.opaque:
+            return _Value(complete=False)
+        named = self.named_variable_location(owner, path, node, flow)
+        operand_spec = target.spec if target is not None else value.spec if value is not None else None
+        if (named is not None and operand_spec and (named.spec[0] == 'PATH' or _path_array_cell_type(named.spec))
+                and (operand_spec[0] == 'PATH' or _path_array_cell_type(operand_spec))):
+            if getting:
+                value = self.read(named, node, flow, conditional, partial=True)
+            else:
+                target = named
+            captured = value.path_records is not None or (
+                value.facts and all(cell.path_records is not None for cell in value.facts.values())
+            )
+            if not captured or not self.variable_path_copy(target, value, entry, status, node, flow, conditional):
+                self.unresolved_at('path-topology', name+' PATH source or receiver effects require review', node)
+                self.opaque(flow)
+            return _Value()
+
+        complete = False
+        if named is not None:
+            if getting:
+                leaves = self.leaves(named)
+                complete = leaves is not None and all(leaf.key in flow.defined for leaf in leaves)
+                self.read(named, node, flow, conditional)
+            else:
+                self.write(named, _Value(complete=False), flow, node, definite=False)
+        else:
+            self.unresolved_at('variable-path', 'GET_VAR/SET_VAR requires a known static data path', node)
+            if not getting:
+                flow.path_shape_unknown = True
+                self.lose_task_order(flow)
+        self.write(entry, _Value(), flow, node, definite=False)
+        if getting:
+            self.write(target, _Value(complete=complete), flow, node, definite=False)
+        self.write(status, _Value(), flow, node)
+        return _Value()
+
     def call(self, node, flow, conditional, *, statement_call=False):
         name=node['value'];args=node['args']
         if name in self.plan['routines']:
@@ -1712,6 +1859,8 @@ class _Analyzer:
             return self.path_edit(node, flow, conditional)
         if name == 'COPY_PATH':
             return self.path_copy(node, flow, conditional)
+        if name in ('GET_VAR', 'SET_VAR'):
+            return self.variable_call(node, flow, conditional)
         if name in ('UNINIT', 'ARRAY_LEN'):
             return self.data_metadata_call(node, flow, conditional)
         if name in SCALAR_PURE:return self.scalar_call(node,flow,conditional)
@@ -1736,36 +1885,6 @@ class _Analyzer:
             parked = self.task_request(name, known, node, flow)
             for _, loc in outputs:
                 self.write(loc, _Value(), flow, node, definite=parked)
-            return _Value()
-        if name in ('GET_VAR','SET_VAR'):
-            owner,path=known[1:3]
-            loc=None
-            if type(owner) is str and owner.upper() in ('',self.program) and type(path) is str:
-                match=re.match(r'[A-Za-z_][A-Za-z_0-9]*',path)
-                if match and match[0].upper() in self.plan['types']:
-                    loc=self.global_slot(match[0].upper(),node)
-                    rest=path[match.end():]
-                    while rest and loc:
-                        field=re.match(r'\.([A-Za-z_][A-Za-z_0-9]*)',rest)
-                        index=re.match(r'\[([0-9]+(?:,[0-9]+)*)\]',rest)
-                        if field:loc=self.field_child(loc,field[1].upper(),node,flow);rest=rest[field.end():]
-                        elif index:
-                            for item in index[1].split(','):
-                                if loc:loc=self.index_child(loc,int(item),node,flow)
-                            rest=rest[index.end():]
-                        else:loc=None
-            complete=False
-            if loc:
-                if name=='GET_VAR':
-                    leaves=self.leaves(loc);complete=leaves is not None and all(leaf.key in flow.defined for leaf in leaves)
-                    self.read(loc,node,flow,conditional)
-                else:self.write(loc,_Value(complete=False),flow,node,definite=False)
-            else:
-                self.unresolved_at('variable-path','GET_VAR/SET_VAR requires a known own-program static data path',node)
-                if name=='SET_VAR':
-                    flow.path_shape_unknown = True
-                    self.lose_task_order(flow)
-            for index,target in outputs:self.write(target,_Value(complete=complete if index==3 else True),flow,node,definite=index==4)
             return _Value()
         bank=None;reading=False;writing=False;bank_type=None
         if name in ('GET_REG','SET_INT_REG','SET_REAL_REG'):

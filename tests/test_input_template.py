@@ -519,6 +519,64 @@ class InputTemplateTests(unittest.TestCase):
                 self.assertEqual(unresolved['code'], 'path-conversion')
                 self.assertIn('BYTE value outside', unresolved['message'])
 
+    def test_path_variable_transfers_preserve_known_fields_and_partial_status(self):
+        types = ('TYPE src_n=STRUCTURE amount:REAL ENDSTRUCTURE '
+                 'dst_n=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+                 'src_t=PATH NODEDATA=src_n dst_t=PATH NODEDATA=dst_n')
+        declarations = 'source:src_t target:dst_t entry,s,wanted,unused:INTEGER'
+        for transfer in ("GET_VAR(entry,'T','source',target,s)", "SET_VAR(entry,'','target',source,s)"):
+            for partial in (False, True):
+                with self.subTest(transfer=transfer, partial=partial):
+                    initialized = '' if partial else 'source[1].amount=42.75 '
+                    wanted = ('(s=12311) AND UNINIT(target[1].amount)' if partial else
+                              '(s=0) AND (target[1].amount=42)')
+                    prepared = prepare(
+                        f'APPEND_NODE(source,s) {initialized}{transfer} '
+                        f'IF (PATH_LEN(target)=1) AND ({wanted}) '
+                        'THEN WRITE(wanted) ELSE WRITE(unused) ENDIF',
+                        decl=declarations, prefix=types,
+                    )
+                    report = prepared['template']['discovery']
+                    self.assertTrue(report['complete'], report['unresolved'])
+                    self.assertEqual(set(by_path(prepared)), {'WANTED'})
+
+    def test_path_variable_row_transfers_sample_before_and_after_status_selectors(self):
+        source = (
+            'PROGRAM T TYPE src_n=STRUCTURE amount:REAL ENDSTRUCTURE '
+            'dst_n=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+            'src_t=PATH NODEDATA=src_n dst_t=PATH NODEDATA=dst_n '
+            'VAR source:ARRAY[2] OF src_t target:ARRAY[2,2] OF dst_t out:ARRAY[2] OF dst_t '
+            'codes:ARRAY[2] OF INTEGER entry,s,wanted,unused:INTEGER '
+            'ROUTINE set_slot:INTEGER BEGIN source[2,1].amount=99.75 RETURN 1 END set_slot '
+            'ROUTINE get_slot:INTEGER BEGIN target[2,2,1].amount=17 RETURN 2 END get_slot '
+            'BEGIN APPEND_NODE(source[2],s) source[2,1].amount=42.75 '
+            "SET_VAR(entry,'','target[2]',source,codes[set_slot()]) "
+            'IF target[2,2,1].amount<>42 THEN WRITE(unused) ENDIF '
+            "GET_VAR(entry,'T','target[2]',out,codes[get_slot()]) "
+            'IF (codes[1]=0) AND (codes[2]=0) AND (PATH_LEN(target[1,2])=0) '
+            'AND (out[2,1].amount=17) AND (source[2,1].amount=99.75) '
+            'THEN WRITE(wanted) ELSE WRITE(unused) ENDIF END T'
+        )
+        prepared = prepare_inputs(translate(source).python_source)
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'WANTED'})
+
+    def test_rejected_path_variable_layout_keeps_receiver_and_entry(self):
+        types = ('TYPE src_n=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+                 'dst_n=STRUCTURE other:INTEGER ENDSTRUCTURE '
+                 'src_t=PATH NODEDATA=src_n dst_t=PATH NODEDATA=dst_n')
+        prepared = prepare(
+            "entry=88 APPEND_NODE(source,s) source[1].amount=42 "
+            "APPEND_NODE(target,s) target[1].other=7 SET_VAR(entry,'','target',source,s) "
+            'IF (s=3) AND (entry=88) AND (target[1].other=7) '
+            'THEN WRITE(wanted) ELSE WRITE(unused) ENDIF',
+            decl='source:src_t target:dst_t entry,s,wanted,unused:INTEGER', prefix=types,
+        )
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'WANTED'})
+
     def test_unknown_copy_bounds_leave_destination_origin_unresolved(self):
         spec = ['PATH', ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]], None]
         context = {'variables': [dict(program='T', path='SOURCE', type=spec,
@@ -1456,18 +1514,21 @@ class InputTemplateTests(unittest.TestCase):
             dict(program='T', path='ROUTES', type=['ARRAY', 1, path], value=[seed]),
         ]}
         decl = 'route:PATH NODEDATA=node_t routes:ARRAY[1] OF PATH NODEDATA=node_t s,i:INTEGER b:BOOLEAN address:STRING[10]'
-        for body, unknown in (
-            ('INSERT_NODE(route,i,s) WRITE(route)', 'ROUTE'),
-            ('routes[i]=route WRITE(routes)', 'ROUTES'),
-            ("SET_VAR(i,'',address,route,s) WRITE(route)", 'ROUTE'),
-            ('WHILE b DO WRITE(route) DELETE_NODE(route,1,s) ENDWHILE', 'ROUTE'),
+        for body, unknown, captured in (
+            ('INSERT_NODE(route,i,s) WRITE(route)', 'ROUTE', set()),
+            ('routes[i]=route WRITE(routes)', 'ROUTES', set()),
+            ("SET_VAR(i,'',address,route,s)\nWRITE(route)", 'ROUTE', {'ROUTE[1]'}),
+            ('WHILE b DO WRITE(route) DELETE_NODE(route,1,s) ENDWHILE', 'ROUTE', set()),
         ):
             with self.subTest(body=body):
                 prepared = prepare(body, decl=decl, prefix=prefix, context=context)
                 report = prepared['template']['discovery']
                 self.assertTrue(any(row['code'] == 'schema' and row['message'].endswith(unknown)
                                     for row in report['unresolved']), report)
-                self.assertFalse(any(row['root_path'] == unknown for row in report['inputs']))
+                path_inputs = [row for row in report['inputs'] if row['root_path'] == unknown]
+                self.assertEqual({row['path'] for row in path_inputs}, captured)
+                for row in path_inputs:
+                    self.assertEqual([site['line'] for site in row['locations']], [1])
 
     def test_whole_path_expansion_enforces_scalar_limit_before_publishing(self):
         prefix = 'TYPE node_t=STRUCTURE amount:INTEGER ENDSTRUCTURE'

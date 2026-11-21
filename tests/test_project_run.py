@@ -339,6 +339,33 @@ class SavedProjectTests(unittest.TestCase):
         self.assertEqual(result['status'], 'completed', result['error'])
         self.assertEqual(result['text_output'], ' 12\n')
 
+    def test_linked_path_variable_transfers_follow_a_named_program(self):
+        types = ('TYPE src_n=STRUCTURE amount:REAL ENDSTRUCTURE '
+                 'dst_n=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+                 'src_t=PATH NODEDATA=src_n dst_t=PATH NODEDATA=dst_n')
+        main = self.module(
+            'MAIN', "GET_VAR(entry,'LIB','source',target,s) "
+                    "SET_VAR(entry,'LIB','destination',target,s) "
+                    "GET_VAR(entry,'LIB','destination',target,s) WRITE(PATH_LEN(target),CR)",
+            types+' VAR target:dst_t entry,s:INTEGER',
+        )
+        lib = self.module('LIB', declarations=types+' VAR source:src_t destination:dst_t')
+        path_type = ['PATH', ['STRUCTURE', 'SRC_N', [['AMOUNT', ['REAL']]]], None]
+        source = dict(program='LIB', path='SOURCE', type=path_type,
+                      value=dict(nodes=[{'AMOUNT': MISSING}], data=None))
+        report = self.create(main, lib, context={'variables': [source]},
+                             discover=True)['inputs']['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        candidate, = report['inputs']
+        self.assertEqual((candidate['program'], candidate['path']), ('LIB', 'SOURCE[1]'))
+        runner.save_input_structure(self.document, ('variable', 'LIB', 'SOURCE[1]'), {'AMOUNT': 42.75},
+                                    expected=self.document.read_bytes())
+        result = runner.run_document(self.document)['results']
+        self.assertEqual(result['status'], 'completed', result['error'])
+        self.assertEqual(result['text_output'], ' 1\n')
+        self.assertEqual(result['programs']['LIB']['values']['DESTINATION']['nodes'], [{'AMOUNT': 42}])
+        self.assertEqual(result['programs']['MAIN']['values']['TARGET']['nodes'], [{'AMOUNT': 42}])
+
     def test_linked_path_assignment_tracks_converted_array_cell_without_old_seed(self):
         types = ('TYPE source_t=STRUCTURE amount:REAL ENDSTRUCTURE '
                  'row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE from_t=PATH NODEDATA=source_t ')
