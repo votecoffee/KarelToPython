@@ -587,6 +587,75 @@ class InputTemplateTests(unittest.TestCase):
         self.assertEqual(unresolved['code'], 'variable-conversion')
         self.assertIn('BYTE value outside', unresolved['message'])
 
+    def test_variable_array_transfer_discovers_only_the_transferred_source_prefix(self):
+        for transfer in ("GET_VAR(entry,'','a',b,s)", "SET_VAR(entry,'','b',a,s)"):
+            with self.subTest(transfer=transfer):
+                prepared = prepare(
+                    'a[1]=7 '+transfer+' WRITE(b[1])',
+                    decl='a:ARRAY[4] OF INTEGER b:ARRAY[2] OF INTEGER entry,s:INTEGER',
+                )
+                report = prepared['template']['discovery']
+                self.assertTrue(report['complete'], report['unresolved'])
+                self.assertEqual(set(by_path(prepared)), {'A[2]'})
+
+    def test_unequal_variable_array_set_captures_before_later_selector(self):
+        source = (
+            'PROGRAM T VAR a:ARRAY[4] OF INTEGER b:ARRAY[2] OF INTEGER '
+            'codes:ARRAY[1] OF INTEGER entry,wanted,unused:INTEGER '
+            'ROUTINE slot:INTEGER BEGIN a[1]=99 RETURN 1 END slot '
+            "BEGIN a[1]=5 a[2]=7 SET_VAR(entry,'','b',a,codes[slot()]) "
+            'IF (codes[1]=0) AND (a[1]=99) AND (b[1]=5) AND (b[2]=7) '
+            'THEN WRITE(wanted) ELSE WRITE(unused) ENDIF END T'
+        )
+        prepared = prepare_inputs(translate(source).python_source)
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'WANTED'})
+
+    def test_variable_array_transfer_changes_row_boundaries_and_keeps_unused_tail(self):
+        prepared = prepare(
+            "a[1,1]=11 a[1,2]=12 a[2,1]=21 a[2,2]=22 b[1,5]=99 GET_VAR(entry,'','a',b,s) "
+            'IF (s=0) AND (b[1,3]=21) AND (b[1,4]=22) AND (b[1,5]=99) '
+            'THEN WRITE(wanted) ELSE WRITE(unused) ENDIF',
+            decl='a:ARRAY[2,2] OF INTEGER b:ARRAY[1,5] OF INTEGER entry,s,wanted,unused:INTEGER',
+        )
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'WANTED'})
+
+    def test_detached_converted_array_prefix_preserves_missing_status(self):
+        source = (
+            'PROGRAM T VAR b:ARRAY[1,4] OF INTEGER entry,s,wanted,unused:INTEGER '
+            'ROUTINE build:ARRAY[2,1] OF SHORT VAR a:ARRAY[2,1] OF SHORT '
+            'BEGIN a[1,1]=7 a[2,1]=32767 RETURN a END build '
+            "BEGIN b[1,3]=99 SET_VAR(entry,'','b',build(),s) "
+            'IF (s=12311) AND (b[1,1]=7) AND UNINIT(b[1,2]) AND (b[1,3]=99) '
+            'THEN WRITE(wanted) ELSE WRITE(unused) ENDIF END T'
+        )
+        prepared = prepare_inputs(translate(source).python_source)
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'WANTED'})
+
+    def test_variable_array_rank_rejection_and_late_conversion_error(self):
+        prepared = prepare(
+            "entry=88 b[1]=7 SET_VAR(entry,'','b',a,s) "
+            'IF (s=3) AND (entry=88) AND (b[1]=7) THEN WRITE(wanted) ELSE WRITE(unused) ENDIF',
+            decl='a:ARRAY[1,2] OF INTEGER b:ARRAY[3] OF INTEGER entry,s,wanted,unused:INTEGER',
+        )
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'WANTED'})
+
+        report = prepare(
+            "a[1]=5 a[2]=256 SET_VAR(entry,'','b',a,s) WRITE(unused)",
+            decl='a:ARRAY[2] OF INTEGER b:ARRAY[3] OF BYTE entry,s,unused:INTEGER',
+        )['template']['discovery']
+        self.assertFalse(report['inputs'])
+        unresolved, = report['unresolved']
+        self.assertEqual(unresolved['code'], 'variable-conversion')
+        self.assertIn('BYTE value outside', unresolved['message'])
+
     def test_path_variable_transfers_preserve_known_fields_and_partial_status(self):
         types = ('TYPE src_n=STRUCTURE amount:REAL ENDSTRUCTURE '
                  'dst_n=STRUCTURE amount:INTEGER ENDSTRUCTURE '

@@ -10,7 +10,8 @@ from .file_io import MAX_PATH_IO_FIELDS, path_io_field_count, path_io_indexes
 from .input_contract import extract, InputContractError
 from .input_value_conversions import (
     SCALARS, UNKNOWN, Value as _Value, array_dimensions as _array_dimensions,
-    convert_value_facts, stored_value as _stored_value, variable_transfer_policy,
+    array_prefix_addresses, array_prefix_values, convert_value_facts,
+    stored_value as _stored_value, variable_array_prefix_size, variable_transfer_policy,
 )
 from .storage import collection_array_cost, tuple_spec
 from . import runtime as rt
@@ -1815,7 +1816,40 @@ class _Analyzer:
                 return False
         return True
 
-    def variable_data_copy(self, target, value, entry, status, policy, node, flow):
+    def variable_array_locations(self, loc, count, node):
+        for address in array_prefix_addresses(loc.spec, count):
+            self.tick()
+            current = loc
+            for kind, index in address:
+                current = self.child(current, kind, index, node)
+            yield current
+
+    def variable_array_source(self, loc, count, node, flow, conditional):
+        for cell in self.variable_array_locations(loc, count, node):
+            yield self.read(cell, node, flow, conditional, partial=True, raw_scalar=True)
+
+    def capture_variable_operand(self, expression, flow, conditional):
+        while expression['kind'] == 'group':
+            expression = expression['args'][0]
+        kind = expression['kind']
+        if kind in ('name', 'field', 'index') and not self.selects_routine_result(expression):
+            location = self.locate(expression, flow, conditional)
+            if location is not None:
+                _, element = _array_dimensions(location.spec)
+                if (location.spec[0] == 'ARRAY' and location.kind in ('variable', 'local')
+                        and element[0] in (*SCALARS, *rt.RECORD_TYPES, 'JOINTPOS')):
+                    return _Value(spec=location.spec), (location, flow.copy())
+                return self.read(location, expression, flow, conditional, partial=True, raw_scalar=True), None
+            if kind != 'name':
+                self.unresolved_at('selection', 'Computed or dynamic data read is unresolved', expression)
+                return _Value(complete=False), None
+        value = self.expr(expression, flow, conditional, partial=True, raw_scalar=True)
+        if value.spec is None and kind in ('literal', 'real_literal'):
+            schemas = {bool: ['BOOLEAN'], int: ['INTEGER'], float: ['REAL'], str: ['STRING', 254]}
+            value = replace(value, spec=schemas.get(type(value.constant)))
+        return value, None
+
+    def variable_data_copy(self, target, value, entry, status, policy, node, flow, *, prefix=None):
         if policy == 'rejected':
             self.write(status, _Value(3, spec=['INTEGER']), flow, node)
             return
@@ -1824,17 +1858,29 @@ class _Analyzer:
             self.unresolved_at('variable-model', 'Variable transfer requires robot model results', node)
             self.opaque(flow)
             return
+        if prefix is None:
+            pairs = ((target, value),)
+        else:
+            count, values = prefix
+            pairs = zip(self.variable_array_locations(target, count, node), values, strict=True)
+        prepared = []
         try:
-            converted, unproven = convert_value_facts(target.spec, value, tick=self.tick)
+            for destination, source in pairs:
+                converted, unproven = convert_value_facts(destination.spec, source, tick=self.tick)
+                if unproven:
+                    self.unresolved_at('conversion-value', 'Variable conversion requires complete source data', node)
+                prepared.append((destination, converted))
         except rt.KarelRuntimeError as error:
             self.unresolved_at('variable-conversion', str(error), node)
             flow.stopped = True
             return
-        if unproven:
-            self.unresolved_at('conversion-value', 'Variable conversion requires complete source data', node)
-        self.write(target, converted, flow, node)
+        codes = []
+        for destination, converted in prepared:
+            self.write(destination, converted, flow, node)
+            codes.append(self.variable_transfer_status(converted))
+        result = 12311 if 12311 in codes else 0 if all(code == 0 for code in codes) else UNKNOWN
         self.write(entry, _Value(spec=['INTEGER']), flow, node)
-        self.write(status, _Value(self.variable_transfer_status(converted), spec=['INTEGER']), flow, node)
+        self.write(status, _Value(result, spec=['INTEGER']), flow, node)
 
     def variable_call(self, node, flow, conditional):
         name = node['value']
@@ -1850,14 +1896,7 @@ class _Analyzer:
             return _Value(complete=False)
         getting = name == 'GET_VAR'
         target = self.locate(args[3], flow, conditional) if getting else None
-        value = None if getting else self.expr(args[3], flow, conditional, partial=True, raw_scalar=True)
-        if value is not None and value.spec is None:
-            expression = args[3]
-            while expression['kind'] == 'group':
-                expression = expression['args'][0]
-            if expression['kind'] in ('literal', 'real_literal'):
-                schema = {bool: ['BOOLEAN'], int: ['INTEGER'], float: ['REAL'], str: ['STRING', 254]}
-                value = replace(value, spec=schema.get(type(value.constant)))
+        value, captured_array = (None, None) if getting else self.capture_variable_operand(args[3], flow, conditional)
         if flow.stopped and not flow.opaque:
             return _Value(complete=False)
         status = self.locate(args[4], flow, conditional)
@@ -1888,11 +1927,23 @@ class _Analyzer:
                 and named.root_spec[0] != 'PATH' and not _path_array_cell_type(named.root_spec)):
             policy = variable_transfer_policy(destination.spec, source_spec)
             if policy is not None:
-                if getting:
-                    value = self.read(named, node, flow, conditional, partial=True, raw_scalar=True)
-                self.variable_data_copy(destination, value, entry, status, policy, node, flow)
+                capture, captured_flow = (named, flow) if getting else captured_array or (None, None)
+                count = variable_array_prefix_size(destination.spec, source_spec) if policy == 'data' else None
+                prefix = None
+                if count is not None:
+                    values = (self.variable_array_source(capture, count, args[3] if not getting else node,
+                                                         captured_flow, conditional) if capture is not None
+                              else array_prefix_values(value, count, tick=self.tick))
+                    prefix = count, values
+                elif capture is not None and (policy != 'rejected' or capture.spec[0] != 'ARRAY'):
+                    value = self.read(capture, args[3] if not getting else node, captured_flow, conditional,
+                                      partial=True, raw_scalar=True)
+                self.variable_data_copy(destination, value, entry, status, policy, node, flow, prefix=prefix)
                 return _Value()
 
+        if captured_array is not None:
+            capture, captured_flow = captured_array
+            self.read(capture, args[3], captured_flow, conditional, partial=True, raw_scalar=True)
         complete = False
         if named is not None:
             if getting:

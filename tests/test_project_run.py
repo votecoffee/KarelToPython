@@ -339,6 +339,24 @@ class SavedProjectTests(unittest.TestCase):
         self.assertEqual(result['status'], 'completed', result['error'])
         self.assertEqual(result['text_output'], ' 12\n')
 
+    def test_linked_variable_array_prefix_roundtrip_preserves_the_foreign_tail(self):
+        main = self.module(
+            'MAIN', 'source[1]=11 source[2]=12 '
+                    "SET_VAR(entry,'LIB','stored[3]',99,s) SET_VAR(entry,'LIB','stored',source,s) "
+                    "GET_VAR(entry,'LIB','stored',received,s) "
+                    'IF (s=0) AND (received[1]=11) AND (received[2]=12) '
+                    'THEN WRITE(received[2],CR) ELSE WRITE(unused) ENDIF',
+            'VAR source,received:ARRAY[2] OF INTEGER entry,s,unused:INTEGER',
+        )
+        lib = self.module('LIB', declarations='VAR stored:ARRAY[3] OF REAL')
+        report = self.create(main, lib, discover=True)['inputs']['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertFalse(report['inputs'])
+        result = runner.run_document(self.document)['results']
+        self.assertEqual(result['status'], 'completed', result['error'])
+        self.assertEqual(result['text_output'], ' 12\n')
+        self.assertEqual(result['programs']['LIB']['values']['STORED'], [11.0, 12.0, 99.0])
+
     def test_linked_record_variable_transfers_publish_known_values_and_status(self):
         types = ('TYPE local_t=STRUCTURE amount:REAL ENDSTRUCTURE '
                  'remote_t=STRUCTURE amount:INTEGER ENDSTRUCTURE')

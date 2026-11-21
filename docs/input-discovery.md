@@ -349,11 +349,14 @@ proved missing data and 3 for rejected layouts. It leaves the cache entry
 number unknown and reports unproved topology, overlaps and model dependencies.
 
 Discovery also tracks statically named scalar, record, and ordinary array
-transfers with equal logical dimensions. Compatible conversions preserve known
-fields, raw missing values and the resulting status. A proved conversion
-failure stops discovery at the failing transfer. Destination fields with
-special write guards, transfers with different array extents, and operations
-that depend on robot model results remain conservative.
+transfers. Equal-rank arrays copy the leading elements in row-major order,
+up to the smaller element count. Discovery reports reads from only those
+elements for a statically located source. A computed source can also read
+inputs while constructing its result. The destination tail is preserved, and
+only selected elements determine the missing-data status. A proved rank or
+layout mismatch produces status 3. A proved conversion failure stops
+discovery before any receiver, entry, or status update. Destination fields
+with special write guards and robot-dependent operations remain conservative.
 
 Dynamic addresses, unsupported schemas/resources/services, host or linked
 routine effects, handlers, nonstructured jumps, recursion, fresh uninitialized

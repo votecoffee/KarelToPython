@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1121.121708 - 2026-11-21
+
+- Discover row-major GET_VAR and SET_VAR transfers between ordinary arrays
+  of the same rank with different extents.
+- Use only the transferred source prefix, preserve the receiver tail, and
+  stage all selected conversions before publishing writes or status.
+
 ## 26.1121.120921 - 2026-11-21
 
 - Follow statically named GET_VAR and SET_VAR for scalar, record, and

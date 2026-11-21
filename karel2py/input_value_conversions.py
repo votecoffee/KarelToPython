@@ -1,7 +1,7 @@
 """Bounded storage and record conversion facts for generated input discovery."""
 
 from dataclasses import dataclass
-from itertools import product
+from itertools import islice, product
 import math
 
 from . import runtime as rt
@@ -136,8 +136,8 @@ def variable_transfer_policy(target, source):
     except rt.KarelRuntimeError:
         return None
     arrays = expected[0] == actual[0] == 'ARRAY'
-    if arrays and rt.array_dimensions(expected) != rt.array_dimensions(actual):
-        return None
+    if arrays and len(rt.array_dimensions(expected)) != len(rt.array_dimensions(actual)):
+        return 'rejected'
     first, second = (rt.array_leaf_spec(expected), rt.array_leaf_spec(actual)) if arrays else (expected, actual)
     with rt._numeric_scope('pythonic'):
         if (_variable_compatible(first, second, numeric=True) or rt.config_word_kind(first, second)
@@ -147,6 +147,39 @@ def variable_transfer_policy(target, source):
                 or rt.kinematic_array_kind(('ARRAY', 1, first), ('ARRAY', 1, second))):
             return 'model'
     return 'rejected'
+
+
+def variable_array_prefix_size(target, source):
+    """Return the transferred element count for differing concrete extents."""
+    if target[0] != 'ARRAY' or source[0] != 'ARRAY':
+        return None
+    target_shape, _ = array_dimensions(target)
+    source_shape, _ = array_dimensions(source)
+    if target_shape == source_shape:
+        return None
+    return min(math.prod(target_shape), math.prod(source_shape))
+
+
+def array_prefix_addresses(spec, count):
+    shape, _ = array_dimensions(spec)
+    return islice(_indices(shape), count)
+
+
+def array_prefix_values(value, count, *, tick):
+    """Project a detached value onto its leading row-major elements."""
+    _, element = array_dimensions(value.spec)
+    facts = value.facts or {}
+    element_spec = tuple_spec(element)
+    for address in array_prefix_addresses(value.spec, count):
+        tick()
+        if element[0] in SCALARS:
+            yield facts.get(address, Value(complete=value.complete, spec=element))
+        else:
+            members = {}
+            for path, schema in _leaf_specs(element_spec, address):
+                tick()
+                members[path[len(address):]] = facts.get(path, Value(complete=value.complete, spec=list(schema)))
+            yield Value(complete=all(fact.complete for fact in members.values()), spec=element, facts=members)
 
 
 def convert_value_facts(target, value, *, tick):
