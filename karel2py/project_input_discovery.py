@@ -4,7 +4,7 @@ from hashlib import sha256
 
 from .input_contract import InputContractError, extract
 from .input_discovery import InputDiscoveryError, analyze_plan
-from .input_template import _context_state, _prepare, _saved_path_count
+from .input_template import _SavedBindings, _context_state, _prepare, _saved_path_count
 from .project_run import project_document_fields, verify_project_pins
 from .runner import RunDocumentError, _read, _read_revision
 
@@ -39,6 +39,7 @@ def _analyze_pins(target, module_paths, identity=None, *, execution, migrate_pat
     identity = deepcopy(target) if identity is None else identity
     try:
         return analyze_plan(plans[target['program']], identity, linked_plans=plans,
+                            saved_bindings=_SavedBindings(execution),
                             saved_path_count=_saved_path_count(execution, migrate_path=migrate_path))
     except (KeyError, IndexError, TypeError, ValueError, AttributeError, RecursionError) as error:
         raise InputDiscoveryError(str(error)) from error

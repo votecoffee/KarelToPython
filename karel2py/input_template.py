@@ -133,6 +133,43 @@ def _context_state(context):
         raise InputTemplateError('Invalid input template context: '+str(error)) from error
 
 
+class _SavedBindings:
+    """Expose saved schemas and initialization without folding payload values."""
+
+    def __init__(self, execution):
+        self.references = execution.variables.bindings
+        self.snapshots = {}
+
+    def spec(self, owner, path):
+        reference = self.references.get((owner, path))
+        if reference is None:
+            return None
+
+        def lists(schema):
+            return [lists(item) if isinstance(item, tuple) else item for item in schema]
+
+        return lists(reference.spec)
+
+    def _selected_value(self, owner, root, selectors):
+        key = owner, root
+        reference = self.references.get(key)
+        if reference is None:
+            return None
+        if key not in self.snapshots:
+            self.snapshots[key] = rt.snapshot_value(reference.raw())
+        try:
+            return _selected(reference.spec, self.snapshots[key], selectors)
+        except (InputTemplateError, KeyError, IndexError, TypeError, rt.KarelRuntimeError):
+            return {'uninitialized': True}
+
+    def container_present(self, owner, root, selectors):
+        value = self._selected_value(owner, root, selectors)
+        return value != {'uninitialized': True} if value is not None else None
+
+    def leaf_initialized(self, owner, root, selectors):
+        return _supplied(self._selected_value(owner, root, selectors))
+
+
 def _saved_path_count(execution, *, migrate_path=None):
     """Look up the initial topology or materialized record of a saved PATH."""
     snapshots = {}
@@ -197,7 +234,7 @@ def _saved_path_count(execution, *, migrate_path=None):
 
 
 def _discover_with_context(python_source, filename, execution, *, migrate_path=None):
-    return _discover_inputs(python_source, filename=filename,
+    return _discover_inputs(python_source, filename=filename, saved_bindings=_SavedBindings(execution),
                             saved_path_count=_saved_path_count(execution, migrate_path=migrate_path))
 
 

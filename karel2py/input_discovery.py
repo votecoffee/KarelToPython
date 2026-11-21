@@ -69,6 +69,12 @@ class _Location:
     spec: object = field(default=None, compare=False, hash=False)
     root_spec: object = field(default=None, compare=False, hash=False)
     path_slot: _PathRecordSlot | None = field(default=None, compare=False, hash=False)
+    saved_binding: bool = field(default=False, compare=False, hash=False)
+
+    @property
+    def saved_data(self):
+        return (self.saved_binding and self.root_spec[0] != 'PATH'
+                and not _path_array_cell_type(self.root_spec))
 
     @property
     def key(self):
@@ -296,12 +302,15 @@ def _merged_value(values,spec=None):
 
 class _Analyzer:
     def __init__(self, plan, *, linked_plans=None, track_handlers=False, track_tasks=False,
-                 saved_path_count=None):
+                 saved_path_count=None, saved_bindings=None):
         self.plan = plan
-        # A linked fallback pass has lost handler or task ordering. Its flow
-        # still supplies approximate candidates, but cannot prove seed topology.
-        self.saved_path_count = saved_path_count if linked_plans is None or track_handlers and track_tasks else None
+        # A linked fallback can still supply approximate candidates.
+        stable_context = linked_plans is None or track_handlers and track_tasks
+        self.saved_path_count = saved_path_count if stable_context else None
+        self.saved_bindings = saved_bindings if stable_context else None
+        self.saved_storage_revision = 0
         self.path_storage = {}
+        self.binding_storage = {}
         self.steps = 0
         self.serial = 0
         self.inputs = {}
@@ -462,7 +471,8 @@ class _Analyzer:
         if selected is None:
             self.unresolved_at('selection','Unsupported or unbounded selected schema for '+loc.path,node)
             return None
-        return _Location(loc.kind,loc.owner,loc.root,(*loc.parts,(kind,value)),selected,loc.root_spec)
+        return _Location(loc.kind, loc.owner, loc.root, (*loc.parts, (kind, value)), selected, loc.root_spec,
+                         saved_binding=loc.saved_binding)
 
     def path_io_locations(self, expr, flow, conditional, *, reading=False):
         """Resolve a bounded transfer's ordered records before publishing any writes."""
@@ -856,6 +866,26 @@ class _Analyzer:
             flow.path_orders[path.key] = replace(current, retired_slots=slots)
         return replace(record, path_slot=slot)
 
+    def saved_container_present(self, loc, flow):
+        if flow.opaque or flow.task_order_unknown:
+            return None
+        for end in range(len(loc.parts), -1, -1):
+            key = (*loc.key[:3], loc.parts[:end])
+            if key in flow.record_storage:
+                return flow.record_storage[key]
+        return self.saved_bindings.container_present(loc.owner, loc.root, loc.parts)
+
+    def check_saved_container(self, loc, node, flow):
+        present = self.saved_container_present(loc, flow)
+        if present is True:
+            return True
+        self.unresolved_at('variable-storage', 'Saved variable container is missing or unresolved: '+loc.path, node)
+        if present is False:
+            flow.stopped = True
+        else:
+            self.opaque(flow)
+        return False
+
     def locate(self, expr, flow, conditional, *, path_io=False, capture_node=False,
                selector_path_edits=False, reading=False):
         if not isinstance(expr,dict):return None
@@ -867,6 +897,8 @@ class _Analyzer:
                                selector_path_edits=selector_path_edits, reading=reading)
         if kind=='field':
             base=self.locate(args[0],flow,conditional)
+            if base is not None and base.saved_data and not self.check_saved_container(base, expr, flow):
+                return None
             return self.field_child(base, expr['value'], expr, flow) if base else None
         if kind=='index':
             base=args[0]
@@ -879,12 +911,16 @@ class _Analyzer:
                     return _Location('port','',port,(('index',index),),[self.plan['port_types'][port]])
                 self.unresolved_at('dynamic-address','Port index requires an explicit runtime mapping',expr);return None
             loc=self.locate(base,flow,conditional)
+            saved_parents = []
+            saved_revision = self.saved_storage_revision
             # A plain scalar array's subscript does not hold an untracked PATH receiver.
             safe_selector = False
             if selector_path_edits and loc is not None and not loc.parts and loc.spec[0] == 'ARRAY':
                 _, element = _array_dimensions(loc.spec)
                 safe_selector = element[0] in SCALARS
             for position, argument in enumerate(args[1:], 1):
+                if loc is not None and loc.saved_data:
+                    saved_parents.append(loc)
                 path_base = loc is not None and loc.spec[0] == 'PATH'
                 generation = self.path_descriptor_generation(loc, flow) if path_base else None
                 stable_shape = path_base and not (flow.opaque or flow.path_shape_unknown)
@@ -931,6 +967,12 @@ class _Analyzer:
                                 and loc.spec[0] == 'PATH' and index >= 0):
                             selected = self.borrow_path_record(loc, index, selected, flow, archived=archived)
                         loc = selected
+            if saved_parents and saved_revision != self.saved_storage_revision:
+                self.unresolved_at('variable-storage', 'Saved aggregate storage may change during index evaluation', expr)
+                self.opaque(flow)
+                return None
+            if any(not self.check_saved_container(parent, expr, flow) for parent in saved_parents):
+                return None
             return loc
         if kind in ('call','binary','unary','literal','real_literal','predefined'):
             self.expr(expr,flow,conditional)
@@ -1017,7 +1059,8 @@ class _Analyzer:
                     self.inputs[key]=dict(kind=loc.kind,program=loc.owner or None,path=loc.path,type=spec,
                                           certainty=certainty,locations=[],reason='Read before a definite source write')
                     if loc.kind=='variable':
-                        self.inputs[key].update(root_path=str(loc.root),root_type=loc.root_spec,selectors=list(loc.parts))
+                        self.inputs[key].update(program=loc.owner, root_path=str(loc.root),
+                                                root_type=loc.root_spec, selectors=list(loc.parts))
                     elif loc.kind=='port':
                         self.inputs[key].update(port=loc.root,index=dict(loc.parts).get('index'))
                     elif loc.kind.endswith('_register'):
@@ -1028,15 +1071,22 @@ class _Analyzer:
                 if certainty=='required':row['certainty']='required'
                 location=self.where(node)
                 if location not in row['locations']:row['locations'].append(location)
+        # Saved binding values remain editable inputs. Only their initial
+        # availability participates in proving the receiver of a copy.
+        initialized = flow.defined
+        if loc.saved_binding and missing and not (flow.opaque or flow.task_order_unknown or self.callback_depth):
+            supplied = {leaf.key for leaf in leaves if leaf.key in missing and leaf.key not in flow.maybe
+                        and self.saved_bindings.leaf_initialized(leaf.owner, leaf.root, leaf.parts)}
+            initialized = initialized | supplied
         # A scalar read has a value if execution continues. Aggregate copies can
         # preserve missing leaves, so they do not establish complete receivers.
-        complete = not missing or bool(scalar and not raw_scalar)
+        complete = keys <= initialized or bool(scalar and not raw_scalar)
         facts=None
         if loc.spec and loc.spec[0] not in SCALARS:
             facts = {
                 leaf.parts[len(loc.parts):]: _Value(
                     flow.constants.get(leaf.key, UNKNOWN) if leaf.key in flow.defined else UNKNOWN,
-                    leaf.key in flow.defined, leaf.spec, uninitialized=self.leaf_uninitialized(leaf, flow),
+                    leaf.key in initialized, leaf.spec, uninitialized=self.leaf_uninitialized(leaf, flow),
                 )
                 for leaf in leaves
             }
@@ -1074,7 +1124,10 @@ class _Analyzer:
         """Forget overwritten shapes and publish current whole-record markers."""
         if flow.opaque or loc.spec[0] in SCALARS:
             return
-        shaped = definite and (value.complete or shaped_record)
+        saved_data = loc.saved_data
+        if saved_data:
+            self.saved_storage_revision += 1
+        shaped = definite and (value.complete or shaped_record and not saved_data)
         key = loc.key
         tracked = key in flow.record_storage
         self.tick(len(flow.record_storage))
@@ -1085,8 +1138,8 @@ class _Analyzer:
                 del flow.record_storage[prior]
             elif not shaped and loc.parts[:len(prior[3])] == prior[3]:
                 flow.record_storage[prior] = None
-        if loc.spec[0] == 'STRUCTURE' and (tracked or shaped_record or value.whole_record_missing
-                                         or self.whole_path_record(loc)):
+        if saved_data or (loc.spec[0] == 'STRUCTURE' and (tracked or shaped_record or value.whole_record_missing
+                                                         or self.whole_path_record(loc))):
             state = True if shaped else False if definite and value.whole_record_missing else None
             flow.record_storage[key] = state
             if len(flow.record_storage) > MAX_FACTS:
@@ -1112,6 +1165,11 @@ class _Analyzer:
                 if loc.spec[0] == 'PATH':
                     flow.path_orders[loc.key] = None
                 self.opaque(flow)
+            return
+        if (loc.saved_data and loc.spec[0] not in SCALARS and not (definite and value.complete)
+                and any(True for _ in self.active_path_borrows(loc))):
+            self.unresolved_at('variable-storage', 'Saved aggregate write may detach borrowed fields: '+loc.path, node)
+            self.opaque(flow)
             return
         self.update_record_storage(loc, value, flow, definite, shaped_record)
         if loc.spec[0] not in SCALARS and track_path_storage and not (definite and (value.complete or shaped_record)):
@@ -2048,6 +2106,18 @@ class _Analyzer:
             return False
         return True
 
+    def saved_named_root(self, owner, selected, path, root, flow):
+        if self.saved_bindings is None or flow.opaque or flow.task_order_unknown:
+            return None
+        # Exact saved rows win over navigation inside a saved root. A checked
+        # declared global, including an import, takes precedence over both.
+        for program, binding in dict.fromkeys(((selected, path), (owner, path), (selected, root), (owner, root))):
+            spec = self.saved_bindings.spec(program, binding)
+            if spec is not None:
+                self.binding_storage[program, binding] = spec
+                return _Location('variable', program, binding, spec=spec, root_spec=spec, saved_binding=True)
+        return None
+
     def named_variable_location(self, owner, path, node, flow, conditional, *, capture_node=False):
         """Distinguish a rejected selection from an unproved root or storage layout."""
         if type(owner) is not str or type(path) is not str:
@@ -2055,9 +2125,21 @@ class _Analyzer:
         root = re.match(r'[A-Za-z_][A-Za-z_0-9]*', path)
         if root is None:
             return None, False
-        loc = self.global_slot(root[0].upper(), node, program=owner.upper())
-        rest = path[root.end():]
+        owner, path = owner.upper(), path.upper()
+        selected = owner or self.program
+        root_name = root[0].upper()
+        loc = self.global_slot(root_name, node, program=selected)
+        if loc is None:
+            plan = self.plan if selected == self.program else (self.linked_plans or {}).get(selected)
+            if plan is not None and (plan.get('status') != 'available' or root_name in plan.get('types', {})):
+                return None, False
+            loc = self.saved_named_root(owner, selected, path, root_name, flow)
+        rest = path[len(loc.root):] if loc is not None and loc.saved_binding else path[root.end():]
         while rest and loc:
+            if loc.saved_data:
+                present = self.saved_container_present(loc, flow)
+                if present is not True:
+                    return None, present is False
             field = re.match(r'\.([A-Za-z_][A-Za-z_0-9]*)', rest)
             indexes = re.match(r'(?:\[[0-9]+(?:,[0-9]+)*\])+', rest)
             if field:
@@ -2834,7 +2916,7 @@ class _Analyzer:
         if rejected:
             return self.byname_gap(node, flow, 'BYNAME variable selection is invalid: '+path, rejected=True)
         if target is None:
-            return self.byname_gap(node, flow, 'BYNAME target needs a checked declared root: '+owner+'.'+path)
+            return self.byname_gap(node, flow, 'BYNAME target needs a checked declaration or saved binding: '+owner+'.'+path)
         _, terminal = _array_dimensions(target.spec)
         if terminal[0] != 'PATH':
             try:
@@ -3417,7 +3499,7 @@ class _Analyzer:
         self.block(node.get('body',[]),flow,True);self.block(node.get('alternate',[]),flow,True)
 
 
-def analyze_plan(plan, target, *, linked_plans=None, saved_path_count=None):
+def analyze_plan(plan, target, *, linked_plans=None, saved_path_count=None, saved_bindings=None):
     track_handlers = track_tasks = linked_plans is not None
     # Restart from the checked entry when control uncertainty could hide
     # callbacks or child bodies that a precise pass had left dormant.
@@ -3425,16 +3507,16 @@ def analyze_plan(plan, target, *, linked_plans=None, saved_path_count=None):
         try:
             return _analyze_plan(plan, target, linked_plans=linked_plans,
                                  track_handlers=track_handlers, track_tasks=track_tasks,
-                                 saved_path_count=saved_path_count)
+                                 saved_path_count=saved_path_count, saved_bindings=saved_bindings)
         except _ActivationUnknown:
             track_handlers = False
         except _TaskOrderUnknown:
             track_tasks = False
 
 
-def _analyze_plan(plan, target, *, linked_plans, track_handlers, track_tasks, saved_path_count):
+def _analyze_plan(plan, target, *, linked_plans, track_handlers, track_tasks, saved_path_count, saved_bindings):
     analyzer = _Analyzer(plan, linked_plans=linked_plans, track_handlers=track_handlers, track_tasks=track_tasks,
-                         saved_path_count=saved_path_count)
+                         saved_path_count=saved_path_count, saved_bindings=saved_bindings)
     modules = linked_plans.values() if linked_plans is not None else (plan,)
     for module in modules:
         if module.get('status') != 'available':
@@ -3458,6 +3540,9 @@ def _analyze_plan(plan, target, *, linked_plans, track_handlers, track_tasks, sa
     if analyzer.path_storage:
         report['path_storage'] = [dict(program=owner, path=root, type=spec)
                                   for (owner, root), spec in sorted(analyzer.path_storage.items())]
+    if analyzer.binding_storage:
+        report['binding_storage'] = [dict(program=owner, path=root, type=spec)
+                                     for (owner, root), spec in sorted(analyzer.binding_storage.items())]
     return report
 
 
@@ -3466,13 +3551,13 @@ def discover_inputs(python_source, *, filename='<python>'):
     return _discover_inputs(python_source, filename=filename)
 
 
-def _discover_inputs(python_source, *, filename, saved_path_count=None):
+def _discover_inputs(python_source, *, filename, saved_path_count=None, saved_bindings=None):
     raw=python_source.encode('utf-8') if type(python_source) is str else python_source
     if type(raw) is not bytes or len(raw)>MAX_BYTES:raise InputDiscoveryError('Python input requires at most 16 MiB')
     try:
         plan=extract(raw.decode('utf-8-sig'))
         target=dict(file=str(filename),sha256=hashlib.sha256(raw).hexdigest(),program=plan['program'])
-        return analyze_plan(plan,target,saved_path_count=saved_path_count)
+        return analyze_plan(plan, target, saved_path_count=saved_path_count, saved_bindings=saved_bindings)
     except (InputContractError,UnicodeError,KeyError,IndexError,TypeError,ValueError,AttributeError,RecursionError) as error:
         raise InputDiscoveryError(str(error)) from error
 

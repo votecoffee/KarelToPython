@@ -118,7 +118,7 @@ native table identifiers. Renaming keeps these hints within the current context;
 loading JSON creates a fresh lookup cache. BYNAME operates on declared globals
 and explicit variable-store bindings as a direct routine argument.
 [Input discovery](input-discovery.md#named-routine-arguments) follows declared
-targets and their entry numbers when it can prove the address and storage.
+and supplied saved bindings when it can prove the address and storage.
 
 ## Saved context and CLI examples
 

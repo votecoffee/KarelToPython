@@ -1,5 +1,15 @@
 # Changelog
 
+## 26.1121.150639 - 2026-11-21
+
+- Resolve BYNAME, GET_VAR and SET_VAR against typed saved bindings in
+  standalone and linked discovery, including exact paths and external PATH
+  records.
+- Follow declared-root precedence and keep input pointers attached to the
+  actual saved rows. Check ordinary container presence before field or
+  subscript selection. Retain write-only bindings and distinct saved roots
+  when refreshing a run.
+
 ## 26.1121.145714 - 2026-11-21
 
 - Discover direct BYNAME arguments for declared data and PATH storage. Preserve

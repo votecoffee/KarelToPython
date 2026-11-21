@@ -1461,6 +1461,102 @@ class InputTemplateTests(unittest.TestCase):
         self.assertTrue(report['complete'], report['unresolved'])
         self.assertEqual(set(by_path(prepared)), {'WANTED'})
 
+    def test_saved_byname_and_named_transfers_share_the_same_binding(self):
+        source = (
+            'PROGRAM T VAR first,entry,status,out,wanted,unused:INTEGER '
+            'ROUTINE increment(held:INTEGER) BEGIN WRITE(held) held=41 END increment '
+            "BEGIN increment(BYNAME('CACHE','ITEM',first)) "
+            "GET_VAR(entry,'CACHE','item',out,status) "
+            'IF (first=1) AND (entry=1) AND (status=0) AND (out=41) '
+            'THEN WRITE(wanted) ELSE WRITE(unused) ENDIF END T'
+        )
+        supplied = dict(program='cache', path='item', type=['INTEGER'], value=7)
+        prepared = prepare_inputs(translate(source).python_source, context={'variables': [supplied]})
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        bindings = by_path(prepared)
+        self.assertEqual(set(bindings), {'ITEM', 'WANTED'})
+        self.assertEqual((bindings['ITEM']['program'], bindings['ITEM']['status']), ('CACHE', 'supplied'))
+        self.assertEqual(bindings['ITEM']['context_pointer'], '/variables/0/value')
+        self.assertEqual(prepared['context']['variables'][0], supplied)
+
+    def test_exact_saved_path_beats_saved_root_but_declared_root_takes_priority(self):
+        source = (
+            'PROGRAM T VAR bank:ARRAY[2] OF INTEGER entry,status,out,wanted,unused:INTEGER '
+            'ROUTINE change(alias:INTEGER) BEGIN WRITE(alias) alias=41 END change '
+            'ROUTINE sample(alias:ARRAY OF INTEGER) BEGIN WRITE(alias[1]) END sample '
+            "BEGIN change(BYNAME('CACHE','grid[1]',entry)) sample(BYNAME('CACHE','grid',entry)) "
+            "bank[1]=17 GET_VAR(entry,'','bank[1]',out,status) "
+            'IF (status=0) AND (out=17) THEN WRITE(wanted) ELSE WRITE(unused) ENDIF END T'
+        )
+        rows = [
+            dict(program='CACHE', path='GRID', type=['ARRAY', 2, ['INTEGER']], value=[7, 8]),
+            dict(program='CACHE', path='GRID[1]', type=['INTEGER'], value=13),
+            dict(program='T', path='BANK[1]', type=['INTEGER'], value=99),
+        ]
+        prepared = prepare_inputs(translate(source).python_source, context={'variables': rows})
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        grid = [binding for binding in prepared['template']['bindings'] if binding['path'] == 'GRID[1]']
+        self.assertEqual({(row['context_pointer'], row['status']) for row in grid},
+                         {('/variables/0/value', 'supplied'), ('/variables/1/value', 'supplied')})
+        self.assertEqual(set(by_path(prepared)), {'GRID[1]', 'WANTED'})
+        from karel2py.input_refresh import refresh_inputs
+
+        refreshed = refresh_inputs(translate(source).python_source, prepared)
+        retained = refreshed['template']['refresh']['changes']['retained']
+        self.assertEqual({row['root_path'] for row in retained if row['path'] == 'GRID[1]'}, {'GRID', 'GRID[1]'})
+        self.assertEqual(refreshed['context']['variables'][:len(rows)], rows)
+
+    def test_blank_namespace_saved_row_remains_an_editable_named_input(self):
+        prepared = prepare(
+            "GET_VAR(entry,'','outside',out,s) WRITE(out)",
+            decl='entry,out,s:INTEGER',
+            context={'variables': [dict(program='', path='OUTSIDE', type=['INTEGER'], value=7)]},
+        )
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        binding = by_path(prepared)['OUTSIDE']
+        self.assertEqual(binding['program'], '')
+        self.assertEqual(binding['status'], 'supplied')
+        self.assertEqual(binding['context_pointer'], '/variables/0/value')
+
+    def test_byname_uses_saved_path_node_layout_and_original_input_pointer(self):
+        source = (
+            'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+            'VAR entry,status,out,wanted,unused:INTEGER '
+            'ROUTINE change(node:row_t) BEGIN WRITE(node.amount) node.amount=51 END change '
+            "BEGIN change(BYNAME('CACHE','route[1]',entry)) "
+            "GET_VAR(entry,'CACHE','route[1].amount',out,status) "
+            'IF (status=0) AND (out=51) THEN WRITE(wanted) ELSE WRITE(unused) ENDIF END T'
+        )
+        row = ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]]
+        saved = dict(program='CACHE', path='ROUTE', type=['PATH', row, None],
+                     value=dict(nodes=[{'AMOUNT': MISSING}], data=None))
+        prepared = prepare_inputs(translate(source).python_source, context={'variables': [saved]})
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'ROUTE[1].AMOUNT', 'WANTED'})
+        binding = by_path(prepared)['ROUTE[1].AMOUNT']
+        self.assertEqual(binding['selectors'], [['index', 1], ['field', 'AMOUNT']])
+        self.assertEqual(binding['context_pointer'], '/variables/0/value')
+
+    def test_saved_record_parent_controls_named_lookup_before_and_after_repair(self):
+        row = ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]]
+        prepared = prepare(
+            "entry=88 out=19 GET_VAR(entry,'CACHE','record.amount',out,s) "
+            'IF (s<>1) OR (entry<>88) OR (out<>19) THEN WRITE(unused) ENDIF '
+            "seed.amount=41 SET_VAR(entry,'CACHE','record',seed,s) IF s<>0 THEN WRITE(unused) ENDIF "
+            "GET_VAR(entry,'CACHE','record.amount',out,s) "
+            'IF (s=0) AND (out=41) THEN WRITE(wanted) ELSE WRITE(unused) ENDIF',
+            decl='entry,out,s,wanted,unused:INTEGER seed:row_t',
+            prefix='TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE',
+            context={'variables': [dict(program='CACHE', path='RECORD', type=row, value=MISSING)]},
+        )
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'WANTED'})
+
     def test_byname_borrows_declared_scalars_and_array_prefixes_with_shared_entries(self):
         source = (
             'PROGRAM T VAR n,out,a,b,entry,s,wanted,unused:INTEGER grid:ARRAY[2,2] OF INTEGER '

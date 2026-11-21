@@ -120,7 +120,9 @@ locations. Include locations retain their physical file/line; `python_lines`
 points into the generated module. When a FILE transfer, `PATH_LEN`, or
 bounded node edit depends on existing PATH storage, `path_storage` lists the
 exact owner, root path and type of each saved root used. A shape dependency
-can exist without a field input.
+can exist without a field input. The `binding_storage` list identifies saved
+rows used for named lookup, including write-only bindings that refresh must
+retain.
 
 - `required`: a modeled unconditional read has no proven prior source write.
 - `conditional`: the read depends on a branch, a potentially empty loop, a
@@ -132,12 +134,13 @@ An overwritten destination whose complete value remains unproven is reported
 as an unresolved derived value, rather than an initial value to seed.
 
 Variable candidates include `root_path`, `root_type` and `selectors`. A selected
-path such as `SOURCE.B` explains the needed part of the value. The existing
-context adapter restores whole declared globals: supply a `SOURCE` row with its
-root schema and shaped value, retaining uninitialized markers where appropriate.
-Do not copy selected field/element rows directly into `context.variables`.
-The optional input-template preparation below constructs those whole-root
-shapes with missing markers. The [desktop runner](desktop.md#discover-inputs-and-run-python)
+path such as `SOURCE.B` explains the needed part of the value. For a declared
+global, supply a `SOURCE` row with its root schema and shaped value, retaining
+uninitialized markers where appropriate. Input-template preparation can build
+that root shape with missing markers. For a named lookup resolved to an
+existing saved binding, the input points to the actual saved row, even when
+that row has a field or subscript in its name. Supplied leaves can establish
+that a copy initializes its receiver. Their values remain editable inputs. The [desktop runner](desktop.md#discover-inputs-and-run-python)
 lists the candidates and provides scalar and structured field editors alongside
 the JSON context editor.
 
@@ -358,8 +361,11 @@ proven output overlap. It checks the `GET_VAR` receiver before
 looking up the named source and checks the `SET_VAR` destination after the name
 resolves. A declared root with an invalid field or subscript yields status 1
 without a transfer. An invalid `SET_VAR` destination still yields status 1
-after source capture. Roots that may require external bindings remain open for
-review. A field in a retained old record or rebuilt retired slot can receive
+after source capture. Discovery can resolve typed bindings in the supplied
+context. Declared globals take precedence. For an undeclared name, an exact
+saved path takes precedence over traversal of a saved root. Missing external
+bindings and unproved container shapes remain open for review. A field in a
+retained old record or rebuilt retired slot can receive
 status when its storage is disjoint from the live destination.
 
 For fields of PATH headers and nodes, including PATH ARRAY cells, discovery
@@ -412,7 +418,7 @@ with special write guards and robot-dependent operations remain conservative.
 ### Named routine arguments
 
 Discovery follows direct `BYNAME` arguments with a known owner and path to
-declared data or PATH storage. The called routine borrows scalar fields,
+declared or saved data and PATH storage. The called routine borrows scalar fields,
 whole records, and proven ARRAY rows or planes. A whole PATH node or header
 keeps its captured slot across later argument evaluation. A selected field
 keeps its captured record storage. A blank owner selects the calling task
@@ -421,8 +427,8 @@ root, including inside a synchronous linked routine.
 A successful `BYNAME` writes the lookup entry before evaluating later
 arguments, using the same offline cache as `GET_VAR` and `SET_VAR`. Proven
 invalid selections, type mismatches, and entry overlap stop discovery at
-the argument. Targets that need external bindings, resource storage, or
-unproved addresses retain an explicit discovery gap.
+the argument. Targets with unsupplied external bindings, unsupported resource
+storage, or unproved addresses retain an explicit discovery gap.
 
 Dynamic addresses, unsupported schemas/resources/services, host or linked
 routine effects, handlers, nonstructured jumps, recursion, fresh uninitialized

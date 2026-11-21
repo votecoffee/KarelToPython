@@ -68,13 +68,15 @@ def _catalog(report):
     for row in rows:
         if (type(row) is not dict or any(key not in row for key in ('kind', 'program', 'path', 'type', 'certainty'))
                 or type(row['kind']) is not str or type(row['path']) is not str
-                or row['program'] is not None and type(row['program']) is not str):
+                or row['program'] is not None and type(row['program']) is not str
+                or 'root_path' in row and type(row['root_path']) is not str):
             raise InputTemplateError('Invalid previous input catalog entry')
-        key = row['kind'], row['program'] or '', row['path']
+        key = row['kind'], row['program'] or '', row['path'], row.get('root_path', '')
         if key in result:
             raise InputTemplateError('Duplicate previous input catalog entry')
         result[key] = {name: deepcopy(row[name]) for name in
-                       ('kind', 'program', 'path', 'type', 'certainty', 'root_type', 'type_options') if name in row}
+                       ('kind', 'program', 'path', 'type', 'certainty', 'root_path', 'root_type', 'type_options')
+                       if name in row}
     return result
 
 
@@ -147,10 +149,11 @@ def _refresh_report(report, context, previous, previous_target, *,
             original, execution = _context_state(context)
         new_roots = {(row['program'], row['root_path']): row['root_type']
                      for row in report['inputs'] if row['kind'] == 'variable'}
-        # A topology query or transfer can depend on a root without a value
-        # candidate, including after a compatible PATH schema change.
-        new_roots.update({(row['program'], row['path']): row['type']
-                          for row in report.get('path_storage', ())})
+        # A named operation or topology query can use storage without reading
+        # a value. Keep those saved rows and any compatible PATH migration.
+        for dependency in ('binding_storage', 'path_storage'):
+            new_roots.update({(row['program'], row['path']): row['type']
+                              for row in report.get(dependency, ())})
         config = deepcopy(original)
         changed, rows, migrations = {}, [], []
         for index, row in enumerate(original.get('variables', [])):
