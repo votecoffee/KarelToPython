@@ -1,6 +1,7 @@
 """Bounded read-before-write discovery from checked generated Python contracts."""
 from contextlib import contextmanager
 from dataclasses import dataclass, field, replace
+from fnmatch import fnmatchcase
 import hashlib
 import math
 from pathlib import Path
@@ -13,6 +14,9 @@ from .dynamic import (
 from .extended import PREDEFINED_FILE_NAMES, ZERO_BASED_PORTS, path_conversion_layout, path_node_size
 from .file_io import MAX_PATH_IO_FIELDS, path_io_field_count, path_io_indexes
 from .input_contract import extract, InputContractError
+from .inspection import (
+    CATALOG_SCAN_LIMIT, catalog_key, catalog_type_matches, describe, effective_list_options, variable_list_page,
+)
 from .input_value_conversions import (
     SCALARS, UNKNOWN, Value as _Value, array_dimensions as _array_dimensions,
     array_prefix_addresses, array_prefix_values, convert_value_facts,
@@ -2178,7 +2182,7 @@ class _Analyzer:
             if loc.saved_binding:
                 self.binding_storage[loc.owner, loc.root] = loc.root_spec
 
-    def named_root_binding(self, owner, selected, path, root, flow):
+    def named_root_binding(self, owner, selected, path, root, flow, *, reject_missing=False):
         if flow.opaque or flow.task_order_unknown:
             return None, len(root), False
         # Exact rows win over navigation inside a root. Declared globals have
@@ -2194,17 +2198,20 @@ class _Analyzer:
             elif loc is not INITIAL_BINDING:
                 self.retain_named_bindings((loc,))
                 return loc, len(key[1]), False
-        return None, len(root), removed
+        return None, len(root), removed or reject_missing and self.saved_bindings is not None
 
-    def named_variable_location(self, owner, path, node, flow, conditional, *, capture_node=False):
+    def named_variable_location(self, owner, path, node, flow, conditional, *, capture_node=False, reject_missing=False):
         """Distinguish a rejected selection from an unproved root or storage layout."""
         if type(owner) is not str or type(path) is not str:
             return None, False
         root = re.match(r'[A-Za-z_][A-Za-z_0-9]*', path)
-        if root is None:
-            return None, False
         owner, path = owner.upper(), path.upper()
         selected = owner or self.program
+        if root is None:
+            if reject_missing:
+                loc, _, rejected = self.named_root_binding(owner, selected, path, path, flow, reject_missing=True)
+                return loc, rejected
+            return None, False
         root_name = root[0].upper()
         loc = self.global_slot(root_name, node, program=selected)
         consumed = root.end()
@@ -2212,7 +2219,8 @@ class _Analyzer:
             plan = self.plan if selected == self.program else (self.linked_plans or {}).get(selected)
             if plan is not None and (plan.get('status') != 'available' or root_name in plan.get('types', {})):
                 return None, False
-            loc, consumed, rejected = self.named_root_binding(owner, selected, path, root_name, flow)
+            loc, consumed, rejected = self.named_root_binding(owner, selected, path, root_name, flow,
+                                                              reject_missing=reject_missing)
             if loc is None:
                 return None, rejected
         rest = path[consumed:]
@@ -2926,6 +2934,204 @@ class _Analyzer:
             self.write(status, _Value(result, spec=['INTEGER']), flow, node)
         return _Value()
 
+    def catalog_rows(self, options, flow):
+        """Collect visible metadata while preserving saved input provenance."""
+        if self.saved_bindings is None:
+            return None
+        program, pattern, kind, _, _ = options
+        programs = self.linked_plans if self.linked_plans is not None else {self.program: self.plan}
+        initial = self.saved_bindings.namespace_paths()
+        keys = set(flow.named_bindings)
+        keys.update((owner, path) for owner, paths in initial.items() for path in paths)
+        scan_limit = len(keys) + sum(1 + len(plan.get('types', {})) for plan in programs.values())
+        if scan_limit > CATALOG_SCAN_LIMIT:
+            return None
+        self.tick(scan_limit)
+        declared = {}
+        for owner, plan in programs.items():
+            if not fnmatchcase(owner, program):
+                continue
+            if plan.get('status') != 'available':
+                return None
+            declared.update({(owner, name): tuple_spec(spec) for name, spec in plan['types'].items()})
+        rows = declared.copy()
+        retained = []
+        for owner, path in keys:
+            key = catalog_key(self.program, owner, path)
+            if key is None or key in declared or not fnmatchcase(key[0], program):
+                continue
+            loc = self.named_binding((owner, path), flow)
+            if loc is UNKNOWN:
+                return None
+            if loc is INITIAL_BINDING or loc is None:
+                continue
+            spec = tuple_spec(loc.spec)
+            previous = rows.setdefault(key, spec)
+            if (kind and fnmatchcase(key[1], pattern)
+                    and catalog_type_matches(previous, kind) != catalog_type_matches(spec, kind)):
+                # Both a blank owner and the current owner can canonicalize to
+                # the same root. Name changes may obscure their storage order.
+                return None
+            retained.append(loc)
+        self.retain_named_bindings(retained)
+        return sorted(rows.items()), program in programs
+
+    def catalog_array_value(self, target, values):
+        self.tick(len(values))
+        element = target.spec[2]
+        facts = {(('index', index),): _Value(value, spec=element)
+                 for index, value in enumerate(values, 1)}
+        return _Value(spec=target.spec, facts=facts)
+
+    def variable_list_values(self, known, output, flow):
+        owner, pattern, kind, skip, form = known
+        if (not all(type(value) is str and value.isascii() for value in (owner, pattern))
+                or not all(type(value) is int for value in (kind, skip, form))):
+            return None
+        options = effective_list_options(self.program, owner, pattern, kind, skip, form)
+        if options is None:
+            return (None, None, _Value(2, spec=['INTEGER']))
+        names = output[0]
+        dims, leaf = _array_dimensions(names.spec)
+        if (len(dims) != 1 or type(dims[0]) is not int or not 1 <= dims[0] <= MAX_FACTS
+                or leaf[0] != 'STRING' or type(leaf[1]) is not int):
+            return None
+        catalog = self.catalog_rows(options, flow)
+        if catalog is None:
+            return None
+        rows, known_program = catalog
+        status, text = variable_list_page(rows, options, dims[0], leaf[1], known_program=known_program)
+        if status:
+            return (None, None, _Value(status, spec=['INTEGER']))
+        values = text + [''] * (dims[0] - len(text))
+        return (self.catalog_array_value(names, values), _Value(len(text), spec=['INTEGER']),
+                _Value(0, spec=['INTEGER']))
+
+    def inspected_missing(self, loc, node, flow, conditional):
+        """Inspect availability without turning the payload into an input."""
+        self.tick()
+        if self.lost_path_reference(loc, flow):
+            return UNKNOWN
+        if flow.record_storage.get(loc.key) is False:
+            return True
+        if loc.spec[0] == 'PATH':
+            count = self.known_path_count(loc, flow, conditional)
+            if count is None:
+                return UNKNOWN
+            records = range(0 if loc.spec[2] is not None else 1, count + 1)
+            flags = (self.inspected_missing_child(self.index_child(loc, index, node, flow),
+                                                  node, flow, conditional) for index in records)
+        elif _path_array_cell_type(loc.spec):
+            count = _array_dimensions(loc.spec)[0][0]
+            if type(count) is not int or not 1 <= count <= MAX_FACTS:
+                return UNKNOWN
+            flags = (self.inspected_missing(self.child(loc, 'index', index, node), node, flow, conditional)
+                     for index in range(1, count + 1))
+        else:
+            leaves = self.leaves(loc)
+            if leaves is None:
+                return UNKNOWN
+            flags = (self.inspected_leaf_missing(leaf, flow) for leaf in leaves)
+        uncertain = False
+        for flag in flags:
+            if flag is True:
+                return True
+            uncertain |= flag is UNKNOWN
+        return UNKNOWN if uncertain else False
+
+    def inspected_missing_child(self, loc, node, flow, conditional):
+        if loc is None:
+            return UNKNOWN
+        storage = self.variable_path_storage(loc, flow, conditional)
+        if storage is MISSING_PATH_RECORD:
+            return True
+        if storage is not True:
+            return UNKNOWN
+        return self.inspected_missing(loc, node, flow, conditional)
+
+    def inspected_leaf_missing(self, loc, flow):
+        if loc.key in flow.defined:
+            return False
+        if self.leaf_uninitialized(loc, flow):
+            return True
+        if loc.key not in flow.maybe:
+            if loc.spec == ['BYTE']:
+                if loc.kind in ('local', 'created-variable'):
+                    return False
+            elif loc.saved_binding:
+                return not self.saved_bindings.leaf_initialized(loc.owner, loc.root, loc.parts)
+        return UNKNOWN
+
+    def variable_info_values(self, known, output, node, flow, conditional):
+        owner, path = known
+        if (not all(type(value) is str and value.isascii() for value in (owner, path))
+                or path.startswith('$')):
+            return None
+        dims, dim_leaf = _array_dimensions(output[3].spec)
+        if dims != [3] or dim_leaf != ['INTEGER']:
+            return None
+        loc, rejected = self.named_variable_location(owner, path, node, flow, conditional, reject_missing=True)
+        if rejected:
+            return (None,)*5 + (_Value(1, spec=['INTEGER']),)
+        if loc is None:
+            return None
+        storage = self.variable_path_storage(loc, flow, conditional, named_lookup=True)
+        if storage is False:
+            return (None,)*5 + (_Value(1, spec=['INTEGER']),)
+        if storage is None:
+            return None
+        try:
+            name, code, shape, length = describe(tuple_spec(loc.spec))
+        except NotImplementedError:
+            return (None,)*5 + (_Value(4, spec=['INTEGER']),)
+        if any(type(size) is not int for size in shape) or type(length) is not int:
+            return None
+        missing = True if storage is MISSING_PATH_RECORD else self.inspected_missing(loc, node, flow, conditional)
+        width = output[1].spec[1]
+        text = name[:width] if type(width) is int else UNKNOWN
+        return (_Value(missing, spec=['BOOLEAN']), _Value(text, spec=output[1].spec), _Value(code, spec=['INTEGER']),
+                self.catalog_array_value(output[3], shape), _Value(length, spec=['INTEGER']),
+                _Value(0, spec=['INTEGER']))
+
+    def variable_catalog_call(self, node, flow, conditional):
+        operation = node['value']
+        listing = operation == 'VAR_LIST'
+        inputs = 5 if listing else 2
+        known = []
+        with self.capture_operands() as pending:
+            for arg in node['args'][:inputs]:
+                known.append(self.expr(arg, flow, conditional).constant)
+                if flow.stopped and not flow.opaque:
+                    return _Value(complete=False)
+            for arg in node['args'][inputs:]:
+                pending.append(self.locate(arg, flow, conditional, capture_node=True,
+                                           selector_path_edits=bool(pending)))
+                if flow.stopped and not flow.opaque:
+                    return _Value(complete=False)
+            outputs = [self.resolve_path_slot(loc, node, flow) if loc is not None else None for loc in pending]
+        values = None
+        if not (flow.opaque or flow.task_order_unknown or self.repeat_depth or self.callback_depth or flow.handlers
+                or any(loc is None for loc in outputs)):
+            for index, loc in enumerate(outputs):
+                if any(self.path_contains_reference(loc, old) or self.path_contains_reference(old, loc)
+                       for old in outputs[:index]):
+                    return self.reject_service_overlap(node, flow)
+            if not listing:
+                dims, leaf = _array_dimensions(outputs[3].spec)
+                if None not in dims and (dims != [3] or leaf != ['INTEGER']):
+                    return self.reject_service_overlap(node, flow, 'VAR_INFO dimensions require ARRAY[3] OF INTEGER')
+            if all(self.ordinary_variable_output(loc, node) for loc in outputs):
+                values = (self.variable_list_values(known, outputs, flow) if listing else
+                          self.variable_info_values(known, outputs, node, flow, conditional))
+        if values is None:
+            self.unresolved_at('variable-catalog', operation+' requires a known catalog, lookup and output storage', node)
+            self.opaque(flow)
+            return _Value(complete=False)
+        for loc, value in zip(outputs, values):
+            if value is not None:
+                self.write(loc, value, flow, node)
+        return _Value()
+
     def call(self, node, flow, conditional, *, statement_call=False, argument_path_edits=False):
         name=node['value'];args=node['args']
         if name in self.plan['routines']:
@@ -2943,6 +3149,8 @@ class _Analyzer:
             return self.create_variable(node, flow, conditional)
         if name in ('RENAME_VAR', 'RENAME_VARS'):
             return self.rename_variable(node, flow, conditional)
+        if name in ('VAR_INFO', 'VAR_LIST'):
+            return self.variable_catalog_call(node, flow, conditional)
         if name in ('UNINIT', 'ARRAY_LEN'):
             return self.data_metadata_call(node, flow, conditional)
         if name in SCALAR_PURE:return self.scalar_call(node,flow,conditional)

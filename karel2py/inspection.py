@@ -276,6 +276,13 @@ def variable_info(context,state,args,line=None):
     assign(outputs,(flag,name,code,dimensions,length,0),line)
 
 
+def catalog_key(current, program, path):
+    program = program or current
+    if re.fullmatch(r'[A-Z_][A-Z_0-9]*',program) and re.fullmatch(r'\$?[A-Z_][A-Z_0-9]*',path):
+        return program,path
+    return None
+
+
 def declarations(context,state,*,check=None):
     """Canonical roots only; declarations override bindings just as resolve does."""
     other_owners=((program,owner) for program,owner in context.variables.programs.items() if program!=state.program_name)
@@ -288,43 +295,67 @@ def declarations(context,state,*,check=None):
             result[program,name]=spec
     for (program,path),reference in context.variables.bindings.items():
         if check is not None:check()
-        program=program or state.program_name
-        if re.fullmatch(r'[A-Z_][A-Z_0-9]*',program) and re.fullmatch(r'\$?[A-Z_][A-Z_0-9]*',path):
-            result.setdefault((program,path),reference.spec)
+        key=catalog_key(state.program_name,program,path)
+        if key is not None:
+            result.setdefault(key,reference.spec)
     return sorted(result.items())
+
+
+def effective_list_options(current, program, pattern, kind, skip, form):
+    program = program.upper() or current
+    pattern = pattern.upper()
+    if (kind not in (0,*TYPE_CODES.values()) or skip < 0 or form not in (1,2,3,4)
+            or not pattern or any(symbol in program+pattern for symbol in '[]')):
+        return None
+    return program, pattern, kind, skip, form
+
+
+def catalog_type_matches(spec, kind):
+    if not kind:
+        return True
+    try:
+        return describe(spec)[1] == kind
+    except NotImplementedError:
+        return False
+
+
+def variable_list_page(roots, options, capacity, width, *, known_program):
+    """Return a status and page from an ordered catalog without publishing outputs."""
+    program, pattern, kind, skip, form = options
+    if (not any(symbol in program for symbol in '*?') and not known_program
+            and not any(key[0] == program for key, _ in roots)):
+        return 1, []
+    rows = [(owner,name) for (owner,name),spec in roots
+            if fnmatch.fnmatchcase(owner,program) and fnmatch.fnmatchcase(name,pattern)
+            and catalog_type_matches(spec,kind)]
+    text = []
+    for owner,name in rows[skip:skip+capacity]:
+        if form==4 and (len(owner)>15 or len(name)>12):
+            return 3, []
+        text.append(owner if form==1 else name if form==2 else f'[{owner}]{name}' if form==3 else f'{owner:<15}{name:<12}')
+    if any(len(value)>width for value in text):
+        return 3, []
+    return 0, text
 
 
 def variable_list(context,state,args,line=None):
     rt=runtime(); program,pattern,kind,skip,form,names,count,status=args
-    program=rt.ascii_string(program,line).upper() or state.program_name
-    pattern=rt.ascii_string(pattern,line).upper()
-    kind,skip,form=(rt.integer(value,line) for value in (kind,skip,form))
-    if kind not in (0,*TYPE_CODES.values()) or skip<0 or form not in (1,2,3,4): status.set(2,line);return
-    if not pattern or any(symbol in program+pattern for symbol in '[]'):
-        status.set(2,line);return
+    options=effective_list_options(
+        state.program_name,rt.ascii_string(program,line),rt.ascii_string(pattern,line),
+        *(rt.integer(value,line) for value in (kind,skip,form)),
+    )
+    if options is None: status.set(2,line);return
     try:
         roots=declarations(context,state,check=_catalog_check(state,'VAR_LIST',line))
     except _CatalogScanLimit as error:
         raise rt.KarelRuntimeError(str(error),line) from error
-    if (not any(symbol in program for symbol in '*?') and program!=state.program_name
-            and program not in context.variables.programs and not any(key[0]==program for key,_ in roots)):
-        status.set(1,line);return
-    rows=[]
-    for (owner,name),spec in roots:
-        if not (fnmatch.fnmatchcase(owner,program) and fnmatch.fnmatchcase(name,pattern)): continue
-        if kind:
-            try: code=describe(spec)[1]
-            except NotImplementedError: continue
-            if code!=kind: continue
-        rows.append((owner,name))
     capacity=rt.array_dimensions(names.spec)[0]
-    rows=rows[skip:skip+capacity];text=[]
-    for owner,name in rows:
-        if form==4 and (len(owner)>15 or len(name)>12): status.set(3,line);return
-        text.append(owner if form==1 else name if form==2 else f'[{owner}]{name}' if form==3 else f'{owner:<15}{name:<12}')
-    if any(len(value)>names.spec[2][1] for value in text): status.set(3,line);return
+    program=options[0]
+    code,text=variable_list_page(roots,options,capacity,names.spec[2][1],
+                                 known_program=program==state.program_name or program in context.variables.programs)
+    if code: status.set(code,line);return
     array=_listing_buffer(state,names,text,line)
-    assign((names,count,status),(array,len(rows),0),line)
+    assign((names,count,status),(array,len(text),0),line)
 
 
 def kcl_variable_listing(state,operation,args,line=None):

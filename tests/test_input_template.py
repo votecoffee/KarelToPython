@@ -1624,6 +1624,99 @@ class InputTemplateTests(unittest.TestCase):
         self.assertFalse(report['complete'])
         self.assertEqual(set(by_path(prepared)), {'OPTION'})
 
+    def test_var_info_prefix_commits_metadata_without_requiring_payload(self):
+        prepared = prepare(
+            "value[2,1]=7 VAR_INFO('','value[2]',missing,label,code,dims[2],slen,s) "
+            "IF (s=0) AND (label='INT') AND (code=16) AND (dims[2,1]=3) "
+            'AND (dims[2,2]=0) AND (dims[2,3]=0) AND (slen=0) THEN '
+            'IF missing THEN WRITE(wanted) ELSE WRITE(alternative) ENDIF '
+            'ELSE WRITE(unused) ENDIF',
+            decl='value:ARRAY[2,3] OF INTEGER missing:BOOLEAN label:STRING[3] '
+                 'code,slen,s,wanted,alternative,unused:INTEGER dims:ARRAY[2,3] OF INTEGER',
+        )
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'WANTED', 'ALTERNATIVE'})
+
+    def test_var_info_checks_renamed_path_initialization(self):
+        source = (
+            'PROGRAM T TYPE row_t=STRUCTURE item:STRING[4] ENDSTRUCTURE '
+            'route_t=PATH NODEDATA=row_t PATHHEADER=row_t '
+            'VAR entry,code,slen,s,wanted,unused:INTEGER empty,before:BOOLEAN '
+            'label:STRING[12] dims:ARRAY[3] OF INTEGER '
+            "ROUTINE fill(p:route_t) VAR status:INTEGER BEGIN APPEND_NODE(p,status) "
+            "p.item='head' p[1].item='node' END fill "
+            "BEGIN CREATE_VAR('CACHE','road','','ROUTE_T',0,0,0,0,s) "
+            "RENAME_VARS('CACHE','TARGET',s) VAR_INFO('TARGET','road',before,label,code,dims,slen,s) "
+            "fill(BYNAME('TARGET','road',entry)) VAR_INFO('TARGET','road',empty,label,code,dims,slen,s) "
+            "IF before AND (NOT empty) AND (s=0) AND (label='PATH') "
+            'THEN WRITE(wanted) ELSE WRITE(unused) ENDIF END T'
+        )
+        prepared = prepare_inputs(translate(source).python_source)
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'WANTED'})
+
+    def test_var_info_saved_exact_row_and_status_only_failures(self):
+        saved = dict(program='CACHE', path='123', type=['STRING', 8], value='ready')
+        prepared = prepare(
+            "VAR_INFO('CACHE','123',missing,label,code,dims,slen,s) "
+            "IF (s=0) AND (NOT missing) AND (slen=8) AND (label='STRING') THEN "
+            "VAR_INFO('CACHE','unknown',missing,label,code,dims,slen,absent) "
+            "CREATE_VAR('CACHE','queue','','QUEUE_TYPE',0,0,0,0,s) "
+            "VAR_INFO('CACHE','queue',missing,label,code,dims,slen,s) "
+            "IF (s=4) AND (absent=1) AND (slen=8) AND (label='STRING') "
+            'THEN WRITE(wanted) ELSE WRITE(unused) ENDIF ELSE WRITE(unused) ENDIF',
+            decl='missing:BOOLEAN label:STRING[12] dims:ARRAY[3] OF INTEGER '
+                 'code,slen,s,absent,wanted,unused:INTEGER',
+            context={'variables': [saved]},
+        )
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'WANTED'})
+        self.assertEqual([row['path'] for row in report['binding_storage']], ['123'])
+
+    def test_var_list_tracks_renamed_sorted_page_and_preserves_failed_outputs(self):
+        rows = [
+            dict(program='CACHE', path='APPLE', type=['INTEGER'], value=7),
+            dict(program='CACHE', path='APRICOT', type=['INTEGER'], value=9),
+            dict(program='CACHE', path='AXE', type=['REAL'], value=11.0),
+        ]
+        prepared = prepare(
+            "RENAME_VARS('CACHE','MOVED',s) "
+            "VAR_LIST('mov?d','a*',16,1,3,names[2],total,s) "
+            "short_names[1]='old' VAR_LIST('MOVED','*',0,0,4,short_names,total,too_small) "
+            "VAR_LIST('MOVED','*',0,-1,2,short_names,total,bad_filter) "
+            "VAR_LIST('EMPTYSPACE','*',0,0,2,short_names,total,absent) "
+            "IF (s=0) AND (total=1) AND (names[2,1]='[MOVED]APRICOT') AND (names[2,2]='') "
+            "AND (too_small=3) AND (bad_filter=2) AND (absent=1) AND (short_names[1]='old') "
+            'THEN WRITE(wanted) ELSE WRITE(unused) ENDIF',
+            decl='names:ARRAY[2,2] OF STRING[24] short_names:ARRAY[1] OF STRING[3] '
+                 'total,s,too_small,bad_filter,absent,wanted,unused:INTEGER',
+            context={'variables': rows},
+        )
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'WANTED'})
+        self.assertEqual({row['path'] for row in report['binding_storage']}, {'APPLE', 'APRICOT', 'AXE'})
+
+    def test_var_list_overlap_and_dynamic_selectors_are_reported(self):
+        prepared = prepare(
+            "WRITE(read_first) VAR_LIST('','*',0,0,2,names,status,status) WRITE(unreachable)",
+            decl='names:ARRAY[1] OF STRING[24] status,read_first,unreachable:INTEGER',
+        )
+        report = prepared['template']['discovery']
+        self.assertEqual([row['code'] for row in report['unresolved']], ['service-output'])
+        self.assertEqual(set(by_path(prepared)), {'READ_FIRST'})
+
+        prepared = prepare(
+            "VAR_LIST('CACHE',pattern,0,0,2,names,total,status)",
+            decl='names:ARRAY[1] OF STRING[24] pattern:STRING[10] total,status:INTEGER',
+        )
+        report = prepared['template']['discovery']
+        self.assertEqual([row['code'] for row in report['unresolved']], ['variable-catalog'])
+        self.assertEqual(set(by_path(prepared)), {'PATTERN'})
+
     def test_saved_byname_and_named_transfers_share_the_same_binding(self):
         source = (
             'PROGRAM T VAR first,entry,status,out,wanted,unused:INTEGER '

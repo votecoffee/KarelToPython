@@ -151,12 +151,15 @@ class _SavedBindings:
             self.creation_storage = units, {key: self.spec(*key) for key in self.store.metadata}
         return self.creation_storage
 
-    def paths(self, owner):
+    def namespace_paths(self):
         if self.namespaces is None:
             self.namespaces = {}
             for program, path in self.references:
                 self.namespaces.setdefault(program, []).append(path)
-        return self.namespaces.get(owner, ())
+        return self.namespaces
+
+    def paths(self, owner):
+        return self.namespace_paths().get(owner, ())
 
     def spec(self, owner, path):
         reference = self.references.get((owner, path))

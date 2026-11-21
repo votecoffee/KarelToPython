@@ -1,5 +1,13 @@
 # Changelog
 
+## 26.1121.155843 - 2026-11-21
+
+- Follow VAR_INFO and VAR_LIST outputs during Pythonic input discovery. Model
+  resolved type metadata, initialization checks, and filtered pages from
+  declared, saved, and source-created storage.
+- Preserve existing outputs on known catalog failures. Keep saved bindings
+  that affect a catalog result when refreshing linked inputs.
+
 ## 26.1121.154816 - 2026-11-21
 
 - Follow resolved RENAME_VAR and RENAME_VARS operations during Pythonic input

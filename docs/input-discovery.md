@@ -121,9 +121,9 @@ points into the generated module. When a FILE transfer, `PATH_LEN`, or
 bounded node edit depends on existing PATH storage, `path_storage` lists the
 exact owner, root path and type of each saved root used. A shape dependency
 can exist without a field input. The `binding_storage` list identifies saved
-rows used for named lookup, renaming, collision checks and reserved creation
-capacity. Refresh retains these rows even when the program never reads their
-values.
+rows used for named lookup, renaming, variable catalogs, collision checks and
+reserved creation capacity. Refresh retains these rows even when the program
+never reads their values.
 
 - `required`: a modeled unconditional read has no proven prior source write.
 - `conditional`: the read depends on a branch, a potentially empty loop, a
@@ -452,6 +452,20 @@ Subsequent named transfers use the new spelling and retain the lookup entry.
 Existing routine aliases keep their captured storage, including when the
 source creates a new variable under the old name. Branches with different
 binding layouts leave affected lookups unresolved.
+
+Discovery follows `VAR_INFO` for known ordinary variable paths, including
+ARRAY prefixes and supported PATH fields and records. It publishes the type,
+dimensions, string capacity and status, using known initialization facts
+when available. When initialization is unknown, both flag-dependent branches
+are considered. A metadata check alone creates no value input. System-variable
+and resource-dependent lookups may still need review.
+
+With a validated context, `VAR_LIST` follows known program selectors, name
+patterns, type filters, pagination, and output formats. It uses the current
+names after source creation or renaming. On success it writes the page,
+including empty tail elements. A known failure writes only the status.
+Discovery retains the saved roots that may affect the page on refresh.
+Dynamic selectors and unproved namespace or output storage are reported as gaps.
 
 Dynamic addresses, unsupported schemas/resources/services, host or linked
 routine effects, handlers, nonstructured jumps, recursion, fresh uninitialized

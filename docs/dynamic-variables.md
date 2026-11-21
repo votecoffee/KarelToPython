@@ -121,7 +121,9 @@ and explicit variable-store bindings as a direct routine argument.
 saved and source-created data when it can prove the address and storage.
 Template preparation uses the saved context to check creation collisions,
 reserved capacity and renames. A value read after a source rename points to
-the saved row that supplied it at the start of the run.
+the saved row that supplied it at the start of the run. Discovery also follows
+known `VAR_INFO` metadata and paginated `VAR_LIST` results using the
+variable names and types at the time of the query.
 
 ## Saved context and CLI examples
 
