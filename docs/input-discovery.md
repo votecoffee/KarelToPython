@@ -364,8 +364,10 @@ uninitialized PATH header, can transfer with status 12311. Its whole-record
 address also accepts a compatible replacement. A missing node record in a PATH
 ARRAY rejects named lookup with status 1. When a whole-record transfer clears a
 PATH slot, borrowed fields keep their original storage and whole-record
-references follow the slot. A later write through the old field leaves a
-replacement record intact. Initializing an uninitialized PATH record in the
+references follow the slot. Earlier reference arguments keep their captured
+storage during evaluation of later arguments, including a named transfer's
+status selector. A later write through the old field leaves a replacement
+record intact. Initializing an uninitialized PATH record in the
 saved-run editor refreshes the reachable inputs. Discovery keeps unproved
 argument effects and record layouts open for review.
 

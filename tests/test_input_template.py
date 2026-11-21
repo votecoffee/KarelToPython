@@ -1036,6 +1036,88 @@ class InputTemplateTests(unittest.TestCase):
         self.assertTrue(report['complete'], report['unresolved'])
         self.assertEqual(set(by_path(prepared)), {'EMPTY[0]', 'WANTED'})
 
+    def test_later_routine_argument_clear_keeps_borrowed_node_field(self):
+        source = (
+            'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t '
+            'VAR route:route_t out:row_t entry,s,wanted,unused:INTEGER '
+            'ROUTINE clear_slot:INTEGER BEGIN '
+            "GET_VAR(entry,'','route[1]',route[2],s) RETURN s END clear_slot "
+            'ROUTINE observe(held:INTEGER;code:INTEGER) BEGIN WRITE(held) held=19 '
+            'IF (code=12311) AND (held=19) THEN WRITE(wanted) ELSE WRITE(unused) ENDIF END observe '
+            'BEGIN observe(route[2].amount,clear_slot()) '
+            "GET_VAR(entry,'','route[2]',out,s) IF s<>12311 THEN WRITE(unused) ENDIF END T"
+        )
+        row = ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]]
+        initial = dict(program='T', path='ROUTE', type=['PATH', row, None],
+                       value=dict(nodes=[MISSING, {'AMOUNT': MISSING}], data=None))
+        prepared = prepare_inputs(translate(source).python_source, context={'variables': [initial]})
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'ROUTE[1]', 'ROUTE[2].AMOUNT', 'WANTED'})
+        self.assertEqual(by_path(prepared)['ROUTE[2].AMOUNT']['selectors'], [['index', 2], ['field', 'AMOUNT']])
+
+    def test_get_var_preserves_receiver_captured_before_status_selector_clears_header(self):
+        source = (
+            'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+            'route_t=PATH NODEDATA=row_t PATHHEADER=row_t '
+            'VAR route,empty:route_t entry,s,source,out,wanted,unused:INTEGER codes:ARRAY[1] OF INTEGER '
+            'ROUTINE slot:INTEGER BEGIN '
+            "SET_VAR(entry,'','route[0]',empty[0],s) RETURN 1 END slot "
+            'BEGIN route.amount=7 source=42 '
+            "GET_VAR(entry,'','source',route.amount,codes[slot()]) "
+            'IF codes[1]<>0 THEN WRITE(unused) ENDIF '
+            "entry=88 out=19 GET_VAR(entry,'','route.amount',out,s) "
+            'IF (s=1) AND (entry=88) AND (out=19) THEN WRITE(wanted) ELSE WRITE(unused) ENDIF END T'
+        )
+        row = ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]]
+        initial = dict(program='T', path='EMPTY', type=['PATH', row, row],
+                       value=dict(nodes=[], data=MISSING))
+        prepared = prepare_inputs(translate(source).python_source, context={'variables': [initial]})
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'EMPTY[0]', 'WANTED'})
+
+    def test_later_register_argument_preserves_captured_path_output_field(self):
+        source = (
+            'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+            'route_t=PATH NODEDATA=row_t PATHHEADER=row_t '
+            'VAR route,empty:route_t entry,s,wanted,unused:INTEGER '
+            'r:REAL flag:BOOLEAN codes:ARRAY[1] OF INTEGER '
+            'ROUTINE slot:INTEGER BEGIN '
+            "SET_VAR(entry,'','route[0]',empty[0],s) RETURN 1 END slot "
+            'BEGIN route.amount=7 SET_INT_REG(1,42,s) '
+            'GET_REG(1,flag,route.amount,r,codes[slot()]) '
+            "GET_VAR(entry,'','route.amount',s,codes[1]) "
+            'IF codes[1]=1 THEN WRITE(wanted) ELSE WRITE(unused) ENDIF END T'
+        )
+        row = ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]]
+        initial = dict(program='T', path='EMPTY', type=['PATH', row, row],
+                       value=dict(nodes=[], data=MISSING))
+        prepared = prepare_inputs(translate(source).python_source, context={'variables': [initial]})
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'EMPTY[0]', 'WANTED'})
+
+    def test_path_append_flag_can_clear_record_containing_captured_status(self):
+        source = (
+            'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+            'route_t=PATH NODEDATA=row_t PATHHEADER=row_t '
+            'VAR route,empty:route_t seed,out:row_t entry,s,wanted,unused:INTEGER '
+            'ROUTINE flag:BOOLEAN BEGIN '
+            "SET_VAR(entry,'','route[0]',empty[0],s) RETURN TRUE END flag "
+            'BEGIN route.amount=7 seed.amount=12 APPEND_NODE(route,seed,route.amount,flag()) '
+            "GET_VAR(entry,'','route[0]',out,s) "
+            'IF (PATH_LEN(route)=1) AND (route[1].amount=12) AND (s=12311) '
+            'THEN WRITE(wanted) ELSE WRITE(unused) ENDIF END T'
+        )
+        row = ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]]
+        initial = dict(program='T', path='EMPTY', type=['PATH', row, row],
+                       value=dict(nodes=[], data=MISSING))
+        prepared = prepare_inputs(translate(source).python_source, context={'variables': [initial]})
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'EMPTY[0]', 'WANTED'})
+
     def test_path_variable_transfers_preserve_known_fields_and_partial_status(self):
         types = ('TYPE src_n=STRUCTURE amount:REAL ENDSTRUCTURE '
                  'dst_n=STRUCTURE amount:INTEGER ENDSTRUCTURE '

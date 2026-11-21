@@ -1,4 +1,5 @@
 """Bounded read-before-write discovery from checked generated Python contracts."""
+from contextlib import contextmanager
 from dataclasses import dataclass, field, replace
 import hashlib
 import math
@@ -287,6 +288,7 @@ class _Analyzer:
         self.inputs = {}
         self.unresolved = {}
         self.frames = []
+        self.pending_references = []
         self.exits = []
         self.contexts = {}
         self.linked_plans = linked_plans
@@ -510,10 +512,22 @@ class _Analyzer:
         current = self.frames[-1]
         return (loc.kind == 'local' and loc.owner == current['owner']) or current['borrowed_path_edits']
 
+    @contextmanager
+    def capture_references(self):
+        """Keep references alive from their evaluation to the call boundary."""
+        first = len(self.pending_references)
+        try:
+            yield self.pending_references
+        finally:
+            del self.pending_references[first:]
+
     def active_path_borrows(self, path):
+        depth = len(path.parts)
+        for ref in self.pending_references:
+            if ref is None or (len(ref.parts) > depth and self.path_contains_reference(path, ref)):
+                yield ref
         if self.frames and path.kind == 'local' and path.owner == self.frames[-1]['owner']:
             return
-        depth = len(path.parts)
         for frame in self.frames:
             for ref in frame['references']:
                 if ref is None or (len(ref.parts) > depth and self.path_contains_reference(path, ref)):
@@ -1378,10 +1392,12 @@ class _Analyzer:
             status_arg = operands[-1]
         if flow.stopped and not flow.opaque:
             return _Value(complete=False)
-        status = self.locate(status_arg, flow, conditional)
-        if flow.stopped and not flow.opaque:
-            return _Value(complete=False)
-        convert = self.expr(flags[0], flow, conditional).constant if flags else None
+        with self.capture_references() as pending:
+            status = self.locate(status_arg, flow, conditional)
+            if flow.stopped and not flow.opaque:
+                return _Value(complete=False)
+            pending.append(status)
+            convert = self.expr(flags[0], flow, conditional).constant if flags else None
         if flow.stopped and not flow.opaque:
             return _Value(complete=False)
 
@@ -1453,16 +1469,19 @@ class _Analyzer:
 
     def path_copy(self, node, flow, conditional):
         operands = []
-        for index, argument in enumerate(node['args']):
-            if flow.stopped and not flow.opaque:
-                return _Value(complete=False)
-            if index == 0:
-                loc, value = self.metadata_operand(argument, flow, conditional)
-                operands.append(loc if loc is not None else value)
-            elif index in (3, 4):
-                operands.append(self.locate(argument, flow, conditional))
-            else:
-                operands.append(self.expr(argument, flow, conditional).constant)
+        with self.capture_references() as pending:
+            for index, argument in enumerate(node['args']):
+                if flow.stopped and not flow.opaque:
+                    return _Value(complete=False)
+                if index == 0:
+                    loc, value = self.metadata_operand(argument, flow, conditional)
+                    operands.append(loc if loc is not None else value)
+                elif index in (3, 4):
+                    loc = self.locate(argument, flow, conditional)
+                    pending.append(loc)
+                    operands.append(loc)
+                else:
+                    operands.append(self.expr(argument, flow, conditional).constant)
         if flow.stopped and not flow.opaque:
             return _Value(complete=False)
         source, first, last, target, status, *flags = operands
@@ -2046,7 +2065,7 @@ class _Analyzer:
         """Give a cleared PATH slot a new record identity if old fields are still borrowed."""
         frames = (*self.frames, *(frame for handlers in flow.handlers.values()
                                  for handler in handlers for frame in handler.frames))
-        references = tuple(ref for frame in frames for ref in frame['references'])
+        references = (*self.pending_references, *(ref for frame in frames for ref in frame['references']))
         self.tick(len(references))
         if any(ref is None for ref in references):
             return None
@@ -2143,29 +2162,33 @@ class _Analyzer:
     def variable_call(self, node, flow, conditional):
         name = node['value']
         args = node['args']
-        entry = self.locate(args[0], flow, conditional)
-        if flow.stopped and not flow.opaque:
-            return _Value(complete=False)
-        owner = self.expr(args[1], flow, conditional).constant
-        if flow.stopped and not flow.opaque:
-            return _Value(complete=False)
-        path = self.expr(args[2], flow, conditional).constant
-        if flow.stopped and not flow.opaque:
-            return _Value(complete=False)
-        getting = name == 'GET_VAR'
-        target = self.locate(args[3], flow, conditional, capture_node=True) if getting else None
-        receiver = self.resolve_path_slot(target, args[3], flow) if target is not None else None
-        target_storage = self.variable_path_storage(receiver, flow, conditional) if receiver is not None else None
-        if target_storage is False:
-            self.unresolved_at('path-topology', 'GET_VAR receiver has missing PATH storage: '+receiver.path, node)
-            flow.stopped = True
-            return _Value(complete=False)
-        value, captured_array, shaped_source_record = (
-            (None, None, False) if getting else self.capture_variable_operand(args[3], flow, conditional)
-        )
-        if flow.stopped and not flow.opaque:
-            return _Value(complete=False)
-        status = self.locate(args[4], flow, conditional)
+        with self.capture_references() as pending:
+            entry = self.locate(args[0], flow, conditional)
+            pending.append(entry)
+            if flow.stopped and not flow.opaque:
+                return _Value(complete=False)
+            owner = self.expr(args[1], flow, conditional).constant
+            if flow.stopped and not flow.opaque:
+                return _Value(complete=False)
+            path = self.expr(args[2], flow, conditional).constant
+            if flow.stopped and not flow.opaque:
+                return _Value(complete=False)
+            getting = name == 'GET_VAR'
+            target = self.locate(args[3], flow, conditional, capture_node=True) if getting else None
+            receiver = self.resolve_path_slot(target, args[3], flow) if target is not None else None
+            target_storage = self.variable_path_storage(receiver, flow, conditional) if receiver is not None else None
+            if target_storage is False:
+                self.unresolved_at('path-topology', 'GET_VAR receiver has missing PATH storage: '+receiver.path, node)
+                flow.stopped = True
+                return _Value(complete=False)
+            if getting:
+                pending.append(target)
+            value, captured_array, shaped_source_record = (
+                (None, None, False) if getting else self.capture_variable_operand(args[3], flow, conditional)
+            )
+            if flow.stopped and not flow.opaque:
+                return _Value(complete=False)
+            status = self.locate(args[4], flow, conditional)
         if flow.stopped and not flow.opaque:
             return _Value(complete=False)
         if target is not None and target.path_slot is not None:
@@ -2279,14 +2302,19 @@ class _Analyzer:
         elif name in ('SET_INT_REG','SET_REAL_REG'):signature=[['i','INTEGER'],['i','INTEGER'],['o','INTEGER']]
         elif name=='CNV_STR_INT':signature=[['i','STRING'],['o','INTEGER']]
         values=[];outputs=[]
-        for index,item in enumerate(args):
-            mode=signature[index][0] if signature and index<len(signature) else 'i'
-            if mode in ('o','m'):
-                loc=self.locate(item,flow,conditional);values.append(_Value());outputs.append((index,loc))
-            elif mode=='r':
-                loc=self.locate(item,flow,conditional)
-                values.append(self.read(loc,item,flow,conditional) if loc else self.expr(item,flow,conditional));outputs.append((index,loc))
-            else:values.append(self.expr(item,flow,conditional))
+        with self.capture_references() as pending:
+            for index,item in enumerate(args):
+                mode=signature[index][0] if signature and index<len(signature) else 'i'
+                if mode in ('o','m','r'):
+                    loc=self.locate(item,flow,conditional)
+                    pending.append(loc)
+                    outputs.append((index,loc))
+                    if mode=='r':
+                        values.append(self.read(loc,item,flow,conditional) if loc else self.expr(item,flow,conditional))
+                    else:
+                        values.append(_Value())
+                else:
+                    values.append(self.expr(item,flow,conditional))
         known=[value.constant for value in values]
         if self.linked_plans is not None and name in ('RUN_TASK', 'CONT_TASK'):
             parked = self.task_request(name, known, node, flow)
@@ -2470,23 +2498,27 @@ class _Analyzer:
     def routine(self, name, args, node, flow, conditional, *, statement_call=False):
         routine=self.plan['routines'][name]
         modes=node.get('passing',[]);actual=[]
-        for index,item in enumerate(args):
-            if flow.stopped and not flow.opaque:
-                return _Value(complete=False)
-            mode=modes[index] if index<len(modes) else 'unknown'
-            if mode=='reference':actual.append(self.locate(item,flow,conditional,capture_node=True))
-            elif mode=='value':
-                value = self.expr(item,flow,conditional,partial=True)
-                expected = routine['parameters'][index][1]
-                if not (flow.stopped and not flow.opaque):
-                    if expected[0] == 'PATH':
-                        value = self.convert_path_value(expected, value, item, flow)
-                    elif _path_array_cell_type(expected):
-                        value = self.convert_path_array_value(expected, value, item, flow)
-                actual.append(value)
-            else:
-                self.unresolved_at('argument','Routine passing mode is unresolved: '+name,node)
-                actual.append(self.expr(item,flow,conditional))
+        with self.capture_references() as pending:
+            for index,item in enumerate(args):
+                if flow.stopped and not flow.opaque:
+                    return _Value(complete=False)
+                mode=modes[index] if index<len(modes) else 'unknown'
+                if mode=='reference':
+                    ref = self.locate(item, flow, conditional, capture_node=True)
+                    pending.append(ref)
+                    actual.append(ref)
+                elif mode=='value':
+                    value = self.expr(item,flow,conditional,partial=True)
+                    expected = routine['parameters'][index][1]
+                    if not (flow.stopped and not flow.opaque):
+                        if expected[0] == 'PATH':
+                            value = self.convert_path_value(expected, value, item, flow)
+                        elif _path_array_cell_type(expected):
+                            value = self.convert_path_array_value(expected, value, item, flow)
+                    actual.append(value)
+                else:
+                    self.unresolved_at('argument','Routine passing mode is unresolved: '+name,node)
+                    actual.append(self.expr(item,flow,conditional))
         if flow.stopped and not flow.opaque:
             return _Value(complete=False)
         target_plan, target_routine = self.routine_target(name, routine)

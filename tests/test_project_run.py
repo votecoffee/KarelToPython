@@ -502,6 +502,32 @@ class SavedProjectTests(unittest.TestCase):
         self.assertEqual(result['text_output'], ' 7\n 19\n 42\n')
         self.assertEqual(result['programs']['MAIN']['values']['ROUTE']['data'], {'AMOUNT': 42})
 
+    def test_linked_later_argument_clear_preserves_earlier_borrowed_header_field(self):
+        types = ('TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+                 'route_t=PATH NODEDATA=row_t PATHHEADER=row_t')
+        main = self.module(
+            'MAIN', 'route.amount=7 observe(route.amount,clear_slot()) '
+                    "GET_VAR(entry,'','route.amount',out,s) IF (s=1) AND (out=88) THEN WRITE(s,CR) ENDIF",
+            types+' VAR route:route_t out,entry,s:INTEGER',
+            'ROUTINE clear_slot:INTEGER FROM LIB '
+            'ROUTINE observe(held:INTEGER;code:INTEGER) BEGIN '
+            'WRITE(held,CR) held=19 WRITE(held,CR) WRITE(code,CR) out=88 END observe',
+        )
+        lib = self.module(
+            'LIB', declarations=types+' VAR empty:route_t entry,s:INTEGER',
+            routines="ROUTINE clear_slot:INTEGER BEGIN SET_VAR(entry,'MAIN','route[0]',empty[0],s) "
+                     'RETURN s END clear_slot',
+        )
+        row = ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]]
+        blank = dict(program='LIB', path='EMPTY', type=['PATH', row, row], value=dict(nodes=[], data=MISSING))
+        report = self.create(main, lib, context={'variables': [blank]}, discover=True)['inputs']['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual({(row['program'], row['path']) for row in report['inputs']}, {('LIB', 'EMPTY[0]')})
+        result = runner.run_document(self.document)['results']
+        self.assertEqual(result['status'], 'completed', result['error'])
+        self.assertEqual(result['text_output'], ' 7\n 19\n 12311\n 1\n')
+        self.assertEqual(result['programs']['MAIN']['values']['ROUTE']['data'], MISSING)
+
     def test_linked_path_variable_transfers_follow_a_named_program(self):
         types = ('TYPE src_n=STRUCTURE amount:REAL ENDSTRUCTURE '
                  'dst_n=STRUCTURE amount:INTEGER ENDSTRUCTURE '

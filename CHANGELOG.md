@@ -1,5 +1,10 @@
 # Changelog
 
+## 26.1121.134053 - 2026-11-21
+
+- Preserve earlier borrowed PATH fields when a later call argument clears
+  their record, including named-transfer receivers and status selectors.
+
 ## 26.1121.133345 - 2026-11-21
 
 - Preserve borrowed PATH fields when a whole-record transfer clears their
