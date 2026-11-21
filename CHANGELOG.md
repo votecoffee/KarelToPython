@@ -1,5 +1,14 @@
 # Changelog
 
+## 26.1121.143414 - 2026-11-21
+
+- Follow direct owner, path, and scalar-array status selectors in named
+  variable transfers. Keep SET_VAR snapshots and borrowed outputs stable
+  through checked PATH edits.
+- Check GET_VAR receiver overlap before lookup and SET_VAR destination overlap
+  after lookup. Distinguish live PATH cells from detached records and rebuilt
+  retired slots.
+
 ## 26.1121.142723 - 2026-11-21
 
 - Follow PATH edits by direct index, seed, status selector, and conversion

@@ -900,6 +900,66 @@ class InputTemplateTests(unittest.TestCase):
         self.assertTrue(any('Captured PATH reference has an unresolved origin' in row['message']
                             for row in report['unresolved']), report)
 
+    def test_variable_transfer_overlap_checks_follow_operand_and_lookup_order(self):
+        common = (
+            'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+            'route_t=PATH NODEDATA=row_t PATHHEADER=row_t '
+            'VAR route:route_t bank:ARRAY[2] OF route_t receiver:row_t '
+            'entry,early,wanted,late:INTEGER seed:row_t '
+            'ROUTINE named:STRING[32] BEGIN WRITE(early) RETURN \'route[9]\' END named '
+            'BEGIN APPEND_NODE(route,entry) route[1].amount=7 route.amount=13 '
+            'APPEND_NODE(bank[2],entry) bank[2,1].amount=11 '
+        )
+        cases = (
+            ("GET_VAR(entry,'',named(),route,route.amount)", {'EARLY'}, 'Service output'),
+            ("GET_VAR(entry,'','route',bank[2],bank[2,1].amount)", set(), 'Service output'),
+            ("GET_VAR(entry,'','bank',bank,bank[2,1].amount)", set(), 'Service output'),
+            ("GET_VAR(entry,'',named(),receiver,entry)", {'EARLY'}, 'Service output'),
+            ("SET_VAR(entry,'','route[1]',seed,route[1].amount)", {'SEED'}, 'SET_VAR target overlaps'),
+            ("SET_VAR(entry,'','bank',bank,bank[2,1].amount)", {'BANK[1][0]', 'BANK[2][0]'}, 'SET_VAR target overlaps'),
+            ("SET_VAR(entry,'','route[9]',7,route[1].amount) IF route[1].amount=1 THEN WRITE(wanted) ENDIF",
+             {'WANTED', 'LATE'}, None),
+        )
+        for statement, expected, message in cases:
+            with self.subTest(statement=statement):
+                source = common + statement + ' WRITE(late) END T'
+                prepared = prepare_inputs(translate(source).python_source)
+                report = prepared['template']['discovery']
+                self.assertEqual(set(by_path(prepared)), expected)
+                if message is None:
+                    self.assertTrue(report['complete'], report['unresolved'])
+                else:
+                    self.assertEqual([row['code'] for row in report['unresolved']], ['service-output'])
+                    self.assertIn(message, report['unresolved'][0]['message'])
+
+    def test_named_path_transfer_uses_capture_and_lookup_order_across_selector_edits(self):
+        common = (
+            'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t '
+            'VAR route,replacement,target:route_t seed:row_t entry,s,wanted,unused:INTEGER statuses:ARRAY[1] OF INTEGER '
+            'ROUTINE swap:INTEGER BEGIN COPY_PATH(replacement,0,0,route,s) RETURN 1 END swap '
+            "ROUTINE owner_name:STRING[8] BEGIN COPY_PATH(replacement,0,0,route,s) RETURN '' END owner_name "
+            'BEGIN APPEND_NODE(route,s) route[1].amount=7 '
+            'APPEND_NODE(replacement,s) replacement[1].amount=13 seed.amount=17 '
+        )
+        for statement, condition in (
+            ("GET_VAR(route[1].amount,'','replacement',route,statuses[swap()])",
+             '(PATH_LEN(route)=1) AND (route[1].amount=13) AND (statuses[1]=0)'),
+            ("GET_VAR(route[1].amount,owner_name(),'replacement',route,s)",
+             '(PATH_LEN(route)=1) AND (route[1].amount=13) AND (s=0)'),
+            ("GET_VAR(entry,'','route',target,statuses[swap()])",
+             '(PATH_LEN(target)=1) AND (target[1].amount=13) AND (statuses[1]=0)'),
+            ("SET_VAR(entry,'','target',route,statuses[swap()])",
+             '(PATH_LEN(target)=1) AND (target[1].amount=7) AND (route[1].amount=13) AND (statuses[1]=0)'),
+            ("SET_VAR(route[1].amount,'','route[1]',seed,statuses[swap()])",
+             '(PATH_LEN(route)=1) AND (route[1].amount=17) AND (statuses[1]=0)'),
+        ):
+            with self.subTest(statement=statement):
+                source = common + f'{statement} IF {condition} THEN WRITE(wanted) ELSE WRITE(unused) ENDIF END T'
+                prepared = prepare_inputs(translate(source).python_source)
+                report = prepared['template']['discovery']
+                self.assertTrue(report['complete'], report['unresolved'])
+                self.assertEqual(set(by_path(prepared)), {'WANTED'})
+
     def test_get_var_status_selector_copy_path_keeps_old_node_slot(self):
         source = (
             'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t '
@@ -1246,6 +1306,27 @@ class InputTemplateTests(unittest.TestCase):
             'IF (s=0) AND (held=19) AND (whole.amount=42) AND (v.amount=23) '
             'THEN WRITE(wanted) ELSE WRITE(unused) ENDIF END wipe '
             'BEGIN route.amount=7 substitute.amount=23 seed.amount=42 wipe(route,route[0],route.amount) END T'
+        )
+        row = ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]]
+        initial = dict(program='T', path='EMPTY', type=['PATH', row, row],
+                       value=dict(nodes=[], data=MISSING))
+        prepared = prepare_inputs(translate(source).python_source, context={'variables': [initial]})
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'EMPTY[0]', 'WANTED'})
+
+    def test_named_path_transfer_accepts_status_from_rebuilt_retired_header(self):
+        source = (
+            'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+            'route_t=PATH NODEDATA=row_t PATHHEADER=row_t '
+            'VAR route,substitute,empty,source:route_t seed:row_t entry,s,wanted,unused:INTEGER '
+            'ROUTINE restore(v:route_t;whole:row_t;held:INTEGER) BEGIN COPY_PATH(substitute,0,0,v,s) '
+            "GET_VAR(entry,'','empty[0]',whole,s) GET_VAR(entry,'','seed',whole,s) "
+            "GET_VAR(entry,'','source',v,whole.amount) "
+            'IF (held=7) AND (whole.amount=0) AND (v.amount=31) '
+            'THEN WRITE(wanted) ELSE WRITE(unused) ENDIF END restore '
+            'BEGIN route.amount=7 substitute.amount=23 source.amount=31 seed.amount=42 '
+            'restore(route,route[0],route.amount) END T'
         )
         row = ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]]
         initial = dict(program='T', path='EMPTY', type=['PATH', row, row],

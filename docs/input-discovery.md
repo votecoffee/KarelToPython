@@ -346,7 +346,12 @@ unknown. GET_VAR reads the named source after its arguments have run.
 Exact and compatible context-free layouts preserve known fields and missing
 markers. Discovery can resolve status 0 for complete data, 12311 for
 proved missing data and 3 for rejected layouts. It leaves the cache entry
-number unknown and reports unproved topology, overlaps and model dependencies.
+number unknown and reports unproved topology and model dependencies. Discovery
+stops at a proven output overlap. It checks the `GET_VAR` receiver before
+looking up the named source and checks the `SET_VAR` destination after the name
+resolves. An invalid `SET_VAR` destination still yields status 1 after source
+capture. A field in a retained old record or rebuilt retired slot can receive
+status when its storage is disjoint from the live destination.
 
 For fields of PATH headers and nodes, including PATH ARRAY cells, discovery
 follows `GET_VAR` and `SET_VAR` through proven nested records, joint axes and
@@ -366,10 +371,10 @@ ARRAY rejects named lookup with status 1. When a whole-record transfer clears a
 PATH slot, borrowed fields keep their original storage and whole-record
 references follow the slot. Earlier reference arguments keep their captured
 storage during evaluation of later arguments, including a named transfer's
-status selector. Discovery follows in-place node edits by a direct routine
-used as a later argument or as the scalar-array status subscript of a
-whole-node `GET_VAR` receiver, when the starting topology and affected
-references are known. A captured node slot follows the current list position.
+status selector. Discovery follows checked PATH edits in direct routines
+used for the owner, variable path, and scalar-array status subscript of
+`GET_VAR` and `SET_VAR` when the starting topology and affected references
+are known. A captured node slot follows the current list position.
 A borrowed field keeps its original storage even when its node is removed.
 A checked `COPY_PATH` in the same argument positions can replace the descriptor.
 Previously captured slots and fields retain the old descriptor's storage.

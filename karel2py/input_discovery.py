@@ -1467,14 +1467,6 @@ class _Analyzer:
     def path_contains_reference(self, path, ref):
         return ref.key[:3] == path.key[:3] and ref.parts[:len(path.parts)] == path.parts
 
-    def path_status_disjoint(self, path, status, flow):
-        if not self.path_contains_reference(path, status):
-            return True
-        order = flow.path_orders.get(path.key)
-        depth = len(path.parts)
-        return (order is not None and len(status.parts) > depth + 1
-                and _path_record_identity(status.parts[depth]) in order.detached)
-
     def path_service_overlap(self, path, status, flow, conditional):
         """Check the receiver's live cells against an already captured status."""
         if path is None or path.spec[0] != 'PATH' or status is None:
@@ -1573,7 +1565,7 @@ class _Analyzer:
 
         overlap = self.path_service_overlap(path, status, flow, conditional)
         if overlap is True:
-            return self.reject_path_service_overlap(node, flow)
+            return self.reject_service_overlap(node, flow)
         count = self.known_path_count(path, flow, conditional) if path is not None and path.spec[0] == 'PATH' else None
         if count is not None and overlap is False and not self.repeat_depth:
             removing = name == 'DELETE_NODE'
@@ -1639,8 +1631,8 @@ class _Analyzer:
         self.write(status, _Value(), flow, node)
         return _Value()
 
-    def reject_path_service_overlap(self, node, flow):
-        self.unresolved_at('service-output', 'Service output/resource references must not overlap', node)
+    def reject_service_overlap(self, node, flow, message='Service output/resource references must not overlap'):
+        self.unresolved_at('service-output', message, node)
         flow.stopped = True
         return _Value(complete=False)
 
@@ -1673,7 +1665,7 @@ class _Analyzer:
         convert = flags[0] if flags else False
         overlap = self.path_service_overlap(target, status, flow, conditional)
         if overlap is True:
-            return self.reject_path_service_overlap(node, flow)
+            return self.reject_service_overlap(node, flow)
         archived = None
         if (isinstance(source, _Location) and source.spec[0] == 'PATH'
                 and source_generation != self.path_descriptor_generation(source, flow)):
@@ -2156,9 +2148,7 @@ class _Analyzer:
 
     def variable_path_copy(self, target, value, entry, status, node, flow, conditional):
         """Follow a whole PATH or bank transfer using its captured data."""
-        if (not self.can_publish_path(target, flow, conditional) or entry is None or status is None
-                or entry.key == status.key
-                or not all(self.path_status_disjoint(target, loc, flow) for loc in (entry, status))):
+        if not self.can_publish_path(target, flow, conditional):
             return False
         source_spec, target_spec = tuple_spec(value.spec), tuple_spec(target.spec)
         if source_spec == target_spec:
@@ -2364,6 +2354,25 @@ class _Analyzer:
         self.write(entry, _Value(spec=['INTEGER']), flow, node)
         self.write(status, _Value(result, spec=['INTEGER']), flow, node)
 
+    def variable_target_overlap(self, target, outputs, flow, conditional):
+        """Compare captured scalar outputs with the receiver's live storage."""
+        if target is None or any(output is None for output in outputs) or flow.opaque:
+            return None
+        dimensions, terminal = _array_dimensions(target.spec)
+        depth = len(target.parts) + len(dimensions)
+        unknown = False
+        for output in outputs:
+            if not self.path_contains_reference(target, output):
+                continue
+            if terminal[0] != 'PATH' or target.key == output.key:
+                return True
+            cell = replace(target, parts=output.parts[:depth], spec=terminal)
+            overlap = self.path_service_overlap(cell, output, flow, conditional)
+            if overlap is True:
+                return True
+            unknown |= overlap is None
+        return None if unknown else False
+
     def variable_call(self, node, flow, conditional):
         name = node['value']
         args = node['args']
@@ -2372,10 +2381,10 @@ class _Analyzer:
             pending.append(entry)
             if flow.stopped and not flow.opaque:
                 return _Value(complete=False)
-            owner = self.expr(args[1], flow, conditional).constant
+            owner = self.expr(args[1], flow, conditional, argument_path_edits=entry is not None).constant
             if flow.stopped and not flow.opaque:
                 return _Value(complete=False)
-            path = self.expr(args[2], flow, conditional).constant
+            path = self.expr(args[2], flow, conditional, argument_path_edits=entry is not None).constant
             if flow.stopped and not flow.opaque:
                 return _Value(complete=False)
             getting = name == 'GET_VAR'
@@ -2394,19 +2403,32 @@ class _Analyzer:
             if flow.stopped and not flow.opaque:
                 return _Value(complete=False)
             status = self.locate(args[4], flow, conditional,
-                                 selector_path_edits=target is not None and target.path_slot is not None)
+                                 selector_path_edits=receiver is not None if getting else value.spec is not None)
         if flow.stopped and not flow.opaque:
             return _Value(complete=False)
+        outputs = entry, status
+        if entry is not None and status is not None and entry.key == status.key and not flow.opaque:
+            return self.reject_service_overlap(node, flow)
         if target is not None and target.path_slot is not None:
             target = self.resolve_path_slot(target, node, flow)
             if target is None:
                 target_storage = None
+        # GET_VAR's receiver participates in the service output check,
+        # before lookup. SET_VAR checks the named destination after lookup.
+        overlap = self.variable_target_overlap(target, outputs, flow, conditional) if getting else None
+        if overlap is True:
+            return self.reject_service_overlap(node, flow)
         named, rejected = self.named_variable_location(owner, path, node, flow, conditional)
         named_storage = (self.variable_path_storage(named, flow, conditional, named_lookup=True)
                          if named is not None else None)
         if (rejected or named_storage is False) and status is not None and not flow.opaque:
             self.write(status, _Value(1, spec=['INTEGER']), flow, node)
             return _Value()
+        destination = target if getting else named
+        if not getting:
+            overlap = self.variable_target_overlap(destination, outputs, flow, conditional)
+            if overlap is True:
+                return self.reject_service_overlap(node, flow, 'SET_VAR target overlaps entry/status')
         operand_spec = target.spec if target is not None else value.spec if value is not None else None
         if (named is not None and operand_spec and (named.spec[0] == 'PATH' or _path_array_cell_type(named.spec))
                 and (operand_spec[0] == 'PATH' or _path_array_cell_type(operand_spec))):
@@ -2417,22 +2439,19 @@ class _Analyzer:
             captured = value.path_records is not None or (
                 value.facts and all(cell.path_records is not None for cell in value.facts.values())
             )
-            if not captured or not self.variable_path_copy(target, value, entry, status, node, flow, conditional):
+            if overlap is not False or not captured or not self.variable_path_copy(target, value, entry, status, node, flow, conditional):
                 self.unresolved_at('path-topology', name+' PATH source or receiver effects require review', node)
                 self.opaque(flow)
             return _Value()
 
-        destination = target if getting else named
         destination_storage = named_storage if not getting else target_storage
         if getting and target_storage in (True, MISSING_PATH_RECORD):
             destination_storage = self.variable_path_storage(target, flow, conditional)
         source_spec = named.spec if getting and named is not None else operand_spec if not getting else None
         if (named is not None and destination is not None and source_spec and not flow.opaque
-                and entry is not None and status is not None and entry.key != status.key
-                and named_storage in (True, MISSING_PATH_RECORD)
+                and overlap is False and named_storage in (True, MISSING_PATH_RECORD)
                 and destination_storage in (True, MISSING_PATH_RECORD)
-                and self.ordinary_variable_output(destination, node)
-                and not any(self.path_contains_reference(destination, loc) for loc in (entry, status))):
+                and self.ordinary_variable_output(destination, node)):
             policy = variable_transfer_policy(destination.spec, source_spec)
             if policy is not None:
                 capture, captured_flow = (named, flow) if getting else captured_array or (None, None)
