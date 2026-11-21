@@ -1461,6 +1461,59 @@ class InputTemplateTests(unittest.TestCase):
         self.assertTrue(report['complete'], report['unresolved'])
         self.assertEqual(set(by_path(prepared)), {'WANTED'})
 
+    def test_named_variable_entry_reuses_exact_requested_spellings(self):
+        prepared = prepare(
+            'grid[1,2]=7 '
+            "GET_VAR(entry,'','grid[1][2]',out,s) IF (entry<>1) OR (out<>7) THEN WRITE(unused) ENDIF "
+            "SET_VAR(entry,'T','GRID[1][2]',13,s) IF (entry<>1) OR (s<>0) THEN WRITE(unused) ENDIF "
+            "GET_VAR(entry,'','GRID[1,2]',out,s) "
+            'IF (entry=2) AND (s=0) AND (out=13) THEN WRITE(wanted) ELSE WRITE(unused) ENDIF',
+            decl='grid:ARRAY[2,2] OF INTEGER entry,s,out,wanted,unused:INTEGER',
+        )
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'WANTED'})
+
+    def test_named_variable_entry_only_allocates_after_publication(self):
+        prepared = prepare(
+            "entry=88 out=19 APPEND_NODE(partial,s) GET_VAR(entry,'','partial[9].AMOUNT',out,s) "
+            'IF (s<>1) OR (entry<>88) THEN WRITE(unused) ENDIF '
+            "SET_VAR(entry,'','out',TRUE,s) IF (s<>3) OR (entry<>88) THEN WRITE(unused) ENDIF "
+            "GET_VAR(entry,'','partial',target,s) "
+            'IF (entry<>1) OR (s<>12311) OR (PATH_LEN(target)<>1) THEN WRITE(unused) ENDIF '
+            "SET_VAR(entry,'','out',37,s) "
+            'IF (entry=2) AND (s=0) AND (out=37) THEN WRITE(wanted) ELSE WRITE(unused) ENDIF',
+            decl='partial,target:PATH NODEDATA=row_t entry,s,out,wanted,unused:INTEGER',
+            prefix='TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE',
+        )
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'WANTED'})
+
+    def test_named_variable_entry_merges_branch_allocations_by_count_and_key(self):
+        prepared = prepare(
+            "a=1 b=2 c=3 d=4 IF choice THEN GET_VAR(entry,'','a',out,s) ELSE GET_VAR(entry,'','b',out,s) ENDIF "
+            'IF entry<>1 THEN WRITE(unused) ENDIF '
+            "GET_VAR(entry,'','c',out,s) IF entry<>2 THEN WRITE(unused) ENDIF "
+            "GET_VAR(entry,'','a',out,s) IF entry=1 THEN WRITE(reused) ELSE WRITE(allocated) ENDIF "
+            "GET_VAR(entry,'','d',out,s) IF entry=3 THEN WRITE(third) ELSE WRITE(fourth) ENDIF",
+            decl='a,b,c,d,entry,s,out,unused,reused,allocated,third,fourth:INTEGER choice:BOOLEAN',
+        )
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'CHOICE', 'REUSED', 'ALLOCATED', 'THIRD', 'FOURTH'})
+
+    def test_unknown_named_transfer_keeps_prior_entries_but_loses_next_number(self):
+        prepared = prepare(
+            "a=1 b=2 GET_VAR(entry,'','a',out,s) GET_VAR(entry,'',address,out,s) "
+            "GET_VAR(entry,'','a',out,s) IF entry<>1 THEN WRITE(unused) ENDIF "
+            "GET_VAR(entry,'','b',out,s) IF entry=2 THEN WRITE(second) ELSE WRITE(later) ENDIF",
+            decl='a,b,entry,s,out,unused,second,later:INTEGER address:STRING[12]',
+        )
+        report = prepared['template']['discovery']
+        self.assertEqual([gap['code'] for gap in report['unresolved']], ['variable-path'])
+        self.assertEqual(set(by_path(prepared)), {'ADDRESS', 'SECOND', 'LATER'})
+
     def test_named_variable_rejects_invalid_suffix_on_known_roots(self):
         common = (
             'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t '

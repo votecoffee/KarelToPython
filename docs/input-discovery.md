@@ -345,9 +345,16 @@ status destination, so those reads can appear even if the named target is
 unknown. GET_VAR reads the named source after its arguments have run.
 Exact and compatible context-free layouts preserve known fields and missing
 markers. Discovery can resolve status 0 for complete data, 12311 for
-proved missing data and 3 for rejected layouts. It leaves the cache entry
-number unknown and reports unproved topology and model dependencies. Discovery
-stops at a proven output overlap. It checks the `GET_VAR` receiver before
+proved missing data and 3 for rejected layouts. For a fresh offline context,
+discovery follows entry allocation and reuse across successful named transfers
+and synchronous linked calls. The requested owner and path are case-insensitive.
+Equivalent subscript spellings can have separate entry numbers. A transfer with
+status 1 or 3 leaves the entry and allocation order intact. Branches can retain
+the next number when they allocated the same number of entries, and retain a
+specific entry when its number agrees across all continuing branches. New entry
+numbers remain unknown when earlier operations could have changed the cache.
+Discovery reports unproved topology and model dependencies and stops at a
+proven output overlap. It checks the `GET_VAR` receiver before
 looking up the named source and checks the `SET_VAR` destination after the name
 resolves. A declared root with an invalid field or subscript yields status 1
 without a transfer. An invalid `SET_VAR` destination still yields status 1

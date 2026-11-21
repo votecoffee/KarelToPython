@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1121.145018 - 2026-11-21
+
+- Track offline GET_VAR and SET_VAR entry numbers through successful transfers,
+  synchronous linked calls, and branches with provable allocation counts.
+- Preserve known entries across unresolved named transfers and keep new numbers
+  uncertain when admission or cache order cannot be established.
+
 ## 26.1121.144159 - 2026-11-21
 
 - Resolve invalid named field and subscript selections on declared storage

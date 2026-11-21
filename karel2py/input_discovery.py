@@ -163,13 +163,17 @@ class _Flow:
     record_storage: dict = field(default_factory=dict)
     # Layouts of replaced descriptors still held by an evaluated operand.
     retired_paths: dict = field(default_factory=dict)
+    # None for a key means predecessor flows disagree on its presence or number.
+    variable_entries: dict = field(default_factory=dict)
+    next_variable_entry: int | None = 1
 
     def copy(self):
         return _Flow(self.defined.copy(),self.assigned.copy(),self.maybe.copy(),
                      self.constants.copy(),self.stopped,self.opaque,self.handlers.copy(),
                      self.requested_tasks.copy(),self.paused_tasks.copy(),self.task_order_unknown,
                      self.path_shape_unknown,self.path_orders.copy(),self.uninitialized.copy(),
-                     self.changed_path_aggregates.copy(),self.record_storage.copy(),self.retired_paths.copy())
+                     self.changed_path_aggregates.copy(),self.record_storage.copy(),self.retired_paths.copy(),
+                     self.variable_entries.copy(),self.next_variable_entry)
 
     def take(self, other):
         self.handlers = other.handlers
@@ -182,6 +186,7 @@ class _Flow:
         self.changed_path_aggregates = other.changed_path_aggregates
         self.record_storage = other.record_storage
         self.retired_paths = other.retired_paths
+        self.variable_entries, self.next_variable_entry = other.variable_entries, other.next_variable_entry
 
 
 def _merge(flows):
@@ -212,6 +217,13 @@ def _merge(flows):
         record_storage[key] = state if all(flow.record_storage.get(key) is state for flow in live) else None
     retired_paths = {key: order for key, order in first.retired_paths.items()
                      if all(other.retired_paths.get(key) == order for other in live[1:])}
+    variable_entries = {}
+    for key in set().union(*(flow.variable_entries for flow in live)):
+        entry = first.variable_entries.get(key)
+        variable_entries[key] = entry if all(flow.variable_entries.get(key) == entry for flow in live[1:]) else None
+    next_entry = first.next_variable_entry
+    if any(flow.next_variable_entry != next_entry for flow in live[1:]):
+        next_entry = None
     return _Flow(set.intersection(*(flow.defined for flow in live)),
                  set.intersection(*(flow.assigned for flow in live)),
                  set.union(*(flow.maybe for flow in live)),constants,False,any(flow.opaque for flow in live),
@@ -219,7 +231,8 @@ def _merge(flows):
                  set.union(*(flow.requested_tasks for flow in live)),
                  pauses,uncertain,any(flow.path_shape_unknown for flow in live),path_orders,
                  set.intersection(*(flow.uninitialized for flow in live)),
-                 set.union(*(flow.changed_path_aggregates for flow in live)), record_storage, retired_paths)
+                 set.union(*(flow.changed_path_aggregates for flow in live)), record_storage, retired_paths,
+                 variable_entries, next_entry)
 
 
 def _path_record_identity(part):
@@ -346,6 +359,8 @@ class _Analyzer:
         flow.record_storage.clear()
         flow.path_orders = dict.fromkeys(flow.path_orders)
         flow.retired_paths.clear()
+        flow.variable_entries.clear()
+        flow.next_variable_entry = None
 
     def context(self, service, address):
         self.contexts.setdefault((service,str(address)),dict(service=service,address=address))
@@ -2176,7 +2191,26 @@ class _Analyzer:
         cells = self.path_array_layout(source, node, flow, conditional)
         return cells is not None and all(count is not None for _, count in cells)
 
-    def variable_path_copy(self, target, value, entry, status, node, flow, conditional, *, layout):
+    def publish_variable_result(self, entry, status, result, key, node, flow):
+        """Assign the entry only after the offline named transfer publishes data."""
+        number = None
+        if not (flow.opaque or flow.task_order_unknown or self.callback_depth or self.repeat_depth):
+            if key in flow.variable_entries:
+                number = flow.variable_entries[key]
+            elif flow.next_variable_entry is not None:
+                number = flow.next_variable_entry
+                self.tick()
+                flow.variable_entries[key] = number
+                if len(flow.variable_entries) > MAX_FACTS:
+                    raise _Limit('Analysis storage limit reached')
+                flow.next_variable_entry = number + 1
+        if number is None:
+            # A branch-dependent key could have just allocated another number.
+            flow.next_variable_entry = None
+        self.write(entry, _Value(number if number is not None else UNKNOWN, spec=['INTEGER']), flow, node)
+        self.write(status, _Value(result, spec=['INTEGER']), flow, node)
+
+    def variable_path_copy(self, target, value, entry, status, node, flow, conditional, *, layout, entry_key):
         """Follow a whole PATH or bank transfer using its captured data."""
         if not self.can_publish_path(target, flow, conditional):
             return False
@@ -2209,8 +2243,7 @@ class _Analyzer:
             if not self.publish_path_array_value(target, value, node, flow, conditional, layout=layout):
                 return False
 
-        self.write(entry, _Value(spec=['INTEGER']), flow, node)
-        self.write(status, _Value(self.variable_transfer_status(value), spec=['INTEGER']), flow, node)
+        self.publish_variable_result(entry, status, self.variable_transfer_status(value), entry_key, node, flow)
         return True
 
     def ordinary_variable_output(self, loc, node):
@@ -2322,8 +2355,8 @@ class _Analyzer:
         part = ('created-header' if header else 'created-node', self.serial)
         return replace(loc, parts=(*path.parts, part))
 
-    def variable_data_copy(self, target, value, entry, status, policy, node, flow, conditional, *, prefix=None,
-                           source_array_storage=False, shaped_source_record=False):
+    def variable_data_copy(self, target, value, entry, status, policy, node, flow, conditional, *, entry_key,
+                           prefix=None, source_array_storage=False, shaped_source_record=False):
         if policy == 'rejected':
             self.write(status, _Value(3, spec=['INTEGER']), flow, node)
             return
@@ -2357,6 +2390,7 @@ class _Analyzer:
             _, terminal = _array_dimensions(target.root_spec)
             if terminal and terminal[0] == 'PATH' and any(not converted.complete for _, converted in prepared):
                 self.unresolved_at('path-topology', 'Variable ARRAY source may replace PATH storage with a missing value', node)
+                flow.next_variable_entry = None
                 self.write(target, _Value(complete=False), flow, node, definite=False)
                 self.write(entry, _Value(), flow, node, definite=False)
                 self.write(status, _Value(), flow, node)
@@ -2372,8 +2406,7 @@ class _Analyzer:
             self.write(destination, converted, flow, node, shaped_record=shaped_source_record)
             codes.append(self.variable_transfer_status(converted))
         result = 12311 if 12311 in codes else 0 if all(code == 0 for code in codes) else UNKNOWN
-        self.write(entry, _Value(spec=['INTEGER']), flow, node)
-        self.write(status, _Value(result, spec=['INTEGER']), flow, node)
+        self.publish_variable_result(entry, status, result, entry_key, node, flow)
 
     def variable_target_overlap(self, target, outputs, flow, conditional):
         """Compare captured scalar outputs with the receiver's live storage."""
@@ -2450,6 +2483,9 @@ class _Analyzer:
             overlap = self.variable_target_overlap(destination, outputs, flow, conditional)
             if overlap is True:
                 return self.reject_service_overlap(node, flow, 'SET_VAR target overlaps entry/status')
+        # The runtime uses the requested spelling, even for linked aliases
+        # and equivalent PATH or ARRAY subscript spellings.
+        entry_key = (owner.upper() or self.program, path.upper()) if named is not None else None
         source_spec = (named.spec if named is not None else None) if getting else value.spec
         if source_spec and destination is not None:
             target_spec = destination.spec
@@ -2472,7 +2508,8 @@ class _Analyzer:
                     if layout is None:
                         self.write(status, _Value(3, spec=['INTEGER']), flow, node)
                         return _Value()
-                    if self.variable_path_copy(destination, value, entry, status, node, flow, conditional, layout=layout):
+                    if self.variable_path_copy(destination, value, entry, status, node, flow, conditional,
+                                               layout=layout, entry_key=entry_key):
                         return _Value()
                 self.unresolved_at('path-topology', name+' PATH source or receiver effects require review', node)
                 self.opaque(flow)
@@ -2506,11 +2543,13 @@ class _Analyzer:
                     shaped_source_record = (self.whole_path_record(named) and named_storage is True
                                             or flow.record_storage.get(named.key) is True)
                 self.variable_data_copy(destination, value, entry, status, policy, node, flow, conditional,
-                                        prefix=prefix,
+                                        entry_key=entry_key, prefix=prefix,
                                         source_array_storage=source_array_storage,
                                         shaped_source_record=shaped_source_record)
                 return _Value()
 
+        # An unresolved named transfer may allocate a new entry on success.
+        flow.next_variable_entry = None
         if captured_array is not None:
             capture, captured_flow = captured_array
             self.read(capture, args[3], captured_flow, conditional, partial=True, raw_scalar=True)
