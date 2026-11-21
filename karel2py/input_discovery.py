@@ -1475,6 +1475,35 @@ class _Analyzer:
         return (order is not None and len(status.parts) > depth + 1
                 and _path_record_identity(status.parts[depth]) in order.detached)
 
+    def path_service_overlap(self, path, status, flow, conditional):
+        """Check the receiver's live cells against an already captured status."""
+        if path is None or path.spec[0] != 'PATH' or status is None:
+            return None
+        if not self.path_contains_reference(path, status):
+            return False
+        depth = len(path.parts)
+        if len(status.parts) <= depth + 1 or not self.definite_path_effect(flow, conditional):
+            return None
+        part = status.parts[depth]
+        origin = _path_record_identity(part)
+        order = flow.path_orders.get(path.key)
+        if order is None:
+            if _path_header_part(part):
+                live = path.spec[2] is not None and origin == 0
+            else:
+                count = self.known_path_count(path, flow, conditional)
+                live = count is not None and origin is not None and 1 <= origin <= count
+        else:
+            self.tick(len(order.nodes))
+            live = origin == order.header_origin if _path_header_part(part) else origin in order.nodes
+            if not live:
+                self.tick(len(order.retired_slots))
+                if origin in order.detached or origin in order.retired_slots.values():
+                    return False
+        if live and self.variable_path_storage(status, flow, conditional) is True:
+            return True
+        return None
+
     def path_seed_layout(self, path, seed, convert):
         if seed is None:
             return 'exact'
@@ -1513,17 +1542,19 @@ class _Analyzer:
         path = self.locate(path_arg, flow, conditional)
         if flow.stopped and not flow.opaque:
             return _Value(complete=False)
+        known_receiver = (path is not None and path.spec[0] == 'PATH'
+                          and self.path_descriptor_generation(path, flow) is not None)
         index = None
         if name != 'APPEND_NODE':
             index_arg, *operands = operands
-            index = self.expr(index_arg, flow, conditional).constant
+            index = self.expr(index_arg, flow, conditional, argument_path_edits=known_receiver).constant
         if flow.stopped and not flow.opaque:
             return _Value(complete=False)
         seed = None
         flags = []
         if len(operands) > 1:
             seed_arg, status_arg, *flags = operands
-            seed = self.expr(seed_arg, flow, conditional, partial=True)
+            seed = self.expr(seed_arg, flow, conditional, partial=True, argument_path_edits=known_receiver)
             if _known_missing(seed):
                 self.unresolved_at('path-seed', 'PATH node seed requires all source fields initialized', seed_arg)
                 flow.stopped = True
@@ -1532,17 +1563,19 @@ class _Analyzer:
         if flow.stopped and not flow.opaque:
             return _Value(complete=False)
         with self.capture_operands() as pending:
-            status = self.locate(status_arg, flow, conditional)
+            status = self.locate(status_arg, flow, conditional, selector_path_edits=known_receiver)
             if flow.stopped and not flow.opaque:
                 return _Value(complete=False)
             pending.append(status)
-            convert = self.expr(flags[0], flow, conditional).constant if flags else None
+            convert = self.expr(flags[0], flow, conditional, argument_path_edits=known_receiver).constant if flags else None
         if flow.stopped and not flow.opaque:
             return _Value(complete=False)
 
+        overlap = self.path_service_overlap(path, status, flow, conditional)
+        if overlap is True:
+            return self.reject_path_service_overlap(node, flow)
         count = self.known_path_count(path, flow, conditional) if path is not None and path.spec[0] == 'PATH' else None
-        if (count is not None and status is not None and not self.repeat_depth
-                and self.path_status_disjoint(path, status, flow)):
+        if count is not None and overlap is False and not self.repeat_depth:
             removing = name == 'DELETE_NODE'
             last = count if removing else count + 1
             if name == 'APPEND_NODE':
@@ -1606,6 +1639,11 @@ class _Analyzer:
         self.write(status, _Value(), flow, node)
         return _Value()
 
+    def reject_path_service_overlap(self, node, flow):
+        self.unresolved_at('service-output', 'Service output/resource references must not overlap', node)
+        flow.stopped = True
+        return _Value(complete=False)
+
     def path_copy(self, node, flow, conditional):
         operands = []
         source_generation = None
@@ -1623,7 +1661,7 @@ class _Analyzer:
                             self.pending_path_values.append((loc.key, source_generation))
                     known_source = source_generation is not None or value is not None and value.path_records is not None
                 elif index in (3, 4):
-                    loc = self.locate(argument, flow, conditional)
+                    loc = self.locate(argument, flow, conditional, selector_path_edits=index == 4 and known_source)
                     pending.append(loc)
                     operands.append(loc)
                 else:
@@ -1633,6 +1671,9 @@ class _Analyzer:
             return _Value(complete=False)
         source, first, last, target, status, *flags = operands
         convert = flags[0] if flags else False
+        overlap = self.path_service_overlap(target, status, flow, conditional)
+        if overlap is True:
+            return self.reject_path_service_overlap(node, flow)
         archived = None
         if (isinstance(source, _Location) and source.spec[0] == 'PATH'
                 and source_generation != self.path_descriptor_generation(source, flow)):
@@ -1642,9 +1683,7 @@ class _Analyzer:
                 self.opaque(flow)
                 return _Value()
         if (source is not None and source.spec and source.spec[0] == 'PATH'
-                and target is not None and target.spec[0] == 'PATH'
-                and status is not None and self.definite_path_effect(flow, conditional)
-                and self.path_status_disjoint(target, status, flow)):
+                and overlap is False and self.definite_path_effect(flow, conditional)):
             source_type, target_type = tuple_spec(source.spec), tuple_spec(target.spec)
             if source_type == target_type:
                 layout = ('exact', 'exact')

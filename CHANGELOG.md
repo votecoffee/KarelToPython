@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1121.142723 - 2026-11-21
+
+- Follow PATH edits by direct index, seed, status selector, and conversion
+  routines. Apply node edits to the receiver resolved after operand evaluation.
+- Detect proven live PATH status overlap before applying a service. Follow a
+  captured status field when a conversion operand detaches its record.
+
 ## 26.1121.141849 - 2026-11-21
 
 - Follow PATH range bounds and direct selector routines that edit the source

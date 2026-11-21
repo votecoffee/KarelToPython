@@ -508,6 +508,11 @@ outside the edited shape reports a gap for the transfer.
 
 A seeded append or insert discovers reads of the seed before the edit.
 The capture precedes evaluation of the status selector and conversion flag.
+Discovery follows checked direct routines in the index, seed, scalar-array
+status selector, and conversion operands. Node edits resolve the current PATH
+through the receiver reference after those operands run. `COPY_PATH` also
+follows a direct scalar-array status selector while retaining its earlier
+raw source descriptor.
 An exact NODEDATA seed carries its known field values into the new record.
 A compatible context-free conversion with explicit TRUE tracks known
 converted values as well as initialized fields. A known missing seed fails at
@@ -515,10 +520,14 @@ capture, before the status selector and conversion flag. A known invalid
 conversion or missing converted field fails before the node edit or status
 write. A statically rejected layout sets status 3 before the index check.
 A shifted PATH record used as a seed retains its original saved input address.
+Node edits and `COPY_PATH` stop discovery at a proven overlap between the
+live receiver and its status reference, after discovering any earlier
+operand reads. If a conversion operand has already detached the captured
+status field from the receiver, the status write reaches that original field.
 
 Model-dependent seed conversions, unknown conversion choices for different
-layouts, edits through retained aliases, and uncertain or potentially
-repeated edits leave the topology unresolved.
+layouts, unproved alias origins, and uncertain or potentially repeated edits
+leave the topology unresolved.
 When discovery loses the order of a tracked PATH, it reports unknown saved
 origins for its node selectors.
 

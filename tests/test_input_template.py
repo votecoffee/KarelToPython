@@ -2096,16 +2096,84 @@ class InputTemplateTests(unittest.TestCase):
         self.assertTrue(prepared['template']['discovery']['complete'], prepared['template']['discovery']['unresolved'])
         self.assertEqual(set(by_path(prepared)), {'ROUTE[1].AMOUNT'})
 
-    def test_overlapping_service_status_does_not_establish_an_edit(self):
+    def test_overlapping_path_service_status_stops_after_evaluating_operands(self):
         spec = ['PATH', ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]], None]
         context = {'variables': [dict(program='T', path='ROUTE', type=spec,
                                       value=dict(nodes=[{'AMOUNT': 7}], data=None))]}
-        prepared = prepare('DELETE_NODE(route,1,route[1].amount) WRITE(route[1])',
-                           decl='route:PATH NODEDATA=row_t',
+        prepared = prepare('DELETE_NODE(route,1,route[1].amount) WRITE(late)',
+                           decl='route:PATH NODEDATA=row_t late:INTEGER',
                            prefix='TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE', context=context)
         report = prepared['template']['discovery']
         self.assertFalse(report['inputs'])
-        self.assertIn('path-topology', {row['code'] for row in report['unresolved']})
+        self.assertEqual([row['code'] for row in report['unresolved']], ['service-output'])
+
+        source = (
+            'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+            'route_t=PATH NODEDATA=row_t PATHHEADER=row_t '
+            'VAR route,source:route_t flag_input,late,s:INTEGER '
+            'ROUTINE flag:BOOLEAN BEGIN WRITE(flag_input) RETURN FALSE END flag '
+            'BEGIN APPEND_NODE(source,s) source[1].amount=7 source.amount=8 '
+            'route.amount=99 COPY_PATH(source,1,1,route,route.amount,flag()) WRITE(late) END T'
+        )
+        prepared = prepare_inputs(translate(source).python_source)
+        report = prepared['template']['discovery']
+        self.assertEqual([row['code'] for row in report['unresolved']], ['service-output'])
+        self.assertEqual(set(by_path(prepared)), {'FLAG_INPUT'})
+
+    def test_path_edit_loads_receiver_after_direct_operand_routines(self):
+        common = (
+            'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t '
+            'VAR route,replacement,target:route_t seed:row_t s,wanted,unused:INTEGER statuses:ARRAY[1] OF INTEGER '
+            'ROUTINE swap:INTEGER BEGIN COPY_PATH(replacement,0,0,route,s) seed.amount=99 RETURN 1 END swap '
+            'ROUTINE make_row:row_t VAR value:row_t BEGIN '
+            'COPY_PATH(replacement,0,0,route,s) value.amount=17 RETURN value END make_row '
+            'BEGIN APPEND_NODE(route,s) route[1].amount=7 '
+            'APPEND_NODE(replacement,s) replacement[1].amount=13 '
+            'APPEND_NODE(replacement,s) replacement[2].amount=23 seed.amount=17 '
+        )
+        cases = (
+            ('INSERT_NODE(route,swap(),seed,s)', '(s=0) AND (PATH_LEN(route)=3) AND (route[1].amount=99) AND (route[2].amount=13)'),
+            ('DELETE_NODE(route,swap(),s)', '(s=0) AND (PATH_LEN(route)=1) AND (route[1].amount=23)'),
+            ('APPEND_NODE(route,make_row(),s)', '(s=0) AND (PATH_LEN(route)=3) AND (route[1].amount=13) AND (route[3].amount=17)'),
+            ('APPEND_NODE(route,seed,statuses[swap()])',
+             '(statuses[1]=0) AND (PATH_LEN(route)=3) AND (route[1].amount=13) AND (route[3].amount=17) AND (seed.amount=99)'),
+            ('COPY_PATH(route,1,1,target,statuses[swap()])',
+             '(statuses[1]=0) AND (PATH_LEN(target)=1) AND (target[1].amount=7) AND (route[1].amount=13)'),
+        )
+        for statement, condition in cases:
+            with self.subTest(statement=statement):
+                source = common + f'{statement} IF {condition} THEN WRITE(wanted) ELSE WRITE(unused) ENDIF END T'
+                prepared = prepare_inputs(translate(source).python_source)
+                report = prepared['template']['discovery']
+                self.assertTrue(report['complete'], report['unresolved'])
+                self.assertEqual(set(by_path(prepared)), {'WANTED'})
+
+    def test_path_service_status_follows_field_detached_by_conversion_operand(self):
+        common = (
+            'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t '
+            'VAR route,replacement:route_t s,wanted,unused:INTEGER '
+            'ROUTINE swap:BOOLEAN BEGIN COPY_PATH(replacement,0,0,route,s) RETURN FALSE END swap '
+            'ROUTINE drop:BOOLEAN BEGIN DELETE_NODE(route,1,s) RETURN FALSE END drop '
+        )
+        for statement, condition in (
+            ('APPEND_NODE(route,route[1],route[1].amount,swap())',
+             '(PATH_LEN(route)=2) AND (route[1].amount=13) AND (route[2].amount=7)'),
+            ('APPEND_NODE(route,route[1],route[1].amount,drop())',
+             '(PATH_LEN(route)=1) AND (route[1].amount=7)'),
+            ('COPY_PATH(route,0,0,route,route[1].amount,swap())',
+             '(PATH_LEN(route)=1) AND (route[1].amount=7)'),
+        ):
+            with self.subTest(statement=statement):
+                source = common + (
+                    f'ROUTINE observe(held:INTEGER) BEGIN {statement} '
+                    f'IF (held=0) AND {condition} THEN WRITE(wanted) ELSE WRITE(unused) ENDIF END observe '
+                    'BEGIN APPEND_NODE(route,s) route[1].amount=7 APPEND_NODE(replacement,s) '
+                    'replacement[1].amount=13 observe(route[1].amount) END T'
+                )
+                prepared = prepare_inputs(translate(source).python_source)
+                report = prepared['template']['discovery']
+                self.assertTrue(report['complete'], report['unresolved'])
+                self.assertEqual(set(by_path(prepared)), {'WANTED'})
 
     def test_rejected_node_edit_preserves_a_live_node_alias(self):
         source = (
