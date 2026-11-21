@@ -1,5 +1,13 @@
 # Changelog
 
+## 26.1121.141849 - 2026-11-21
+
+- Follow PATH range bounds and direct selector routines that edit the source
+  or replace its descriptor. Preserve the PATH captured by WRITE and resolve
+  the current descriptor for READ.
+- Preserve selected PATH fields across READ format evaluation and later
+  destination selectors.
+
 ## 26.1121.140424 - 2026-11-21
 
 - Follow evaluated raw PATH descriptors through checked replacements during

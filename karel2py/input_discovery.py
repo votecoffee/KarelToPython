@@ -464,21 +464,58 @@ class _Analyzer:
             return [location]
         receiver, first_arg, last_arg = expr['args']
         path = self.locate(receiver, flow, conditional)
-        first = self.expr(first_arg, flow, conditional).constant
-        last = self.expr(last_arg, flow, conditional).constant
-        spec = path.spec if path else None
+        if flow.stopped and not flow.opaque:
+            return []
+        spec = path.spec if path is not None else None
+        path_operand = spec is not None and spec[0] == 'PATH'
+        generation = self.path_descriptor_generation(path, flow) if path_operand else None
+        stable_shape = not (flow.opaque or flow.path_shape_unknown)
+        with self.capture_operands():
+            # WRITE holds the raw descriptor. READ holds a reference and
+            # resolves its current descriptor after both bounds have run.
+            if not reading and generation is not None:
+                self.pending_path_values.append((path.key, generation))
+            bounds = self.path_io_bounds(first_arg, last_arg, flow, conditional, argument_path_edits=path_operand)
+        if bounds is None:
+            return []
+        first, last = bounds
         if not self.valid_path_range(spec, first, last, expr):
             return [None]
-        count = self.known_path_count(path, flow, conditional)
+
+        current = self.path_descriptor_generation(path, flow)
+        replaced = generation != current
+        archived = self.retired_path_order(path, generation, flow, conditional) if replaced and not reading else None
+        lost_shape = stable_shape and (flow.opaque or flow.path_shape_unknown)
+        if current is None or lost_shape or (replaced and not reading and archived is None):
+            self.unresolved_at('path-topology', 'PATH range descriptor is unresolved after bound evaluation: '+path.path, expr)
+            return [None]
+        count = len(archived.nodes) if archived is not None else self.known_path_count(path, flow, conditional)
         indexes = self.path_range_indexes(spec, 32767 if count is None else count, first, last, expr)
         if indexes is None:
             return [None]
-        locations = [self.index_child(path, index, expr, flow) for index in indexes]
-        if any(location is None for location in locations):
-            return [None]
+
+        locations = []
+        for index in indexes:
+            location = (self.index_child(path, index, expr, flow) if archived is None
+                        else self.retired_path_child(path, index, expr, flow, archived))
+            if location is None:
+                return [None]
+            if replaced and self.variable_path_storage(location, flow, conditional, archived=archived) is not True:
+                self.unresolved_at('path-topology', 'Selected PATH range storage is unresolved: '+location.path, expr)
+                return [None]
+            locations.append(location)
         for location in locations:
             self.retain_selected_path_storage(location, flow, conditional)
         return locations
+
+    def path_io_bounds(self, first, last, flow, conditional, *, argument_path_edits=False):
+        values = []
+        for bound in (first, last):
+            value = self.expr(bound, flow, conditional, argument_path_edits=argument_path_edits)
+            if flow.stopped and not flow.opaque:
+                return None
+            values.append(value.constant)
+        return tuple(values)
 
     def valid_path_range(self, spec, first, last, node):
         if (spec and spec[0] == 'PATH' and type(first) is int and type(last) is int
@@ -822,6 +859,7 @@ class _Analyzer:
             for position, argument in enumerate(args[1:], 1):
                 path_base = loc is not None and loc.spec[0] == 'PATH'
                 generation = self.path_descriptor_generation(loc, flow) if path_base else None
+                stable_shape = path_base and not (flow.opaque or flow.path_shape_unknown)
                 # Flattened indexes look up the PATH after all subscripts.
                 # Aggregate transfers with a header lower to a separate PATH
                 # operand: WRITE loads it, while READ passes a reference.
@@ -830,11 +868,14 @@ class _Analyzer:
                 with self.capture_operands():
                     if captures_path and generation is not None:
                         self.pending_path_values.append((loc.key, generation))
-                    index=self.expr(argument,flow,conditional,argument_path_edits=safe_selector).constant
+                    index=self.expr(argument,flow,conditional,argument_path_edits=safe_selector or path_base).constant
                 archived = None
                 current_generation = self.path_descriptor_generation(loc, flow) if path_base else None
                 replaced = generation != current_generation
-                if replaced:
+                if stable_shape and (flow.opaque or flow.path_shape_unknown):
+                    self.unresolved_at('path-topology', 'PATH descriptor became unresolved during index evaluation: '+loc.path, expr)
+                    loc = None
+                elif replaced:
                     if captures_path:
                         archived = self.retired_path_order(loc, generation, flow, conditional)
                     if current_generation is None or (captures_path and archived is None):
@@ -1181,12 +1222,11 @@ class _Analyzer:
         value = self.expr(receiver, flow, conditional, partial=True)
         if flow.stopped and not flow.opaque:
             return _Value(complete=False)
-        first = self.expr(first_arg, flow, conditional).constant
-        if flow.stopped and not flow.opaque:
+        bounds = self.path_io_bounds(first_arg, last_arg, flow, conditional,
+                                     argument_path_edits=value.path_records is not None)
+        if bounds is None or not self.valid_path_range(value.spec, *bounds, node):
             return _Value(complete=False)
-        last = self.expr(last_arg, flow, conditional).constant
-        if flow.stopped and not flow.opaque or not self.valid_path_range(value.spec, first, last, node):
-            return _Value(complete=False)
+        first, last = bounds
         has_header = value.spec[2] is not None
         count = len(value.path_records) - has_header if value.path_records is not None else None
         indexes = self.path_range_indexes(value.spec, count, first, last, node)
@@ -1569,6 +1609,7 @@ class _Analyzer:
     def path_copy(self, node, flow, conditional):
         operands = []
         source_generation = None
+        known_source = False
         with self.capture_operands() as pending:
             for index, argument in enumerate(node['args']):
                 if flow.stopped and not flow.opaque:
@@ -1580,12 +1621,14 @@ class _Analyzer:
                         source_generation = self.path_descriptor_generation(loc, flow)
                         if source_generation is not None:
                             self.pending_path_values.append((loc.key, source_generation))
+                    known_source = source_generation is not None or value is not None and value.path_records is not None
                 elif index in (3, 4):
                     loc = self.locate(argument, flow, conditional)
                     pending.append(loc)
                     operands.append(loc)
                 else:
-                    operands.append(self.expr(argument, flow, conditional).constant)
+                    value = self.expr(argument, flow, conditional, argument_path_edits=known_source)
+                    operands.append(value.constant)
         if flow.stopped and not flow.opaque:
             return _Value(complete=False)
         source, first, last, target, status, *flags = operands
@@ -2963,6 +3006,49 @@ class _Analyzer:
         if self.linked_plans is not None:
             self.opaque(flow)
 
+    def read_statement(self, node, flow, conditional):
+        """Capture PATH fields before later selectors or format controls can edit them."""
+        destinations = []
+        captured_path_fields = False
+        with self.capture_operands() as pending:
+            for argument in node['args']:
+                if flow.stopped and not flow.opaque:
+                    return
+                if argument['kind'] == 'read_cr':
+                    continue
+                formatted = argument['kind'] == 'read_item'
+                target = argument['args'][0] if formatted else argument
+                for location in self.path_io_locations(target, flow, conditional, reading=True):
+                    fields = self.path_read_fields(location, flow, conditional)
+                    if fields is not None:
+                        destinations.extend(fields)
+                        pending.extend(fields)
+                        captured_path_fields = True
+                    else:
+                        destinations.append(location)
+                        pending.append(location)
+                if formatted:
+                    for control in argument['args'][1:]:
+                        if flow.stopped and not flow.opaque:
+                            return
+                        self.expr(control, flow, conditional, argument_path_edits=captured_path_fields)
+        if flow.stopped and not flow.opaque:
+            return
+        self.unresolved_at('input-stream','READ requires explicitly supplied input data',node)
+        if any(location is None for location in destinations):
+            self.opaque(flow)
+        for location in destinations:
+            self.write(location, _Value(), flow, node, definite=False)
+
+    def path_read_fields(self, location, flow, conditional):
+        if location is None:
+            return None
+        dimensions, terminal = _array_dimensions(location.root_spec)
+        if terminal and terminal[0] == 'PATH' and len(location.parts) > len(dimensions):
+            if self.variable_path_storage(location, flow, conditional) is True:
+                return self.leaves(location)
+        return None
+
     def statement(self, node, flow, conditional):
         self.tick();kind=node['kind'];args=node['args']
         if flow.task_order_unknown and flow.paused_tasks:
@@ -3122,27 +3208,7 @@ class _Analyzer:
                 self.expr(argument,flow,conditional)
             return
         if kind=='read':
-            destinations = []
-            for argument in args:
-                if flow.stopped and not flow.opaque:
-                    return
-                if argument['kind'] == 'read_cr':
-                    continue
-                formatted = argument['kind'] == 'read_item'
-                target = argument['args'][0] if formatted else argument
-                destinations.extend(self.path_io_locations(target, flow, conditional, reading=True))
-                if formatted:
-                    for control in argument['args'][1:]:
-                        if flow.stopped and not flow.opaque:
-                            return
-                        self.expr(control, flow, conditional)
-            if flow.stopped and not flow.opaque:
-                return
-            self.unresolved_at('input-stream','READ requires explicitly supplied input data',node)
-            if any(location is None for location in destinations):
-                self.opaque(flow)
-            for location in destinations:
-                self.write(location, _Value(), flow, node, definite=False)
+            self.read_statement(node, flow, conditional)
             return
         if kind=='abort' or kind=='task_control' and args[0] in ('ABORT','STOP') and len(args)==1:
             flow.stopped=True;return

@@ -436,9 +436,14 @@ selector when analysis proves its value. An inclusive range with known bounds
 visits the records in range order, including a declared header at either
 zero endpoint. The known saved or source-created node count validates the
 entire range before discovery lists its inputs. Discovery also checks the
-scalar field limit before listing range inputs. Unknown selectors remain explicit
-in the discovery report. Retranslate older output to add the header-selector
-and default-node metadata.
+scalar field limit before listing range inputs. If a statically tracked bound
+routine replaces the descriptor, WRITE still reads the descriptor captured
+before the bounds ran. READ resolves the writable PATH reference after both
+bounds run, then captures its selected fields before evaluating formats or
+later destinations. Direct selectors and `COPY_PATH` bounds can also call
+routines with tracked PATH effects. Unknown selectors remain explicit in the
+discovery report. Retranslate older output to add the header-selector and
+default-node metadata.
 
 A selector on a scalar PATH routine result, such as `build_route()[1..0]`
 or `build_route().total`, uses the returned records and their known fields.

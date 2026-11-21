@@ -954,6 +954,9 @@ class InputTemplateTests(unittest.TestCase):
             'IF (s=0) AND (target[1].amount=7) AND (route[1].amount=13) THEN WRITE(wanted) ELSE WRITE(unused) ENDIF',
             'IF (route[choose(dummy,swap())].amount=7) AND (route[1].amount=13) THEN WRITE(wanted) ELSE WRITE(unused) ENDIF',
             'observe(route[1].amount,route[choose(dummy,swap())])',
+            'COPY_PATH(route,swap(),1,target,s) '
+            'IF (s=0) AND (target[1].amount=7) AND (route[1].amount=13) THEN WRITE(wanted) ELSE WRITE(unused) ENDIF',
+            'IF (route[swap()].amount=7) AND (route[1].amount=13) THEN WRITE(wanted) ELSE WRITE(unused) ENDIF',
         ):
             with self.subTest(statement=statement):
                 prepared = prepare_inputs(translate(common + statement + ' END T').python_source)
@@ -1868,6 +1871,71 @@ class InputTemplateTests(unittest.TestCase):
                 report = prepared['template']['discovery']
                 self.assertTrue(report['complete'], report['unresolved'])
                 self.assertEqual(set(by_path(prepared)), expected)
+
+    def test_path_write_range_uses_retained_descriptor_after_both_bounds(self):
+        source = (
+            'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
+            'route_t=PATH NODEDATA=row_t PATHHEADER=row_t '
+            'VAR routes:ARRAY[1] OF route_t replacement:route_t s,wanted,unused:INTEGER '
+            'ROUTINE shift:INTEGER BEGIN INSERT_NODE(routes[1],1,s) routes[1,1].amount=31 RETURN 2 END shift '
+            'ROUTINE swap:INTEGER BEGIN COPY_PATH(replacement,0,0,routes[1],s) RETURN 0 END swap '
+            'BEGIN APPEND_NODE(replacement,s) replacement[1].amount=13 replacement.amount=23 '
+            'WRITE(routes[1,shift()..swap()]) '
+            'IF (PATH_LEN(routes[1])=1) AND (routes[1,1].amount=13) '
+            'THEN WRITE(wanted) ELSE WRITE(unused) ENDIF END T'
+        )
+        row = ['STRUCTURE', 'ROW_T', [['AMOUNT', ['INTEGER']]]]
+        seed = dict(program='T', path='ROUTES', type=['ARRAY', 1, ['PATH', row, row]],
+                    value=[dict(nodes=[{'AMOUNT': MISSING}], data={'AMOUNT': MISSING})])
+        prepared = prepare_inputs(translate(source).python_source, context={'variables': [seed]})
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'ROUTES[1][0]', 'ROUTES[1][1]', 'WANTED'})
+
+    def test_path_read_range_resolves_replacement_after_first_bound(self):
+        source = (
+            'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t '
+            'VAR route,replacement:route_t s,wanted,unused:INTEGER '
+            'ROUTINE swap:INTEGER BEGIN COPY_PATH(replacement,0,0,route,s) RETURN 2 END swap '
+            'BEGIN APPEND_NODE(route,s) route[1].amount=7 '
+            'APPEND_NODE(replacement,s) replacement[1].amount=13 '
+            'APPEND_NODE(replacement,s) replacement[2].amount=17 '
+            'READ(route[swap()..2]) '
+            'IF route[1].amount=13 THEN WRITE(wanted) ELSE WRITE(unused) ENDIF END T'
+        )
+        prepared = prepare_inputs(translate(source).python_source)
+        report = prepared['template']['discovery']
+        self.assertEqual([row['code'] for row in report['unresolved']], ['input-stream'])
+        self.assertEqual(set(by_path(prepared)), {'WANTED'})
+
+    def test_path_read_format_keeps_fields_captured_before_descriptor_replacement(self):
+        source = (
+            'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t '
+            'VAR route,replacement:route_t s,wanted,unused:INTEGER '
+            'ROUTINE swap:INTEGER BEGIN COPY_PATH(replacement,0,0,route,s) RETURN 3 END swap '
+            'BEGIN APPEND_NODE(route,s) route[1].amount=7 '
+            'APPEND_NODE(replacement,s) replacement[1].amount=13 '
+            'READ(route[1..1]::swap()) '
+            'IF route[1].amount=13 THEN WRITE(wanted) ELSE WRITE(unused) ENDIF END T'
+        )
+        prepared = prepare_inputs(translate(source).python_source)
+        report = prepared['template']['discovery']
+        self.assertEqual([row['code'] for row in report['unresolved']], ['input-stream'])
+        self.assertEqual(set(by_path(prepared)), {'WANTED'})
+
+    def test_path_range_stops_before_evaluating_second_bound_after_abort(self):
+        source = (
+            'PROGRAM T TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=row_t '
+            'VAR route:route_t s,unused:INTEGER '
+            'ROUTINE halt_now:INTEGER BEGIN ABORT RETURN 1 END halt_now '
+            'ROUTINE last:INTEGER BEGIN WRITE(unused) RETURN 1 END last '
+            'BEGIN APPEND_NODE(route,s) route[1].amount=7 '
+            'WRITE(route[halt_now()..last()]) WRITE(unused) END T'
+        )
+        prepared = prepare_inputs(translate(source).python_source)
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertFalse(report['inputs'])
 
     def test_initial_path_bounds_reject_the_whole_transfer_before_inputs(self):
         prefix = ('TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE '
