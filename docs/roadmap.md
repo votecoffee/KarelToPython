@@ -76,9 +76,9 @@ document and reports changed, omitted and unresolved inputs.
    order and targets can be determined. Track effects between motion
    callbacks and keep dynamic selections and external effects visible. Extend
    TP discovery to unsynchronized task interleavings, external pause and abort
-   requests, dynamic overwrites, and dynamic header selectors. Known child
-   pause handoffs carry TP handle ownership, reject masks, shared bank writes,
-   and header edits across continuations.
+   requests, dynamic handles, and correlations between catalog operands.
+   Known child pause handoffs carry TP handle ownership, reject masks, shared
+   bank writes, and header edits across continuations.
 2. **Export linked sources from the desktop.** Reuse linked-project validation
    and cooperative Python export so the desktop workflow can begin with KAREL
    source files. Keep the existing output and source-file protections.

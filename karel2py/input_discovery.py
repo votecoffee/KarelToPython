@@ -13,7 +13,7 @@ from .dynamic import (
     rename_names, rename_plan, renamed_key, root_member,
 )
 from .extended import (
-    OUTPUT_PORTS, PORT_TYPES, PREDEFINED_FILE_NAMES, PROGRAM_TEXT_ATTRIBUTES, PROGRAM_WRITABLE_ATTRIBUTES,
+    OUTPUT_PORTS, PORT_TYPES, PREDEFINED_FILE_NAMES, PROGRAM_ATTRIBUTES, PROGRAM_TEXT_ATTRIBUTES, PROGRAM_WRITABLE_ATTRIBUTES,
     ZERO_BASED_PORTS, ProgramAttributes, _parse_system_variable_path, path_conversion_layout, path_node_size, port_value,
 )
 from .file_io import MAX_PATH_IO_FIELDS, path_io_field_count, path_io_indexes
@@ -46,9 +46,10 @@ from .inspection import (
     program_list_page, variable_list_page,
 )
 from .input_value_conversions import (
-    SCALARS, UNKNOWN, Value as _Value, array_dimensions as _array_dimensions,
+    MAX_SERVICE_CASES, SCALARS, UNKNOWN, Value as _Value, array_dimensions as _array_dimensions,
     array_prefix_addresses, array_prefix_values, convert_value_facts, detached_facts,
-    materialized_value, stored_value as _stored_value, variable_array_prefix_size, variable_transfer_policy,
+    materialized_value, merge_scalar_choices, operand_cases, scalar_options, stored_value as _stored_value,
+    variable_array_prefix_size, variable_transfer_policy,
 )
 from .schema_conversion import MODEL_CONVERSIONS
 from .storage import collection_array_cost, list_spec, tuple_spec
@@ -237,6 +238,7 @@ class _Flow:
     position_order_unknown: bool = False
     robot_tables: RobotTableFacts = field(default_factory=RobotTableFacts)
     teach: TeachFacts = field(default_factory=TeachFacts)
+    scalar_choices: dict = field(default_factory=dict)
 
     def copy(self):
         return _Flow(self.defined.copy(),self.assigned.copy(),self.maybe.copy(),
@@ -248,7 +250,7 @@ class _Flow:
                      self.named_bindings.copy(),self.creation_counts.copy(),self.allocated_variable_units,
                      self.program_attributes.copy(),self.numeric_kinds.copy(),self.port_simulation.copy(),
                      self.position_cells.copy(),self.position_order_unknown,self.robot_tables.copy(),
-                     self.teach.copy())
+                     self.teach.copy(), self.scalar_choices.copy())
 
     def take(self, other):
         self.handlers = other.handlers
@@ -272,6 +274,7 @@ class _Flow:
         self.position_order_unknown = other.position_order_unknown
         self.robot_tables = other.robot_tables
         self.teach = other.teach
+        self.scalar_choices = other.scalar_choices
 
 
 def _merge(flows):
@@ -281,6 +284,18 @@ def _merge(flows):
     first=live[0]
     constants={key:value for key,value in first.constants.items()
                if all(key in other.constants and type(value) is type(other.constants[key]) and value==other.constants[key] for other in live[1:])}
+    choices = {}
+    for key in (first.constants.keys() | first.scalar_choices.keys()) - constants.keys():
+        groups = []
+        for flow in live:
+            if key not in flow.defined:
+                break
+            value = flow.constants.get(key, UNKNOWN)
+            groups.append((value,) if type(value) in (bool, int, str) else flow.scalar_choices.get(key, ()))
+        else:
+            merged = merge_scalar_choices(groups)
+            if len(merged) > 1:
+                choices[key] = merged
     handlers = {}
     for flow in live:
         for key, definitions in flow.handlers.items():
@@ -352,7 +367,7 @@ def _merge(flows):
                  merge_positions([flow.position_cells for flow in live], _merged_value),
                  any(flow.position_order_unknown for flow in live),
                  RobotTableFacts.merge([flow.robot_tables for flow in live]),
-                 TeachFacts.merge([flow.teach for flow in live], _merged_value))
+                 TeachFacts.merge([flow.teach for flow in live], _merged_value), choices)
 
 
 def _path_record_identity(part):
@@ -409,8 +424,11 @@ def _merged_value(values,spec=None):
         and len(item.path_records) == len(first.path_records) for item in values
     ):
         path_records = tuple(_merged_value(records) for records in zip(*(item.path_records for item in values)))
+    choices = ()
+    if constant is UNKNOWN and schema and schema[0] in ('INTEGER', 'BOOLEAN', 'STRING'):
+        choices = merge_scalar_choices(scalar_options(item) for item in values)
     return _Value(constant, all(item.complete for item in values), schema, facts, path_records,
-                  uninitialized=all(item.uninitialized for item in values))
+                  uninitialized=all(item.uninitialized for item in values), scalar_choices=choices)
 
 
 class _Analyzer(TeachDiscovery):
@@ -478,6 +496,7 @@ class _Analyzer(TeachDiscovery):
         if task_order:
             self.lose_task_order(flow)
         flow.opaque=True;flow.defined.clear();flow.assigned.clear();flow.constants.clear()
+        flow.scalar_choices.clear()
         flow.uninitialized.clear()
         flow.changed_path_aggregates.clear()
         flow.record_storage.clear()
@@ -1236,12 +1255,14 @@ class _Analyzer(TeachDiscovery):
                 leaf.parts[len(loc.parts):]: _Value(
                     flow.constants.get(leaf.key, UNKNOWN) if leaf.key in flow.defined else UNKNOWN,
                     leaf.key in initialized, leaf.spec, uninitialized=self.leaf_uninitialized(leaf, flow),
+                    scalar_choices=flow.scalar_choices.get(leaf.key, ()) if leaf.key in flow.defined else (),
                 )
                 for leaf in leaves
             }
         uninitialized = bool(scalar and raw_scalar and self.leaf_uninitialized(loc, flow))
         return _Value(flow.constants.get(loc.key, UNKNOWN) if loc.key in flow.defined else UNKNOWN,
-                      complete, loc.spec, facts, uninitialized=uninitialized)
+                      complete, loc.spec, facts, uninitialized=uninitialized,
+                      scalar_choices=flow.scalar_choices.get(loc.key, ()) if loc.key in flow.defined else ())
 
     def copy_requires_complete(self,target,source):
         self.tick()
@@ -1265,7 +1286,9 @@ class _Analyzer(TeachDiscovery):
         for leaf in leaves:
             key=leaf.parts[len(loc.parts):]
             fact=_stored_value(leaf.spec,value.facts.get(key,_Value(complete=value.complete)))
-            if value.spec!=loc.spec:fact.constant=UNKNOWN
+            if value.spec != loc.spec:
+                fact.constant = UNKNOWN
+                fact.scalar_choices = ()
             facts[key]=fact
         return _Value(stored.constant,all(fact.complete for fact in facts.values()),loc.spec,facts)
 
@@ -1333,6 +1356,7 @@ class _Analyzer(TeachDiscovery):
         stored=self.stored(loc,value,leaves,node)
         for leaf in leaves:
             key=leaf.key;flow.maybe.add(key);flow.constants.pop(key,None)
+            flow.scalar_choices.pop(key, None)
             fact=stored.facts.get(leaf.parts[len(loc.parts):],_Value(complete=False)) if stored.facts is not None else stored
             if not fact.complete:flow.defined.discard(key)
             if definite or not fact.uninitialized:
@@ -1342,7 +1366,11 @@ class _Analyzer(TeachDiscovery):
                 flow.defined.discard(key)
                 if fact.complete and not flow.opaque:flow.defined.add(key)
                 if fact.uninitialized and not flow.opaque:flow.uninitialized.add(key)
-                if fact.constant is not UNKNOWN and not flow.opaque:flow.constants[key]=fact.constant
+                if not flow.opaque:
+                    if fact.constant is not UNKNOWN:
+                        flow.constants[key] = fact.constant
+                    elif fact.complete and fact.scalar_choices:
+                        flow.scalar_choices[key] = fact.scalar_choices
         if len(flow.maybe)>MAX_FACTS:raise _Limit('Analysis storage limit reached')
 
     def logical(self,node,left,flow,conditional,*,typed=True):
@@ -3481,6 +3509,17 @@ class _Analyzer(TeachDiscovery):
         return UNKNOWN if active is UNKNOWN else 0
 
     def program_metadata_values(self, operation, known, outputs, node, flow, conditional):
+        writing = operation == 'SET_ATTR_PRG'
+        payload = () if writing else (None, None)
+        key = None
+        if operation != 'LOAD_STATUS':
+            selector = known[1]
+            if type(selector) is not int:
+                return None
+            key = program_attribute_key(selector)
+            if key is None:
+                return (*payload, _Value(2, spec=['INTEGER']))
+
         name = known[0]
         if type(name) is not str or not name.isascii():
             return None
@@ -3512,14 +3551,6 @@ class _Analyzer(TeachDiscovery):
                 return _Value(loaded, spec=['BOOLEAN']), _Value(initialized, spec=['BOOLEAN'])
             return None
 
-        selector = known[1]
-        if type(selector) is not int:
-            return None
-        writing = operation == 'SET_ATTR_PRG'
-        payload = () if writing else (None, None)
-        key = program_attribute_key(selector)
-        if key is None:
-            return (*payload, _Value(2, spec=['INTEGER']))
         if not attached and record is None:
             return (*payload, _Value(1, spec=['INTEGER'])) if known_context else None
         if writing:
@@ -3554,6 +3585,74 @@ class _Analyzer(TeachDiscovery):
             return None, _Value(value, spec=spec), status
         return _Value(value, spec=['INTEGER']), None, status
 
+    def program_metadata_cases(self, operation, inputs):
+        if operation == 'LOAD_STATUS':
+            cases = operand_cases(inputs, (0,))
+            return cases if all(type(case[0]) is str for case in cases) else ()
+        cases = operand_cases(inputs, (0, 1))
+        if not cases and inputs[1].constant is not UNKNOWN:
+            return ()
+        bases = cases or [[value.constant for value in inputs]]
+        if any(type(case[0]) is not str for case in bases):
+            return ()
+        if operation == 'SET_ATTR_PRG':
+            # Every read-only selector has the same effect as AT_PROG_TYPE.
+            keys = (*sorted(PROGRAM_WRITABLE_ATTRIBUTES), 'AT_PROG_TYPE')
+        else:
+            keys = PROGRAM_ATTRIBUTES
+        selectors = (0, *(PROGRAM_ATTRIBUTES[key] for key in keys))
+        expanded = []
+        for name, selector, *rest in bases:
+            if selector is UNKNOWN:
+                expanded.extend([name, item, *rest] for item in selectors)
+            else:
+                expanded.append([name, selector, *rest])
+            if len(expanded) > MAX_SERVICE_CASES:
+                return ()
+        return expanded
+
+    def program_metadata_case(self, operation, known, outputs, node, flow):
+        values = self.program_metadata_values(operation, known, outputs, node, flow, True)
+        if values is not None:
+            for loc, value in zip(outputs, values):
+                if value is not None:
+                    self.write(loc, value, flow, node)
+            return
+        self.unresolved_at('program-catalog', operation+' has an unresolved program or header value', node)
+        if operation == 'SET_ATTR_PRG':
+            self.uncertain_program_attribute_write(known, outputs[-1], node, flow)
+        else:
+            self.uncertain_program_receive(operation, known, outputs, node, flow)
+
+    def uncertain_program_attribute_write(self, known, status, node, flow):
+        """An unresolved write to a known name can affect only its selected field."""
+        name, selector = known[:2]
+        key = program_attribute_key(selector) if type(selector) is int else None
+        if (key in PROGRAM_WRITABLE_ATTRIBUTES and name.isascii()
+                and re.fullmatch(r'[A-Z_][A-Z_0-9]{0,35}', name.upper())):
+            name = name.upper()
+            external = self.saved_bindings.program_attribute_record(name) if self.saved_bindings is not None else None
+            attached = self.binding_plan(name) is not None
+            if attached or external is not None:
+                previous = flow.program_attributes.get((name, key))
+                flow.program_attributes[name, key] = MAYBE_ATTRIBUTE if previous is None or previous is MAYBE_ATTRIBUTE else UNKNOWN
+                if len(flow.program_attributes) > MAX_FACTS:
+                    raise _Limit('Analysis storage limit reached')
+            elif getattr(self.saved_bindings, 'teach_programs', None) is not None:
+                flow.teach.catalog.maybe_write_header(name, key, UNKNOWN)
+        self.bank_status(status, UNKNOWN, flow, node)
+
+    def uncertain_program_receive(self, operation, known, outputs, node, flow):
+        if operation == 'LOAD_STATUS':
+            for loc in outputs:
+                self.write(loc, _Value(spec=loc.spec), flow, node)
+        elif operation == 'GET_ATTR_PRG':
+            key = program_attribute_key(known[1]) if type(known[1]) is int else None
+            receivers = (outputs[int(key in PROGRAM_TEXT_ATTRIBUTES)],) if key is not None else outputs[:-1]
+            self.uncertain_bank_read(receivers, outputs[-1], flow, node)
+        else:
+            self.uncertain_bank_read(outputs[:2] + outputs[3:], outputs[2], flow, node)
+
     def service_operands(self, node, input_count, flow, conditional, *, trailing=0, complete_input=None,
                          unused_array_input=None):
         values = []
@@ -3582,6 +3681,16 @@ class _Analyzer(TeachDiscovery):
                     return None
             outputs = [self.resolve_path_slot(loc, node, flow) if loc is not None else None for loc in pending]
         return values, outputs
+
+    def apply_service_cases(self, flow, cases, evaluate):
+        """Apply alternative service outcomes without carrying unbounded snapshots."""
+        combined = None
+        for case in cases:
+            self.tick()
+            branch = flow.copy()
+            evaluate(case, branch)
+            combined = branch if combined is None else _merge([combined, branch])
+        flow.take(combined)
 
     def service_outputs_overlap(self, outputs):
         return any(self.path_contains_reference(loc, old) or self.path_contains_reference(old, loc)
@@ -3615,19 +3724,20 @@ class _Analyzer(TeachDiscovery):
                 elif operation == 'PROG_LIST':
                     values = self.program_list_values(known, outputs, node, flow, conditional)
                 else:
+                    cases = self.program_metadata_cases(operation, inputs)
+                    if cases:
+                        self.apply_service_cases(
+                            flow, cases, lambda case, branch: self.program_metadata_case(operation, case, outputs, node, branch),
+                        )
+                        return _Value()
                     values = self.program_metadata_values(operation, known, outputs, node, flow, conditional)
         if values is None:
             code = 'variable-catalog' if operation in ('VAR_INFO', 'VAR_LIST') else 'program-catalog'
             self.unresolved_at(code, operation+' requires a known catalog, lookup and output storage', node)
-            if ordinary_outputs and operation == 'LOAD_STATUS':
-                for loc in outputs:
-                    self.write(loc, _Value(spec=loc.spec), flow, node)
-            elif ordinary_outputs and operation == 'GET_ATTR_PRG':
-                key = program_attribute_key(known[1]) if type(known[1]) is int else None
-                receivers = (outputs[int(key in PROGRAM_TEXT_ATTRIBUTES)],) if key is not None else outputs[:-1]
-                self.uncertain_bank_read(receivers, outputs[-1], flow, node)
-            elif ordinary_outputs and operation == 'PROG_LIST':
-                self.uncertain_bank_read(outputs[:2] + outputs[3:], outputs[2], flow, node)
+            if ordinary_outputs and operation in ('LOAD_STATUS', 'GET_ATTR_PRG', 'PROG_LIST'):
+                self.uncertain_program_receive(operation, known, outputs, node, flow)
+            elif ordinary_outputs and operation == 'SET_ATTR_PRG' and type(known[0]) is str and type(known[1]) is int:
+                self.uncertain_program_attribute_write(known, outputs[-1], node, flow)
             else:
                 self.opaque(flow)
             return _Value(complete=False)
@@ -3666,8 +3776,9 @@ class _Analyzer(TeachDiscovery):
         self.bank_status(status, code, flow, node)
 
     def invalidate_bank_constants(self, kind, flow):
-        self.tick(len(flow.constants))
+        self.tick(len(flow.constants) + len(flow.scalar_choices))
         flow.constants = {key: value for key, value in flow.constants.items() if key[0] != kind}
+        flow.scalar_choices = {key: values for key, values in flow.scalar_choices.items() if key[0] != kind}
 
     def register_transfer(self, operation, inputs, outputs, node, flow, conditional, stable):
         service, kind = REGISTER_SERVICES[operation]
@@ -4785,6 +4896,7 @@ class _Analyzer(TeachDiscovery):
         for field_name in ('defined','assigned','maybe','uninitialized'):
             setattr(merged,field_name,{key for key in getattr(merged,field_name) if key[1]!=owner})
         merged.constants={key:value for key,value in merged.constants.items() if key[1]!=owner}
+        merged.scalar_choices = {key: values for key, values in merged.scalar_choices.items() if key[1] != owner}
         merged.path_orders = {key: order for key, order in merged.path_orders.items() if key is None or key[1] != owner}
         merged.retired_paths = {key: order for key, order in merged.retired_paths.items() if key[0][1] != owner}
         flow.take(merged)
@@ -5187,6 +5299,7 @@ class _Analyzer(TeachDiscovery):
             self.lose_activation_order()
             self.lose_task_order(flow)
             before=flow.copy();body=flow.copy();body.constants.clear()
+            body.scalar_choices.clear()
             self.block(node['body'],body,True)
             if not body.stopped:self.expr(args[0],body,True)
             flow.take(_merge([before,body]));return
@@ -5195,6 +5308,7 @@ class _Analyzer(TeachDiscovery):
             self.lose_task_order(flow)
             exits_before_body = len(self.exits)
             flow.constants.clear()
+            flow.scalar_choices.clear()
             self.repeat_depth += 1
             try:
                 self.block(node['body'],flow,conditional)
@@ -5244,6 +5358,7 @@ class _Analyzer(TeachDiscovery):
                 self.lose_activation_order()
                 self.lose_task_order(flow)
                 before=flow.copy();body=flow.copy();body.constants.clear()
+                body.scalar_choices.clear()
                 self.block(node['body'],body,True);flow.take(_merge([before,body]))
             if loc:
                 self.write(loc,_Value(complete=False),flow,node)

@@ -221,10 +221,19 @@ Copies carry the TP header values present at the time of copying. Explicit
 take precedence for those fields when configured. Editing a discovered TP header
 refreshes discovery because its value can select a different branch.
 
+Discovery follows small sets of literal alternatives for catalog operands and
+header lookups, including choices assigned in branches or returned by routines.
+With a known program and an unrestricted attribute selector, it considers the
+supported attributes and the invalid-selector status. The inactive output of
+a header getter stays intact when all possible selectors use the other output.
+
 A copy with an unresolved source and a known destination leaves unrelated TP
-programs available for discovery. Unresolved creates and copies with
-overwriting disabled can make listing results uncertain while preserving
-reads and exact-name listings for existing programs.
+programs available for discovery. An unrestricted overwrite destination
+preserves the known source, selected programs, protected programs, and
+programs with known open handles. Other eligible destinations may change.
+Unrestricted creates and copies with overwriting disabled can make listing
+results uncertain while preserving reads and exact-name listings for existing
+programs.
 
 `GET_TPE_CMT` and `SET_TPE_CMT` follow the addressed position across groups,
 the comment's 16-character capacity and the receiver's capacity. A saved
@@ -232,9 +241,10 @@ position comment can be added or edited as a scalar. Edits refresh discovery
 when the new length can change the getter's status. In a linked pause handoff,
 the owning task keeps its handles while paused. The analysis follows reject
 masks, rejects foreign handle operations, and releases the child's handles
-at natural completion when the boundary is known. Dynamic handle targets,
-unsynchronized access, and writes to an unknown catalog destination that may
-overwrite an existing program remain unresolved.
+at natural completion when the boundary is known. Dynamic handle targets and
+unsynchronized access remain unresolved. Input discovery can widen large or
+correlated operand choices and eligible destinations of an unrestricted
+overwrite.
 
 ### Robot snapshots and range checks
 

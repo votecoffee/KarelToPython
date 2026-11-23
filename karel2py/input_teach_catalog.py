@@ -5,7 +5,7 @@ from fnmatch import fnmatchcase
 
 from .extended import PROGRAM_KINDS, PROGRAM_TEXT_ATTRIBUTES, PROGRAM_TYPES, PROGRAM_WRITABLE_ATTRIBUTES
 from .input_position_values import POSITION_MODIFIED
-from .input_value_conversions import UNKNOWN, Value
+from .input_value_conversions import UNKNOWN, Value, operand_cases
 from .teach import KIND_NAMES, TEACH_COMMENT_CAPACITY, checked_teach_kind, name_key
 
 
@@ -229,8 +229,17 @@ class TeachCatalogDiscovery:
             return Value(complete=False)
         inputs, (status,) = operands
         bank = getattr(self.saved_bindings, 'teach_programs', None)
+        cases = operand_cases(inputs, range(count)) if bank is not None and self.teach_stable(flow) else ()
+        if cases:
+            self.apply_service_cases(
+                flow, cases, lambda values, branch: self.teach_catalog_transfer(bank, operation, values, status, node, branch),
+            )
+        else:
+            self.teach_catalog_transfer(bank, operation, [value.constant for value in inputs], status, node, flow)
+        return Value()
+
+    def teach_catalog_transfer(self, bank, operation, values, status, node, flow):
         state = flow.teach
-        values = [value.constant for value in inputs]
         code = UNKNOWN
         if bank is not None and self.teach_stable(flow):
             if all(value is not UNKNOWN for value in values) and not state.catalog.all_uncertain:
@@ -245,7 +254,6 @@ class TeachCatalogDiscovery:
             self.teach_unknown_access(operation, (status,), node, flow, 'teach-catalog')
         else:
             self.bank_status(status, code, flow, node)
-        return Value()
 
     def teach_uncertain_catalog_action(self, bank, operation, values, node, flow):
         catalog = flow.teach.catalog
@@ -275,20 +283,50 @@ class TeachCatalogDiscovery:
             return
         if target is not UNKNOWN:
             previous = catalog.entry(bank, target)
-            if catalog.selected(bank) == target or self.teach_definitely_busy(target, flow):
+            if self.teach_copy_target_blocked(bank, target, previous, flow):
                 return
-            if isinstance(previous, TeachProgramEntry) and (previous.protected or overwrite is False):
+            if isinstance(previous, TeachProgramEntry) and overwrite is False:
                 return
-        if overwrite is False:
-            self.tick(len(catalog.entries))
-            if catalog.is_full(bank) is True:
-                return
+        else:
+            previous = UNKNOWN
+        self.tick(len(catalog.entries))
+        full = catalog.is_full(bank) is True
+        if full and (overwrite is False or previous is None):
+            return
+
         if target is UNKNOWN and overwrite is not False:
-            catalog.all_uncertain = True
+            possibly_changed = self.teach_unknown_overwrite(bank, name, full, flow)
         else:
             self.teach_uncertain_addition(catalog, target)
-        if catalog.call_counts is not None or bank.saved_dependency_counts():
+            possibly_changed = True
+        if possibly_changed and (catalog.call_counts is not None or bank.saved_dependency_counts()):
             catalog.call_counts = UNKNOWN
+
+    def teach_unknown_overwrite(self, bank, source, full, flow):
+        catalog = flow.teach.catalog
+        if catalog.all_uncertain:
+            return True
+        self.tick(bank.program_count + len(catalog.entries))
+        names = set(dict(bank.entries)) | catalog.entries.keys()
+        possible = not full or catalog.unknown_additions
+        if not full:
+            catalog.unknown_additions = True
+        handles = flow.teach.handles
+        blocked = {source, catalog.selected(bank)}
+        if handles is not None:
+            self.tick(len(handles))
+            blocked.update(handle.program for handle in handles.values())
+        for target in names - blocked:
+            previous = catalog.entry(bank, target)
+            if not isinstance(previous, TeachProgramEntry) or not previous.protected:
+                self.teach_uncertain_addition(catalog, target)
+                possible = True
+        return possible
+
+    def teach_copy_target_blocked(self, bank, target, entry, flow):
+        return (flow.teach.catalog.selected(bank) == target
+                or isinstance(entry, TeachProgramEntry) and entry.protected
+                or self.teach_definitely_busy(target, flow))
 
     @staticmethod
     def teach_uncertain_addition(catalog, name):

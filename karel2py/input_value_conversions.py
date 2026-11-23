@@ -11,6 +11,8 @@ from .storage import list_spec, tuple_spec
 
 UNKNOWN = object()
 SCALARS = {'INTEGER', 'BYTE', 'SHORT', 'REAL', 'BOOLEAN', 'STRING', 'NUMERIC'}
+MAX_SCALAR_CHOICES = 8
+MAX_SERVICE_CASES = 24
 
 
 @dataclass
@@ -22,6 +24,47 @@ class Value:
     path_records: tuple | None = None
     uninitialized: bool = False  # Positive proof, separate from incomplete knowledge.
     whole_record_missing: bool = False
+    scalar_choices: tuple = ()
+
+
+def scalar_options(value):
+    """Return finite literal alternatives only when every path supplies a value."""
+    if not value.complete or value.uninitialized:
+        return ()
+    if type(value.constant) in (bool, int, str):
+        return (value.constant,)
+    return value.scalar_choices
+
+
+def merge_scalar_choices(groups):
+    choices = {}
+    for group in groups:
+        if not group:
+            return ()
+        for value in group:
+            choices[type(value), value] = value
+            if len(choices) > MAX_SCALAR_CHOICES:
+                return ()
+    return tuple(choices.values())
+
+
+def operand_cases(values, indices):
+    """Expand only bounded input operands, leaving other facts unknown."""
+    from itertools import product
+
+    constants = [value.constant for value in values]
+    choices = [scalar_options(values[index]) or (constants[index],) for index in indices]
+    if not any(len(options) > 1 for options in choices):
+        return ()
+    if math.prod(map(len, choices)) > MAX_SERVICE_CASES:
+        return ()
+    cases = []
+    for options in product(*choices):
+        case = constants.copy()
+        for index, option in zip(indices, options):
+            case[index] = option
+        cases.append(case)
+    return cases
 
 
 def array_dimensions(spec):
@@ -55,7 +98,15 @@ def stored_value(spec, value):
         _, source = array_dimensions(value.spec)
         if target == ['SHORT'] and source != target:
             complete = False
-    return Value(constant, complete, spec, uninitialized=uninitialized)
+    choices = ()
+    if value.scalar_choices and value.spec and spec and value.spec[0] == spec[0]:
+        if spec[0] in ('INTEGER', 'BOOLEAN'):
+            choices = value.scalar_choices
+        elif spec[0] == 'STRING' and type(spec[1]) is int and all(
+            type(item) is str and len(item) <= spec[1] for item in value.scalar_choices
+        ):
+            choices = value.scalar_choices
+    return Value(constant, complete, spec, uninitialized=uninitialized, scalar_choices=choices)
 
 
 def _indices(shape):
