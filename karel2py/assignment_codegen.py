@@ -147,6 +147,7 @@ class AssignmentLowering:
                 line=line,column=token.column,source_type_spec=value_type,target_type_spec=target_type,
                 evaluated_once=True,independent_value=True))
         elif plan.conversion == 'kinematic':
+            self.geometry_assignment_conversions[id(target)] = ('kinematic', target_type)
             value=f'self._state.kinematic_assignment({target_type!r},{value},{line})'
             self.features.update(('extended services','kinematic assignment'))
             if self.current_routine: self.current_routine.may_services=True
@@ -154,6 +155,7 @@ class AssignmentLowering:
                 line=line,column=token.column,source_type=value_type,target_type=target_type,target_kind=target.kind,
                 evaluated_once=True,independent_value=True))
         elif plan.conversion == 'cartesian':
+            self.geometry_assignment_conversions[id(target)] = ('cartesian', target_type)
             value = f'_rt.convert_position({target_type!r}, {value}, {line})'
             self.features.add('POSITION/XYZWPR assignment conversion')
             self.position_conversion_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,

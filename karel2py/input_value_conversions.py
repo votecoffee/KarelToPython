@@ -6,7 +6,7 @@ import math
 
 from . import runtime as rt
 from .extended import _variable_compatible
-from .storage import tuple_spec
+from .storage import list_spec, tuple_spec
 
 
 UNKNOWN = object()
@@ -132,7 +132,7 @@ def detached_facts(value):
     """Capture a checked aggregate as independent scalar analysis facts."""
     facts = {}
     _const_facts(value.spec, (), value, facts)
-    return Value(complete=all(fact.complete for fact in facts.values()), spec=list(value.spec), facts=facts)
+    return Value(complete=all(fact.complete for fact in facts.values()), spec=list_spec(value.spec), facts=facts)
 
 
 def _cast_scalar(expected, actual, source):

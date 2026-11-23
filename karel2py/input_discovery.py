@@ -23,11 +23,12 @@ from .input_position_values import (
     checked_position_facts, merge_positions, position_register_result,
 )
 from .position_register_models import register_description
-from .input_robot_tables import RobotTableFacts, forward_robot_value
+from .input_robot_tables import RobotTableFacts
 from .input_robot_transfers import inspect_robot_variable, transfer_robot_variable
 from .input_robot_values import (
-    POSE_CONSTRUCTORS, ROBOT_RANGE_QUERIES, ROBOT_SNAPSHOTS, RobotFactsUnavailable,
-    check_robot_range, construct_pose, constructor_schema, current_robot_facts,
+    CONFIG_TEXT_CONVERSIONS, POSE_CONSTRUCTORS, ROBOT_CONVERSIONS, ROBOT_RANGE_QUERIES, ROBOT_SNAPSHOTS,
+    RobotFactsUnavailable, check_robot_range, construct_pose, constructor_schema, convert_config_text,
+    convert_robot_coordinates, current_robot_facts, evaluate_robot_assignment,
 )
 from .inspection import (
     CATALOG_SCAN_LIMIT, catalog_key, catalog_type_matches, describe, effective_list_options,
@@ -35,7 +36,7 @@ from .inspection import (
 )
 from .input_value_conversions import (
     SCALARS, UNKNOWN, Value as _Value, array_dimensions as _array_dimensions,
-    array_prefix_addresses, array_prefix_values, convert_value_facts,
+    array_prefix_addresses, array_prefix_values, convert_value_facts, detached_facts,
     materialized_value, stored_value as _stored_value, variable_array_prefix_size, variable_transfer_policy,
 )
 from .storage import collection_array_cost, list_spec, tuple_spec
@@ -3413,11 +3414,15 @@ class _Analyzer:
             return None, _Value(value, spec=spec), status
         return _Value(value, spec=['INTEGER']), None, status
 
-    def service_operands(self, node, input_count, flow, conditional, *, trailing=0, complete_input=None):
+    def service_operands(self, node, input_count, flow, conditional, *, trailing=0, complete_input=None,
+                         unused_array_input=None):
         values = []
         with self.capture_operands() as pending:
             for index, arg in enumerate(node['args'][:input_count]):
-                value = self.expr(arg, flow, conditional)
+                if index == unused_array_input:
+                    value = self.capture_unused_service_array(arg, flow, conditional)
+                else:
+                    value = self.expr(arg, flow, conditional)
                 if flow.stopped and not flow.opaque:
                     return None
                 if index == complete_input and _known_missing(value):
@@ -3865,7 +3870,8 @@ class _Analyzer:
                 group = self.default_position_group(None)
                 robot = self.query_robot_group(operation, group, node, flow)
                 selected = flow.robot_tables.selected_robot(robot, group)
-                source = forward_robot_value(selected, source, line, self.tick)
+                source = evaluate_robot_assignment(selected, ('XYZWPREXT',), source, line, self.tick,
+                                                   operation='JOINTPOS table write')
             except RobotFactsUnavailable as error:
                 self.unresolved_at('robot-tables', str(error), node)
                 source = UNKNOWN
@@ -3976,6 +3982,128 @@ class _Analyzer:
             result.constant = answer
         return result
 
+    def capture_unused_service_array(self, node, flow, conditional):
+        """Evaluate an ARRAY's selector even when its cells cannot affect the model."""
+        while node['kind'] == 'group':
+            node = node['args'][0]
+        if node['kind'] in ('name', 'field', 'index') and not self.selects_routine_result(node):
+            location = self.locate(node, flow, conditional, reading=True)
+            if location is not None:
+                return _Value(spec=location.spec)
+            if node['kind'] != 'name':
+                return _Value(complete=False)
+        return self.expr(node, flow, conditional)
+
+    def checked_robot_service_outputs(self, outputs, node, flow):
+        if all(loc is not None and self.ordinary_variable_output(loc, node) for loc in outputs):
+            if self.service_outputs_overlap(outputs):
+                self.reject_service_overlap(node, flow)
+                return False
+            return True
+        self.unresolved_at('service-output', node['value']+' requires known ordinary writable outputs', node)
+        self.opaque(flow)
+        return False
+
+    def robot_coordinate_call(self, node, flow, conditional):
+        operation = node['value']
+        group = self.default_position_group(None)
+        unused = None
+        if operation == 'POS2JOINT':
+            root = getattr(self.saved_bindings, 'robot', None)
+            if root is not None and not (flow.opaque or flow.task_order_unknown):
+                try:
+                    model = root.for_group(group).model
+                except rt.KarelRuntimeError:
+                    model = None
+                if model is not None and model.external_axes == 0:
+                    unused = 6
+        operands = self.service_operands(node, ROBOT_CONVERSIONS[operation], flow, conditional,
+                                         unused_array_input=unused)
+        if operands is None:
+            return _Value()
+        inputs, outputs = operands
+        if not self.checked_robot_service_outputs(outputs, node, flow):
+            return _Value()
+        try:
+            robot = self.query_robot_group(operation, group, node, flow)
+            values = convert_robot_coordinates(robot, operation, inputs, [loc.spec for loc in outputs],
+                                                node.get('line'), self.tick)
+        except RobotFactsUnavailable as error:
+            self.unresolved_at('robot-conversion', str(error), node)
+            # Every output is initialized when the procedure returns normally.
+            values = [_Value(spec=loc.spec) for loc in outputs]
+        except (rt.KarelRuntimeError, ValueError, ArithmeticError) as error:
+            self.unresolved_at('robot-conversion', str(error), node)
+            flow.stopped = True
+            return _Value()
+        for loc, value in zip(outputs, values):
+            self.write(loc, value, flow, node)
+        return _Value()
+
+    def config_text_call(self, node, flow, conditional):
+        operation = node['value']
+        grouped = operation == 'CNV_CNF_STRG' or len(node['args']) == 4
+        operands = self.service_operands(node, 1, flow, conditional, trailing=int(len(node['args']) == 4))
+        if operands is None:
+            return _Value()
+        inputs, outputs = operands
+        if not self.checked_robot_service_outputs(outputs, node, flow):
+            return _Value()
+        group, formats = None, None
+        if grouped:
+            group = inputs[1].constant if len(inputs) == 2 else self.default_position_group(None) or 1
+            self.context('config_text', None)
+            formats = getattr(self.saved_bindings, 'config_text', None)
+        try:
+            if group is UNKNOWN or grouped and (formats is None or flow.opaque or flow.task_order_unknown):
+                raise RobotFactsUnavailable(operation+' needs a known group and saved CONFIG text profile')
+            values = convert_config_text(operation, inputs[0], [loc.spec for loc in outputs],
+                                         node.get('line'), group=group, formats=formats)
+        except RobotFactsUnavailable as error:
+            self.unresolved_at('config-text', str(error), node)
+            for position, loc in enumerate(outputs):
+                definite = operation == 'CNV_CONF_STR' or position == 1
+                self.write(loc, _Value(complete=definite, spec=loc.spec), flow, node, definite=definite)
+            return _Value()
+        except (rt.KarelRuntimeError, ValueError, ArithmeticError) as error:
+            self.unresolved_at('config-text', str(error), node)
+            flow.stopped = True
+            return _Value()
+        for loc, value in zip(outputs, values):
+            if value is not None:
+                self.write(loc, value, flow, node)
+        return _Value()
+
+    def cartesian_assignment_value(self, target, value, node, flow):
+        if value.spec is None:
+            return _Value(spec=target)
+        try:
+            converted, unproven = convert_value_facts(target, value, tick=self.tick)
+            if unproven:
+                self.unresolved_at('conversion-value', 'Cartesian assignment requires complete source data', node)
+            return converted
+        except (rt.KarelRuntimeError, ValueError, ArithmeticError) as error:
+            self.unresolved_at('conversion-value', str(error), node)
+            flow.stopped = True
+            return _Value(spec=target)
+
+    def kinematic_assignment_value(self, target, value, node, flow):
+        group = self.default_position_group(None)
+        try:
+            robot = self.query_robot_group('Kinematic assignment', group, node, flow)
+            source = materialized_value(value)
+            if source is UNKNOWN:
+                raise RobotFactsUnavailable('Kinematic assignment needs its source value at run time')
+            selected = flow.robot_tables.selected_robot(robot, group)
+            converted = evaluate_robot_assignment(selected, tuple_spec(target), source, node.get('line'), self.tick)
+            return detached_facts(converted)
+        except RobotFactsUnavailable as error:
+            self.unresolved_at('robot-conversion', str(error), node)
+        except (rt.KarelRuntimeError, ValueError, ArithmeticError) as error:
+            self.unresolved_at('robot-conversion', str(error), node)
+            flow.stopped = True
+        return _Value(spec=target)
+
     def pose_constructor_call(self, node, flow, conditional):
         name = node['value']
         result = _Value(spec=constructor_schema(name, len(node['args'])))
@@ -4021,6 +4149,10 @@ class _Analyzer:
             return self.robot_snapshot_call(node, flow, conditional)
         if name in ROBOT_RANGE_QUERIES:
             return self.robot_range_call(node, flow, conditional)
+        if name in ROBOT_CONVERSIONS:
+            return self.robot_coordinate_call(node, flow, conditional)
+        if name in CONFIG_TEXT_CONVERSIONS:
+            return self.config_text_call(node, flow, conditional)
         if name in POSE_CONSTRUCTORS:
             return self.pose_constructor_call(node, flow, conditional)
         if name in ('UNINIT', 'ARRAY_LEN'):
@@ -4652,6 +4784,14 @@ class _Analyzer:
             value=self.expr(args[1],flow,conditional,partial=True)
             if flow.stopped and not flow.opaque:
                 return
+            if 'geometry_assignment' in node:
+                conversion, schema = node['geometry_assignment']
+                if conversion == 'kinematic':
+                    value = self.kinematic_assignment_value(schema, value, node, flow)
+                elif conversion == 'cartesian':
+                    value = self.cartesian_assignment_value(schema, value, node, flow)
+                if flow.stopped and not flow.opaque:
+                    return
             if 'path_array_conversion_type' in node:
                 value = self.convert_path_array_value(node['path_array_conversion_type'], value, args[1], flow)
                 if flow.stopped and not flow.opaque:

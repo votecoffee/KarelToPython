@@ -193,6 +193,20 @@ considers both branches when a result depends on run-time inputs or exceeds
 that budget. Known `VEC`, `POS` and Cartesian `MIRROR` values can feed
 these checks.
 
+`JOINT2POS` and `POS2JOINT` use known operands and the calling task's
+saved portable DH model. Discovery follows the pose, CONFIG, external-axis
+array, joint and status outputs, including selected ARRAY rows and padded
+joint widths. `POS2JOINT` can use an unset external-axis array when the
+model has zero external axes. CONFIG text parsing and formatting supply
+known values using the default format or an explicit saved group profile.
+
+Direct Cartesian conversions and joint/pose assignments preserve known
+results. Model-backed assignments use the current frame and tool selections
+before evaluating the destination selectors, just as the generated Python
+does. Retranslate existing generated Python to include the assignment
+metadata. Unknown operands and conversions that exceed the solver budget
+remain visible in discovery.
+
 Discovery follows direct `$MNUFRAMENUM` and `$MNUTOOLNUM` assignments,
 numbered and active frame/tool pose assignments, and subsequent reads in the
 same group. It tracks whole rows, writable pose fields and JOINTPOS writes

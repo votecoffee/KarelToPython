@@ -7,7 +7,6 @@ from . import runtime as rt
 from .extended import SYSTEM_POSE_AXES, _SystemVariableTarget
 from .input_robot_values import RobotFactsUnavailable
 from .input_value_conversions import UNKNOWN, Value, detached_facts, materialized_value
-from .kinematics import SerialRobotModel
 
 
 _ATTRIBUTES = {'FRAME': ('frames', 'active_frame'), 'TOOL': ('tools', 'active_tool')}
@@ -188,13 +187,3 @@ class RobotTableFacts:
                         source = rt.real_integral_value(expected, source, line)
                 context.system_pose_write(operation, group, number, source, path, line)
                 self.values[group, kind, resolved] = detached_facts(getattr(context.robot, table)[resolved])
-
-
-def forward_robot_value(robot, source, line, tick):
-    if type(robot.model) is not SerialRobotModel:
-        raise RobotFactsUnavailable('A JOINTPOS table write requires the portable DH model')
-    tick(1 + robot.model.axes)
-    with rt._numeric_scope('pythonic'):
-        return rt.ExecutionContext(robot=robot)._forward_pose(
-            source, robot.frame(robot.active_frame), robot.tool(robot.active_tool), None, line,
-        )

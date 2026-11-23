@@ -75,8 +75,8 @@ document and reports changed, omitted and unresolved inputs.
    control flow, synchronization between tasks, and handler rearming where
    order and targets can be determined. Track effects between motion
    callbacks and keep dynamic selections and external effects visible. Extend
-   robot discovery to more model-backed assignments and service outputs,
-   including `JOINT2POS` and `POS2JOINT`.
+   robot discovery to model-backed ARRAY and STRUCTURE conversions and
+   routine arguments and returns.
 2. **Export linked sources from the desktop.** Reuse linked-project validation
    and cooperative Python export so the desktop workflow can begin with KAREL
    source files. Keep the existing output and source-file protections.

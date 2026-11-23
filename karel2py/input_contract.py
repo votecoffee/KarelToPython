@@ -209,6 +209,9 @@ def build(program, emitter):
             else:
                 row.update(body=encode(value.body, depth + 1), alternate=encode(value.alternate, depth + 1), has_else=value.has_else)
                 if value.kind == 'assign':
+                    conversion = emitter.geometry_assignment_conversions.get(id(value.args[0]))
+                    if conversion is not None:
+                        row['geometry_assignment'] = encode(conversion, depth + 1)
                     schema = emitter.path_assignment_schemas.get(id(value.args[0]))
                     if schema is not None:
                         row['path_assignment_type'] = encode(schema, depth + 1)

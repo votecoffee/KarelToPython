@@ -2,10 +2,9 @@
 
 from . import runtime as rt
 from .extended import variable_transfer, variable_value
-from .input_robot_values import MODEL_SAMPLE_LIMIT, RobotFactsUnavailable
+from .input_robot_values import MODEL_SAMPLE_LIMIT, RobotFactsUnavailable, evaluate_robot_assignment
 from .input_value_conversions import UNKNOWN, Value, detached_facts, materialized_value, variable_transfer_policy
 from .inspection import describe, missing
-from .kinematics import SerialRobotModel
 from .storage import tuple_spec
 
 
@@ -18,32 +17,10 @@ def _facts(spec, value):
 
 
 def _model_value(target, value, model_robot, line, tick):
-    robot = model_robot()
-    if type(robot.model) is not SerialRobotModel:
-        raise RobotFactsUnavailable('Quoted joint transfers need the portable DH model')
-    samples = 0
-    interrupted = None
-
-    def checkpoint():
-        nonlocal samples, interrupted
-        samples += 1
-        try:
-            if samples > MODEL_SAMPLE_LIMIT:
-                raise RobotFactsUnavailable('Quoted joint transfer exceeded the discovery model-sample limit')
-            tick(1 + robot.model.axes)
-        except Exception as error:
-            interrupted = error
-            raise
-
-    checkpoint()
-    try:
-        return rt.ExecutionContext(robot=robot).kinematic_assignment(
-            None, target, value, line, group=robot.active_group, check=checkpoint,
-        )
-    except rt.KarelRuntimeError as error:
-        if interrupted is not None and error.__cause__ is interrupted:
-            raise interrupted from None
-        raise
+    return evaluate_robot_assignment(
+        model_robot(), target, value, line, tick,
+        operation='Quoted joint transfer', sample_limit=MODEL_SAMPLE_LIMIT,
+    )
 
 
 def transfer_robot_variable(tables, robot, address, *, getting, target_spec, source, model_robot, line, tick):

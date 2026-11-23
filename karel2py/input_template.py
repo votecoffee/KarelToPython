@@ -149,6 +149,7 @@ class _SavedBindings:
         self.ports = execution.ports
         self.positions = execution.positions
         self.robot = execution.robot
+        self.config_text = execution.config_text
         self.teach_programs = execution.teach_programs
         self.creation_storage = None
         self.namespaces = None
