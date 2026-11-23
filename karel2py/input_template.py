@@ -5,7 +5,9 @@ import re
 from . import runtime as rt
 from .dynamic import reserved as variable_reservation, root_member
 from .input_discovery import DEFAULT_EMPTY_PATH, MISSING_PATH_RECORD, _discover_inputs
-from .input_position_values import teach_position_config_address
+from .input_teach_discovery import (
+    TEACH_POSITION_SECTIONS, TEACH_SCALAR_SECTIONS, teach_position_config_address, teach_program_config_key,
+)
 from .inspection import merge_program_record
 from .storage import collection_array_cost, collection_data_spec, list_spec, restore_value, tuple_spec
 
@@ -386,13 +388,21 @@ def _prepare(report, context, *, materialize=True, execution=None):
                         binding['context_pointer'] = _pointer('positions', 'values', number_key)
                         if bank is not None and group in bank.groups and 1 <= number <= bank.count:
                             binding['status'] = 'supplied' if (group, number) in bank.values else 'missing'
-                elif kind == 'teach_position_register':
-                    address = teach_position_config_address(config, candidate['program'], candidate['group'], number)
+                elif kind in TEACH_POSITION_SECTIONS:
+                    address = teach_position_config_address(config, candidate['program'], candidate['group'], number, kind)
                     if address is not None:
                         owner, index, row = address
                         binding['context_pointer'] = _pointer('teach_programs', 'programs', owner,
-                                                              'position_registers', index, 'value')
+                                                              TEACH_POSITION_SECTIONS[kind], index, 'value')
                         binding['status'] = 'supplied' if row is not None else 'missing'
+                elif kind in TEACH_SCALAR_SECTIONS:
+                    owner = teach_program_config_key(config, candidate['program'])
+                    if owner is not None:
+                        section = TEACH_SCALAR_SECTIONS[kind]
+                        key = str(number)
+                        binding['context_pointer'] = _pointer('teach_programs', 'programs', owner, section, key)
+                        values = config['teach_programs']['programs'][owner].get(section, {})
+                        binding['status'] = 'supplied' if key in values else 'missing'
                 elif service in ('numeric', 'strings'):
                     values = config.get(service, {}).get('values', {})
                     number_key = next((key for key in values if int(key) == number), str(number))

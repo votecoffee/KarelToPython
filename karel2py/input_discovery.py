@@ -21,8 +21,11 @@ from .input_contract import extract, InputContractError
 from .input_model_transfers import evaluate_model_paths, evaluate_model_variables
 from .input_position_values import (
     POSITION_CLEARED, POSITION_GETTERS, POSITION_MODIFIED, POSITION_SERVICES, POSITION_SETTERS,
-    TEACH_POSITION_GETTERS, TEACH_POSITION_SERVICES, TEACH_POSITION_SETTERS, TeachPositionFacts,
-    checked_position_facts, merge_positions, position_register_result, teach_position_store_facts,
+    checked_position_facts, merge_positions, position_register_result,
+)
+from .input_teach_discovery import (
+    TEACH_HANDLE_SERVICES, TEACH_POSITION_GETTERS, TEACH_POSITION_SECTIONS, TEACH_POSITION_SERVICES,
+    TEACH_SCALAR_GETTERS, TEACH_SCALAR_SETTERS, TeachDiscovery, TeachFacts,
 )
 from .position_register_models import register_description
 from .input_robot_tables import RobotTableFacts
@@ -223,7 +226,7 @@ class _Flow:
     position_cells: dict = field(default_factory=dict)
     position_order_unknown: bool = False
     robot_tables: RobotTableFacts = field(default_factory=RobotTableFacts)
-    teach_positions: TeachPositionFacts = field(default_factory=TeachPositionFacts)
+    teach: TeachFacts = field(default_factory=TeachFacts)
 
     def copy(self):
         return _Flow(self.defined.copy(),self.assigned.copy(),self.maybe.copy(),
@@ -235,7 +238,7 @@ class _Flow:
                      self.named_bindings.copy(),self.creation_counts.copy(),self.allocated_variable_units,
                      self.program_attributes.copy(),self.numeric_kinds.copy(),self.port_simulation.copy(),
                      self.position_cells.copy(),self.position_order_unknown,self.robot_tables.copy(),
-                     self.teach_positions.copy())
+                     self.teach.copy())
 
     def take(self, other):
         self.handlers = other.handlers
@@ -258,7 +261,7 @@ class _Flow:
         self.position_cells = other.position_cells
         self.position_order_unknown = other.position_order_unknown
         self.robot_tables = other.robot_tables
-        self.teach_positions = other.teach_positions
+        self.teach = other.teach
 
 
 def _merge(flows):
@@ -339,7 +342,7 @@ def _merge(flows):
                  merge_positions([flow.position_cells for flow in live], _merged_value),
                  any(flow.position_order_unknown for flow in live),
                  RobotTableFacts.merge([flow.robot_tables for flow in live]),
-                 TeachPositionFacts.merge([flow.teach_positions for flow in live], _merged_value))
+                 TeachFacts.merge([flow.teach for flow in live], _merged_value))
 
 
 def _path_record_identity(part):
@@ -400,7 +403,7 @@ def _merged_value(values,spec=None):
                   uninitialized=all(item.uninitialized for item in values))
 
 
-class _Analyzer:
+class _Analyzer(TeachDiscovery):
     def __init__(self, plan, *, linked_plans=None, track_handlers=False, track_tasks=False,
                  saved_path_count=None, saved_bindings=None):
         self.plan = plan
@@ -480,7 +483,7 @@ class _Analyzer:
         flow.position_cells.clear()
         flow.position_order_unknown = True
         flow.robot_tables.invalidate_all()
-        flow.teach_positions = TeachPositionFacts()
+        flow.teach = TeachFacts()
 
     def context(self, service, address):
         self.contexts.setdefault((service,str(address)),dict(service=service,address=address))
@@ -1197,9 +1200,9 @@ class _Analyzer:
                                                 root_type=loc.root_spec, selectors=list(loc.parts))
                     elif loc.kind=='port':
                         self.inputs[key].update(port=loc.root,index=dict(loc.parts).get('index'))
-                    elif loc.kind.endswith('_register'):
+                    elif loc.kind.endswith('_register') or loc.kind in TEACH_POSITION_SECTIONS:
                         self.inputs[key]['index']=loc.root
-                        if loc.kind in ('position_register', 'teach_position_register'):
+                        if loc.kind == 'position_register' or loc.kind in TEACH_POSITION_SECTIONS:
                             self.inputs[key]['group'] = dict(loc.parts).get('group')
                         if loc.spec==['NUMERIC']:self.inputs[key]['type_options']=[['INTEGER'],['REAL']]
                 row=self.inputs[key]
@@ -3939,96 +3942,10 @@ class _Analyzer:
         self.bank_status(status, 0, flow, node)
         return result
 
-    def teach_position_call(self, node, flow, conditional):
-        operation = node['value']
-        schema = TEACH_POSITION_GETTERS.get(operation)
-        setter = operation in TEACH_POSITION_SETTERS
-        group_after_status = schema is not None or setter
-        count = (2 if setter else 1) if group_after_status else len(node['args']) - 3
-        trailing = int(group_after_status and len(node['args']) > count + 1)
-        operands = self.service_operands(node, count, flow, conditional, trailing=trailing,
-                                         complete_input=1 if setter else None)
-        result = _Value(spec=list(schema)) if schema else _Value()
-        if operands is None:
-            return result
-        inputs, outputs = operands
-        if not self.checked_robot_service_outputs(outputs, node, flow):
-            return result
-        *receivers, status = outputs
-        self.context('teach_programs', None)
-        bank = getattr(self.saved_bindings, 'teach_programs', None)
-        stable = not (flow.opaque or flow.task_order_unknown or self.callback_depth or self.repeat_depth)
-        owner = self.task_roots[-1]
-        program = bank.callers.get(owner) if bank is not None else None
-        number = inputs[0].constant
-        explicit = trailing or (not group_after_status and count == 2)
-        group = inputs[-1].constant if explicit else self.default_position_group(bank)
-        if bank is None or not stable or type(number) is not int or type(group) is not int:
-            if setter and program is not None:
-                self.tick(len(flow.teach_positions.cells))
-                flow.teach_positions.invalidate(program)
-            self.unresolved_at('teach-position', operation+' requires a known caller bank, address and execution order', node)
-            self.uncertain_bank_read(receivers, status, flow, node)
-            return result
-        if setter:
-            try:
-                stored = teach_position_store_facts(operation, inputs[1], node.get('line'), self.tick)
-            except (rt.KarelRuntimeError, TypeError, ValueError, ArithmeticError) as error:
-                self.unresolved_at('teach-position', str(error), node)
-                flow.stopped = True
-                return result
-        if program is None or not bank.address(group, number, bank.position_register_limit):
-            code, reason = (9, 'calling task has no saved TP bank') if program is None else (2, 'address is outside the TP bank')
-            if schema:
-                self.position_read_failed(operation, status, code, node, flow, reason)
-            else:
-                self.bank_status(status, code, flow, node)
-            return result
-
-        key = program, group, number
-        if setter:
-            flow.teach_positions.cells[key] = stored
-            self.bank_status(status, 0, flow, node)
-            return result
-
-        stored = flow.teach_positions.lookup(key)
-        _, initial = bank.read_register(owner, number, 'position', group, line=node.get('line'))
-        spec = tuple_spec(stored.spec) if isinstance(stored, _Value) and stored.spec else (
-            initial['value'].spec if initial is not None and stored is None else None
-        )
-        if schema:
-            return self.teach_position_read(operation, key, result, stored, spec, status, node, flow, conditional)
-        if stored is None and initial is None:
-            self.bank_status(status, 17038, flow, node)
-        elif stored is UNKNOWN:
-            self.uncertain_bank_read(receivers, status, flow, node)
-        else:
-            if operation == 'TPE_POS_REG_FRM':
-                values = (initial['uframe'], initial['utool']) if initial is not None else (0, 0)
-            else:
-                values = register_description(spec) if spec is not None else (UNKNOWN, UNKNOWN)
-            for loc, value in zip(receivers, values):
-                self.write(loc, _Value(value, spec=['INTEGER']), flow, node)
-            self.bank_status(status, 0, flow, node)
-        return result
-
-    def teach_position_read(self, operation, key, result, stored, spec, status, node, flow, conditional):
-        program, group, number = key
-        if not isinstance(stored, _Value) and stored is not POSITION_MODIFIED:
-            loc = _Location('teach_position_register', program, number, (('group', group),), result.spec)
-            self.read(loc, node, flow, conditional or stored is UNKNOWN, partial=True)
-        if spec is not None and (spec[0] == 'JOINTPOS') != (result.spec[0] == 'JOINTPOS'):
-            self.position_read_failed(operation, status, 2, node, flow, 'TP register uses a different representation')
-            return result
-        if isinstance(stored, _Value) and stored.spec is not None:
-            try:
-                result = position_register_result(result.spec, stored, tick=self.tick)
-            except (rt.KarelRuntimeError, TypeError, ValueError, ArithmeticError) as error:
-                self.unresolved_at('teach-position', str(error), node)
-                flow.stopped = True
-                return result
-        self.bank_status(status, 0, flow, node)
-        return result
+    def teach_input(self, kind, program, number, spec, node, flow, conditional, *, group=None):
+        parts = (('group', group),) if group is not None else ()
+        loc = _Location(kind, program, number, parts, spec)
+        self.read(loc, node, flow, conditional, partial=group is not None)
 
     @staticmethod
     def robot_table_path(node):
@@ -4431,8 +4348,14 @@ class _Analyzer:
             return self.bank_call(node, flow, conditional)
         if name in POSITION_SERVICES:
             return self.position_register_call(node, flow, conditional)
+        if name in TEACH_SCALAR_GETTERS or name in TEACH_SCALAR_SETTERS:
+            return self.teach_scalar_call(node, flow, conditional)
+        if name in TEACH_HANDLE_SERVICES:
+            return self.teach_handle_call(node, flow, conditional)
         if name in TEACH_POSITION_SERVICES:
             return self.teach_position_call(node, flow, conditional)
+        if name == 'AVL_POS_NUM':
+            return self.teach_available_position(node, flow, conditional)
         if name in ROBOT_SNAPSHOTS:
             return self.robot_snapshot_call(node, flow, conditional)
         if name in ROBOT_RANGE_QUERIES:

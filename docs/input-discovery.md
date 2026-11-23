@@ -184,14 +184,24 @@ write records the converted representation for later reads and `POS_REG_TYPE`.
 Editable saved values and conversions that exceed the solver budget remain
 open during discovery.
 
-Teach-pendant position registers use the calling task's explicit
-`teach_programs.callers` binding. Discovery follows `GET_TPE_POS_REG`,
-`GET_TPE_JPOS_REG`, the three TP position setters, and the frame/tool
-and representation queries. TP position getters require the matching
-Cartesian or joint representation. Source writes retain the bank's saved
-frame and tool identifiers. A register read before a source write points to
-the physical TP program in the context editor, where its typed value can be
-supplied or changed. Adding a missing row refreshes discovery.
+### Teach-pendant data
+
+Caller-local TP numeric, string and position registers use the calling task's
+explicit `teach_programs.callers` binding. Discovery follows the active numeric
+output of `GET_TPE_REG`, the saved string capacity and the destination capacity,
+and the TP position getters, setters and metadata queries. An early read points
+to the physical TP program and register in the context editor. Editing a scalar
+TP register refreshes discovery because the numeric kind or string length can
+change which outputs the getter writes.
+
+Discovery also follows known `OPEN_TPE` and `CLOSE_TPE` calls in the entry task
+and synchronous linked routines. Positions addressed through a handle have
+separate edit locations from caller-local position registers. The position
+getters require the matching Cartesian or joint representation. Source writes
+preserve saved frame and tool identifiers, and `AVL_POS_NUM` considers all
+configured groups. Adding a missing position refreshes discovery. Dynamic handle
+targets and handle lifetimes across independently scheduled tasks remain
+unresolved.
 
 ### Robot snapshots and range checks
 

@@ -338,19 +338,22 @@ def _save_discovered_value(path, selected, update, *, expected, protected):
 
 def save_input_value(path, selected, kind, text, *, expected, protected=()):
     """Save one discovered scalar using a freshly validated target binding."""
+    from .input_teach_discovery import TEACH_SCALAR_SECTIONS
     from .runner_values import scalar_slot
 
     def update(context, candidate, binding):
         scalar_slot(context, candidate, binding).set_text(kind, text)
-        # A newly supplied bank value can make a getter's successful outputs definite.
-        return binding['status'] == 'missing'and candidate['kind'] in ('numeric_register', 'string_register', 'port')
+        # TP numeric kind and string capacity can change the path of a getter.
+        if candidate['kind'] in TEACH_SCALAR_SECTIONS:
+            return True
+        return binding['status'] == 'missing' and candidate['kind'] in ('numeric_register', 'string_register', 'port')
 
     return _save_discovered_value(path, selected, update, expected=expected, protected=protected)
 
 
 def save_input_structure(path, selected, payload, *, expected, protected=()):
     """Save a checked aggregate or position draft with one file publication."""
-    from .structured_inputs import structured_slot
+    from .structured_inputs import POSITION_INPUTS, structured_slot
 
     def update(context, candidate, binding):
         slot = structured_slot(context, candidate, binding)
@@ -362,8 +365,7 @@ def save_input_structure(path, selected, payload, *, expected, protected=()):
         if previously_missing:
             root = tuple_spec(candidate['root_type'])
             return rt.array_leaf_spec(root)[0] == 'PATH'
-        return (candidate['kind'] in ('position_register', 'teach_position_register')
-                and binding['status'] == 'missing')
+        return candidate['kind'] in POSITION_INPUTS and binding['status'] == 'missing'
 
     return _save_discovered_value(path, selected, update, expected=expected, protected=protected)
 

@@ -220,10 +220,16 @@ class TeachPrograms:
         if self.busy(name): return 4
         self.selected=name;return 0
 
-    def open(self,name,mode,reject=0,*,owner=None,line=None):
+    def open_target(self,name,mode,reject,line=None):
+        """Validate an open request before consulting live handle ownership."""
         runtime=rt();name=name_key(name,line);mode=runtime.integer(mode,line);reject=runtime.integer(reject,line)
         if name is None or mode not in (0,1,2) or reject not in (0,1,2,3,4): return 2,None
         if name not in self._programs: return 1,None
+        return 0,name
+
+    def open(self,name,mode,reject=0,*,owner=None,line=None):
+        code,name=self.open_target(name,mode,reject,line)
+        if code: return code,None
         access=(0,1,3)[mode]
         for other in self._handles.values():
             if other['name']!=name or other['owner'] is owner: continue
@@ -246,6 +252,16 @@ class TeachPrograms:
 
     def release_owner(self,owner):
         for number in [n for n,row in self._handles.items() if row['owner'] is owner]: del self._handles[number]
+
+    def saved_position_metadata(self,program,number,group,*,local=False):
+        """Return immutable metadata for offline input inspection."""
+        section='position_registers' if local else 'positions'
+        row=self._programs[program][section].get((group,number))
+        return None if row is None else (row['value'].spec,row['uframe'],row['utool'])
+
+    def saved_position_numbers(self,program):
+        """Yield configured position numbers across all groups."""
+        return (number for group,number in self._programs[program]['positions'])
 
     def read_position(self,handle,number,group=1,*,owner=None,line=None):
         number=rt().integer(number,line);group=rt().integer(group,line)

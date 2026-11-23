@@ -2,7 +2,7 @@
 from dataclasses import dataclass
 
 from . import runtime as rt
-from .input_position_values import teach_position_config_address
+from .input_teach_discovery import TEACH_POSITION_SECTIONS, teach_position_config_address
 from .input_template import InputTemplateError, _missing
 from .runner_values import ScalarSlot, variable_location
 from .storage import decode_typed, restore_value, tuple_spec
@@ -10,13 +10,14 @@ from .storage import decode_typed, restore_value, tuple_spec
 
 STRUCTURED_TYPES = ('ARRAY', 'JOINTPOS', *rt.RECORD_TYPES)
 POSITION_TYPES = ('XYZWPR', 'XYZWPREXT', 'POSITION', 'JOINTPOS')
+POSITION_INPUTS = {'position_register'} | TEACH_POSITION_SECTIONS.keys()
 
 
 def supports_structure(candidate):
     spec = candidate.get('type')
     return (isinstance(spec, list) and bool(spec) and
             (candidate.get('kind') == 'variable' and spec[0] in STRUCTURED_TYPES or
-             candidate.get('kind') in ('position_register', 'teach_position_register') and spec[0] in POSITION_TYPES))
+             candidate.get('kind') in POSITION_INPUTS and spec[0] in POSITION_TYPES))
 
 
 def _fields(container, key, spec, path, *, config_field=False):
@@ -136,9 +137,10 @@ def structured_slot(context, candidate, binding):
                 raise InputTemplateError('The saved aggregate differs from the discovered type.')
             return StructuredSlot(container, key, actual)
 
-        if candidate['kind'] == 'teach_position_register':
+        if candidate['kind'] in TEACH_POSITION_SECTIONS:
+            kind = candidate['kind']
             group, number = candidate['group'], candidate['index']
-            address = teach_position_config_address(context, candidate['program'], group, number)
+            address = teach_position_config_address(context, candidate['program'], group, number, kind)
             if address is None:
                 raise InputTemplateError('Choose a saved TP program bank before editing this position.')
             owner, index, row = address
@@ -146,7 +148,7 @@ def structured_slot(context, candidate, binding):
                 spec, _ = decode_typed(row['value'])
             if spec[0] not in POSITION_TYPES:
                 raise InputTemplateError('This register does not have a supported pose or joint schema.')
-            rows = context['teach_programs']['programs'][owner].setdefault('position_registers', [])
+            rows = context['teach_programs']['programs'][owner].setdefault(TEACH_POSITION_SECTIONS[kind], [])
             return TeachPositionSlot(rows, index, spec, group, number)
 
         service, section, key = binding['context_pointer'][1:].split('/')

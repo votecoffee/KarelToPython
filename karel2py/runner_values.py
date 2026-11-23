@@ -4,12 +4,13 @@ import json
 from math import prod
 
 from . import runtime as rt
+from .input_teach_discovery import TEACH_SCALAR_SECTIONS, teach_program_config_key
 from .input_template import InputTemplateError, _path_record_slot
 from .storage import array_state_values, restore_value, tuple_spec
 
 
 SCALAR_TYPES = {'BOOLEAN', 'BYTE', 'SHORT', 'INTEGER', 'REAL', 'STRING'}
-EDITABLE_KINDS = {'variable', 'numeric_register', 'string_register', 'port'}
+EDITABLE_KINDS = {'variable', 'numeric_register', 'string_register', 'port'} | TEACH_SCALAR_SECTIONS.keys()
 
 
 def input_key(row):
@@ -140,6 +141,17 @@ def variable_location(context, candidate):
     return container, key, spec, config_field
 
 
+def _teach_scalar_slot(context, candidate, options):
+    name = teach_program_config_key(context, candidate['program'])
+    if name is None:
+        raise InputTemplateError('Choose a saved TP program before editing this register.')
+    bank = context['teach_programs']
+    section = TEACH_SCALAR_SECTIONS[candidate['kind']]
+    values = bank['programs'][name].setdefault(section, {})
+    capacity = bank.get('string_capacity', 254) if section == 'string_registers' else None
+    return ScalarSlot(values, str(candidate['index']), options, capacity)
+
+
 def _bank_slot(context, candidate, binding, options):
     # Preparation computes the address using the existing key spellings.
     service, section, *address = binding['context_pointer'][1:].split('/')
@@ -166,6 +178,8 @@ def scalar_slot(context, candidate, binding):
             if (spec[0],) != options:
                 raise InputTemplateError('The selected scalar does not match its discovered type.')
             return ScalarSlot(container, key, options, spec[1] if spec[0] == 'STRING' else None, config_field)
+        if candidate['kind'] in TEACH_SCALAR_SECTIONS:
+            return _teach_scalar_slot(context, candidate, options)
         return _bank_slot(context, candidate, binding, options)
     except (IndexError, KeyError, TypeError, ValueError, rt.KarelRuntimeError) as error:
         if isinstance(error, InputTemplateError):

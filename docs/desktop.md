@@ -60,14 +60,13 @@ input from the pinned Python again. Each edit preserves sibling fields, other
 bank values, and the last result. Replay updates the result using the new inputs.
 
 **Edit fields** opens a paged draft for a discovered record, array, pose,
-joint value, or configured position register with an explicit group. Select
-fields to enter values and choose **OK** to save the draft together. A variable
-can keep missing fields. A position register needs complete checked data.
-An existing position register keeps its type and joint width. A new entry
-starts with the getter's declared schema and missing fields. The save uses the
-canonical state representation for the selected value. Use **Edit context**
-for an individual row in a legacy flat array or to supply a different position
-register type.
+joint value, position register or TP program position with an explicit group.
+Select fields to enter values and choose **OK** to save the draft together. A
+variable can keep missing fields. A position entry needs complete checked data.
+An existing entry keeps its type and joint width. A new entry starts with the
+getter's declared schema and missing fields. The save uses the canonical state
+representation for the selected value. Use **Edit context** for an individual
+row in a legacy flat array or to supply a different position type.
 
 Each replay uses the saved inputs and pinned Python bytes. Results stay in
 the same JSON document. **Rediscover** takes a selected generated Python file
