@@ -8,7 +8,6 @@ from .input_discovery import DEFAULT_EMPTY_PATH, MISSING_PATH_RECORD, _discover_
 from .input_teach_discovery import (
     TEACH_POSITION_SECTIONS, TEACH_SCALAR_SECTIONS, teach_position_config_address, teach_program_config_key,
 )
-from .inspection import merge_program_record
 from .storage import collection_array_cost, collection_data_spec, list_spec, restore_value, tuple_spec
 
 
@@ -163,9 +162,8 @@ class _SavedBindings:
     def program_catalog(self):
         return self.catalog.entries if self.catalog is not None else ()
 
-    def program_record(self, name, *, attached, teach_record):
-        record = self.program_attributes.record(name) if self.program_attributes is not None else None
-        return merge_program_record(record, teach_record, attached=attached)
+    def program_attribute_record(self, name):
+        return self.program_attributes.record(name) if self.program_attributes is not None else None
 
     def system_path(self, owners, path, *, tick):
         tick(len(self.references))

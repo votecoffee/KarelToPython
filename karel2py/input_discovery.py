@@ -42,7 +42,8 @@ from .input_robot_values import (
 )
 from .inspection import (
     CATALOG_SCAN_LIMIT, catalog_key, catalog_type_matches, describe, effective_list_options,
-    effective_program_list_options, program_attribute_key, program_attribute_value, program_list_page, variable_list_page,
+    effective_program_list_options, merge_program_record, program_attribute_key, program_attribute_value,
+    program_list_page, variable_list_page,
 )
 from .input_value_conversions import (
     SCALARS, UNKNOWN, Value as _Value, array_dimensions as _array_dimensions,
@@ -3410,17 +3411,19 @@ class _Analyzer(TeachDiscovery):
             return None
         owners = self.linked_plans if self.linked_plans is not None else (self.program,)
         bank = self.saved_bindings.teach_programs
-        teach_entries = self.teach_listing_entries(bank, flow) if bank is not None else ()
+        teach_entries = self.teach_listing_entries(bank, flow, options[0], kind) if bank is not None else ()
         if teach_entries is None:
             return None
-        saved = (*self.saved_bindings.program_catalog(), *teach_entries)
-        # Linked owners contribute both attached programs and task entries.
+        saved = self.saved_bindings.program_catalog()
+        # The runtime scans all entries even when the pattern selects one.
         size = len(owners) * (2 if self.linked_plans is not None else 1) + len(saved) + 1
-        if size > CATALOG_SCAN_LIMIT:
+        teach_bound = self.teach_listing_bound(bank, flow) if bank is not None else 0
+        if size + teach_bound > CATALOG_SCAN_LIMIT:
             return None
-        self.tick(size)
+        self.tick(size + len(teach_entries))
         catalog = {(name, 'PC') for name in owners}
         catalog.update(saved)
+        catalog.update(teach_entries)
         capacity, width = buffer
         status, text = program_list_page(catalog, options, capacity, width)
         if status:
@@ -3444,7 +3447,7 @@ class _Analyzer(TeachDiscovery):
                     return True
         return UNKNOWN if plan['types'] else False
 
-    def update_program_attribute(self, name, key, value, record, attached, flow):
+    def update_program_attribute(self, name, key, value, record, attached, teach_header, flow):
         if key not in PROGRAM_WRITABLE_ATTRIBUTES:
             return 2
         active_call = name == self.program or name in self.task_roots or any(
@@ -3453,8 +3456,6 @@ class _Analyzer(TeachDiscovery):
         active = record.get('active', False) if record is not None else False
         if active_call or active is True:
             return 4
-        if active is UNKNOWN:
-            return None
         if self.saved_bindings is None or name in flow.requested_tasks:
             return None
         if attached and self.saved_bindings.program_attributes is None:
@@ -3465,10 +3466,19 @@ class _Analyzer(TeachDiscovery):
                     value = ProgramAttributes._value(key, value)
             except rt.KarelRuntimeError:
                 return None
-        flow.program_attributes[name, key] = value
-        if len(flow.program_attributes) > MAX_FACTS:
-            raise _Limit('Analysis storage limit reached')
-        return 0
+        if teach_header:
+            if active is UNKNOWN:
+                flow.teach.catalog.maybe_write_header(name, key, value)
+            else:
+                flow.teach.catalog.write_header(name, key, value)
+        else:
+            if active is UNKNOWN:
+                previous = flow.program_attributes.get((name, key))
+                value = MAYBE_ATTRIBUTE if previous is None or previous is MAYBE_ATTRIBUTE else UNKNOWN
+            flow.program_attributes[name, key] = value
+            if len(flow.program_attributes) > MAX_FACTS:
+                raise _Limit('Analysis storage limit reached')
+        return UNKNOWN if active is UNKNOWN else 0
 
     def program_metadata_values(self, operation, known, outputs, node, flow, conditional):
         name = known[0]
@@ -3478,8 +3488,9 @@ class _Analyzer(TeachDiscovery):
         valid = re.fullmatch(r'[A-Z_][A-Z_0-9]{0,35}', name) is not None
         plan = self.binding_plan(name) if valid else None
         attached = plan is not None
+        external = None
         record = None
-        changed_teach = False
+        entry = None
         bank = getattr(self.saved_bindings, 'teach_programs', None)
         if valid and self.saved_bindings is not None:
             teach = None
@@ -3489,8 +3500,8 @@ class _Analyzer(TeachDiscovery):
                     return None
                 if entry is not None:
                     teach = self.teach_inspection_metadata(bank, name, entry, flow)
-                    changed_teach = name in flow.teach.catalog.entries
-            record = self.saved_bindings.program_record(name, attached=attached, teach_record=teach)
+            external = self.saved_bindings.program_attribute_record(name)
+            record = merge_program_record(external, teach, attached=attached)
         known_context = self.saved_bindings is not None or not valid
         if operation == 'LOAD_STATUS':
             if attached:
@@ -3513,11 +3524,10 @@ class _Analyzer(TeachDiscovery):
             return (*payload, _Value(1, spec=['INTEGER'])) if known_context else None
         if writing:
             value = known[3] if key in PROGRAM_TEXT_ATTRIBUTES else known[2]
-            status = self.update_program_attribute(name, key, value, record, attached, flow)
+            teach_header = entry is not None and external is None
+            status = self.update_program_attribute(name, key, value, record, attached, teach_header, flow)
             return (_Value(status, spec=['INTEGER']),) if status is not None else None
         if not known_context and key not in ('AT_PROG_NAME', 'AT_PROG_TYPE'):
-            return None
-        if changed_teach and key not in ('AT_PROG_TYPE', 'AT_PROG_NAME', 'AT_NUM_LINE'):
             return None
         if attached and key == 'AT_COMMENT' and 'source_comment' not in plan and (
                 record is None or key not in record['attributes']):
@@ -3525,6 +3535,8 @@ class _Analyzer(TeachDiscovery):
         comment = plan.get('source_comment') if attached else None
         value = program_attribute_value(name, key, record, attached=attached, comment=comment)
         updated = flow.program_attributes.get((name, key))
+        if updated is None or updated is MAYBE_ATTRIBUTE:
+            self.teach_header_input(entry, name, key, external, updated is MAYBE_ATTRIBUTE, node, flow, conditional)
         if updated is MAYBE_ATTRIBUTE:
             if value is None:
                 target = outputs[1] if key in PROGRAM_TEXT_ATTRIBUTES else outputs[0]
@@ -3585,6 +3597,7 @@ class _Analyzer(TeachDiscovery):
         inputs, outputs = operands
         known = [value.constant for value in inputs]
         values = None
+        ordinary_outputs = False
         if not (flow.opaque or flow.task_order_unknown or self.repeat_depth or self.callback_depth or flow.handlers
                 or any(loc is None for loc in outputs)):
             if self.service_outputs_overlap(outputs):
@@ -3593,7 +3606,8 @@ class _Analyzer(TeachDiscovery):
                 dims, leaf = _array_dimensions(outputs[3].spec)
                 if None not in dims and (dims != [3] or leaf != ['INTEGER']):
                     return self.reject_service_overlap(node, flow, 'VAR_INFO dimensions require ARRAY[3] OF INTEGER')
-            if all(self.ordinary_variable_output(loc, node) for loc in outputs):
+            ordinary_outputs = all(self.ordinary_variable_output(loc, node) for loc in outputs)
+            if ordinary_outputs:
                 if operation == 'VAR_LIST':
                     values = self.variable_list_values(known, outputs, flow)
                 elif operation == 'VAR_INFO':
@@ -3605,7 +3619,17 @@ class _Analyzer(TeachDiscovery):
         if values is None:
             code = 'variable-catalog' if operation in ('VAR_INFO', 'VAR_LIST') else 'program-catalog'
             self.unresolved_at(code, operation+' requires a known catalog, lookup and output storage', node)
-            self.opaque(flow)
+            if ordinary_outputs and operation == 'LOAD_STATUS':
+                for loc in outputs:
+                    self.write(loc, _Value(spec=loc.spec), flow, node)
+            elif ordinary_outputs and operation == 'GET_ATTR_PRG':
+                key = program_attribute_key(known[1]) if type(known[1]) is int else None
+                receivers = (outputs[int(key in PROGRAM_TEXT_ATTRIBUTES)],) if key is not None else outputs[:-1]
+                self.uncertain_bank_read(receivers, outputs[-1], flow, node)
+            elif ordinary_outputs and operation == 'PROG_LIST':
+                self.uncertain_bank_read(outputs[:2] + outputs[3:], outputs[2], flow, node)
+            else:
+                self.opaque(flow)
             return _Value(complete=False)
         for loc, value in zip(outputs, values):
             if value is not None:
@@ -4515,12 +4539,13 @@ class _Analyzer(TeachDiscovery):
                 owners = flow.teach.handle_owners()
                 synchronized = None not in owners and self.task_roots[-1] not in owners
         if bounded == 'scalar' or synchronized:
-            shared = flow.teach if synchronized else None
-            cursor, child = self.scheduled_body(plan, segment=True, suspension=suspension, shared_teach=shared)
+            caller = flow if synchronized else None
+            cursor, child = self.scheduled_body(plan, segment=True, suspension=suspension, shared=caller)
             if synchronized:
                 if child.opaque or child.task_order_unknown:
                     raise _TaskOrderUnknown()
                 flow.teach = child.teach
+                flow.program_attributes = child.program_attributes
                 if cursor is None:
                     self.tick(len(flow.teach.handles or ()))
                     flow.teach.release_owner(name)
@@ -4538,7 +4563,7 @@ class _Analyzer(TeachDiscovery):
         self.scheduled_body(plan, path_orders=flow.path_orders)
         return False
 
-    def scheduled_body(self, plan, *, segment=False, suspension=None, path_orders=None, shared_teach=None):
+    def scheduled_body(self, plan, *, segment=False, suspension=None, path_orders=None, shared=None):
         depth = self.suspended_depth + len(self.frames) + 1
         caller_plan, caller_roots, caller_depth = self.plan, self.task_roots, self.suspended_depth
         caller_frames, caller_exits, caller_values = self.frames, self.exits, self.capture_values
@@ -4549,8 +4574,10 @@ class _Analyzer(TeachDiscovery):
                 self.block(plan['body'], _Flow(task_order_unknown=True, path_orders=dict.fromkeys(path_orders or ())), True)
                 return None, None
             child = suspension.flow.copy() if suspension is not None else _Flow()
-            if shared_teach is not None:
-                child.teach = shared_teach.copy()
+            if shared is not None:
+                child.teach = shared.teach.copy()
+                child.program_attributes = shared.program_attributes.copy()
+                child.requested_tasks = shared.requested_tasks.copy()
             start = suspension.next_statement if suspension is not None else 0
             for index in range(start, len(plan['body'])):
                 if child.stopped and not child.opaque:

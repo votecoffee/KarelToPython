@@ -209,9 +209,22 @@ configured groups. Adding a missing position refreshes discovery.
 Discovery follows known `CREATE_TPE`, `COPY_TPE` and `SELECT_TPE` calls,
 including catalog membership and the instruction count after
 `DEL_INST_TPE`. Copying captures the source values and prior writes at the
-time of the call. An early read of a copied position, register or comment
-points back to its original saved program. A program created by the source
-starts empty, and its positions must be written before they can be read.
+time of the call. An early read of a copied position, register, comment or
+writable header points back to its original saved program. A program created by
+the source starts empty, and its positions must be written before they can be
+read.
+
+`GET_ATTR_PRG` and `SET_ATTR_PRG` follow the TP owner, comment, source name
+and source version through edits, copies and known linked pause handoffs.
+Copies carry the TP header values present at the time of copying. Explicit
+`program_attributes` records remain attached to their own program names and
+take precedence for those fields when configured. Editing a discovered TP header
+refreshes discovery because its value can select a different branch.
+
+A copy with an unresolved source and a known destination leaves unrelated TP
+programs available for discovery. Unresolved creates and copies with
+overwriting disabled can make listing results uncertain while preserving
+reads and exact-name listings for existing programs.
 
 `GET_TPE_CMT` and `SET_TPE_CMT` follow the addressed position across groups,
 the comment's 16-character capacity and the receiver's capacity. A saved
@@ -219,9 +232,9 @@ position comment can be added or edited as a scalar. Edits refresh discovery
 when the new length can change the getter's status. In a linked pause handoff,
 the owning task keeps its handles while paused. The analysis follows reject
 masks, rejects foreign handle operations, and releases the child's handles
-at natural completion when the boundary is known. Dynamic catalog or handle
-targets, unsynchronized access, and general header queries after a TP catalog
-edit remain unresolved.
+at natural completion when the boundary is known. Dynamic handle targets,
+unsynchronized access, and writes to an unknown catalog destination that may
+overwrite an existing program remain unresolved.
 
 ### Robot snapshots and range checks
 

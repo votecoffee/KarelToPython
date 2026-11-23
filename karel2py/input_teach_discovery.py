@@ -6,7 +6,7 @@ from . import runtime as rt
 from .input_position_values import (
     POSITION_MODIFIED, merge_positions, position_register_result, teach_position_store_facts,
 )
-from .input_teach_catalog import TEACH_COMMENT_KIND, TeachCatalogDiscovery, TeachCatalogFacts
+from .input_teach_catalog import TEACH_COMMENT_KIND, TEACH_HEADER_KIND, TeachCatalogDiscovery, TeachCatalogFacts
 from .input_value_conversions import UNKNOWN, Value
 from .position_register_models import register_description
 from .storage import tuple_spec
@@ -18,7 +18,7 @@ PROGRAM_POSITION_KIND = 'teach_program_position'
 TEACH_POSITION_SECTIONS = {LOCAL_POSITION_KIND: 'position_registers', PROGRAM_POSITION_KIND: 'positions'}
 TEACH_SCALAR_SECTIONS = {
     'teach_numeric_register': 'numeric_registers', 'teach_string_register': 'string_registers',
-    TEACH_COMMENT_KIND: 'comments',
+    TEACH_COMMENT_KIND: 'comments', TEACH_HEADER_KIND: 'attributes',
 }
 TEACH_SCALAR_GETTERS = {'GET_TPE_REG': 'numeric', 'GET_TPE_STR_REG': 'string'}
 TEACH_SCALAR_SETTERS = {'SET_INT_TPE_REG': 'INTEGER', 'SET_REAL_TPE_REG': 'REAL', 'SET_TPE_STR_REG': 'STRING'}

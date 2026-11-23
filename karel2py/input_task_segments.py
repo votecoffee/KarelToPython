@@ -5,6 +5,9 @@ from .input_value_conversions import SCALARS
 from .teach import TPE_NAMES
 
 
+SHARED_TEACH_CALLS = TPE_NAMES | {'GET_ATTR_PRG', 'SET_ATTR_PRG', 'LOAD_STATUS'}
+
+
 def bounded_child(plan, linked_plans, tick):
     """Return the kind of operations in an isolated, bounded child body."""
     name = plan['program']
@@ -48,7 +51,7 @@ def bounded_child(plan, linked_plans, tick):
         routine = node['value']
         if routine in plan['routines']:
             return False
-        if routine in TPE_NAMES:
+        if routine in SHARED_TEACH_CALLS:
             uses_teach = True
         elif routine in POSE_CONSTRUCTORS or routine == 'CNV_STR_CONF':
             uses_pose = True

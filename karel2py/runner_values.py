@@ -149,8 +149,12 @@ def _teach_scalar_slot(context, candidate, options):
     bank = context['teach_programs']
     section = TEACH_SCALAR_SECTIONS[candidate['kind']]
     values = bank['programs'][name].setdefault(section, {})
-    capacity = {'comments': TEACH_COMMENT_CAPACITY,
-                'string_registers': bank.get('string_capacity', 254)}.get(section)
+    if section == 'attributes':
+        spec = candidate['type']
+        capacity = spec[1] if spec[0] == 'STRING' else None
+    else:
+        capacity = {'comments': TEACH_COMMENT_CAPACITY,
+                    'string_registers': bank.get('string_capacity', 254)}.get(section)
     return ScalarSlot(values, str(candidate['index']), options, capacity)
 
 

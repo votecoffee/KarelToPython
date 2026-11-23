@@ -1,8 +1,9 @@
 """Detached catalog and instruction facts for teach-program discovery."""
 
 from dataclasses import dataclass, field, replace
+from fnmatch import fnmatchcase
 
-from .extended import PROGRAM_KINDS
+from .extended import PROGRAM_KINDS, PROGRAM_TEXT_ATTRIBUTES, PROGRAM_TYPES, PROGRAM_WRITABLE_ATTRIBUTES
 from .input_position_values import POSITION_MODIFIED
 from .input_value_conversions import UNKNOWN, Value
 from .teach import KIND_NAMES, TEACH_COMMENT_CAPACITY, checked_teach_kind, name_key
@@ -11,6 +12,8 @@ from .teach import KIND_NAMES, TEACH_COMMENT_CAPACITY, checked_teach_kind, name_
 TEACH_CATALOG_SERVICES = {'CREATE_TPE', 'COPY_TPE', 'SELECT_TPE'}
 TEACH_EDIT_SERVICES = {'GET_TPE_CMT', 'SET_TPE_CMT', 'DEL_INST_TPE'}
 TEACH_COMMENT_KIND = 'teach_position_comment'
+TEACH_HEADER_KIND = 'teach_program_attribute'
+MAYBE_TEACH_HEADER = object()
 
 
 @dataclass(frozen=True)
@@ -35,6 +38,21 @@ def merged_entry(entries):
     return entry
 
 
+def merged_headers(flows):
+    result = {}
+    for name in set().union(*(flow.headers for flow in flows)):
+        rows = [flow.headers.get(name, {}) for flow in flows]
+        merged = {}
+        for key in set().union(*rows):
+            values = [row.get(key) for row in rows]
+            if any(value is None or value is MAYBE_TEACH_HEADER for value in values):
+                merged[key] = MAYBE_TEACH_HEADER
+            else:
+                merged[key] = shared(values)
+        result[name] = merged
+    return result
+
+
 @dataclass
 class TeachCatalogFacts:
     # Unmentioned names resolve against the original saved bank.
@@ -43,11 +61,14 @@ class TeachCatalogFacts:
     call_counts: object = None
     all_uncertain: bool = False
     saved_instruction_count_unknown: bool = False
+    unknown_additions: bool = False
+    headers: dict = field(default_factory=dict)
 
     def copy(self):
         # The dependency counts are replaced atomically after a copy.
         return TeachCatalogFacts(self.entries.copy(), self.selection, self.call_counts,
-                                 self.all_uncertain, self.saved_instruction_count_unknown)
+                                 self.all_uncertain, self.saved_instruction_count_unknown,
+                                 self.unknown_additions, self.headers.copy())
 
     @classmethod
     def merge(cls, flows):
@@ -55,7 +76,8 @@ class TeachCatalogFacts:
         return cls({name: merged_entry([flow.entries.get(name) for flow in flows]) for name in names},
                    shared([flow.selection for flow in flows]), shared([flow.call_counts for flow in flows]),
                    any(flow.all_uncertain for flow in flows),
-                   any(flow.saved_instruction_count_unknown for flow in flows))
+                   any(flow.saved_instruction_count_unknown for flow in flows),
+                   any(flow.unknown_additions for flow in flows), merged_headers(flows))
 
     def entry(self, bank, name):
         if self.all_uncertain:
@@ -64,9 +86,27 @@ class TeachCatalogFacts:
             return self.entries[name]
         row = bank.saved_program_definition(name)
         if row is None:
-            return None
+            return UNKNOWN if self.unknown_additions else None
         kind, protected, count = row
         return TeachProgramEntry(name, kind, protected, UNKNOWN if self.saved_instruction_count_unknown else count)
+
+    def write_header(self, name, key, value):
+        # Replace the row so copies and branch snapshots retain their value.
+        self.headers[name] = {**self.headers.get(name, {}), key: value}
+
+    def maybe_write_header(self, name, key, value):
+        previous = self.known_header(name, key)
+        joined = MAYBE_TEACH_HEADER if previous is None or previous is MAYBE_TEACH_HEADER else shared([previous, value])
+        self.write_header(name, key, joined)
+
+    def copy_header(self, source, target):
+        if source in self.headers:
+            self.headers[target] = self.headers[source]
+        else:
+            self.headers.pop(target, None)
+
+    def known_header(self, name, key):
+        return self.headers.get(name, {}).get(key)
 
     def invalidate_instruction_counts(self, tick):
         tick(len(self.entries))
@@ -80,12 +120,19 @@ class TeachCatalogFacts:
         return bank.selected if self.selection is None else self.selection
 
     def is_full(self, bank):
+        if self.all_uncertain:
+            return UNKNOWN
         count = bank.program_count
+        possible = self.unknown_additions
         for name, entry in self.entries.items():
-            if entry is UNKNOWN:
-                return UNKNOWN
-            count += bank.saved_program_definition(name) is None
-        return count >= bank.program_limit
+            if bank.saved_program_definition(name) is None:
+                if entry is UNKNOWN:
+                    possible = True
+                else:
+                    count += 1
+        if count >= bank.program_limit:
+            return True
+        return UNKNOWN if possible else False
 
     def replace_dependency_counts(self, bank, source, target, tick):
         counts = self.call_counts
@@ -106,12 +153,30 @@ class TeachCatalogFacts:
 
 
 class TeachCatalogDiscovery:
-    def teach_listing_entries(self, bank, flow):
+    def teach_listing_bound(self, bank, flow):
         catalog = flow.teach.catalog
-        if catalog.all_uncertain or any(entry is UNKNOWN for entry in catalog.entries.values()):
+        if catalog.all_uncertain or catalog.unknown_additions:
+            return bank.program_limit
+        return min(bank.program_limit, bank.program_count + len(catalog.entries))
+
+    def teach_listing_entries(self, bank, flow, pattern, kind):
+        if not KIND_NAMES.keys() & set(PROGRAM_TYPES[kind]):
+            return ()
+        catalog = flow.teach.catalog
+        if '*' not in pattern and '?' not in pattern:
+            entry = catalog.entry(bank, pattern)
+            if entry is UNKNOWN:
+                return None
+            return ((pattern, entry.kind),) if entry is not None else ()
+        if catalog.all_uncertain or catalog.unknown_additions:
             return None
+        self.tick(bank.program_count + len(catalog.entries))
         saved = dict(bank.entries)
-        saved.update((name, entry.kind) for name, entry in catalog.entries.items())
+        for name, entry in catalog.entries.items():
+            if fnmatchcase(name, pattern):
+                if entry is UNKNOWN:
+                    return None
+                saved[name] = entry.kind
         return tuple(saved.items())
 
     def teach_inspection_metadata(self, bank, name, entry, flow):
@@ -130,13 +195,31 @@ class TeachCatalogDiscovery:
         attributes = dict(record['attributes']) if record is not None else {
             'AT_OWNER': '', 'AT_COMMENT': '', 'AT_SRC_NAME': '', 'AT_SRC_VRSN': 0,
         }
+        attributes.update(
+            (key, UNKNOWN if value is MAYBE_TEACH_HEADER else value)
+            for key, value in flow.teach.catalog.headers.get(name, {}).items()
+        )
         attributes.update(AT_PROG_TYPE=PROGRAM_KINDS[KIND_NAMES[entry.kind]], AT_NUM_LINE=entry.instructions)
         selected = flow.teach.catalog.selected(bank)
-        if flow.teach.handles is None or selected is UNKNOWN:
+        if selected == name or self.teach_definitely_busy(name, flow):
+            active = True
+        elif flow.teach.handles is None or selected is UNKNOWN:
             active = UNKNOWN
         else:
-            active = selected == name or self.teach_program_busy(name, flow)
+            active = False
         return {'loaded': True, 'initialized': initialized, 'active': active, 'attributes': attributes}
+
+    def teach_header_input(self, entry, name, key, external, externally_changed, node, flow, conditional):
+        if key not in PROGRAM_WRITABLE_ATTRIBUTES or entry is None or entry.origin is None:
+            return
+        if external is not None and key in external['attributes']:
+            return
+        written = flow.teach.catalog.known_header(name, key)
+        if written is None or written is MAYBE_TEACH_HEADER:
+            capacity = PROGRAM_TEXT_ATTRIBUTES.get(key)
+            spec = ['STRING', capacity] if capacity is not None else ['INTEGER']
+            self.teach_input(TEACH_HEADER_KIND, entry.origin, key, spec, node, flow,
+                             conditional or externally_changed or written is MAYBE_TEACH_HEADER)
 
     def teach_catalog_call(self, node, flow, conditional):
         operation = node['value']
@@ -153,7 +236,9 @@ class TeachCatalogDiscovery:
             if all(value is not UNKNOWN for value in values) and not state.catalog.all_uncertain:
                 code = self.teach_catalog_operation(operation, bank, values, node, flow)
         if code is UNKNOWN:
-            if operation == 'SELECT_TPE':
+            if bank is not None and self.teach_stable(flow):
+                self.teach_uncertain_catalog_action(bank, operation, values, node, flow)
+            elif operation == 'SELECT_TPE':
                 state.catalog.selection = UNKNOWN
             else:
                 state.catalog.all_uncertain = True
@@ -161,6 +246,60 @@ class TeachCatalogDiscovery:
         else:
             self.bank_status(status, code, flow, node)
         return Value()
+
+    def teach_uncertain_catalog_action(self, bank, operation, values, node, flow):
+        catalog = flow.teach.catalog
+        line = node.get('line')
+        name = name_key(values[0], line) if values[0] is not UNKNOWN else UNKNOWN
+        if name is None:
+            return
+        entry = catalog.entry(bank, name) if name is not UNKNOWN else UNKNOWN
+        if operation == 'SELECT_TPE':
+            if entry is not None and not self.teach_definitely_busy(name, flow):
+                catalog.selection = UNKNOWN
+            return
+        if operation == 'CREATE_TPE':
+            kind = values[1]
+            if isinstance(entry, TeachProgramEntry) or (kind is not UNKNOWN and checked_teach_kind(kind) is None):
+                return
+            self.tick(len(catalog.entries))
+            if catalog.is_full(bank) is not True:
+                self.teach_uncertain_addition(catalog, name)
+            return
+
+        target = name_key(values[1], line) if values[1] is not UNKNOWN else UNKNOWN
+        overwrite = values[2]
+        if target is None or (target is not UNKNOWN and target == name) or entry is None:
+            return
+        if self.teach_definitely_busy(name, flow):
+            return
+        if target is not UNKNOWN:
+            previous = catalog.entry(bank, target)
+            if catalog.selected(bank) == target or self.teach_definitely_busy(target, flow):
+                return
+            if isinstance(previous, TeachProgramEntry) and (previous.protected or overwrite is False):
+                return
+        if overwrite is False:
+            self.tick(len(catalog.entries))
+            if catalog.is_full(bank) is True:
+                return
+        if target is UNKNOWN and overwrite is not False:
+            catalog.all_uncertain = True
+        else:
+            self.teach_uncertain_addition(catalog, target)
+        if catalog.call_counts is not None or bank.saved_dependency_counts():
+            catalog.call_counts = UNKNOWN
+
+    @staticmethod
+    def teach_uncertain_addition(catalog, name):
+        if name is UNKNOWN:
+            catalog.unknown_additions = True
+        else:
+            catalog.entries[name] = UNKNOWN
+            catalog.headers.pop(name, None)
+
+    def teach_definitely_busy(self, name, flow):
+        return name is not UNKNOWN and flow.teach.handles is not None and self.teach_program_busy(name, flow)
 
     def teach_catalog_operation(self, operation, bank, values, node, flow):
         catalog = flow.teach.catalog
@@ -231,6 +370,7 @@ class TeachCatalogDiscovery:
         for cells in state.banks():
             cells.copy_program(source, target, self.tick)
         catalog.entries[target] = entry
+        catalog.copy_header(source, target)
         return 0
 
     def teach_edit_call(self, node, flow, conditional):
