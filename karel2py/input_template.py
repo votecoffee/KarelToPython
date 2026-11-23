@@ -161,14 +161,11 @@ class _SavedBindings:
         self.namespaces = None
 
     def program_catalog(self):
-        catalog = self.catalog.entries if self.catalog is not None else ()
-        teach = self.teach_programs.entries if self.teach_programs is not None else ()
-        return (*catalog, *teach)
+        return self.catalog.entries if self.catalog is not None else ()
 
-    def program_record(self, name, *, attached):
+    def program_record(self, name, *, attached, teach_record):
         record = self.program_attributes.record(name) if self.program_attributes is not None else None
-        teach = self.teach_programs.metadata(name) if self.teach_programs is not None else None
-        return merge_program_record(record, teach, attached=attached)
+        return merge_program_record(record, teach_record, attached=attached)
 
     def system_path(self, owners, path, *, tick):
         tick(len(self.references))

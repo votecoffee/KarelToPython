@@ -76,9 +76,10 @@ document and reports changed, omitted and unresolved inputs.
    order and targets can be determined. Track effects between motion
    callbacks and keep dynamic selections and external effects visible. Extend
    TP discovery to handle lifetimes and access conflicts across child tasks,
-   program creation and copying, and position comments. Caller-local TP
-   registers and positions addressed through known handles in the entry task
-   and synchronous routines are already editable.
+   dynamic catalog targets, and general header queries after source catalog
+   edits. Known program creation, copying and selection, instruction counts,
+   registers and position comments are covered in the entry task and
+   synchronous routines.
 2. **Export linked sources from the desktop.** Reuse linked-project validation
    and cooperative Python export so the desktop workflow can begin with KAREL
    source files. Keep the existing output and source-file protections.

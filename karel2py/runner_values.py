@@ -7,6 +7,7 @@ from . import runtime as rt
 from .input_teach_discovery import TEACH_SCALAR_SECTIONS, teach_program_config_key
 from .input_template import InputTemplateError, _path_record_slot
 from .storage import array_state_values, restore_value, tuple_spec
+from .teach import TEACH_COMMENT_CAPACITY
 
 
 SCALAR_TYPES = {'BOOLEAN', 'BYTE', 'SHORT', 'INTEGER', 'REAL', 'STRING'}
@@ -148,7 +149,8 @@ def _teach_scalar_slot(context, candidate, options):
     bank = context['teach_programs']
     section = TEACH_SCALAR_SECTIONS[candidate['kind']]
     values = bank['programs'][name].setdefault(section, {})
-    capacity = bank.get('string_capacity', 254) if section == 'string_registers' else None
+    capacity = {'comments': TEACH_COMMENT_CAPACITY,
+                'string_registers': bank.get('string_capacity', 254)}.get(section)
     return ScalarSlot(values, str(candidate['index']), options, capacity)
 
 

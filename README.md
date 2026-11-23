@@ -3,7 +3,7 @@
 ![KarelToPython icon](karel2py/assets/icons/karel_to_python_icon_64x64.png)
 
 KarelToPython translates a supported subset of FANUC KAREL into Python for
-offline inspection and execution. The current build is **26.1123.155452**.
+offline inspection and execution. The current build is **26.1123.160650**.
 
 ## Table of Contents
 
@@ -89,10 +89,9 @@ python -m karel2py.runner run session.run.json
 ```
 
 Edit `inputs.context` before running a program that requires initial values.
-Discovered inputs include caller-local TP registers and grouped TP program
-positions addressed through known handles. Inputs and results share one JSON file.
-Use `runner refresh` to carry compatible
-inputs to a new translation. See [saved runs](docs/run-documents.md) and
+Discovered inputs include caller-local TP registers, grouped TP program
+positions and position comments. Inputs and results share one JSON file.
+Use `runner refresh` to carry compatible inputs to a new translation. See [saved runs](docs/run-documents.md) and
 [input discovery](docs/input-discovery.md).
 For multiple linked modules, export cooperative Python and pin the set with
 `runner create-project --discover`. Use `runner prepare-project` to add or update

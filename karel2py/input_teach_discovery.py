@@ -6,15 +6,20 @@ from . import runtime as rt
 from .input_position_values import (
     POSITION_MODIFIED, merge_positions, position_register_result, teach_position_store_facts,
 )
+from .input_teach_catalog import TEACH_COMMENT_KIND, TeachCatalogDiscovery, TeachCatalogFacts
 from .input_value_conversions import UNKNOWN, Value
 from .position_register_models import register_description
 from .storage import tuple_spec
+from .teach import checked_open_request
 
 
 LOCAL_POSITION_KIND = 'teach_position_register'
 PROGRAM_POSITION_KIND = 'teach_program_position'
 TEACH_POSITION_SECTIONS = {LOCAL_POSITION_KIND: 'position_registers', PROGRAM_POSITION_KIND: 'positions'}
-TEACH_SCALAR_SECTIONS = {'teach_numeric_register': 'numeric_registers', 'teach_string_register': 'string_registers'}
+TEACH_SCALAR_SECTIONS = {
+    'teach_numeric_register': 'numeric_registers', 'teach_string_register': 'string_registers',
+    TEACH_COMMENT_KIND: 'comments',
+}
 TEACH_SCALAR_GETTERS = {'GET_TPE_REG': 'numeric', 'GET_TPE_STR_REG': 'string'}
 TEACH_SCALAR_SETTERS = {'SET_INT_TPE_REG': 'INTEGER', 'SET_REAL_TPE_REG': 'REAL', 'SET_TPE_STR_REG': 'STRING'}
 TEACH_POSITION_GETTERS = {
@@ -81,6 +86,20 @@ class TeachBankFacts:
             self.cells = {key: value for key, value in self.cells.items() if key[0] != program}
 
 
+    def copy_program(self, source, target, tick):
+        tick(len(self.cells))
+        snapshot = {}
+        for key, value in self.cells.items():
+            if key[0] == source:
+                snapshot[(target,) + key[1:]] = value
+            elif key[0] != target:
+                snapshot[key] = value
+        self.cells = snapshot
+        self.uncertain_programs.discard(target)
+        if source in self.uncertain_programs:
+            self.uncertain_programs.add(target)
+
+
 @dataclass
 class TeachFacts:
     numeric: TeachBankFacts = field(default_factory=TeachBankFacts)
@@ -92,11 +111,19 @@ class TeachFacts:
     handles: dict | None = field(default_factory=dict)
     sequence: int = 0
     foreign_handles: bool = False
+    comments: TeachBankFacts = field(default_factory=TeachBankFacts)
+    catalog: TeachCatalogFacts = field(default_factory=TeachCatalogFacts)
+
+    def data_banks(self):
+        return self.numeric, self.strings, self.local_positions, self.program_positions
+
+    def banks(self):
+        return (*self.data_banks(), self.comments)
 
     def copy(self):
         return TeachFacts(self.numeric.copy(), self.strings.copy(), self.local_positions.copy(),
                           self.program_positions.copy(), None if self.handles is None else self.handles.copy(),
-                          self.sequence, self.foreign_handles)
+                          self.sequence, self.foreign_handles, self.comments.copy(), self.catalog.copy())
 
     @classmethod
     def merge(cls, flows, merge_values):
@@ -109,10 +136,12 @@ class TeachFacts:
             handles = first.handles.copy()
         return cls(*(TeachBankFacts.merge([getattr(flow, name) for flow in flows], merge_values)
                      for name in ('numeric', 'strings', 'local_positions', 'program_positions')),
-                   handles, sequence, any(flow.foreign_handles for flow in flows))
+                   handles, sequence, any(flow.foreign_handles for flow in flows),
+                   TeachBankFacts.merge([flow.comments for flow in flows], merge_values),
+                   TeachCatalogFacts.merge([flow.catalog for flow in flows]))
 
 
-class TeachDiscovery:
+class TeachDiscovery(TeachCatalogDiscovery):
     """Teach services evaluated against detached bank facts and saved configuration."""
 
     def teach_operands(self, node, inputs, flow, conditional, **options):
@@ -131,6 +160,15 @@ class TeachDiscovery:
 
     def teach_handle_access(self, flow):
         return self.teach_stable(flow) and len(self.task_roots) == 1 and flow.teach.handles is not None
+
+    def teach_handle_program(self, number, flow, *, write=False):
+        if not self.teach_handle_access(flow) or type(number) is not int:
+            return UNKNOWN
+        handle = flow.teach.handles.get(number)
+        if handle is None:
+            return None
+        program, mode = handle
+        return program if mode in ((2,) if write else (1, 2)) else None
 
     def teach_unknown_access(self, operation, outputs, node, flow, code):
         *receivers, status = outputs
@@ -161,9 +199,17 @@ class TeachDiscovery:
     def teach_open(self, bank, values, outputs, node, flow):
         name, mode, reject = values
         handle, status = outputs
-        code, program = bank.open_target(name, mode, reject, line=node.get('line'))
+        code, program = checked_open_request(name, mode, reject, node.get('line'))
         state = flow.teach
         if not code:
+            entry = state.catalog.entry(bank, program)
+            if entry is UNKNOWN:
+                state.handles = None
+                self.teach_unknown_access(node['value'], outputs, node, flow, 'teach-handle')
+                return
+            if entry is None:
+                self.bank_status(status, 1, flow, node)
+                return
             # All tracked handles belong to the same top-level invocation.
             if len(state.handles) >= 1024 or state.sequence >= 2147483646:
                 code = 6
@@ -188,7 +234,8 @@ class TeachDiscovery:
         program = bank.callers.get(owner) if bank is not None else None
         number = inputs[0].constant
         cells = flow.teach.numeric if numeric else flow.teach.strings
-        if bank is None or not self.teach_local_access(flow) or type(number) is not int:
+        entry = flow.teach.catalog.entry(bank, program) if program is not None else None
+        if bank is None or entry is UNKNOWN or not self.teach_local_access(flow) or type(number) is not int:
             if not reading and program is not None:
                 self.tick(len(cells.cells))
                 cells.invalidate(program)
@@ -200,7 +247,7 @@ class TeachDiscovery:
             return Value()
         key = program, number
         if reading:
-            self.teach_scalar_read(bank, owner, key, cells.lookup(key), numeric, receivers,
+            self.teach_scalar_read(bank, entry.origin, number, cells.lookup(key), numeric, receivers,
                                    status, node, flow, conditional)
         else:
             self.teach_scalar_write(bank, key, cells, kind, inputs[1], status, node, flow)
@@ -220,21 +267,22 @@ class TeachDiscovery:
         cells.cells[key] = Value(value, spec=spec)
         self.bank_status(status, 0, flow, node)
 
-    def teach_scalar_read(self, bank, owner, key, stored, numeric, receivers, status, node, flow, conditional):
-        program, number = key
+    def teach_scalar_read(self, bank, origin, number, stored, numeric, receivers, status, node, flow, conditional):
+        initial = UNKNOWN
         if not isinstance(stored, Value):
-            if numeric:
-                self.teach_input('teach_numeric_register', program, number, ['NUMERIC'], node, flow,
-                                 conditional or stored is UNKNOWN)
-            else:
-                self.teach_input('teach_string_register', program, number, ['STRING', bank.string_capacity],
-                                 node, flow, conditional or stored is UNKNOWN)
-            code, initial = bank.read_register(owner, number, 'numeric' if numeric else 'string', line=node.get('line'))
+            if origin is None:
+                if stored is UNKNOWN:
+                    self.uncertain_bank_read(receivers, status, flow, node)
+                else:
+                    self.bank_status(status, 1, flow, node)
+                return
+            kind, spec = ('teach_numeric_register', ['NUMERIC']) if numeric else (
+                'teach_string_register', ['STRING', bank.string_capacity])
+            self.teach_input(kind, origin, number, spec, node, flow, conditional or stored is UNKNOWN)
+            code, initial = bank.saved_register(origin, 'numeric' if numeric else 'string', number)
             if stored is UNKNOWN or code:
                 self.uncertain_bank_read(receivers, status, flow, node)
                 return
-        else:
-            initial = UNKNOWN
 
         constant = stored.constant if isinstance(stored, Value) else UNKNOWN
         if numeric:
@@ -283,11 +331,10 @@ class TeachDiscovery:
         owner = self.task_roots[-1]
         cells = flow.teach.program_positions if handled else flow.teach.local_positions
         if handled:
-            stable = self.teach_handle_access(flow) and type(inputs[0].constant) is int
-            handle = flow.teach.handles.get(inputs[0].constant) if stable else None
-            program = handle[0] if handle is not None else None
-            accessible = handle is not None and handle[1] in ((2,) if setter else (1, 2))
-            access_error = None if accessible else (3, 'TP handle is closed or does not permit access')
+            target = self.teach_handle_program(inputs[0].constant, flow, write=bool(setter))
+            stable = target is not UNKNOWN
+            program = target if stable else None
+            access_error = (3, 'TP handle is closed or does not permit access') if target is None else None
         else:
             stable = self.teach_local_access(flow)
             program = bank.callers.get(owner) if bank is not None else None
@@ -295,7 +342,8 @@ class TeachDiscovery:
         number = inputs[address_count - 1].constant
         explicit = trailing or (not (schema or setter) and count > address_count)
         group = inputs[-1].constant if explicit else self.default_position_group(bank)
-        if bank is None or not stable:
+        entry = flow.teach.catalog.entry(bank, program) if bank is not None and program is not None else None
+        if bank is None or entry is UNKNOWN or not stable:
             if setter and (handled or program is not None):
                 self.tick(len(cells.cells))
                 cells.invalidate(program)
@@ -334,13 +382,18 @@ class TeachDiscovery:
             return result
 
         kind = PROGRAM_POSITION_KIND if handled else LOCAL_POSITION_KIND
-        initial = bank.saved_position_metadata(program, number, group, local=not handled)
+        origin = entry.origin
+        initial = bank.saved_position_metadata(origin, number, group, local=not handled) if origin is not None else None
         stored = cells.lookup(key)
         spec = tuple_spec(stored.spec) if isinstance(stored, Value) and stored.spec else (
             initial[0] if initial is not None and stored is None else None
         )
         if schema:
-            return self.teach_position_read(kind, key, result, stored, spec, status, node, flow, conditional)
+            if origin is None and stored is None:
+                self.position_read_failed(operation, status, 17038, node, flow, 'source-created TP row is missing')
+                return result
+            return self.teach_position_read(kind, (origin, group, number), result, stored, spec,
+                                            status, node, flow, conditional)
         self.teach_position_metadata(operation, initial, stored, spec, receivers, status, node, flow)
         return result
 
@@ -359,9 +412,9 @@ class TeachDiscovery:
             self.bank_status(status, 0, flow, node)
 
     def teach_position_read(self, kind, key, result, stored, spec, status, node, flow, conditional):
-        program, group, number = key
-        if not isinstance(stored, Value) and stored is not POSITION_MODIFIED:
-            self.teach_input(kind, program, number, result.spec, node, flow,
+        origin, group, number = key
+        if origin is not None and not isinstance(stored, Value) and stored is not POSITION_MODIFIED:
+            self.teach_input(kind, origin, number, result.spec, node, flow,
                              conditional or stored is UNKNOWN, group=group)
         operation = node['value']
         if spec is not None and (spec[0] == 'JOINTPOS') != (result.spec[0] == 'JOINTPOS'):
@@ -379,6 +432,16 @@ class TeachDiscovery:
         self.bank_status(status, UNKNOWN if stored is UNKNOWN else 0, flow, node)
         return result
 
+    def teach_position_recorded(self, bank, program, number, initial, flow):
+        if initial:
+            return True
+        cells = flow.teach.program_positions
+        self.tick(len(bank.groups))
+        values = [cells.lookup((program, group, number)) for group in bank.groups]
+        if any(isinstance(value, Value) or value is POSITION_MODIFIED for value in values):
+            return True
+        return UNKNOWN if any(value is UNKNOWN for value in values) else False
+
     def teach_available_position(self, node, flow, conditional):
         operands = self.teach_operands(node, 1, flow, conditional)
         if operands is None:
@@ -386,21 +449,24 @@ class TeachDiscovery:
         inputs, outputs = operands
         receiver, status = outputs
         bank = getattr(self.saved_bindings, 'teach_programs', None)
-        number = inputs[0].constant
-        if bank is None or not self.teach_handle_access(flow) or type(number) is not int:
+        program = self.teach_handle_program(inputs[0].constant, flow)
+        if bank is None or program is UNKNOWN:
             self.teach_unknown_access(node['value'], outputs, node, flow, 'teach-position')
             return Value()
-        handle = flow.teach.handles.get(number)
-        if handle is None or handle[1] == 0:
+        if program is None:
             self.bank_status(status, 3, flow, node)
             return Value()
+        entry = flow.teach.catalog.entry(bank, program)
+        if entry is UNKNOWN:
+            self.teach_unknown_access(node['value'], outputs, node, flow, 'teach-position')
+            return Value()
 
-        program = handle[0]
         cells = flow.teach.program_positions
         occupied = set()
-        for number in bank.saved_position_numbers(program):
-            self.tick()
-            occupied.add(number)
+        if entry.origin is not None:
+            for number in bank.saved_position_numbers(entry.origin):
+                self.tick()
+                occupied.add(number)
         possible = set()
         for (owner, _, number), stored in cells.cells.items():
             self.tick()

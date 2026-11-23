@@ -199,9 +199,21 @@ and synchronous linked routines. Positions addressed through a handle have
 separate edit locations from caller-local position registers. The position
 getters require the matching Cartesian or joint representation. Source writes
 preserve saved frame and tool identifiers, and `AVL_POS_NUM` considers all
-configured groups. Adding a missing position refreshes discovery. Dynamic handle
-targets and handle lifetimes across independently scheduled tasks remain
-unresolved.
+configured groups. Adding a missing position refreshes discovery.
+
+Discovery follows known `CREATE_TPE`, `COPY_TPE` and `SELECT_TPE` calls,
+including catalog membership and the instruction count after
+`DEL_INST_TPE`. Copying captures the source values and prior writes at the
+time of the call. An early read of a copied position, register or comment
+points back to its original saved program. A program created by the source
+starts empty, and its positions must be written before they can be read.
+
+`GET_TPE_CMT` and `SET_TPE_CMT` follow the addressed position across groups,
+the comment's 16-character capacity and the receiver's capacity. A saved
+position comment can be added or edited as a scalar. Edits refresh discovery
+when the new length can change the getter's status. Dynamic catalog and handle
+targets, handle lifetimes across independently scheduled tasks, and general
+header queries after a TP catalog edit remain unresolved.
 
 ### Robot snapshots and range checks
 

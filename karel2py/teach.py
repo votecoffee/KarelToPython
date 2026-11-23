@@ -14,6 +14,7 @@ TPE_NAMES=frozenset(('OPEN_TPE','CLOSE_TPE','CREATE_TPE','COPY_TPE','SELECT_TPE'
     'AVL_POS_NUM','DEL_INST_TPE','GET_POS_FRM','GET_POS_TYP','GET_POS_TPE',
     'GET_JPOS_TPE','SET_POS_TPE','SET_EPOS_TPE','SET_JPOS_TPE','SET_TRNS_TPE',
     'GET_TPE_CMT','SET_TPE_CMT'))|TPE_REGISTER_NAMES
+TEACH_COMMENT_CAPACITY=16
 KIND_NAMES={'TP':'PT_MNE_UNDEF','JB':'PT_MNE_JOB','PR':'PT_MNE_PROC','MR':'PT_MNE_MACRO'}
 
 
@@ -25,6 +26,17 @@ def rt():
 def name_key(value,line=None):
     value=rt().ascii_string(value,line).upper()
     return value if re.fullmatch(r'[A-Z][A-Z_0-9]{0,35}',value) else None
+
+
+def checked_teach_kind(code):
+    from .extended import PROGRAM_KINDS
+    return next((kind for kind,key in KIND_NAMES.items() if PROGRAM_KINDS[key]==code),None)
+
+
+def checked_open_request(name,mode,reject,line=None):
+    runtime=rt();name=name_key(name,line);mode=runtime.integer(mode,line);reject=runtime.integer(reject,line)
+    if name is None or mode not in (0,1,2) or reject not in (0,1,2,3,4): return 2,None
+    return 0,name
 
 
 def cartesian_value(kind,value,line=None):
@@ -97,7 +109,7 @@ class TeachPrograms:
             if type(comments) is not dict: raise ValueError('TP comments require position-number keys')
             for number,text in comments.items():
                 if type(number) is not str or not number.isascii() or not number.isdecimal() or str(int(number))!=number: raise ValueError('TP comment keys require canonical position numbers')
-                if not self.recorded(program,int(number)) or type(text) is not str or not text.isascii() or len(text)>16: raise ValueError('TP comments require recorded positions and at most 16 ASCII characters')
+                if not self.recorded(program,int(number)) or type(text) is not str or not text.isascii() or len(text)>TEACH_COMMENT_CAPACITY: raise ValueError('TP comments require recorded positions and at most 16 ASCII characters')
                 program['comments'][int(number)]=text
             from .extended import ProgramAttributes,PROGRAM_WRITABLE_ATTRIBUTES
             attributes=row.get('attributes',{})
@@ -184,6 +196,27 @@ class TeachPrograms:
     def entries(self): return tuple(sorted((name,row['type']) for name,row in self._programs.items()))
 
     @property
+    def program_count(self): return len(self._programs)
+
+    def saved_program_definition(self,name):
+        row=self._programs.get(name)
+        if row is None: return None
+        return row['type'],row['attributes'].get('AT_PROTECT',1)==2,len(row['instructions'])
+
+    def saved_dependency_counts(self):
+        return {name:len(targets) for name,targets in self._calls.items()}
+
+    def saved_register(self,program,kind,number):
+        return self._programs[program][kind+'_registers'].read(number)
+
+    def has_saved_position(self,program,number):
+        positions=self._programs[program]['positions']
+        return any((group,number) in positions for group in self.groups)
+
+    def saved_position_comment(self,program,number):
+        return self._programs[program]['comments'].get(number,'')
+
+    @property
     def open_count(self): return len(self._handles)
 
     def busy(self,name): return any(row['name']==name for row in self._handles.values())
@@ -222,8 +255,8 @@ class TeachPrograms:
 
     def open_target(self,name,mode,reject,line=None):
         """Validate an open request before consulting live handle ownership."""
-        runtime=rt();name=name_key(name,line);mode=runtime.integer(mode,line);reject=runtime.integer(reject,line)
-        if name is None or mode not in (0,1,2) or reject not in (0,1,2,3,4): return 2,None
+        code,name=checked_open_request(name,mode,reject,line)
+        if code: return code,None
         if name not in self._programs: return 1,None
         return 0,name
 
@@ -395,9 +428,7 @@ def invoke_teach(context,state,name,args,line=None):
     runtime=rt();bank=context.require('teach_programs',line);owner=runtime.task_root(state)
     if name in TPE_REGISTER_NAMES: return invoke_register(bank,owner,name,args,line)
     if name=='CREATE_TPE':
-        from .extended import PROGRAM_KINDS
-        kind=next((kind for kind,key in KIND_NAMES.items() if PROGRAM_KINDS[key]==args[1]),None)
-        args[2].set(bank.create(args[0],kind,line),line);return
+        args[2].set(bank.create(args[0],checked_teach_kind(args[1]),line),line);return
     if name=='COPY_TPE': args[3].set(bank.copy(*args[:3],line=line),line);return
     if name=='SELECT_TPE': args[1].set(bank.select(args[0],line),line);return
     if name=='OPEN_TPE':
@@ -452,8 +483,8 @@ def invoke_teach(context,state,name,args,line=None):
             if not bank.address(bank.groups[0],number): code=2
             elif not bank.recorded(program,number): code=17038
             elif name=='SET_TPE_CMT':
-                text=runtime.ascii_string(args[2],line);program['comments'][number]=text[:16]
-                if len(text)>16: code=7
+                text=runtime.ascii_string(args[2],line);program['comments'][number]=text[:TEACH_COMMENT_CAPACITY]
+                if len(text)>TEACH_COMMENT_CAPACITY: code=7
             else:
                 text=program['comments'].get(number,'')
                 capacity=args[2].spec[1]

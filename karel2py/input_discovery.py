@@ -23,9 +23,10 @@ from .input_position_values import (
     POSITION_CLEARED, POSITION_GETTERS, POSITION_MODIFIED, POSITION_SERVICES, POSITION_SETTERS,
     checked_position_facts, merge_positions, position_register_result,
 )
+from .input_teach_catalog import TEACH_CATALOG_SERVICES, TEACH_EDIT_SERVICES
 from .input_teach_discovery import (
     TEACH_HANDLE_SERVICES, TEACH_POSITION_GETTERS, TEACH_POSITION_SECTIONS, TEACH_POSITION_SERVICES,
-    TEACH_SCALAR_GETTERS, TEACH_SCALAR_SETTERS, TeachDiscovery, TeachFacts,
+    TEACH_SCALAR_GETTERS, TEACH_SCALAR_SECTIONS, TEACH_SCALAR_SETTERS, TeachDiscovery, TeachFacts,
 )
 from .position_register_models import register_description
 from .input_robot_tables import RobotTableFacts
@@ -1200,7 +1201,7 @@ class _Analyzer(TeachDiscovery):
                                                 root_type=loc.root_spec, selectors=list(loc.parts))
                     elif loc.kind=='port':
                         self.inputs[key].update(port=loc.root,index=dict(loc.parts).get('index'))
-                    elif loc.kind.endswith('_register') or loc.kind in TEACH_POSITION_SECTIONS:
+                    elif loc.kind.endswith('_register') or loc.kind in TEACH_POSITION_SECTIONS or loc.kind in TEACH_SCALAR_SECTIONS:
                         self.inputs[key]['index']=loc.root
                         if loc.kind == 'position_register' or loc.kind in TEACH_POSITION_SECTIONS:
                             self.inputs[key]['group'] = dict(loc.parts).get('group')
@@ -3399,7 +3400,11 @@ class _Analyzer(TeachDiscovery):
         if buffer is None or self.saved_bindings is None:
             return None
         owners = self.linked_plans if self.linked_plans is not None else (self.program,)
-        saved = self.saved_bindings.program_catalog()
+        bank = self.saved_bindings.teach_programs
+        teach_entries = self.teach_listing_entries(bank, flow) if bank is not None else ()
+        if teach_entries is None:
+            return None
+        saved = (*self.saved_bindings.program_catalog(), *teach_entries)
         # Linked owners contribute both attached programs and task entries.
         size = len(owners) * (2 if self.linked_plans is not None else 1) + len(saved) + 1
         if size > CATALOG_SCAN_LIMIT:
@@ -3436,8 +3441,11 @@ class _Analyzer(TeachDiscovery):
         active_call = name == self.program or name in self.task_roots or any(
             frame['key'][0] == name for frame in self.frames
         )
-        if active_call or record is not None and record.get('active', False):
+        active = record.get('active', False) if record is not None else False
+        if active_call or active is True:
             return 4
+        if active is UNKNOWN:
+            return None
         if self.saved_bindings is None or name in flow.requested_tasks:
             return None
         if attached and self.saved_bindings.program_attributes is None:
@@ -3461,8 +3469,19 @@ class _Analyzer(TeachDiscovery):
         valid = re.fullmatch(r'[A-Z_][A-Z_0-9]{0,35}', name) is not None
         plan = self.binding_plan(name) if valid else None
         attached = plan is not None
-        record = (self.saved_bindings.program_record(name, attached=attached)
-                  if valid and self.saved_bindings is not None else None)
+        record = None
+        changed_teach = False
+        bank = getattr(self.saved_bindings, 'teach_programs', None)
+        if valid and self.saved_bindings is not None:
+            teach = None
+            if bank is not None and not attached:
+                entry = flow.teach.catalog.entry(bank, name)
+                if entry is UNKNOWN:
+                    return None
+                if entry is not None:
+                    teach = self.teach_inspection_metadata(bank, name, entry, flow)
+                    changed_teach = name in flow.teach.catalog.entries
+            record = self.saved_bindings.program_record(name, attached=attached, teach_record=teach)
         known_context = self.saved_bindings is not None or not valid
         if operation == 'LOAD_STATUS':
             if attached:
@@ -3488,6 +3507,8 @@ class _Analyzer(TeachDiscovery):
             status = self.update_program_attribute(name, key, value, record, attached, flow)
             return (_Value(status, spec=['INTEGER']),) if status is not None else None
         if not known_context and key not in ('AT_PROG_NAME', 'AT_PROG_TYPE'):
+            return None
+        if changed_teach and key not in ('AT_PROG_TYPE', 'AT_PROG_NAME', 'AT_NUM_LINE'):
             return None
         if attached and key == 'AT_COMMENT' and 'source_comment' not in plan and (
                 record is None or key not in record['attributes']):
@@ -4350,6 +4371,10 @@ class _Analyzer(TeachDiscovery):
             return self.position_register_call(node, flow, conditional)
         if name in TEACH_SCALAR_GETTERS or name in TEACH_SCALAR_SETTERS:
             return self.teach_scalar_call(node, flow, conditional)
+        if name in TEACH_CATALOG_SERVICES:
+            return self.teach_catalog_call(node, flow, conditional)
+        if name in TEACH_EDIT_SERVICES:
+            return self.teach_edit_call(node, flow, conditional)
         if name in TEACH_HANDLE_SERVICES:
             return self.teach_handle_call(node, flow, conditional)
         if name in TEACH_POSITION_SERVICES:

@@ -56,8 +56,10 @@ partial state. Cancellation applies to supported generated code checkpoints.
 record fields, ARRAY cells and joint axes, plus configured numeric and string
 registers and logical ports. Configure missing banks in **Edit context** first.
 The value editor checks the saved document revision and resolves the selected
-input from the pinned Python again. Each edit preserves sibling fields, other
-bank values, and the last result. Replay updates the result using the new inputs.
+input from the pinned Python again. Position comments use the scalar editor.
+For a position or comment read from a copy, the editor points to the saved
+source program. Each edit preserves sibling fields, other bank values, and the
+last result. Replay updates the result using the new inputs.
 
 **Edit fields** opens a paged draft for a discovered record, array, pose,
 joint value, position register or TP program position with an explicit group.
