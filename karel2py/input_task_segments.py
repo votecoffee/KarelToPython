@@ -79,6 +79,14 @@ def _isolated(plan, linked_plans, tick):
     return True
 
 
+def _local_procedure(plan, node):
+    if node['kind'] != 'call':
+        return None
+    call = node['args'][0]
+    routine = plan['routines'].get(call['value']) if call['kind'] == 'call' else None
+    return call if routine is not None and routine['external'] is None and routine['result'] is None else None
+
+
 def _branches(node):
     if node['kind'] == 'if':
         return (node['body'], node['alternate'])
@@ -92,7 +100,8 @@ def _branches(node):
 def structured_child(plan, linked_plans, tick):
     """Find an isolated child with a pause within or alongside structured flow."""
     pending = [(iter(plan['body']), False)]
-    found_loop = found_pause = False
+    found_control = found_pause = False
+    visited_routines = set()
     while pending:
         statements, nested = pending[-1]
         node = next(statements, None)
@@ -102,26 +111,40 @@ def structured_child(plan, linked_plans, tick):
         tick()
         pause = explicit_pause(node)
         found_pause = found_pause or pause
-        found_loop = found_loop or node['kind'] in STRUCTURED_LOOPS
-        if (nested and pause) or (found_loop and found_pause):
+        call = _local_procedure(plan, node)
+        found_control = found_control or node['kind'] in STRUCTURED_LOOPS or call is not None
+        if (nested and pause) or (found_control and found_pause):
             return _SegmentRules(plan, tick, structured=True) if _isolated(plan, linked_plans, tick) else None
         pending.extend((iter(body), True) for body in _branches(node) if body)
+        if call is not None and call['value'] not in visited_routines:
+            name = call['value']
+            visited_routines.add(name)
+            pending.append((iter(plan['routines'][name]['body']), True))
     return None
 
 
 class _SegmentRules:
-    def __init__(self, plan, tick, *, structured=False):
+    def __init__(self, plan, tick, *, structured=False, routine=None):
         self.plan = plan
         self.tick = tick
         self.structured = structured
+        self.types = plan['types'] if routine is None else plan['types'] | routine['types']
+        self.constants = plan['constants'] if routine is None else plan['constants'] | routine['constants']
+        self.routine_scopes = {}
         self.uses_teach = False
         self.uses_pose = False
+
+    def routine_scope(self, name):
+        if name not in self.routine_scopes:
+            self.routine_scopes[name] = _SegmentRules(self.plan, self.tick, structured=True,
+                                                      routine=self.plan['routines'][name])
+        return self.routine_scopes[name]
 
     def reference_schema(self, node):
         self.tick()
         kind = node['kind']
         if kind == 'name':
-            return self.plan['types'].get(node['value'])
+            return self.types.get(node['value'])
         if not self.structured or kind not in ('field', 'index'):
             return None
         receiver, *indices = node['args']
@@ -143,9 +166,9 @@ class _SegmentRules:
         kind = node['kind']
         if kind == 'name':
             variable = node['value']
-            schema = self.plan['types'].get(variable)
+            schema = self.types.get(variable)
             if schema is None:
-                return variable in self.plan['constants']
+                return variable in self.constants
             if schema[0] in ('CONFIG', 'POSITION', 'XYZWPR', 'XYZWPREXT', 'JOINTPOS'):
                 self.uses_pose = True
                 return True
@@ -173,6 +196,26 @@ class _SegmentRules:
         elif routine != 'UNINIT':
             return False
         return all(self.operand(arg) for arg in node['args'])
+
+    def procedure_call(self, node):
+        call = _local_procedure(self.plan, node)
+        if call is None:
+            return None
+        actuals = call['args']
+        modes = call.get('passing', ())
+        formals = self.plan['routines'][call['value']]['parameters']
+        if len(actuals) != len(modes) or len(modes) != len(formals):
+            return None
+        for actual, mode, (_, spec) in zip(actuals, modes, formals):
+            if spec[0] not in SCALARS:
+                return None
+            if mode == 'reference':
+                schema = self.reference_schema(actual)
+                if not schema or schema[0] not in SCALARS:
+                    return None
+            elif mode != 'value' or not self.operand(actual):
+                return None
+        return call
 
     def branch(self, node):
         args = node['args']

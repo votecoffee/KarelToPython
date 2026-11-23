@@ -589,6 +589,185 @@ END CHILD
                 self.assertIn('condition-source',codes)
                 self.assertIn('teach-register',codes)
 
+    def test_nested_child_procedures_keep_locals_and_captured_arguments_at_pause(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER text:STRING[8]
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  text='prior'
+  GET_TPE_STR_REG(1,text,s)
+  WRITE(s,':',text,CR)
+  CONTINUE PROGRAM[2]
+  WAIT FOR PAUSE PROGRAM[2]
+  GET_TPE_STR_REG(1,text,s)
+  WRITE(s,':',text,CR)
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR slot,seed,unused,duration:INTEGER cells:ARRAY[2] OF INTEGER
+ROUTINE inner(amount:INTEGER; output:INTEGER)
+VAR h,s:INTEGER i:SHORT
+BEGIN
+  FOR i=1 TO 1 DO
+    OPEN_TPE('Shared',TPE_RDACC,TPE_ALLREJ,h,s)
+    slot=2
+    seed=90
+    PAUSE
+    CLOSE_TPE(h,s)
+    output=amount+i
+    RETURN
+  ENDFOR
+  DELAY duration
+END inner
+ROUTINE outer(value:INTEGER; output:INTEGER)
+CONST addend=2
+VAR local_value:INTEGER
+BEGIN
+  local_value=value+addend
+  inner(local_value+1,output)
+  output=output+local_value
+  PAUSE
+  output=output+1
+END outer
+BEGIN
+  slot=1
+  seed=3
+  cells[2]=99
+  outer((seed),cells[slot])
+  IF (cells[1]=13) AND (cells[2]=99) THEN
+    WRITE(cells[1],':',cells[2])
+  ELSE
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assert_inputs(report,[('teach_string_register','SHARED','1','required')])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation',
+                                     'task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed')
+        blocked,ready,output=result['text_output'].splitlines()
+        first_status,previous=blocked.split(':')
+        next_status,current=ready.split(':')
+        self.assertEqual((int(first_status),previous,int(next_status),current),(4,'prior',0,'ready'))
+        self.assertEqual(tuple(map(int,output.split(':'))),(13,99))
+
+    def test_procedure_return_clears_a_captured_global_counter_before_caller_resumes(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR i:SHORT unused:INTEGER
+ROUTINE work
+BEGIN
+  FOR i=1 TO 2 DO
+    PAUSE
+    RETURN
+  ENDFOR
+END work
+BEGIN
+  work()
+  IF UNINIT(i) THEN WRITE('clear') ELSE WRITE(unused) ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed')
+        self.assertEqual(result['text_output'],'clear')
+        self.assertEqual(result['programs']['CHILD']['values']['I'],{'uninitialized':True})
+
+    def test_recursive_child_procedure_keeps_conditional_inputs_and_wait_gap(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR needed:INTEGER
+ROUTINE chain
+BEGIN
+  WRITE(needed)
+  chain()
+  PAUSE
+END chain
+BEGIN
+  chain()
+END CHILD
+"""
+        report,_=self.prepare([('MAIN',main),('CHILD',child)],replay=False)
+        self.assert_inputs(report,[('variable','CHILD','NEEDED','conditional')])
+        codes=[row['code'] for row in report['unresolved']]
+        self.assertIn('routine',codes)
+        self.assertIn('condition-source',codes)
+
+    def test_reentered_child_procedure_starts_with_fresh_locals(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR unused:INTEGER
+ROUTINE park(label_no:INTEGER)
+VAR prior_value:INTEGER
+BEGIN
+  IF UNINIT(prior_value) THEN WRITE(label_no,CR) ELSE WRITE(unused) ENDIF
+  prior_value=label_no
+  PAUSE
+END park
+BEGIN
+  park(1)
+  park(2)
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation',
+                                     'task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed')
+        self.assertEqual([int(line) for line in result['text_output'].splitlines()],[1,2])
+
+    def test_paused_procedure_reports_only_the_reached_input_with_its_routine_location(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR payload,late:INTEGER
+ROUTINE take_input
+BEGIN
+  WRITE(payload)
+  PAUSE
+  WRITE(late)
+END take_input
+BEGIN
+  take_input()
+END CHILD
+"""
+        report,_=self.prepare([('MAIN',main),('CHILD',child)],replay=False)
+        self.assert_inputs(report,[('variable','CHILD','PAYLOAD','conditional')])
+        self.assert_task_gaps(report,['task-scheduling','task-wait'])
+        locations=report['inputs'][0]['locations']
+        self.assertEqual([(row['program'],row['routine']) for row in locations],[('CHILD','TAKE_INPUT')])
+
     def test_request_status_is_not_reused_as_prelaunch_task_number(self):
         main="""PROGRAM MAIN
 VAR task_no,s:INTEGER text:STRING[8]

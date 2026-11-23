@@ -78,15 +78,21 @@ for `INTEGER` and `SHORT`.
 evaluates its predicate after the body and keeps its first `EVAL` sample
 until that loop exits. Discovery follows up to 32 iterations per loop
 activation and examines only the reached segment through each pause.
+A child can also pause within a direct call to a procedure in its own module.
+For checked scalar value and reference arguments, discovery evaluates arguments
+once and preserves each live invocation and its locals across continuations.
+A procedure return unwinds that frame's loops and resumes at the caller's next
+statement. Calls can nest within the ordinary routine-depth limit.
 
 The analysis carries TP handles and bank effects across that wait and uses
 the current shared bank when the child resumes. An eligible final launch or
 continuation can also reach natural completion when cleanup of the entry task's
 handles cannot race with the child. Shared operations between the request
 and wait, unresolved branches and loop tests, unsupported or unresolved
-`FOR` targets or bounds, pauses inside child routines, and ambiguous
-suspended positions still use conservative analysis. PATH and USING counter
-captures remain outside checked pause handoffs.
+`FOR` targets or bounds, and ambiguous suspended positions still use
+conservative analysis. Recursive calls, calls to child functions or external
+routines, and PATH and USING counter captures remain outside checked pause
+handoffs.
 
 Discovery evaluates signal and wait selectors and can track known pauses
 across a delay or simple event wait. A signal or delay alone does not

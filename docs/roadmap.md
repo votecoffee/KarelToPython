@@ -66,16 +66,18 @@ conditional. Linked discovery follows known paused entries and explicit
 child pauses at the top level, in known `IF` and `SELECT` arms, and in
 bounded `FOR`, `WHILE`, and `REPEAT` iterations. A child can retain an
 integral `FOR` counter in an owned variable, ordinary ARRAY cell, or
-STRUCTURE field. Discovery tracks numbered handler activation within each
-invocation and follows emitted motion capture order.
+STRUCTURE field. Direct calls to procedures within the child module can
+retain nested frames across pauses. Discovery tracks numbered handler
+activation within each invocation and follows emitted motion capture order.
 Refreshing a module set carries compatible owner-qualified values into a new
 document and reports changed, omitted and unresolved inputs.
 [Linked input discovery](input-discovery.md#linked-project-discovery)
 
 ### Remaining linked-run work
 
-1. **Expand linked discovery.** Model pauses inside child routine frames,
-   extend resumable `FOR` capture to PATH and USING storage, and model
+1. **Expand linked discovery.** Extend child pause tracking to function
+   expressions and external routine frames, extend resumable `FOR` capture
+   to PATH and USING storage, and model
    additional synchronization and handler rearming where order and targets
    can be determined. Track effects between motion
    callbacks and keep dynamic selections and external effects visible. Extend

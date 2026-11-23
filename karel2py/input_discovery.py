@@ -165,9 +165,16 @@ class _TaskLoop:
     repeat_predicate: dict | None = None
 
 
+@dataclass(frozen=True)
+class _TaskRoutine:
+    """Keep bindings alive until the invocation's blocks finish unwinding."""
+
+    frame: dict
+
+
 @dataclass(eq=False, frozen=True)
 class _Suspension:
-    blocks: tuple[tuple[list, int] | _TaskLoop, ...]
+    blocks: tuple[tuple[list, int] | _TaskLoop | _TaskRoutine, ...]
     flow: '_Flow'
 
 
@@ -4855,6 +4862,7 @@ class _Analyzer(TeachDiscovery):
                 child.program_attributes = shared.program_attributes.copy()
                 child.requested_tasks = shared.requested_tasks.copy()
             blocks = list(suspension.blocks) if suspension is not None else [(plan['body'], 0)]
+            self.frames = [block.frame for block in blocks if isinstance(block, _TaskRoutine)]
             cursor = self.scheduled_segment(blocks, child, rules)
             return cursor, child
         finally:
@@ -4865,8 +4873,13 @@ class _Analyzer(TeachDiscovery):
     def scheduled_segment(self, blocks, child, rules):
         while blocks and not (child.stopped and not child.opaque):
             frame = blocks[-1]
+            if isinstance(frame, _TaskRoutine):
+                self.clear_routine_storage(child, self.frames.pop()['owner'])
+                blocks.pop()
+                continue
+            scope = rules.routine_scope(self.frames[-1]['name']) if rules and self.frames else rules
             if isinstance(frame, _TaskLoop):
-                loop = self.next_task_iteration(frame, child, rules)
+                loop = self.next_task_iteration(frame, child, scope)
                 if loop is None:
                     blocks.pop()
                 else:
@@ -4882,15 +4895,25 @@ class _Analyzer(TeachDiscovery):
             if explicit_pause(node):
                 self.tick()
                 return _Suspension(tuple(blocks), child.copy())
-            if rules is None or rules.statement(node):
+            if scope is None or scope.statement(node):
                 self.statement(node, child, True)
                 continue
             kind = node['kind']
-            if kind in STRUCTURED_LOOPS and rules.loop(node):
+            if kind == 'call':
+                call = scope.procedure_call(node)
+                if call is not None:
+                    self.tick()
+                    self.start_task_routine(call, child, blocks)
+                    continue
+            if kind == 'return' and self.frames and node['args'] == [None]:
+                self.tick()
+                self.unwind_task_routine(blocks, child)
+                continue
+            if kind in STRUCTURED_LOOPS and scope.loop(node):
                 self.tick()
                 blocks.append(self.start_task_loop(node, child))
                 continue
-            if kind not in ('if', 'select') or not rules.branch(node):
+            if kind not in ('if', 'select') or not scope.branch(node):
                 raise _TaskOrderUnknown()
             self.tick()
             if kind == 'if':
@@ -4907,6 +4930,21 @@ class _Analyzer(TeachDiscovery):
                     continue
             blocks.append((branch, 0))
         return None
+
+    def start_task_routine(self, call, flow, blocks):
+        prepared = self.prepare_routine(call['value'], call['args'], call, flow, True, statement_call=True)
+        if prepared is None:
+            raise _TaskOrderUnknown()
+        _, routine, frame = prepared
+        self.frames.append(frame)
+        blocks.extend((_TaskRoutine(frame), (routine['body'], 0)))
+
+    def unwind_task_routine(self, blocks, flow):
+        while not isinstance(blocks[-1], _TaskRoutine):
+            self.tick()
+            frame = blocks.pop()
+            if isinstance(frame, _TaskLoop) and frame.counter is not None:
+                self.clear_task_counter(frame.counter, frame.node, flow)
 
     def start_task_loop(self, node, flow):
         if node['kind'] != 'for':
@@ -4925,9 +4963,7 @@ class _Analyzer(TeachDiscovery):
             try:
                 value = loop.values[iterations]
             except IndexError:
-                spec = loop.counter.spec
-                cleared = _Value(complete=False, spec=spec, uninitialized=spec != ['BYTE'])
-                self.write(loop.counter, cleared, flow, node)
+                self.clear_task_counter(loop.counter, node, flow)
                 return None
         elif kind == 'while' or iterations:
             predicate = node['args'][0]
@@ -4947,6 +4983,10 @@ class _Analyzer(TeachDiscovery):
         if kind == 'for':
             self.write(loop.counter, _Value(value), flow, node)
         return replace(loop, iterations=iterations + 1, repeat_predicate=captured)
+
+    def clear_task_counter(self, counter, node, flow):
+        spec = counter.spec
+        self.write(counter, _Value(complete=False, spec=spec, uninitialized=spec != ['BYTE']), flow, node)
 
     def routine_target(self, name, interface):
         owner = interface['external']
@@ -5013,7 +5053,8 @@ class _Analyzer(TeachDiscovery):
         self.write_variable_entry(entry, (owner, path), node, flow)
         return target
 
-    def routine(self, name, args, node, flow, conditional, *, statement_call=False, argument_path_edits=False):
+    def prepare_routine(self, name, args, node, flow, conditional, *, statement_call=False, argument_path_edits=False):
+        """Evaluate arguments and bind one routine frame before visiting its body."""
         routine=self.plan['routines'][name]
         modes=node.get('passing',[]);actual=[]
         conversions = node.get('geometry_arguments', {})
@@ -5022,7 +5063,7 @@ class _Analyzer(TeachDiscovery):
             start = len(pending)
             for index,item in enumerate(args):
                 if flow.stopped and not flow.opaque:
-                    return _Value(complete=False)
+                    return None
                 conversion = conversions.get(str(index))
                 mode = 'value' if conversion else modes[index] if index<len(modes) else 'unknown'
                 # The plan keeps the BYNAME call expression. Its lowering
@@ -5052,7 +5093,7 @@ class _Analyzer(TeachDiscovery):
                     references.append(None)
                     actual.append(self.expr(item,flow,conditional))
         if flow.stopped and not flow.opaque:
-            return _Value(complete=False)
+            return None
         target_plan, target_routine = self.routine_target(name, routine)
         routine_key = (target_plan['program'], name) if target_plan else None
         if (target_routine is None or any(frame['key'] == routine_key for frame in self.frames)
@@ -5064,8 +5105,7 @@ class _Analyzer(TeachDiscovery):
                     location = self.resolve_path_slot(item, node, flow)
                     if location is not None:
                         self.read(location, node, flow, True)
-            self.opaque(flow);return _Value(complete=False)
-        external = bool(routine['external'])
+            self.opaque(flow);return None
         routine = target_routine
         self.serial+=1;owner='@'+name+':'+str(self.serial)
         bindings=[]
@@ -5074,11 +5114,11 @@ class _Analyzer(TeachDiscovery):
             if (isinstance(item,_Location) and spec[0]=='STRING' and source and source[0]=='STRING'
                     and spec[1] is not None and source[1] is not None and spec[1]!=source[1]):
                 self.unresolved_at('parameter-capacity','Concrete STRING capacity conflicts with routine constraint: '+name+'.'+formal,node)
-                self.opaque(flow);return _Value(complete=False)
+                self.opaque(flow);return None
             resolved=_array_value_schema(spec,source) if spec[0]=='ARRAY' else spec
             if resolved is None:
                 self.unresolved_at('parameter-shape','Concrete ARRAY shape conflicts with routine constraint: '+name+'.'+formal,node)
-                self.opaque(flow);return _Value(complete=False)
+                self.opaque(flow);return None
             bindings.append((formal,spec,item,resolved))
         # Direct procedures can replace a PATH after operand capture.
         # A checked argument routine can edit the node list or use COPY_PATH
@@ -5115,6 +5155,23 @@ class _Analyzer(TeachDiscovery):
                     self.publish_private_path_array(loc, item, node, flow)
                 else:
                     self.write(loc,item or _Value(complete=False),flow,node)
+        return target_plan, target_routine, frame
+
+    def clear_routine_storage(self, flow, owner):
+        for field_name in ('defined','assigned','maybe','uninitialized'):
+            setattr(flow,field_name,{key for key in getattr(flow,field_name) if key[1]!=owner})
+        flow.constants={key:value for key,value in flow.constants.items() if key[1]!=owner}
+        flow.scalar_choices = {key: values for key, values in flow.scalar_choices.items() if key[1] != owner}
+        flow.path_orders = {key: order for key, order in flow.path_orders.items() if key is None or key[1] != owner}
+        flow.retired_paths = {key: order for key, order in flow.retired_paths.items() if key[0][1] != owner}
+
+    def routine(self, name, args, node, flow, conditional, *, statement_call=False, argument_path_edits=False):
+        external = bool(self.plan['routines'][name]['external'])
+        prepared = self.prepare_routine(name, args, node, flow, conditional, statement_call=statement_call,
+                                        argument_path_edits=argument_path_edits)
+        if prepared is None:
+            return _Value(complete=False)
+        target_plan, routine, frame = prepared
         old_exits, self.exits = self.exits, []
         caller_plan, self.plan = self.plan, target_plan
         caller_handlers = flow.handlers if external else None
@@ -5138,12 +5195,7 @@ class _Analyzer(TeachDiscovery):
         merged=_merge([item[0] for item in exits])
         if caller_handlers is not None:
             merged.handlers = caller_handlers
-        for field_name in ('defined','assigned','maybe','uninitialized'):
-            setattr(merged,field_name,{key for key in getattr(merged,field_name) if key[1]!=owner})
-        merged.constants={key:value for key,value in merged.constants.items() if key[1]!=owner}
-        merged.scalar_choices = {key: values for key, values in merged.scalar_choices.items() if key[1] != owner}
-        merged.path_orders = {key: order for key, order in merged.path_orders.items() if key is None or key[1] != owner}
-        merged.retired_paths = {key: order for key, order in merged.retired_paths.items() if key[0][1] != owner}
+        self.clear_routine_storage(merged, frame['owner'])
         flow.take(merged)
         values=[item[1] for item in exits];result=routine['result']
         if result and result[0] != 'PATH' and not _path_array_cell_type(result):
@@ -5469,9 +5521,11 @@ class _Analyzer(TeachDiscovery):
     def for_bounds(self, node, flow, conditional, *, task=False):
         counter, first, last, direction = node['args']
         loc = self.locate(counter, flow, conditional)
-        if task and (loc is None or loc.kind != 'variable' or loc.owner != self.program
-                     or loc.spec[0] not in INTEGRAL_TYPES):
-            raise _TaskOrderUnknown()
+        if task:
+            local_owner = self.frames[-1]['owner'] if self.frames else None
+            owned = (('variable', self.program), ('local', local_owner))
+            if loc is None or (loc.kind, loc.owner) not in owned or loc.spec[0] not in INTEGRAL_TYPES:
+                raise _TaskOrderUnknown()
         initial = self.expr(first, flow, conditional)
         if task:
             self.check_task_for_bound(loc, initial.constant, first)
