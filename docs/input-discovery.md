@@ -64,24 +64,26 @@ Several such pauses can be tracked. For supported TP operations,
 `WAIT FOR PAUSE PROGRAM[n]` can establish the child boundary after a launch
 or continuation, including inside a synchronous routine. Simple assignments
 to parent-owned scalar storage may precede the wait, and the task number can
-come from a constant or a known scalar. Discovery checks the child segment
-through the requested pause, so an unreached tail can remain dormant even if
-it contains operations that require further analysis.
+come from a constant or a known scalar. The wait can follow a pause inside
+a statically chosen `IF` or `SELECT` branch. A continuation resumes within
+the same arm without reevaluating its condition or selector and rejoins the
+surrounding body when that arm ends. Discovery checks the reached segment
+through the pause, leaving unselected arms and the later tail dormant.
 
 The analysis carries TP handles and bank effects across that wait and uses
 the current shared bank when the child resumes. An eligible final launch or
 continuation can also reach natural completion when cleanup of the entry task's
 handles cannot race with the child. Shared operations between the request
-and wait, pauses inside child routine frames or nested control flow, and
-ambiguous suspended positions still use conservative analysis.
+and wait, unresolved branches, pauses inside loops and child routines,
+and ambiguous suspended positions still use conservative analysis.
 
 Discovery evaluates signal and wait selectors and can track known pauses
 across a delay or simple event wait. A signal or delay alone does not
 continue a paused task. Delivery, admission, and timing remain unresolved.
 Dynamic or missing targets, recursion, and unmodeled effects from concurrent
 tasks remain explicit gaps. A potentially runnable child with uncertain
-ordering still contributes conditional reads. A child's writes do not
-establish that a parent read is initialized.
+ordering still contributes conditional reads. Without an established handoff,
+a child's writes do not establish that a parent read is initialized.
 
 Discovery evaluates condition numbers, options and captured `EVAL` operands
 when it reaches a definition. In modeled structured linked flow, a known

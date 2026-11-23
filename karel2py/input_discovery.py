@@ -23,7 +23,7 @@ from .input_position_values import (
     POSITION_CLEARED, POSITION_GETTERS, POSITION_MODIFIED, POSITION_SERVICES, POSITION_SETTERS,
     checked_position_facts, merge_positions, position_register_result,
 )
-from .input_task_segments import bounded_child, task_handoff_window
+from .input_task_segments import bounded_child, explicit_pause, structured_child, task_handoff_window
 from .input_teach_catalog import TEACH_CATALOG_SERVICES, TEACH_EDIT_SERVICES
 from .input_teach_discovery import (
     TEACH_HANDLE_SERVICES, TEACH_POSITION_GETTERS, TEACH_POSITION_SECTIONS, TEACH_POSITION_SERVICES,
@@ -155,7 +155,7 @@ class _Handler:
 
 @dataclass(eq=False, frozen=True)
 class _Suspension:
-    next_statement: int
+    blocks: tuple[tuple[list, int], ...]
     flow: '_Flow'
 
 
@@ -4762,31 +4762,40 @@ class _Analyzer(TeachDiscovery):
             self.segmentable[key] = bounded_child(plan, self.linked_plans, self.tick, segment=segment)
         return self.segmentable[key]
 
+    def terminal_task_handoff(self, flow):
+        # Entry cleanup may run before or during this last child slice.
+        owners = flow.teach.handle_owners()
+        return None not in owners and self.task_roots[-1] not in owners
+
     def synchronized_task_segment(self, plan, suspension, handoff, flow):
-        start = suspension.next_statement if suspension is not None else 0
+        if suspension is not None and len(suspension.blocks) != 1:
+            return None
+        start = suspension.blocks[0][1] if suspension is not None else 0
         end = len(plan['body'])
         for index in range(start, end):
             self.tick()
-            node = plan['body'][index]
-            if node['kind'] == 'task_control' and node['args'] == ['PAUSE']:
+            if explicit_pause(plan['body'][index]):
                 return (start, index + 1) if handoff.waiter is not None else None
-        if handoff.waiter is not None:
-            return None
-        # Entry cleanup may run before or during this last child slice.
-        owners = flow.teach.handle_owners()
-        return (start, end) if None not in owners and self.task_roots[-1] not in owners else None
+        return (start, end) if handoff.waiter is None and self.terminal_task_handoff(flow) else None
 
     def start_task_body(self, plan, flow, suspension=None, *, segment, handoff):
         name = plan['program']
         synchronized = False
+        rules = None
+        nested = suspension is not None and len(suspension.blocks) > 1
         if segment and handoff is not None:
             target = self.synchronized_task_segment(plan, suspension, handoff, flow)
             synchronized = target is not None and self.bounded_task_segment(plan, target) is not None
-        if synchronized or segment and self.bounded_task_segment(plan) == 'scalar':
+            if not synchronized and (handoff.waiter is not None or nested and self.terminal_task_handoff(flow)):
+                rules = structured_child(plan, self.linked_plans, self.tick)
+                synchronized = rules is not None
+        if synchronized or segment and not nested and self.bounded_task_segment(plan) == 'scalar':
             caller = flow if synchronized else None
-            cursor, child = self.scheduled_body(plan, segment=True, suspension=suspension, shared=caller)
+            cursor, child = self.scheduled_body(plan, segment=True, suspension=suspension, shared=caller, rules=rules)
             if synchronized:
-                if child.opaque or child.task_order_unknown:
+                expected_pause = handoff.waiter is not None
+                if (child.opaque or child.task_order_unknown
+                        or rules is not None and (cursor is not None) != expected_pause):
                     raise _TaskOrderUnknown()
                 flow.teach = child.teach
                 flow.program_attributes = child.program_attributes
@@ -4807,7 +4816,7 @@ class _Analyzer(TeachDiscovery):
         self.scheduled_body(plan, path_orders=flow.path_orders)
         return False
 
-    def scheduled_body(self, plan, *, segment=False, suspension=None, path_orders=None, shared=None):
+    def scheduled_body(self, plan, *, segment=False, suspension=None, path_orders=None, shared=None, rules=None):
         depth = self.suspended_depth + len(self.frames) + 1
         caller_plan, caller_roots, caller_depth = self.plan, self.task_roots, self.suspended_depth
         caller_frames, caller_exits, caller_values = self.frames, self.exits, self.capture_values
@@ -4822,19 +4831,44 @@ class _Analyzer(TeachDiscovery):
                 child.teach = shared.teach.copy()
                 child.program_attributes = shared.program_attributes.copy()
                 child.requested_tasks = shared.requested_tasks.copy()
-            start = suspension.next_statement if suspension is not None else 0
-            for index in range(start, len(plan['body'])):
-                if child.stopped and not child.opaque:
-                    break
-                node = plan['body'][index]
-                if node['kind'] == 'task_control' and node['args'] == ['PAUSE']:
-                    self.tick()
-                    return _Suspension(index + 1, child.copy()), child
-                self.statement(node, child, True)
-            return None, child
+            blocks = list(suspension.blocks) if suspension is not None else [(plan['body'], 0)]
+            cursor = self.scheduled_segment(blocks, child, rules)
+            return cursor, child
         finally:
             self.plan, self.task_roots, self.suspended_depth = caller_plan, caller_roots, caller_depth
             self.frames, self.exits, self.capture_values = caller_frames, caller_exits, caller_values
+
+    def scheduled_segment(self, blocks, child, rules):
+        while blocks and not (child.stopped and not child.opaque):
+            body, index = blocks[-1]
+            if index == len(body):
+                blocks.pop()
+                continue
+            blocks[-1] = (body, index + 1)
+            node = body[index]
+            if explicit_pause(node):
+                self.tick()
+                return _Suspension(tuple(blocks), child.copy())
+            if rules is None or rules.statement(node):
+                self.statement(node, child, True)
+                continue
+            if node['kind'] not in ('if', 'select') or not rules.branch(node):
+                raise _TaskOrderUnknown()
+            self.tick()
+            if node['kind'] == 'if':
+                condition = self.expr(node['args'][0], child, True).constant
+                if type(condition) is not bool:
+                    raise _TaskOrderUnknown()
+                branch = node['body'] if condition else node['alternate']
+            else:
+                branch, _ = self.select_branch(node, child, True)
+                if branch is UNKNOWN:
+                    raise _TaskOrderUnknown()
+                if branch is None:
+                    child.stopped = True
+                    continue
+            blocks.append((branch, 0))
+        return None
 
     def routine_target(self, name, interface):
         owner = interface['external']
@@ -5344,6 +5378,16 @@ class _Analyzer(TeachDiscovery):
                 return self.leaves(location)
         return None
 
+    def select_branch(self, node, flow, conditional):
+        selector, clauses = node['args']
+        selected = self.expr(selector, flow, conditional).constant
+        cases = [([self.expr(label, flow, conditional).constant for label in labels], body)
+                 for _, labels, body in clauses]
+        if selected is UNKNOWN or any(value is UNKNOWN for values, _ in cases for value in values):
+            return UNKNOWN, [body for _, body in cases] + ([node['alternate']] if node['has_else'] else [])
+        default = node['alternate'] if node['has_else'] else None
+        return next((body for values, body in cases if selected in values), default), ()
+
     def statement(self, node, flow, conditional):
         self.tick();kind=node['kind'];args=node['args']
         if flow.task_order_unknown and flow.paused_tasks:
@@ -5459,20 +5503,16 @@ class _Analyzer(TeachDiscovery):
                 self.repeat_depth -= 1
             return
         if kind=='select':
-            selected=self.expr(args[0],flow,conditional).constant
-            cases=[]
-            for _,labels,body in args[1]:
-                values=[self.expr(label,flow,conditional).constant for label in labels]
-                cases.append((values,body))
-            if selected is not UNKNOWN and all(value is not UNKNOWN for values,_ in cases for value in values):
-                body=next((body for values,body in cases if selected in values),node['alternate'] if node['has_else'] else None)
-                if body is None:flow.stopped=True
-                else:self.block(body,flow,conditional)
-            else:
-                branches=[flow.copy() for _ in range(len(cases)+int(node['has_else']))]
-                bodies=[body for _,body in cases]+([node['alternate']] if node['has_else'] else [])
-                for branch,body in zip(branches,bodies):self.block(body,branch,True)
+            body, possible_bodies = self.select_branch(node, flow, conditional)
+            if body is UNKNOWN:
+                branches = [flow.copy() for _ in possible_bodies]
+                for branch, possible in zip(branches, possible_bodies):
+                    self.block(possible, branch, True)
                 flow.take(_merge(branches))
+            elif body is None:
+                flow.stopped = True
+            else:
+                self.block(body, flow, conditional)
             return
         if kind=='for':
             exit_start=len(self.exits)

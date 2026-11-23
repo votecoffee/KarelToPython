@@ -1,4 +1,4 @@
-"""Classify child bodies that can be followed to a top-level task boundary."""
+"""Classify child statements that can be followed to a task boundary."""
 
 from dataclasses import dataclass
 
@@ -59,76 +59,117 @@ def task_handoff_window(body, index, *, terminal_entry, tick):
     return None
 
 
-def bounded_child(plan, linked_plans, tick, *, segment=None):
-    """Check an isolated child body or its requested execution segment."""
+def explicit_pause(node):
+    return node['kind'] == 'task_control' and node['args'] == ['PAUSE']
+
+
+def _isolated(plan, linked_plans, tick):
     name = plan['program']
     if plan.get('imports') != []:
-        return None
+        return False
     for other in linked_plans.values():
         tick()
         imports, routines = other.get('imports'), other.get('routines')
         if (other.get('status') != 'available' or type(imports) is not list or type(routines) is not dict
                 or any(owner.upper() == name for _, owner, _ in imports)
                 or any((routine['external'] or '').upper() == name for routine in routines.values())):
-            return None
+            return False
+    return True
 
-    uses_teach = False
-    uses_pose = False
 
-    def operand(node):
-        nonlocal uses_pose
+def _branches(node):
+    if node['kind'] == 'if':
+        return (node['body'], node['alternate'])
+    if node['kind'] == 'select':
+        return (*(body for _, _, body in node['args'][1]), node['alternate'])
+    return ()
+
+
+def structured_child(plan, linked_plans, tick):
+    """Identify isolated children with a pause reached through IF or SELECT."""
+    pending = [(iter(plan['body']), False)]
+    while pending:
+        statements, nested = pending[-1]
+        node = next(statements, None)
+        if node is None:
+            pending.pop()
+            continue
         tick()
+        if nested and explicit_pause(node):
+            return _SegmentRules(plan, tick) if _isolated(plan, linked_plans, tick) else None
+        pending.extend((iter(body), True) for body in _branches(node) if body)
+    return None
+
+
+class _SegmentRules:
+    def __init__(self, plan, tick):
+        self.plan = plan
+        self.tick = tick
+        self.uses_teach = False
+        self.uses_pose = False
+
+    def operand(self, node):
+        self.tick()
         kind = node['kind']
         if kind == 'name':
             variable = node['value']
-            schema = plan['types'].get(variable)
+            schema = self.plan['types'].get(variable)
             if schema is None:
-                return variable in plan['constants']
+                return variable in self.plan['constants']
             if schema[0] in ('CONFIG', 'POSITION', 'XYZWPR', 'XYZWPREXT', 'JOINTPOS'):
-                uses_pose = True
+                self.uses_pose = True
                 return True
             return schema[0] in SCALARS
         if kind in ('literal', 'real_literal', 'predefined', 'write_cr'):
             return True
         if kind == 'call':
-            return call(node)
+            return self.call(node)
         if kind in ('field', 'index'):
-            uses_pose = True
+            self.uses_pose = True
         return kind in ('group', 'unary', 'binary', 'write_item', 'field', 'index') and all(
-            operand(arg) for arg in node['args'])
+            self.operand(arg) for arg in node['args'])
 
-    def call(node):
-        nonlocal uses_teach, uses_pose
+    def call(self, node):
         routine = node['value']
-        if routine in plan['routines']:
+        if routine in self.plan['routines']:
             return False
         if routine in SHARED_TEACH_CALLS:
-            uses_teach = True
+            self.uses_teach = True
         elif routine in POSE_CONSTRUCTORS or routine == 'CNV_STR_CONF':
-            uses_pose = True
+            self.uses_pose = True
         else:
             return False
-        return all(operand(arg) for arg in node['args'])
+        return all(self.operand(arg) for arg in node['args'])
 
-    def safe(node, *, top=False):
-        tick()
+    def branch(self, node):
+        args = node['args']
+        return self.operand(args[0]) and (
+            node['kind'] == 'if'
+            or all(self.operand(label) for _, labels, _ in args[1] for label in labels))
+
+    def statement(self, node):
+        self.tick()
         kind, args = node['kind'], node['args']
-        if kind == 'task_control':
-            return top and args == ['PAUSE']
         if kind == 'assign':
             target, value = args
-            return target['kind'] == 'name' and operand(target) and operand(value)
+            return target['kind'] == 'name' and self.operand(target) and self.operand(value)
         if kind == 'call':
-            return args[0]['kind'] == 'call' and call(args[0])
-        if kind == 'if':
-            return operand(args[0]) and all(safe(row) for row in (*node['body'], *node['alternate']))
-        return kind in ('write_items', 'signal_event') and all(operand(arg) for arg in args)
+            return args[0]['kind'] == 'call' and self.call(args[0])
+        if kind in ('if', 'select'):
+            return self.branch(node) and all(self.statement(row) for body in _branches(node) for row in body)
+        return kind in ('write_items', 'signal_event') and all(self.operand(arg) for arg in args)
 
-    body = plan['body'] if segment is None else plan['body'][slice(*segment)]
-    if not all(safe(node, top=True) for node in body):
+
+def bounded_child(plan, linked_plans, tick, *, segment=None):
+    """Check an isolated child body or its requested execution segment."""
+    if not _isolated(plan, linked_plans, tick):
         return None
-    if uses_teach:
+    rules = _SegmentRules(plan, tick)
+    body = plan['body'] if segment is None else plan['body'][slice(*segment)]
+    if not all(rules.statement(node) or explicit_pause(node) for node in body):
+        return None
+    if rules.uses_teach:
         return 'teach'
-    if not uses_pose and (segment is not None or any(node['kind'] == 'task_control' for node in body)):
+    if not rules.uses_pose and (segment is not None or any(explicit_pause(node) for node in body)):
         return 'scalar'
     return None
