@@ -49,11 +49,12 @@ class ProgramCLILowering:
         if registers:
             self.line('_parser.add_argument("--registers", help="UTF-8 JSON numeric bank; defaults to the numeric bank in --context")')
         if comparison:
-            self.line('_parser.add_argument("--location-tolerance-mm", type=float, required=True)')
-            self.line('_parser.add_argument("--orientation-tolerance-deg", type=float, required=True)')
-            self.line('_config = _parser.add_mutually_exclusive_group(required=True)')
+            self.line('_parser.add_argument("--location-tolerance-mm", type=float)')
+            self.line('_parser.add_argument("--orientation-tolerance-deg", type=float)')
+            self.line('_config = _parser.add_mutually_exclusive_group()')
             self.line('_config.add_argument("--check-config", dest="check_config", action="store_true")')
             self.line('_config.add_argument("--ignore-config", dest="check_config", action="store_false")')
+            self.line('_parser.set_defaults(check_config=None)')
         if read:
             self.line('_input = _parser.add_mutually_exclusive_group(required=False)')
             self.line('_input.add_argument("--read-values", help="UTF-8 JSON list of typed response batches, one per READ")')
@@ -127,7 +128,12 @@ class ProgramCLILowering:
     def _emit_cli_tolerance(self):
         self.line('try:')
         self.indent += 1
-        self.line('_pose_tolerance = _rt.checked_pose_tolerance((_args.location_tolerance_mm, _args.orientation_tolerance_deg, _args.check_config))')
+        self.line('_pose_options = (_args.location_tolerance_mm, _args.orientation_tolerance_deg, _args.check_config)')
+        self.line('_pose_tolerance = _rt.checked_pose_tolerance(_pose_options if any(value is not None for value in _pose_options) else None)')
+        self.line('if _pose_tolerance is None and (_context is None or _context.pose_tolerance is None):')
+        self.indent += 1
+        self.line('_parser.error("Pose comparison requires pose_tolerance in --context or all three comparison options")')
+        self.indent -= 1
         self.indent -= 1
         self.line('except ValueError as _error:')
         self.indent += 1

@@ -2,6 +2,7 @@
 from dataclasses import dataclass
 
 from . import runtime as rt
+from .input_position_values import teach_position_config_address
 from .input_template import InputTemplateError, _missing
 from .runner_values import ScalarSlot, variable_location
 from .storage import decode_typed, restore_value, tuple_spec
@@ -15,7 +16,7 @@ def supports_structure(candidate):
     spec = candidate.get('type')
     return (isinstance(spec, list) and bool(spec) and
             (candidate.get('kind') == 'variable' and spec[0] in STRUCTURED_TYPES or
-             candidate.get('kind') == 'position_register' and spec[0] in POSITION_TYPES))
+             candidate.get('kind') in ('position_register', 'teach_position_register') and spec[0] in POSITION_TYPES))
 
 
 def _fields(container, key, spec, path, *, config_field=False):
@@ -99,6 +100,27 @@ class StructuredSlot:
         self.container[self.key] = value
 
 
+@dataclass(frozen=True)
+class TeachPositionSlot:
+    rows: list
+    index: int
+    spec: tuple
+    group: int
+    number: int
+
+    def draft(self, label):
+        row = self.rows[self.index] if self.index < len(self.rows) else {}
+        return StructuredSlot(row, 'value', self.spec, position_register=True).draft(label)
+
+    def replace(self, payload):
+        if self.index < len(self.rows):
+            StructuredSlot(self.rows[self.index], 'value', self.spec, position_register=True).replace(payload)
+        else:
+            row = {'group': self.group, 'number': self.number}
+            StructuredSlot(row, 'value', self.spec, position_register=True).replace(payload)
+            self.rows.append(row)
+
+
 def structured_slot(context, candidate, binding):
     """Resolve one discovered aggregate or an explicitly grouped bank entry."""
     if not supports_structure(candidate) or not binding.get('context_pointer') or binding.get('status') == 'unmapped':
@@ -113,6 +135,19 @@ def structured_slot(context, candidate, binding):
             if spec != actual and not same_array:
                 raise InputTemplateError('The saved aggregate differs from the discovered type.')
             return StructuredSlot(container, key, actual)
+
+        if candidate['kind'] == 'teach_position_register':
+            group, number = candidate['group'], candidate['index']
+            address = teach_position_config_address(context, candidate['program'], group, number)
+            if address is None:
+                raise InputTemplateError('Choose a saved TP program bank before editing this position.')
+            owner, index, row = address
+            if row is not None:
+                spec, _ = decode_typed(row['value'])
+            if spec[0] not in POSITION_TYPES:
+                raise InputTemplateError('This register does not have a supported pose or joint schema.')
+            rows = context['teach_programs']['programs'][owner].setdefault('position_registers', [])
+            return TeachPositionSlot(rows, index, spec, group, number)
 
         service, section, key = binding['context_pointer'][1:].split('/')
         if service != 'positions' or section != 'values' or candidate.get('group') is None:

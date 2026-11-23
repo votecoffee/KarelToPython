@@ -138,6 +138,15 @@ INTEGER variable X is:
 }
 ```
 
+For pose comparisons, set `pose_tolerance` to
+`[distance_mm, orientation_deg, check_config]` in `inputs.context`.
+Extended poses also use `external_tolerance`, either one nonnegative value
+for every external axis or three values for EXT1, EXT2 and EXT3. For example,
+`{"pose_tolerance": [0.5, 0.1, true], "external_tolerance": [0.25, 0, 0]}`
+allows a 0.5 mm position difference, a 0.1 degree rotation difference and
+the given external-axis differences while requiring matching CONFIG values.
+Discovery and both run formats use these settings.
+
 Edit this section in the prepared document before running it. The runner copies
 context data rather than sharing the input dictionaries with execution. Results
 are never used as implicit inputs, so repeated runs begin with the same values

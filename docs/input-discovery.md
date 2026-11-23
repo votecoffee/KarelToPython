@@ -184,6 +184,15 @@ write records the converted representation for later reads and `POS_REG_TYPE`.
 Editable saved values and conversions that exceed the solver budget remain
 open during discovery.
 
+Teach-pendant position registers use the calling task's explicit
+`teach_programs.callers` binding. Discovery follows `GET_TPE_POS_REG`,
+`GET_TPE_JPOS_REG`, the three TP position setters, and the frame/tool
+and representation queries. TP position getters require the matching
+Cartesian or joint representation. Source writes retain the bank's saved
+frame and tool identifiers. A register read before a source write points to
+the physical TP program in the context editor, where its typed value can be
+supplied or changed. Adding a missing row refreshes discovery.
+
 ### Robot snapshots and range checks
 
 `CURPOS` and `CURJPOS` can use the saved position or joint snapshot for the
@@ -199,8 +208,9 @@ Discovery also follows `INV`, `FRAME`, frame composition with `:`,
 `ORIENT`, `APPROACH` and `UNPOS`. A joint operand uses the portable DH
 model and the frame and tool selected when that operand is evaluated.
 `UNPOS` captures the converted pose before evaluating its output
-selectors. Pose comparisons with `>=<` leave both branches open because
-they require explicit host tolerances.
+selectors. For `>=<`, discovery and execution use the saved
+`pose_tolerance` and any required `external_tolerance`. Missing
+tolerances or unknown operands leave both branches open.
 
 `JOINT2POS` and `POS2JOINT` use known operands and the calling task's
 saved portable DH model. Discovery follows the pose, CONFIG, external-axis

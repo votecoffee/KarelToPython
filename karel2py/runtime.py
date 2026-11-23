@@ -3021,8 +3021,10 @@ def checked_external_tolerance(value):
     if type(value) in (int,float): value=(value,)*3
     if type(value) not in (list,tuple) or len(value)!=3 or any(type(x) not in (int,float) for x in value):
         raise ValueError('external_tolerance requires one or three finite nonnegative axis tolerances')
-    result=tuple(float(x) for x in value)
-    if not all(math.isfinite(x) and x>=0 for x in result): raise ValueError('External-axis tolerances must be finite and nonnegative')
+    message = 'External-axis tolerances must be finite and nonnegative'
+    try: result=tuple(float(x) for x in value)
+    except OverflowError: raise ValueError(message) from None
+    if not all(math.isfinite(x) and x>=0 for x in result): raise ValueError(message)
     return result
 
 
@@ -4235,8 +4237,10 @@ class State:
         self._clock_us = clock_us
         self.registers = registers
         self.joint_axes = joint_axes
-        self.pose_tolerance = checked_pose_tolerance(pose_tolerance)
-        self.external_tolerance = checked_external_tolerance(external_tolerance)
+        self.pose_tolerance = checked_pose_tolerance(
+            self.execution.pose_tolerance if pose_tolerance is None else pose_tolerance)
+        self.external_tolerance = checked_external_tolerance(
+            self.execution.external_tolerance if external_tolerance is None else external_tolerance)
         self.write_requests = []
         self.read_requests = []
         self.clock_reads = []

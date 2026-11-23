@@ -5,6 +5,7 @@ import re
 from . import runtime as rt
 from .dynamic import reserved as variable_reservation, root_member
 from .input_discovery import DEFAULT_EMPTY_PATH, MISSING_PATH_RECORD, _discover_inputs
+from .input_position_values import teach_position_config_address
 from .inspection import merge_program_record
 from .storage import collection_array_cost, collection_data_spec, list_spec, restore_value, tuple_spec
 
@@ -99,8 +100,9 @@ def _service_address(context, service, address):
     bank = getattr(context, service, None)
     if bank is None:
         return False
-    if service in ('motion', 'group_locks') or address is None and service in ('ports', 'positions', 'robot'):
-        return address is None
+    if address is None:
+        return service in ('motion', 'group_locks', 'teach_programs', 'pose_tolerance', 'external_tolerance',
+                           'ports', 'positions', 'robot')
     if service == 'predefined_files':
         return type(address) is str and address in bank
     if service in ('numeric', 'strings'):
@@ -149,6 +151,8 @@ class _SavedBindings:
         self.ports = execution.ports
         self.positions = execution.positions
         self.robot = execution.robot
+        self.pose_tolerance = execution.pose_tolerance
+        self.external_tolerance = execution.external_tolerance
         self.config_text = execution.config_text
         self.teach_programs = execution.teach_programs
         self.creation_storage = None
@@ -382,6 +386,13 @@ def _prepare(report, context, *, materialize=True, execution=None):
                         binding['context_pointer'] = _pointer('positions', 'values', number_key)
                         if bank is not None and group in bank.groups and 1 <= number <= bank.count:
                             binding['status'] = 'supplied' if (group, number) in bank.values else 'missing'
+                elif kind == 'teach_position_register':
+                    address = teach_position_config_address(config, candidate['program'], candidate['group'], number)
+                    if address is not None:
+                        owner, index, row = address
+                        binding['context_pointer'] = _pointer('teach_programs', 'programs', owner,
+                                                              'position_registers', index, 'value')
+                        binding['status'] = 'supplied' if row is not None else 'missing'
                 elif service in ('numeric', 'strings'):
                     values = config.get(service, {}).get('values', {})
                     number_key = next((key for key in values if int(key) == number), str(number))

@@ -719,6 +719,8 @@ def directory_files_from_args(parser,args):
 
 def context_config(context):
     result={}
+    if context.pose_tolerance is not None: result['pose_tolerance']=list(context.pose_tolerance)
+    if context.external_tolerance is not None: result['external_tolerance']=list(context.external_tolerance)
     if context.predefined_files:result['predefined_files']=context.predefined_files
     for name in context._predefined_values:
         if context._predefined_handle(name).owner is not None:raise ValueError('Close predefined FILE handles before saving context')

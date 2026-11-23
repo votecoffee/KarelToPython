@@ -75,8 +75,8 @@ document and reports changed, omitted and unresolved inputs.
    control flow, synchronization between tasks, and handler rearming where
    order and targets can be determined. Track effects between motion
    callbacks and keep dynamic selections and external effects visible. Extend
-   robot discovery to teach-pendant position register transfers. Carry
-   explicit host tolerances into discovery for pose comparisons.
+   discovery to caller-local TP numeric and string registers and to
+   teach-program positions accessed through explicit handles.
 2. **Export linked sources from the desktop.** Reuse linked-project validation
    and cooperative Python export so the desktop workflow can begin with KAREL
    source files. Keep the existing output and source-file protections.

@@ -362,7 +362,8 @@ def save_input_structure(path, selected, payload, *, expected, protected=()):
         if previously_missing:
             root = tuple_spec(candidate['root_type'])
             return rt.array_leaf_spec(root)[0] == 'PATH'
-        return candidate['kind'] == 'position_register' and binding['status'] == 'missing'
+        return (candidate['kind'] in ('position_register', 'teach_position_register')
+                and binding['status'] == 'missing')
 
     return _save_discovered_value(path, selected, update, expected=expected, protected=protected)
 

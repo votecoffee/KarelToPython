@@ -2326,10 +2326,12 @@ def _system_variable_target(context,path,write,line):
 
 
 class ExecutionContext:
-    def __init__(self,*,strings=None,positions=None,ports=None,variables=None,files=None,robot=None,externals=None,tasks=None,numeric=None,events=None,semaphores=None,errors=None,parameters=None,calendar=None,local_handlers=False,programs=None,config_text=None,program_attributes=None,peers=None,teach_programs=None,serial_ports=None,group_locks=None,acquisition=None,pc_exchange=None,messaging=None,file_pipes=None,remote_messages=None,variable_archives=None,diagnostics=None,kcl=None,pendant=None,dictionaries=None,dynamic_display=None,keyboard=None,table_controls=None,forms=None,controller=None,vision=None,source_translations=None,serial_streams=None,motion=None,predefined_files=None):
+    def __init__(self,*,strings=None,positions=None,ports=None,variables=None,files=None,robot=None,externals=None,tasks=None,numeric=None,events=None,semaphores=None,errors=None,parameters=None,calendar=None,local_handlers=False,programs=None,config_text=None,program_attributes=None,peers=None,teach_programs=None,serial_ports=None,group_locks=None,acquisition=None,pc_exchange=None,messaging=None,file_pipes=None,remote_messages=None,variable_archives=None,diagnostics=None,kcl=None,pendant=None,dictionaries=None,dynamic_display=None,keyboard=None,table_controls=None,forms=None,controller=None,vision=None,source_translations=None,serial_streams=None,motion=None,predefined_files=None,pose_tolerance=None,external_tolerance=None):
         self.strings,self.positions,self.ports=strings,positions,ports
         self.variables=variables if variables is not None else VariableStore()
         self.files,self.robot=files,robot
+        self.pose_tolerance=runtime().checked_pose_tolerance(pose_tolerance)
+        self.external_tolerance=runtime().checked_external_tolerance(external_tolerance)
         self.externals=dict(externals or {}); self.entries={};self.program_entries={}
         self._timer_claims={}
         self._predefined_specs=tuple((name,row['name'],row['mode'],tuple(row.get('attributes',{}).items())) for name,row in predefined_file_config(predefined_files).items())
@@ -2504,10 +2506,10 @@ class ExecutionContext:
         return value
     @classmethod
     def from_config(cls,config):
-        if type(config) is not dict or set(config)-{'strings','positions','ports','files','device_files','numeric','variables','robot','events','semaphores','errors','parameters','calendar','local_handlers','programs','config_text','program_attributes','peers','teach_programs','serial_ports','group_locks','acquisition','pc_exchange','messaging','file_pipes','remote_messages','variable_archives','diagnostics','kcl','pendant','dictionaries','dynamic_display','keyboard','table_controls','forms','controller','vision','source_translations','serial_streams','motion','predefined_files'}: raise ValueError('Unknown execution context fields')
+        if type(config) is not dict or set(config)-{'strings','positions','ports','files','device_files','numeric','variables','robot','events','semaphores','errors','parameters','calendar','local_handlers','programs','config_text','program_attributes','peers','teach_programs','serial_ports','group_locks','acquisition','pc_exchange','messaging','file_pipes','remote_messages','variable_archives','diagnostics','kcl','pendant','dictionaries','dynamic_display','keyboard','table_controls','forms','controller','vision','source_translations','serial_streams','motion','predefined_files','pose_tolerance','external_tolerance'}: raise ValueError('Unknown execution context fields')
         for name,allowed in (('strings',{'count','capacity','values','comments'}),('positions',{'count','groups','values','comments'}),('ports',{'counts','values','comments','simulated','type_codes','configuration','physical_inputs','physical_input_reverse','physical_input_group_reverse'})):
             if name in config and (type(config[name]) is not dict or set(config[name])-allowed): raise ValueError('Unknown '+name+' context fields')
-        services={}
+        services={key:config[key] for key in ('pose_tolerance','external_tolerance') if key in config}
         if 'predefined_files' in config:
             if config['predefined_files'] is None:raise ValueError('predefined_files must be a mapping')
             services['predefined_files']=predefined_file_config(config['predefined_files'])

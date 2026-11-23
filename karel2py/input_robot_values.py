@@ -59,6 +59,19 @@ def capture_geometry_value(value, operation, line):
     return detached_facts(captured)
 
 
+def compare_pose_facts(values, tolerance, external_tolerance, line):
+    operands = [materialized_value(value) for value in values]
+    if tolerance is None:
+        raise RobotFactsUnavailable('Pose comparison needs explicit host tolerances at run time')
+    if any(value.spec == ['XYZWPREXT'] for value in values) and external_tolerance is None:
+        raise RobotFactsUnavailable('Extended-pose comparison needs explicit external-axis tolerances')
+    if any(value is UNKNOWN for value in operands):
+        raise RobotFactsUnavailable('Pose comparison needs its source positions at run time')
+    with rt._numeric_scope('pythonic'):
+        answer = rt.positions_close(*operands, tolerance, line, external_tolerance=external_tolerance)
+    return Value(answer, spec=['BOOLEAN'])
+
+
 def capture_unpos_value(value, line, *, with_axes):
     raw = materialized_value(value)
     if raw is UNKNOWN or not value.spec:
