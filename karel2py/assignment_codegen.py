@@ -9,6 +9,7 @@ from .assignment_analysis import (
 )
 from .compiler_language import DATA_RECORD_TYPES
 from .conversion_codegen import direct_schema_value
+from .schema_conversion import MODEL_CONVERSIONS
 
 
 class AssignmentLowering:
@@ -77,7 +78,10 @@ class AssignmentLowering:
     def _lower_assignment_conversion(self, plan, target, reference, value, token):
         target_type, value_type = plan.target_schema, plan.source_schema
         line = token.line
+        if plan.conversion in MODEL_CONVERSIONS or plan.conversion == 'cartesian':
+            self.geometry_assignment_conversions[id(target)] = (plan.conversion, target_type)
         if (receiver := plan.array_receiver) is not None:
+            self._note_geometry_receiver(target, target_type, receiver)
             source_schema = f',source_spec={value_type!r}' if receiver.needs_source_schema else ''
             value=f'self._state.array_assignment_value({value},({reference}).spec,{line}{source_schema})'
             self.features.add('runtime ARRAY receiver schema')
@@ -147,7 +151,6 @@ class AssignmentLowering:
                 line=line,column=token.column,source_type_spec=value_type,target_type_spec=target_type,
                 evaluated_once=True,independent_value=True))
         elif plan.conversion == 'kinematic':
-            self.geometry_assignment_conversions[id(target)] = ('kinematic', target_type)
             value=f'self._state.kinematic_assignment({target_type!r},{value},{line})'
             self.features.update(('extended services','kinematic assignment'))
             if self.current_routine: self.current_routine.may_services=True
@@ -155,7 +158,6 @@ class AssignmentLowering:
                 line=line,column=token.column,source_type=value_type,target_type=target_type,target_kind=target.kind,
                 evaluated_once=True,independent_value=True))
         elif plan.conversion == 'cartesian':
-            self.geometry_assignment_conversions[id(target)] = ('cartesian', target_type)
             value = f'_rt.convert_position({target_type!r}, {value}, {line})'
             self.features.add('POSITION/XYZWPR assignment conversion')
             self.position_conversion_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
@@ -193,10 +195,16 @@ class AssignmentLowering:
         self.line(f'_rt.collection_array_assign({reference},{source},{line})',token)
         self.features.add('logical collection ARRAY source copy')
 
+    def _note_geometry_receiver(self, target, schema, receiver):
+        if receiver.needs_geometry:
+            conversion = 'kinematic_record' if receiver.kinematic_record else 'kinematic_array'
+            self.geometry_assignment_conversions[id(target)] = (conversion, schema, True)
+
     def prefix_assignment(self,target,expression,token):
         reference,expected=self.reference(target,allow_prefix=True)
         value,actual=self.expression(expression,allow_array_result=True)
         receiver = check_prefix_assignment(expected, actual, token, compatible=self.compatible, error=self.error)
+        self._note_geometry_receiver(target, expected, receiver)
         source=self.fresh();captured=self.fresh();line=token.line
         self.line(f'{source} = _rt.assignment_value({value},{line})',token)
         self.line(f'{captured} = {reference}',token)

@@ -112,12 +112,12 @@ def _const_facts(spec, path, value, output):
         _const_facts(child, path + parts, value.values[slot], output)
 
 
-def materialized_value(value):
-    """Create a detached runtime value only when its data facts are sufficient."""
-    if not value.complete:
+def materialized_value(value, *, allow_missing=False):
+    """Create a detached value from known facts, optionally preserving missing data."""
+    if not value.complete and not allow_missing:
         return UNKNOWN
     if value.spec is None or value.spec[0] in SCALARS:
-        return value.constant
+        return rt.UNINITIALIZED if allow_missing and value.uninitialized else value.constant
     if value.facts is None:
         return UNKNOWN
     spec = tuple_spec(value.spec)

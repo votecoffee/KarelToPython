@@ -119,6 +119,30 @@ def evaluate_robot_assignment(robot, target, value, line, tick, *, operation='Ki
     )
 
 
+def evaluate_robot_aggregate(robot, conversion, target, value, line, tick, *, operation):
+    """Preflight the whole ARRAY or STRUCTURE and meter one private conversion."""
+    def evaluate(context, check):
+        if conversion == 'kinematic_array':
+            source, result = rt.prepare_kinematic_array(target, value, line)
+            leaf = rt.array_leaf_spec(result.spec)
+            source_cells = rt._array_conversion_cells(source)
+            result_cells = rt._array_conversion_cells(result)
+            pending = ((output, index, leaf, storage[key])
+                       for (storage, key), (output, index) in zip(source_cells, result_cells, strict=True))
+        else:
+            result, pending = rt.prepare_kinematic_record(target, value, line)
+        for storage, key, expected, item in pending:
+            check()
+            storage[key] = context.kinematic_assignment(
+                None, expected, item, line, group=robot.active_group, check=check,
+            )
+        if conversion == 'kinematic_record':
+            return rt._partial_aggregate_value(result.spec, result, line)
+        return result
+
+    return _run_portable_model(robot, operation, evaluate, tick, MODEL_SAMPLE_LIMIT)
+
+
 def _reference(spec):
     expected = tuple_spec(spec)
     return rt.Reference(expected, {'value': rt.initial_value(expected)}, 'value')

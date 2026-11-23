@@ -200,12 +200,18 @@ joint widths. `POS2JOINT` can use an unset external-axis array when the
 model has zero external axes. CONFIG text parsing and formatting supply
 known values using the default format or an explicit saved group profile.
 
-Direct Cartesian conversions and joint/pose assignments preserve known
-results. Model-backed assignments use the current frame and tool selections
-before evaluating the destination selectors, just as the generated Python
-does. Retranslate existing generated Python to include the assignment
-metadata. Unknown operands and conversions that exceed the solver budget
-remain visible in discovery.
+Direct Cartesian and model-backed conversions preserve known results in
+assignments, routine value arguments and returns. This includes ARRAY and
+STRUCTURE conversions, concrete shapes behind wildcard parameters, and known
+missing non-geometry fields. Discovery uses the frame and tool selected at
+each conversion. A direct assignment converts before selecting its
+destination. A borrowed ARRAY receiver or ARRAY row uses its captured
+destination shape. Converted routine arguments are private values, and
+discovery follows their conversion before evaluating later arguments.
+
+Retranslate existing generated Python to include the conversion metadata.
+Discovery shares a solver budget across the elements of each aggregate.
+Unknown operands and conversions that exceed the budget remain visible.
 
 Discovery follows direct `$MNUFRAMENUM` and `$MNUTOOLNUM` assignments,
 numbered and active frame/tool pose assignments, and subsequent reads in the

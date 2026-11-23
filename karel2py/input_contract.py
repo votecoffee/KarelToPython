@@ -195,6 +195,9 @@ def build(program, emitter):
                         except Exception:
                             modes.append('unknown')
                     row['passing'] = modes
+                    conversions = emitter.geometry_argument_conversions.get(id(value))
+                    if conversions is not None:
+                        row['geometry_arguments'] = encode(conversions, depth + 1)
                 elif value.kind == 'call':
                     from .extended import PROCEDURES, FUNCTIONS, signature_for
                     if value.value in ('GET_POS_REG','GET_EPOS_REG','GET_JPOS_REG','SET_POS_REG','SET_EPOS_REG','SET_JPOS_REG'):
@@ -218,6 +221,10 @@ def build(program, emitter):
                     schema = emitter.path_array_conversion_schemas.get(id(value.args[0]))
                     if schema is not None:
                         row['path_array_conversion_type'] = encode(schema, depth + 1)
+                if value.kind == 'return' and value.args:
+                    conversion = emitter.geometry_return_conversions.get(id(value.args[0]))
+                    if conversion is not None:
+                        row['geometry_return'] = conversion
                 callback = emitter.callback_input_plans.get(id(value))
                 if callback is not None:
                     row.update(encode(callback, depth + 1))

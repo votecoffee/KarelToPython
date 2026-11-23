@@ -3,6 +3,7 @@ from . import runtime as rt
 
 
 CARTESIAN_TYPES = ('POSITION', 'XYZWPR', 'XYZWPREXT')
+MODEL_CONVERSIONS = {'kinematic', 'kinematic_array', 'kinematic_record'}
 PYTHONIC_CONVERSIONS = (
     ('real_integral', rt.real_integral_kind),
     ('config_word', rt.config_word_kind),

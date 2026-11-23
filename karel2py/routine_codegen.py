@@ -18,6 +18,7 @@ from .call_reporting import (
     record_value_subfield,
 )
 from .compiler_language import INTEGRAL_TYPES, NARROW_TYPES, POSITIONAL_VALUE_TYPES
+from .schema_conversion import MODEL_CONVERSIONS
 
 
 class RoutineLowering:
@@ -90,7 +91,7 @@ class RoutineLowering:
         routine = self.routines[expr.value]
         pairs = check_routine_call(expr, routine, mode=self.mode, has_routine_call=self.has_routine_call, error=self.error)
         arguments = []
-        for argument, (formal, expected) in pairs:
+        for index, (argument, (formal, expected)) in enumerate(pairs):
             line = argument.token.line
             byname = check_byname_argument(argument, mode=self.mode, routines=self.routines, error=self.error)
             if byname is not None:
@@ -135,8 +136,10 @@ class RoutineLowering:
                     code = f'_rt.value_argument({expected!r}, {value}, {line})'
                 else:
                     code = f'_rt.value_argument({expected!r},{value},{line})'
-            if conversion in ('kinematic_array', 'kinematic_record', 'kinematic') and self.current_routine:
+            if conversion in MODEL_CONVERSIONS and self.current_routine:
                 self.current_routine.may_services = True
+            if conversion in MODEL_CONVERSIONS or conversion == 'cartesian':
+                self.geometry_argument_conversions.setdefault(id(expr), {})[index] = conversion
             record_routine_conversion(self, routine, formal, argument, plan, source_schema)
             active_counter = plan.by_reference and self.protection_root(argument) in self.active_counters
             validate_routine_argument(plan, expr.value, argument.token, mode=self.mode, active_counter=active_counter,
@@ -172,8 +175,10 @@ class RoutineLowering:
             self._lower_collection_return(value, plan, operand, token)
             return
         value = self.lower_interface_conversion('RETURN', plan.conversion, spec, source, value, token)
-        if plan.conversion in ('kinematic_array', 'kinematic_record', 'kinematic'):
+        if plan.conversion in MODEL_CONVERSIONS:
             self.current_routine.may_services = True
+        if plan.conversion in MODEL_CONVERSIONS or plan.conversion == 'cartesian':
+            self.geometry_return_conversions[id(operand)] = plan.conversion
         record_result_conversion(self, token, plan)
         record_routine_result(self, token, operand, plan)
         self.line(f'return {self._checked_result_value(spec, value, token.line)}', token)

@@ -28,7 +28,7 @@ from .input_robot_transfers import inspect_robot_variable, transfer_robot_variab
 from .input_robot_values import (
     CONFIG_TEXT_CONVERSIONS, POSE_CONSTRUCTORS, ROBOT_CONVERSIONS, ROBOT_RANGE_QUERIES, ROBOT_SNAPSHOTS,
     RobotFactsUnavailable, check_robot_range, construct_pose, constructor_schema, convert_config_text,
-    convert_robot_coordinates, current_robot_facts, evaluate_robot_assignment,
+    convert_robot_coordinates, current_robot_facts, evaluate_robot_aggregate, evaluate_robot_assignment,
 )
 from .inspection import (
     CATALOG_SCAN_LIMIT, catalog_key, catalog_type_matches, describe, effective_list_options,
@@ -39,6 +39,7 @@ from .input_value_conversions import (
     array_prefix_addresses, array_prefix_values, convert_value_facts, detached_facts,
     materialized_value, stored_value as _stored_value, variable_array_prefix_size, variable_transfer_policy,
 )
+from .schema_conversion import MODEL_CONVERSIONS
 from .storage import collection_array_cost, list_spec, tuple_spec
 from . import runtime as rt
 
@@ -4087,22 +4088,35 @@ class _Analyzer:
             flow.stopped = True
             return _Value(spec=target)
 
-    def kinematic_assignment_value(self, target, value, node, flow):
+    def geometry_value(self, conversion, target, value, node, flow, *, boundary):
+        if conversion == 'cartesian':
+            return self.cartesian_assignment_value(target, value, node, flow)
+        kinds = {'kinematic': 'Kinematic', 'kinematic_array': 'Kinematic ARRAY',
+                 'kinematic_record': 'Kinematic STRUCTURE'}
+        operation = kinds[conversion]+' '+boundary
         group = self.default_position_group(None)
         try:
-            robot = self.query_robot_group('Kinematic assignment', group, node, flow)
-            source = materialized_value(value)
+            robot = self.query_robot_group(operation, group, node, flow)
+            if value.facts is not None:
+                self.tick(len(value.facts))
+            source = materialized_value(value, allow_missing=conversion != 'kinematic')
             if source is UNKNOWN:
-                raise RobotFactsUnavailable('Kinematic assignment needs its source value at run time')
+                raise RobotFactsUnavailable(operation+' needs its source value at run time')
             selected = flow.robot_tables.selected_robot(robot, group)
-            converted = evaluate_robot_assignment(selected, tuple_spec(target), source, node.get('line'), self.tick)
+            schema, line = tuple_spec(target), node.get('line')
+            if conversion == 'kinematic':
+                converted = evaluate_robot_assignment(selected, schema, source, line, self.tick, operation=operation)
+            else:
+                converted = evaluate_robot_aggregate(selected, conversion, schema, source, line, self.tick,
+                                                      operation=operation)
             return detached_facts(converted)
         except RobotFactsUnavailable as error:
             self.unresolved_at('robot-conversion', str(error), node)
         except (rt.KarelRuntimeError, ValueError, ArithmeticError) as error:
             self.unresolved_at('robot-conversion', str(error), node)
             flow.stopped = True
-        return _Value(spec=target)
+        spec = (_array_value_schema(target, value.spec) or target) if target[0] == 'ARRAY' else target
+        return _Value(complete=conversion != 'kinematic_record', spec=spec)
 
     def pose_constructor_call(self, node, flow, conditional):
         name = node['value']
@@ -4386,13 +4400,15 @@ class _Analyzer:
     def routine(self, name, args, node, flow, conditional, *, statement_call=False, argument_path_edits=False):
         routine=self.plan['routines'][name]
         modes=node.get('passing',[]);actual=[]
+        conversions = node.get('geometry_arguments', {})
         references = []
         with self.capture_operands() as pending:
             start = len(pending)
             for index,item in enumerate(args):
                 if flow.stopped and not flow.opaque:
                     return _Value(complete=False)
-                mode=modes[index] if index<len(modes) else 'unknown'
+                conversion = conversions.get(str(index))
+                mode = 'value' if conversion else modes[index] if index<len(modes) else 'unknown'
                 # The plan keeps the BYNAME call expression. Its lowering
                 # supplies an ordinary reference to the formal.
                 byname = (item['kind'] == 'call' and item['value'] == 'BYNAME' and len(item['args']) == 3
@@ -4408,7 +4424,9 @@ class _Analyzer:
                                       argument_path_edits=len(pending) > start)
                     expected = routine['parameters'][index][1]
                     if not (flow.stopped and not flow.opaque):
-                        if expected[0] == 'PATH':
+                        if conversion:
+                            value = self.geometry_value(conversion, expected, value, item, flow, boundary='argument')
+                        elif expected[0] == 'PATH':
                             value = self.convert_path_value(expected, value, item, flow)
                         elif _path_array_cell_type(expected):
                             value = self.convert_path_array_value(expected, value, item, flow)
@@ -4784,12 +4802,10 @@ class _Analyzer:
             value=self.expr(args[1],flow,conditional,partial=True)
             if flow.stopped and not flow.opaque:
                 return
-            if 'geometry_assignment' in node:
-                conversion, schema = node['geometry_assignment']
-                if conversion == 'kinematic':
-                    value = self.kinematic_assignment_value(schema, value, node, flow)
-                elif conversion == 'cartesian':
-                    value = self.cartesian_assignment_value(schema, value, node, flow)
+            geometry = node.get('geometry_assignment', ())
+            if len(geometry) == 2:
+                conversion, schema = geometry
+                value = self.geometry_value(conversion, schema, value, node, flow, boundary='assignment')
                 if flow.stopped and not flow.opaque:
                     return
             if 'path_array_conversion_type' in node:
@@ -4799,6 +4815,12 @@ class _Analyzer:
             target = self.locate(args[0], flow, conditional)
             if flow.stopped and not flow.opaque:
                 return
+            if len(geometry) == 3 and target is not None:
+                conversion = geometry[0]
+                if conversion in MODEL_CONVERSIONS:
+                    value = self.geometry_value(conversion, target.spec, value, node, flow, boundary='assignment')
+                    if flow.stopped and not flow.opaque:
+                        return
             if target is not None and _path_array_cell_type(target.spec):
                 self.path_array_assignment(target, value, node, flow, conditional)
             else:
@@ -4929,7 +4951,10 @@ class _Analyzer:
             value=self.expr(args[0],flow,conditional,partial=True) if args and args[0] is not None else _Value()
             result = self.frames[-1]['result'] if self.frames else None
             if result and not (flow.stopped and not flow.opaque):
-                if result[0] == 'PATH':
+                conversion = node.get('geometry_return')
+                if conversion:
+                    value = self.geometry_value(conversion, result, value, node, flow, boundary='return')
+                elif result[0] == 'PATH':
                     value = self.convert_path_value(result, value, node, flow)
                 elif _path_array_cell_type(result):
                     value = self.convert_path_array_value(result, value, node, flow)
