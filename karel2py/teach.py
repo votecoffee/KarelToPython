@@ -39,6 +39,16 @@ def checked_open_request(name,mode,reject,line=None):
     return 0,name
 
 
+def teach_rejects(reject,access):
+    return reject==4 or bool(reject & access)
+
+
+def teach_open_conflict(mode,reject,other_mode,other_reject):
+    if reject==4 or other_reject==4: return True
+    access=(0,1,3)
+    return teach_rejects(other_reject,access[mode]) or teach_rejects(reject,access[other_mode])
+
+
 def cartesian_value(kind,value,line=None):
     runtime=rt()
     from .extended import pose_extended
@@ -149,7 +159,7 @@ class TeachPrograms:
         if target is None: return 9,None
         access=3 if write else 1
         for handle in self._handles.values():
-            if handle['name']==target and handle['owner'] is not owner and (handle['reject']==4 or handle['reject']&access): return 4,None
+            if handle['name']==target and handle['owner'] is not owner and teach_rejects(handle['reject'],access): return 4,None
         return 0,self._programs[target]
 
     def read_register(self,caller,number,kind='numeric',group=1,*,owner=None,line=None):
@@ -263,10 +273,9 @@ class TeachPrograms:
     def open(self,name,mode,reject=0,*,owner=None,line=None):
         code,name=self.open_target(name,mode,reject,line)
         if code: return code,None
-        access=(0,1,3)[mode]
         for other in self._handles.values():
             if other['name']!=name or other['owner'] is owner: continue
-            if reject==4 or other['reject']==4 or (other['reject'] & access) or (reject & (0,1,3)[other['mode']]): return 4,None
+            if teach_open_conflict(mode,reject,other['mode'],other['reject']): return 4,None
         if len(self._handles)>=1024 or self._sequence>=2147483646: return 6,None
         self._sequence+=1
         self._handles[self._sequence]={'name':name,'mode':mode,'reject':reject,'owner':owner}

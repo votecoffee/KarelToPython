@@ -10,7 +10,7 @@ from .input_teach_catalog import TEACH_COMMENT_KIND, TeachCatalogDiscovery, Teac
 from .input_value_conversions import UNKNOWN, Value
 from .position_register_models import register_description
 from .storage import tuple_spec
-from .teach import checked_open_request
+from .teach import checked_open_request, teach_open_conflict, teach_rejects
 
 
 LOCAL_POSITION_KIND = 'teach_position_register'
@@ -100,17 +100,26 @@ class TeachBankFacts:
             self.uncertain_programs.add(target)
 
 
+@dataclass(frozen=True)
+class TeachHandle:
+    program: str
+    owner: str
+    mode: int
+    reject: int
+
+
 @dataclass
 class TeachFacts:
     numeric: TeachBankFacts = field(default_factory=TeachBankFacts)
     strings: TeachBankFacts = field(default_factory=TeachBankFacts)
     local_positions: TeachBankFacts = field(default_factory=TeachBankFacts)
     program_positions: TeachBankFacts = field(default_factory=TeachBankFacts)
-    # Known handle numbers map to (program, mode). None means the open set or
-    # allocation sequence depends on an unmodeled lookup or control-flow edge.
-    handles: dict | None = field(default_factory=dict)
-    sequence: int = 0
-    foreign_handles: bool = False
+    # None for the table or sequence records a loss of precision. When all
+    # possible unknown handles have the same owner, local access can still
+    # be checked for that owner.
+    handles: dict[int, TeachHandle] | None = field(default_factory=dict)
+    sequence: int | None = 0
+    unknown_handle_owner: str | None = None
     comments: TeachBankFacts = field(default_factory=TeachBankFacts)
     catalog: TeachCatalogFacts = field(default_factory=TeachCatalogFacts)
 
@@ -123,21 +132,41 @@ class TeachFacts:
     def copy(self):
         return TeachFacts(self.numeric.copy(), self.strings.copy(), self.local_positions.copy(),
                           self.program_positions.copy(), None if self.handles is None else self.handles.copy(),
-                          self.sequence, self.foreign_handles, self.comments.copy(), self.catalog.copy())
+                          self.sequence, self.unknown_handle_owner, self.comments.copy(), self.catalog.copy())
+
+    def forget_handles(self, owner):
+        owners = self.handle_owners()
+        self.unknown_handle_owner = owner if owners <= {owner} else None
+        self.handles = None
+        self.sequence = None
+
+    def handle_owners(self):
+        if self.handles is None:
+            return {self.unknown_handle_owner}
+        return {handle.owner for handle in self.handles.values()}
+
+    def release_owner(self, owner):
+        if self.handles is not None:
+            self.handles = {number: handle for number, handle in self.handles.items() if handle.owner != owner}
+        elif self.unknown_handle_owner == owner:
+            self.handles = {}
+            self.unknown_handle_owner = None
 
     @classmethod
     def merge(cls, flows, merge_values):
         first = flows[0]
-        sequence = first.sequence
+        sequence = first.sequence if all(flow.sequence == first.sequence for flow in flows[1:]) else None
         handles = None
-        if first.handles is not None and all(
-            flow.handles == first.handles and flow.sequence == sequence for flow in flows[1:]
-        ):
+        owner = None
+        if first.handles is not None and all(flow.handles == first.handles for flow in flows[1:]):
             handles = first.handles.copy()
+        else:
+            owners = set().union(*(flow.handle_owners() for flow in flows))
+            if len(owners) == 1:
+                owner = next(iter(owners))
         return cls(*(TeachBankFacts.merge([getattr(flow, name) for flow in flows], merge_values)
                      for name in ('numeric', 'strings', 'local_positions', 'program_positions')),
-                   handles, sequence, any(flow.foreign_handles for flow in flows),
-                   TeachBankFacts.merge([flow.comments for flow in flows], merge_values),
+                   handles, sequence, owner, TeachBankFacts.merge([flow.comments for flow in flows], merge_values),
                    TeachCatalogFacts.merge([flow.catalog for flow in flows]))
 
 
@@ -154,21 +183,31 @@ class TeachDiscovery(TeachCatalogDiscovery):
     def teach_stable(self, flow):
         return not (flow.opaque or flow.task_order_unknown or self.callback_depth or self.repeat_depth)
 
-    def teach_local_access(self, flow):
-        return (self.teach_stable(flow) and not flow.teach.foreign_handles
-                and (len(self.task_roots) == 1 or flow.teach.handles == {}))
+    def teach_local_status(self, program, flow, *, write=False):
+        if not self.teach_stable(flow):
+            return UNKNOWN
+        if program is None:
+            return 9
+        owner = self.task_roots[-1]
+        state = flow.teach
+        if state.handles is None:
+            return 0 if state.unknown_handle_owner == owner else UNKNOWN
+        self.tick(len(state.handles))
+        for handle in state.handles.values():
+            if handle.owner != owner and handle.program == program and teach_rejects(handle.reject, 3 if write else 1):
+                return 4
+        return 0
 
     def teach_handle_access(self, flow):
-        return self.teach_stable(flow) and len(self.task_roots) == 1 and flow.teach.handles is not None
+        return self.teach_stable(flow) and flow.teach.handles is not None
 
-    def teach_handle_program(self, number, flow, *, write=False):
+    def teach_handle_program(self, number, flow, *, write=False, access=True):
         if not self.teach_handle_access(flow) or type(number) is not int:
             return UNKNOWN
         handle = flow.teach.handles.get(number)
-        if handle is None:
+        if handle is None or handle.owner != self.task_roots[-1]:
             return None
-        program, mode = handle
-        return program if mode in ((2,) if write else (1, 2)) else None
+        return handle.program if not access or handle.mode in ((2,) if write else (1, 2)) else None
 
     def teach_unknown_access(self, operation, outputs, node, flow, code):
         *receivers, status = outputs
@@ -186,14 +225,15 @@ class TeachDiscovery(TeachCatalogDiscovery):
         bank = getattr(self.saved_bindings, 'teach_programs', None)
         state = flow.teach
         if bank is None or not self.teach_handle_access(flow) or any(item is UNKNOWN for item in known):
-            state.handles = None
-            state.foreign_handles |= len(self.task_roots) != 1 or not self.teach_stable(flow)
+            state.forget_handles(self.task_roots[-1] if self.teach_stable(flow) else None)
             self.teach_unknown_access(operation, outputs, node, flow, 'teach-handle')
         elif opening:
             self.teach_open(bank, known, outputs, node, flow)
         else:
-            code = 0 if state.handles.pop(known[0], None) is not None else 3
-            self.bank_status(outputs[0], code, flow, node)
+            program = self.teach_handle_program(known[0], flow, access=False)
+            if program is not None:
+                del state.handles[known[0]]
+            self.bank_status(outputs[0], 3 if program is None else 0, flow, node)
         return Value()
 
     def teach_open(self, bank, values, outputs, node, flow):
@@ -203,19 +243,28 @@ class TeachDiscovery(TeachCatalogDiscovery):
         state = flow.teach
         if not code:
             entry = state.catalog.entry(bank, program)
+            owner = self.task_roots[-1]
             if entry is UNKNOWN:
-                state.handles = None
+                state.forget_handles(owner)
                 self.teach_unknown_access(node['value'], outputs, node, flow, 'teach-handle')
                 return
             if entry is None:
                 self.bank_status(status, 1, flow, node)
                 return
-            # All tracked handles belong to the same top-level invocation.
-            if len(state.handles) >= 1024 or state.sequence >= 2147483646:
+            self.tick(len(state.handles))
+            if any(other.owner != owner and other.program == program
+                   and teach_open_conflict(mode, reject, other.mode, other.reject)
+                   for other in state.handles.values()):
+                code = 4
+            elif len(state.handles) >= 1024 or state.sequence == 2147483646:
                 code = 6
+            elif state.sequence is None:
+                state.forget_handles(owner)
+                self.teach_unknown_access(node['value'], outputs, node, flow, 'teach-handle')
+                return
             else:
                 state.sequence += 1
-                state.handles[state.sequence] = (program, mode)
+                state.handles[state.sequence] = TeachHandle(program, owner, mode, reject)
                 self.write(handle, Value(state.sequence, spec=['INTEGER']), flow, node)
         self.bank_status(status, code, flow, node)
 
@@ -235,15 +284,16 @@ class TeachDiscovery(TeachCatalogDiscovery):
         number = inputs[0].constant
         cells = flow.teach.numeric if numeric else flow.teach.strings
         entry = flow.teach.catalog.entry(bank, program) if program is not None else None
-        if bank is None or entry is UNKNOWN or not self.teach_local_access(flow) or type(number) is not int:
+        code = self.teach_local_status(program, flow, write=not reading)
+        if bank is None or entry is UNKNOWN or code is UNKNOWN or type(number) is not int:
             if not reading and program is not None:
                 self.tick(len(cells.cells))
                 cells.invalidate(program)
             self.teach_unknown_access(operation, outputs, node, flow, 'teach-register')
             return Value()
         limit = bank.register_limit if numeric else bank.string_register_limit
-        if program is None or not 1 <= number <= limit:
-            self.bank_status(status, 9 if program is None else 2, flow, node)
+        if code or not 1 <= number <= limit:
+            self.bank_status(status, code or 2, flow, node)
             return Value()
         key = program, number
         if reading:
@@ -336,9 +386,11 @@ class TeachDiscovery(TeachCatalogDiscovery):
             program = target if stable else None
             access_error = (3, 'TP handle is closed or does not permit access') if target is None else None
         else:
-            stable = self.teach_local_access(flow)
             program = bank.callers.get(owner) if bank is not None else None
-            access_error = (9, 'calling task has no saved TP bank') if program is None else None
+            code = self.teach_local_status(program, flow, write=bool(setter))
+            stable = code is not UNKNOWN
+            access_error = ({9: (9, 'calling task has no saved TP bank'),
+                             4: (4, 'TP bank is held by another task')}.get(code) if stable else None)
         number = inputs[address_count - 1].constant
         explicit = trailing or (not (schema or setter) and count > address_count)
         group = inputs[-1].constant if explicit else self.default_position_group(bank)

@@ -60,8 +60,13 @@ Discovery can also stop at an explicit top-level `PAUSE` in a child body
 limited to private scalar assignments, simple IF blocks, WRITE and event
 signals. A known continuation resumes at the next statement and keeps
 initialization and scalar value facts from earlier statements in that child.
-Several such pauses can be tracked. Shared storage, external calls, nested
-pauses, and ambiguous suspended positions use conservative analysis.
+Several such pauses can be tracked. For supported TP operations, an immediately
+following `WAIT FOR PAUSE PROGRAM[n]` can establish the child boundary.
+The analysis carries TP handles and bank effects across that wait and uses
+the current shared bank when the child resumes. An eligible final launch or
+continuation can also reach natural completion when cleanup of the entry task's
+handles cannot race with the child. Nested pauses, ambiguous suspended
+positions and other concurrent shared effects use conservative analysis.
 
 Discovery evaluates signal and wait selectors and can track known pauses
 across a delay or simple event wait. A signal or delay alone does not
@@ -211,9 +216,12 @@ starts empty, and its positions must be written before they can be read.
 `GET_TPE_CMT` and `SET_TPE_CMT` follow the addressed position across groups,
 the comment's 16-character capacity and the receiver's capacity. A saved
 position comment can be added or edited as a scalar. Edits refresh discovery
-when the new length can change the getter's status. Dynamic catalog and handle
-targets, handle lifetimes across independently scheduled tasks, and general
-header queries after a TP catalog edit remain unresolved.
+when the new length can change the getter's status. In a linked pause handoff,
+the owning task keeps its handles while paused. The analysis follows reject
+masks, rejects foreign handle operations, and releases the child's handles
+at natural completion when the boundary is known. Dynamic catalog or handle
+targets, unsynchronized access, and general header queries after a TP catalog
+edit remain unresolved.
 
 ### Robot snapshots and range checks
 

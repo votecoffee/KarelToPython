@@ -23,6 +23,7 @@ from .input_position_values import (
     POSITION_CLEARED, POSITION_GETTERS, POSITION_MODIFIED, POSITION_SERVICES, POSITION_SETTERS,
     checked_position_facts, merge_positions, position_register_result,
 )
+from .input_task_segments import bounded_child
 from .input_teach_catalog import TEACH_CATALOG_SERVICES, TEACH_EDIT_SERVICES
 from .input_teach_discovery import (
     TEACH_HANDLE_SERVICES, TEACH_POSITION_GETTERS, TEACH_POSITION_SECTIONS, TEACH_POSITION_SERVICES,
@@ -154,6 +155,13 @@ class _Handler:
 class _Suspension:
     next_statement: int
     flow: '_Flow'
+
+
+@dataclass
+class _TaskHandoff:
+    request: dict
+    pause_target: str | None
+    reached: bool = False
 
 
 @dataclass(frozen=True)
@@ -437,6 +445,7 @@ class _Analyzer(TeachDiscovery):
         self.track_tasks = track_tasks
         self.task_numbers = tuple(linked_plans) if linked_plans is not None else ()
         self.segmentable = {}
+        self.task_handoff = None
         plans = linked_plans if linked_plans is not None else {plan['program']: plan}
         self.imports = {
             name: {local: (owner.upper(), foreign) for local, owner, foreign in item.get('imports', [])}
@@ -4441,6 +4450,13 @@ class _Analyzer(TeachDiscovery):
             return None
         return plan
 
+    def matching_task_handoff(self, node, name, flow):
+        handoff = self.task_handoff
+        if (handoff is not None and handoff.request is node and self.teach_stable(flow) and not flow.handlers
+                and handoff.pause_target in (None, name)):
+            return handoff
+        return None
+
     def task_request(self, operation, values, node, flow):
         plan = self.task_target(operation, values[0], node)
         if plan is None:
@@ -4457,13 +4473,16 @@ class _Analyzer(TeachDiscovery):
         flow.requested_tasks.add(name)
         if fresh and pause and plan.get('entry_checkpoint') is True:
             flow.paused_tasks[name] = None
+            handoff = self.matching_task_handoff(node, name, flow)
+            if handoff is not None and handoff.pause_target == name:
+                handoff.reached = True
             self.unresolved_at('task-scheduling', 'Paused entry for '+name+' depends on scheduler admission', node)
             return True
         if name in flow.paused_tasks:
             return self.continue_task(operation, plan, node, flow, segment=checked_request)
 
         self.unresolved_at('task-scheduling', 'RUN_TASK timing, admission and shared effects require review: '+name, node)
-        return self.start_task_body(plan, flow, segment=fresh and pause is False)
+        return self.start_task_body(plan, node, flow, segment=fresh and pause is False)
 
     def continue_task(self, operation, plan, node, flow, *, segment=True):
         name = plan['program']
@@ -4475,55 +4494,41 @@ class _Analyzer(TeachDiscovery):
         suspension = flow.paused_tasks.pop(name)
         point = 'a paused entry' if suspension is None else 'an explicit in-body pause'
         self.unresolved_at('task-continuation', operation+' may resume '+point+' after scheduler admission: '+name, node)
-        return self.start_task_body(plan, flow, suspension, segment=segment)
+        return self.start_task_body(plan, node, flow, suspension, segment=segment)
 
-    def segmentable_body(self, plan):
-        """Check for a top-level pause and operations confined to private scalar storage."""
+    def start_task_body(self, plan, node, flow, suspension=None, *, segment):
         name = plan['program']
-        if name in self.segmentable:
-            return self.segmentable[name]
-        self.segmentable[name] = False
-        if plan.get('imports') != [] or not any(node['kind'] == 'task_control' and node['args'] == ['PAUSE'] for node in plan['body']):
-            return False
-        for other in self.linked_plans.values():
-            self.tick()
-            imports, routines = other.get('imports'), other.get('routines')
-            if (other.get('status') != 'available' or type(imports) is not list or type(routines) is not dict
-                    or any(owner.upper() == name for _, owner, _ in imports)
-                    or any((routine['external'] or '').upper() == name for routine in routines.values())):
-                return False
-
-        def scalar(node):
-            self.tick()
-            kind = node['kind']
-            if kind == 'name':
-                variable = node['value']
-                schema = plan['types'].get(variable)
-                return schema[0] in SCALARS if schema else variable in plan['constants']
-            if kind in ('literal', 'real_literal', 'predefined', 'write_cr'):
-                return True
-            return kind in ('group', 'unary', 'binary', 'write_item') and all(scalar(arg) for arg in node['args'])
-
-        def safe(node, *, top=False):
-            self.tick()
-            kind, args = node['kind'], node['args']
-            if kind == 'task_control':
-                return top and args == ['PAUSE']
-            if kind == 'assign':
-                target, value = args
-                return target['kind'] == 'name' and scalar(target) and scalar(value)
-            if kind == 'if':
-                return scalar(args[0]) and all(safe(row) for row in (*node['body'], *node['alternate']))
-            return kind in ('write_items', 'signal_event') and all(scalar(arg) for arg in args)
-
-        self.segmentable[name] = all(safe(node, top=True) for node in plan['body'])
-        return self.segmentable[name]
-
-    def start_task_body(self, plan, flow, suspension=None, *, segment):
-        if segment and self.segmentable_body(plan):
-            cursor = self.scheduled_body(plan, segment=True, suspension=suspension)
+        if segment and name not in self.segmentable:
+            self.segmentable[name] = bounded_child(plan, self.linked_plans, self.tick)
+        bounded = self.segmentable.get(name) if segment else None
+        handoff = self.matching_task_handoff(node, name, flow)
+        synchronized = False
+        if handoff is not None and bounded is not None:
+            start = suspension.next_statement if suspension is not None else 0
+            self.tick(len(plan['body']) - start)
+            will_pause = any(row['kind'] == 'task_control' for row in plan['body'][start:])
+            if handoff.pause_target == name:
+                synchronized = will_pause
+            elif not will_pause:
+                # The entry can finish before or during the child's final
+                # slice. Its handle cleanup must have no observable effect.
+                owners = flow.teach.handle_owners()
+                synchronized = None not in owners and self.task_roots[-1] not in owners
+        if bounded == 'scalar' or synchronized:
+            shared = flow.teach if synchronized else None
+            cursor, child = self.scheduled_body(plan, segment=True, suspension=suspension, shared_teach=shared)
+            if synchronized:
+                if child.opaque or child.task_order_unknown:
+                    raise _TaskOrderUnknown()
+                flow.teach = child.teach
+                if cursor is None:
+                    self.tick(len(flow.teach.handles or ()))
+                    flow.teach.release_owner(name)
+                    flow.stopped = child.stopped
+                else:
+                    handoff.reached = True
             if cursor is not None:
-                flow.paused_tasks[plan['program']] = cursor
+                flow.paused_tasks[name] = cursor
             return True
         if suspension is not None:
             # Revisit previous slices as well when the original cursor no
@@ -4533,7 +4538,7 @@ class _Analyzer(TeachDiscovery):
         self.scheduled_body(plan, path_orders=flow.path_orders)
         return False
 
-    def scheduled_body(self, plan, *, segment=False, suspension=None, path_orders=None):
+    def scheduled_body(self, plan, *, segment=False, suspension=None, path_orders=None, shared_teach=None):
         depth = self.suspended_depth + len(self.frames) + 1
         caller_plan, caller_roots, caller_depth = self.plan, self.task_roots, self.suspended_depth
         caller_frames, caller_exits, caller_values = self.frames, self.exits, self.capture_values
@@ -4542,16 +4547,20 @@ class _Analyzer(TeachDiscovery):
         try:
             if not segment:
                 self.block(plan['body'], _Flow(task_order_unknown=True, path_orders=dict.fromkeys(path_orders or ())), True)
-                return None
+                return None, None
             child = suspension.flow.copy() if suspension is not None else _Flow()
+            if shared_teach is not None:
+                child.teach = shared_teach.copy()
             start = suspension.next_statement if suspension is not None else 0
             for index in range(start, len(plan['body'])):
+                if child.stopped and not child.opaque:
+                    break
                 node = plan['body'][index]
                 if node['kind'] == 'task_control' and node['args'] == ['PAUSE']:
                     self.tick()
-                    return _Suspension(index + 1, child)
+                    return _Suspension(index + 1, child.copy()), child
                 self.statement(node, child, True)
-            return None
+            return None, child
         finally:
             self.plan, self.task_roots, self.suspended_depth = caller_plan, caller_roots, caller_depth
             self.frames, self.exits, self.capture_values = caller_frames, caller_exits, caller_values
@@ -4911,10 +4920,52 @@ class _Analyzer(TeachDiscovery):
 
     def block(self, body, flow, conditional=False):
         exits_before_block = len(self.exits)
-        for node in body:
-            if flow.stopped and not flow.opaque:break
+        skip_wait = None
+        for index, node in enumerate(body):
+            if flow.stopped and not flow.opaque:
+                break
+            if node is skip_wait:
+                self.tick()
+                self.unresolved_at('task-wait', 'The child pause depends on scheduler admission', node)
+                skip_wait = None
+                continue
             after_program_return = not self.frames and len(self.exits) > exits_before_block
-            self.statement(node, flow, conditional or after_program_return)
+            handoff = self.adjacent_task_handoff(body, index, node) if self.track_tasks else None
+            previous = self.task_handoff
+            self.task_handoff = handoff
+            try:
+                self.statement(node, flow, conditional or after_program_return)
+            finally:
+                self.task_handoff = previous
+            if handoff is not None and handoff.pause_target is not None and handoff.reached:
+                skip_wait = body[index + 1]
+
+    def adjacent_task_handoff(self, body, index, node):
+        """Recognize a direct task request paired with its immediate pause wait."""
+        if len(self.task_roots) != 1 or self.frames:
+            return None
+        args = node['args']
+        if node['kind'] == 'call' and args[0]['kind'] == 'call' and args[0]['value'] in ('RUN_TASK', 'CONT_TASK'):
+            request = args[0]
+        elif node['kind'] == 'task_control' and len(args) == 2 and args[0] in ('CONTINUE', 'RESUME', 'UNPAUSE'):
+            request = node
+        else:
+            return None
+        if index == len(body) - 1:
+            return _TaskHandoff(request, None) if body is self.plan['body'] else None
+        waiter = body[index + 1]
+        if waiter['kind'] != 'wait' or len(waiter['args']) != 1:
+            return None
+        predicate = waiter['args'][0]
+        if predicate['kind'] != 'wait_pause':
+            return None
+        selector = predicate['args'][0]
+        if selector is None or selector['kind'] != 'literal':
+            return None
+        number = selector['value']
+        if type(number) is int and 1 <= number <= len(self.task_numbers):
+            return _TaskHandoff(request, self.task_numbers[number - 1])
+        return None
 
     def sample_condition_inputs(self, node, flow, conditional, kinds):
         if not isinstance(node, dict):

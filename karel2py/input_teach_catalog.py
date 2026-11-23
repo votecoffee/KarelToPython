@@ -149,7 +149,7 @@ class TeachCatalogDiscovery:
         state = flow.teach
         values = [value.constant for value in inputs]
         code = UNKNOWN
-        if bank is not None and self.teach_stable(flow) and len(self.task_roots) == 1:
+        if bank is not None and self.teach_stable(flow):
             if all(value is not UNKNOWN for value in values) and not state.catalog.all_uncertain:
                 code = self.teach_catalog_operation(operation, bank, values, node, flow)
         if code is UNKNOWN:
@@ -199,7 +199,10 @@ class TeachCatalogDiscovery:
 
     def teach_program_busy(self, name, flow):
         handles = flow.teach.handles
-        return handles is None or any(name == program for program, mode in handles.values())
+        if handles is None:
+            return True
+        self.tick(len(handles))
+        return any(name == handle.program for handle in handles.values())
 
     def teach_copy_program(self, bank, source, entry, target, overwrite, flow):
         state = flow.teach
