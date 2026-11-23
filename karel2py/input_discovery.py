@@ -465,6 +465,8 @@ class _Analyzer(TeachDiscovery):
         self.task_numbers = tuple(linked_plans) if linked_plans is not None else ()
         self.segmentable = {}
         self.task_handoff = None
+        self.open_guard = None
+        self.required_input_observer = None
         plans = linked_plans if linked_plans is not None else {plan['program']: plan}
         self.imports = {
             name: {local: (owner.upper(), foreign) for local, owner, foreign in item.get('imports', [])}
@@ -1223,8 +1225,9 @@ class _Analyzer(TeachDiscovery):
                 if key not in self.inputs:
                     if len(self.inputs)>=MAX_INPUTS:raise _Limit('Analysis input limit reached')
                     spec=None if loc.spec==['NUMERIC'] else loc.spec
+                    initial_certainty = certainty if self.required_input_observer is None else 'conditional'
                     self.inputs[key]=dict(kind=loc.kind,program=loc.owner or None,path=loc.path,type=spec,
-                                          certainty=certainty,locations=[],reason='Read before a definite source write')
+                                          certainty=initial_certainty,locations=[],reason='Read before a definite source write')
                     if loc.kind=='variable':
                         self.inputs[key].update(program=loc.owner, root_path=str(loc.root),
                                                 root_type=loc.root_spec, selectors=list(loc.parts))
@@ -1236,7 +1239,11 @@ class _Analyzer(TeachDiscovery):
                             self.inputs[key]['group'] = dict(loc.parts).get('group')
                         if loc.spec==['NUMERIC']:self.inputs[key]['type_options']=[['INTEGER'],['REAL']]
                 row=self.inputs[key]
-                if certainty=='required':row['certainty']='required'
+                if certainty=='required':
+                    if self.required_input_observer is None:
+                        row['certainty']='required'
+                    else:
+                        self.required_input_observer.add(key)
                 location=self.where(node)
                 if location not in row['locations']:row['locations'].append(location)
         # Saved binding values remain editable inputs. Only their initial
@@ -5124,24 +5131,54 @@ class _Analyzer(TeachDiscovery):
     def block(self, body, flow, conditional=False):
         exits_before_block = len(self.exits)
         skip_wait = None
+        projected_through = -1
         for index, node in enumerate(body):
             if flow.stopped and not flow.opaque:
                 break
+            if index <= projected_through:
+                continue
             if node is skip_wait:
                 self.tick()
                 self.unresolved_at('task-wait', 'The child pause depends on scheduler admission', node)
                 skip_wait = None
                 continue
             after_program_return = not self.frames and len(self.exits) > exits_before_block
+            branch_conditional = conditional or after_program_return
             handoff = self.adjacent_task_handoff(body, index, node) if self.track_tasks else None
-            previous = self.task_handoff
-            self.task_handoff = handoff
+            guard = self.find_open_guard(body, index, flow)
+            previous_handoff, previous_guard = self.task_handoff, self.open_guard
+            self.task_handoff, self.open_guard = handoff, guard
             try:
-                self.statement(node, flow, conditional or after_program_return)
+                self.statement(node, flow, branch_conditional)
             finally:
-                self.task_handoff = previous
+                self.task_handoff, self.open_guard = previous_handoff, previous_guard
             if handoff is not None and handoff.pause_target is not None and handoff.reached:
                 skip_wait = body[index + 1]
+            if guard is not None and guard.projects:
+                projected_through = guard.end
+                self.project_open_guard(body[index + 1:projected_through + 1], guard, flow, branch_conditional)
+
+    def project_open_guard(self, body, guard, flow, conditional):
+        # Replay the assignments and guard from the captured outcomes.
+        # OPEN and its input expressions were already analyzed in source order.
+        prior_observer = self.required_input_observer
+        common_required = None
+        branches = []
+        try:
+            for _, branch in guard.cases:
+                required = set()
+                self.required_input_observer = required
+                self.block(body, branch, conditional)
+                common_required = required if common_required is None else common_required & required
+                branches.append(branch)
+        finally:
+            self.required_input_observer = prior_observer
+        flow.take(_merge(branches))
+        if prior_observer is None:
+            for key in common_required or ():
+                self.inputs[key]['certainty'] = 'required'
+        else:
+            prior_observer.update(common_required or ())
 
     def adjacent_task_handoff(self, body, index, node):
         """Recognize a direct task request paired with its immediate pause wait."""

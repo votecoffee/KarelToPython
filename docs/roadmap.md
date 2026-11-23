@@ -76,8 +76,8 @@ document and reports changed, omitted and unresolved inputs.
    order and targets can be determined. Track effects between motion
    callbacks and keep dynamic selections and external effects visible. Extend
    TP discovery to unsynchronized task interleavings, external pause and abort
-   requests, and correlations between open status, handle numbers and other
-   catalog operands.
+   requests, and correlations across intervening service calls or between
+   several catalog operands.
    Known child pause handoffs carry TP handle ownership, reject masks, shared
    bank writes, and header edits across continuations.
 2. **Export linked sources from the desktop.** Reuse linked-project validation

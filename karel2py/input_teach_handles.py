@@ -1,6 +1,6 @@
 """Discovery for TP handle allocation, ownership and closure."""
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 
 from .input_value_conversions import MAX_SCALAR_CHOICES, MAX_SERVICE_CASES, UNKNOWN, Value
 from .teach import checked_open_request, teach_open_conflict, teach_rejects
@@ -10,6 +10,44 @@ OPEN_MODES = (0, 1, 2)
 REJECT_MODES = (0, 1, 2, 3, 4)
 HANDLE_LIMIT = 1024
 SEQUENCE_LIMIT = 2147483646
+MAX_GUARD_COPIES = 4
+MAX_GUARD_FACTS = 32767
+
+
+def guard_reference(node):
+    """Identify a source reference with selectors that need no evaluation."""
+    kind, args = node['kind'], node['args']
+    if kind == 'name':
+        return ('name', node['value'])
+    if kind == 'group' and len(args) == 1:
+        return guard_reference(args[0])
+    if kind in ('field', 'index'):
+        base = guard_reference(args[0])
+        if base is not None:
+            if kind == 'field':
+                return ('field', base, node['value'])
+            if all(item['kind'] == 'literal' and type(item['value']) is int for item in args[1:]):
+                return ('index', base, tuple(item['value'] for item in args[1:]))
+    return None
+
+
+@dataclass
+class OpenGuard:
+    call: dict
+    end: int
+    reads_handle: bool
+    cases: list = field(default_factory=list)
+    facts: int = 0
+    abandoned: bool = False
+
+    def abandon(self):
+        self.abandoned = True
+        self.cases.clear()
+
+    @property
+    def projects(self):
+        return len(self.cases) > 1 and (self.reads_handle or len({code for code, _ in self.cases}) > 1)
+
 
 
 @dataclass(frozen=True)
@@ -73,6 +111,65 @@ class TeachHandle:
 
 
 class TeachHandleDiscovery:
+    def find_open_guard(self, body, index, flow):
+        """Find a guard after at most a few side-effect-free assignments."""
+        statement = body[index]
+        if statement['kind'] != 'call' or index + 1 >= len(body):
+            return None
+        call = statement['args'][0]
+        if (call['kind'] != 'call' or call['value'] != 'OPEN_TPE' or len(call['args']) != 5
+                or 'OPEN_TPE' in self.plan['routines'] or not self.teach_stable(flow) or flow.handlers):
+            return None
+        status, receiver = guard_reference(call['args'][4]), guard_reference(call['args'][3])
+        active_status = {status} if status is not None else set()
+        active_handle = {receiver} if receiver is not None else set()
+        end = min(len(body), index + MAX_GUARD_COPIES + 2)
+        for following in range(index + 1, end):
+            node = body[following]
+            if node['kind'] in ('if', 'select'):
+                references = self.open_guard_references(node['args'][0])
+                reads_handle = bool(references & active_handle)
+                return OpenGuard(call, following, reads_handle) if reads_handle or references & active_status else None
+            if node['kind'] != 'assign' or node.get('geometry_assignment') or node.get('path_assignment_type'):
+                return None
+            target_node, source_node = node['args']
+            target, source = guard_reference(target_node), guard_reference(source_node)
+            if target is None or (source is None and source_node['kind'] not in ('literal', 'real_literal', 'predefined')):
+                return None
+            for tracked in (active_status, active_handle):
+                if source in tracked:
+                    tracked.add(target)
+                else:
+                    tracked.discard(target)
+        return None
+
+    def open_guard_references(self, expression):
+        pending = [expression]
+        references = set()
+        while pending:
+            self.tick()
+            node = pending.pop()
+            if not isinstance(node, dict):
+                continue
+            reference = guard_reference(node)
+            if reference is not None:
+                references.add(reference)
+            pending.extend(node.get('args', ()))
+        return references
+
+    def teach_open_status(self, status, code, flow, node):
+        self.bank_status(status, code, flow, node)
+        guard = self.open_guard
+        if guard is None or guard.call is not node or guard.abandoned:
+            return
+        facts = sum(len(value) for value in vars(flow).values() if isinstance(value, (dict, set, tuple)))
+        facts += len(flow.teach.handles or ()) + sum(len(bank.cells) for bank in flow.teach.banks())
+        guard.facts += facts
+        if len(guard.cases) >= MAX_SERVICE_CASES or guard.facts > MAX_GUARD_FACTS:
+            guard.abandon()
+        else:
+            guard.cases.append((code, flow.copy()))
+
     def teach_handle_access(self, flow):
         return self.teach_stable(flow) and flow.teach.handles is not None
 
@@ -126,6 +223,8 @@ class TeachHandleDiscovery:
         bank = getattr(self.saved_bindings, 'teach_programs', None)
         state = flow.teach
         if bank is None or not self.teach_handle_access(flow):
+            if self.open_guard is not None and self.open_guard.call is node:
+                self.open_guard.abandon()
             state.forget_handles(self.task_roots[-1] if self.teach_stable(flow) else None)
             self.teach_unknown_access(operation, outputs, node, flow, 'teach-handle')
         elif operation == 'CLOSE_TPE':
@@ -167,7 +266,7 @@ class TeachHandleDiscovery:
             1 if mode is UNKNOWN else mode, 0 if reject is UNKNOWN else reject, node.get('line'),
         )
         if code:
-            self.bank_status(status, code, flow, node)
+            self.teach_open_status(status, code, flow, node)
             return
         state = flow.teach
         codes = {2} if any(value is UNKNOWN for value in (name, mode, reject)) else set()
@@ -206,7 +305,7 @@ class TeachHandleDiscovery:
     def teach_open_case(self, case, outputs, node, flow):
         code, handle, sequence = case
         if code:
-            self.bank_status(outputs[-1], code, flow, node)
+            self.teach_open_status(outputs[-1], code, flow, node)
             return
         state = flow.teach
         if sequence is not None:
@@ -214,7 +313,7 @@ class TeachHandleDiscovery:
         self.tick(len(state.handles) + len(state.untracked_handles))
         conflict = state.matching_handle(handle.conflicts)
         if conflict is True:
-            self.bank_status(outputs[-1], 4, flow, node)
+            self.teach_open_status(outputs[-1], 4, flow, node)
             return
         codes = [4] if conflict is UNKNOWN else []
         definite_count = sum(None not in options for options in state.handles.values())
@@ -245,4 +344,4 @@ class TeachHandleDiscovery:
                 self.write(receiver, Value(sequence + 1, spec=['INTEGER']), flow, node)
             if handle.program is None:
                 self.unresolved_at('teach-handle', 'OPEN_TPE program is unresolved', node)
-        self.bank_status(status, code, flow, node)
+        self.teach_open_status(status, code, flow, node)

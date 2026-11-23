@@ -251,8 +251,11 @@ sequence. With a runtime-selected open, discovery considers the valid access
 modes and reject flags. It considers each saved target when the catalog is
 small and known. A large or incomplete catalog can leave the new target
 unresolved while preserving earlier handles. If possible allocation numbers
-exceed the analysis budget, the new number remains unresolved. Correlated
-choices and unsynchronized access still use conservative analysis.
+exceed the analysis budget, the new number remains unresolved. A nearby
+`IF` or `SELECT` on the open status or handle keeps the new allocation on
+successful paths and the previous handle on failure paths. A short sequence
+of plain copies or literal assignments may precede the check. Later
+correlations and unsynchronized access still use conservative analysis.
 
 ### Robot snapshots and range checks
 
