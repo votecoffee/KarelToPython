@@ -7,10 +7,11 @@ from .input_position_values import (
     POSITION_MODIFIED, merge_positions, position_register_result, teach_position_store_facts,
 )
 from .input_teach_catalog import TEACH_COMMENT_KIND, TEACH_HEADER_KIND, TeachCatalogDiscovery, TeachCatalogFacts
-from .input_value_conversions import UNKNOWN, Value
+from .input_teach_handles import TeachHandle, TeachHandleDiscovery
+from .input_value_conversions import MAX_SCALAR_CHOICES, UNKNOWN, Value
 from .position_register_models import register_description
 from .storage import tuple_spec
-from .teach import checked_open_request, teach_open_conflict, teach_rejects
+from .teach import teach_rejects
 
 
 LOCAL_POSITION_KIND = 'teach_position_register'
@@ -85,7 +86,6 @@ class TeachBankFacts:
             self.uncertain_programs.add(program)
             self.cells = {key: value for key, value in self.cells.items() if key[0] != program}
 
-
     def copy_program(self, source, target, tick):
         tick(len(self.cells))
         snapshot = {}
@@ -100,14 +100,6 @@ class TeachBankFacts:
             self.uncertain_programs.add(target)
 
 
-@dataclass(frozen=True)
-class TeachHandle:
-    program: str
-    owner: str
-    mode: int
-    reject: int
-
-
 @dataclass
 class TeachFacts:
     numeric: TeachBankFacts = field(default_factory=TeachBankFacts)
@@ -117,7 +109,7 @@ class TeachFacts:
     # None for the table or sequence records a loss of precision. When all
     # possible unknown handles have the same owner, local access can still
     # be checked for that owner.
-    handles: dict[int, TeachHandle] | None = field(default_factory=dict)
+    handles: dict[int, tuple[TeachHandle | None, ...]] | None = field(default_factory=dict)
     sequence: int | None = 0
     unknown_handle_owner: str | None = None
     comments: TeachBankFacts = field(default_factory=TeachBankFacts)
@@ -143,24 +135,70 @@ class TeachFacts:
     def handle_owners(self):
         if self.handles is None:
             return {self.unknown_handle_owner}
-        return {handle.owner for handle in self.handles.values()}
+        return {handle.owner for options in self.handles.values() for handle in options if handle is not None}
+
+    def handle_choices(self, number):
+        return self.handles.get(number, (None,)) if self.handles is not None else ()
+
+    def set_handle_choices(self, number, options):
+        choices = tuple(dict.fromkeys(options))
+        if choices == (None,):
+            self.handles.pop(number, None)
+        else:
+            self.handles[number] = choices
+
+    def matching_handle(self, predicate):
+        if self.handles is None:
+            return UNKNOWN
+        possible = False
+        for options in self.handles.values():
+            checks = [handle is not None and predicate(handle) for handle in options]
+            if all(checks):
+                return True
+            possible |= any(checks)
+        return UNKNOWN if possible else False
+
+    def definitely_open_programs(self):
+        programs = set()
+        for options in (self.handles or {}).values():
+            first = options[0]
+            if first is not None and all(handle is not None and handle.program == first.program for handle in options):
+                programs.add(first.program)
+        return programs
 
     def release_owner(self, owner):
         if self.handles is not None:
-            self.handles = {number: handle for number, handle in self.handles.items() if handle.owner != owner}
+            for number, options in list(self.handles.items()):
+                self.set_handle_choices(number, (None if handle is not None and handle.owner == owner else handle
+                                                 for handle in options))
         elif self.unknown_handle_owner == owner:
             self.handles = {}
             self.unknown_handle_owner = None
+
+    @staticmethod
+    def merge_handles(flows):
+        if any(flow.handles is None for flow in flows):
+            return None
+        first = flows[0].handles
+        if all(flow.handles == first for flow in flows[1:]):
+            return first.copy()
+        handles = {}
+        numbers = dict.fromkeys(number for flow in flows for number in flow.handles)
+        for number in numbers:
+            options = tuple(dict.fromkeys(option for flow in flows for option in flow.handle_choices(number)))
+            if len(options) > MAX_SCALAR_CHOICES:
+                return None
+            if options != (None,):
+                handles[number] = options
+        return handles
 
     @classmethod
     def merge(cls, flows, merge_values):
         first = flows[0]
         sequence = first.sequence if all(flow.sequence == first.sequence for flow in flows[1:]) else None
-        handles = None
+        handles = cls.merge_handles(flows)
         owner = None
-        if first.handles is not None and all(flow.handles == first.handles for flow in flows[1:]):
-            handles = first.handles.copy()
-        else:
+        if handles is None:
             owners = set().union(*(flow.handle_owners() for flow in flows))
             if len(owners) == 1:
                 owner = next(iter(owners))
@@ -170,7 +208,7 @@ class TeachFacts:
                    TeachCatalogFacts.merge([flow.catalog for flow in flows]))
 
 
-class TeachDiscovery(TeachCatalogDiscovery):
+class TeachDiscovery(TeachCatalogDiscovery, TeachHandleDiscovery):
     """Teach services evaluated against detached bank facts and saved configuration."""
 
     def teach_operands(self, node, inputs, flow, conditional, **options):
@@ -192,91 +230,37 @@ class TeachDiscovery(TeachCatalogDiscovery):
         state = flow.teach
         if state.handles is None:
             return 0 if state.unknown_handle_owner == owner else UNKNOWN
+        access = 3 if write else 1
         self.tick(len(state.handles))
-        for handle in state.handles.values():
-            if handle.owner != owner and handle.program == program and teach_rejects(handle.reject, 3 if write else 1):
-                return 4
-        return 0
-
-    def teach_handle_access(self, flow):
-        return self.teach_stable(flow) and flow.teach.handles is not None
-
-    def teach_handle_program(self, number, flow, *, write=False, access=True):
-        if not self.teach_handle_access(flow) or type(number) is not int:
+        conflict = state.matching_handle(
+            lambda handle: handle.owner != owner and handle.program == program and teach_rejects(handle.reject, access),
+        )
+        if conflict is UNKNOWN:
             return UNKNOWN
-        handle = flow.teach.handles.get(number)
-        if handle is None or handle.owner != self.task_roots[-1]:
-            return None
-        return handle.program if not access or handle.mode in ((2,) if write else (1, 2)) else None
+        return 4 if conflict else 0
 
     def teach_unknown_access(self, operation, outputs, node, flow, code):
         *receivers, status = outputs
         self.unresolved_at(code, operation+' requires a known TP bank, address and execution order', node)
         self.uncertain_bank_read(receivers, status, flow, node)
 
-    def teach_handle_call(self, node, flow, conditional):
-        operation = node['value']
-        opening = operation == 'OPEN_TPE'
-        operands = self.teach_operands(node, 3 if opening else 1, flow, conditional)
-        if operands is None:
-            return Value(complete=False)
-        inputs, outputs = operands
-        known = [item.constant for item in inputs]
-        bank = getattr(self.saved_bindings, 'teach_programs', None)
-        state = flow.teach
-        if bank is None or not self.teach_handle_access(flow) or any(item is UNKNOWN for item in known):
-            state.forget_handles(self.task_roots[-1] if self.teach_stable(flow) else None)
-            self.teach_unknown_access(operation, outputs, node, flow, 'teach-handle')
-        elif opening:
-            self.teach_open(bank, known, outputs, node, flow)
-        else:
-            program = self.teach_handle_program(known[0], flow, access=False)
-            if program is not None:
-                del state.handles[known[0]]
-            self.bank_status(outputs[0], 3 if program is None else 0, flow, node)
-        return Value()
-
-    def teach_open(self, bank, values, outputs, node, flow):
-        name, mode, reject = values
-        handle, status = outputs
-        code, program = checked_open_request(name, mode, reject, node.get('line'))
-        state = flow.teach
-        if not code:
-            entry = state.catalog.entry(bank, program)
-            owner = self.task_roots[-1]
-            if entry is UNKNOWN:
-                state.forget_handles(owner)
-                self.teach_unknown_access(node['value'], outputs, node, flow, 'teach-handle')
-                return
-            if entry is None:
-                self.bank_status(status, 1, flow, node)
-                return
-            self.tick(len(state.handles))
-            if any(other.owner != owner and other.program == program
-                   and teach_open_conflict(mode, reject, other.mode, other.reject)
-                   for other in state.handles.values()):
-                code = 4
-            elif len(state.handles) >= 1024 or state.sequence == 2147483646:
-                code = 6
-            elif state.sequence is None:
-                state.forget_handles(owner)
-                self.teach_unknown_access(node['value'], outputs, node, flow, 'teach-handle')
-                return
-            else:
-                state.sequence += 1
-                state.handles[state.sequence] = TeachHandle(program, owner, mode, reject)
-                self.write(handle, Value(state.sequence, spec=['INTEGER']), flow, node)
-        self.bank_status(status, code, flow, node)
-
     def teach_scalar_call(self, node, flow, conditional):
-        operation = node['value']
-        reading = operation in TEACH_SCALAR_GETTERS
-        kind = TEACH_SCALAR_SETTERS.get(operation)
-        numeric = TEACH_SCALAR_GETTERS.get(operation) == 'numeric' if reading else kind != 'STRING'
+        reading = node['value'] in TEACH_SCALAR_GETTERS
         operands = self.teach_operands(node, 1 if reading else 2, flow, conditional)
         if operands is None:
             return Value(complete=False)
         inputs, outputs = operands
+        self.address_service_cases(
+            inputs, (0,), flow, conditional,
+            lambda values, branch, possible: self.teach_scalar_transfer(values, outputs, node, branch, possible),
+        )
+        return Value()
+
+    def teach_scalar_transfer(self, inputs, outputs, node, flow, conditional, *, access=None):
+        operation = node['value']
+        reading = operation in TEACH_SCALAR_GETTERS
+        kind = TEACH_SCALAR_SETTERS.get(operation)
+        numeric = TEACH_SCALAR_GETTERS.get(operation) == 'numeric' if reading else kind != 'STRING'
         *receivers, status = outputs
         bank = getattr(self.saved_bindings, 'teach_programs', None)
         owner = self.task_roots[-1]
@@ -284,24 +268,31 @@ class TeachDiscovery(TeachCatalogDiscovery):
         number = inputs[0].constant
         cells = flow.teach.numeric if numeric else flow.teach.strings
         entry = flow.teach.catalog.entry(bank, program) if program is not None else None
-        code = self.teach_local_status(program, flow, write=not reading)
+        code = self.teach_local_status(program, flow, write=not reading) if access is None else access
+        if bank is not None and type(code) is int and code:
+            self.bank_status(status, code, flow, node)
+            return
+        if bank is not None and entry is not UNKNOWN and type(number) is int and code is UNKNOWN and self.teach_handle_access(flow):
+            self.apply_service_cases(
+                flow, (0, 4), lambda code, branch: self.teach_scalar_transfer(inputs, outputs, node, branch, True, access=code),
+            )
+            return
         if bank is None or entry is UNKNOWN or code is UNKNOWN or type(number) is not int:
             if not reading and program is not None:
                 self.tick(len(cells.cells))
                 cells.invalidate(program)
             self.teach_unknown_access(operation, outputs, node, flow, 'teach-register')
-            return Value()
+            return
         limit = bank.register_limit if numeric else bank.string_register_limit
-        if code or not 1 <= number <= limit:
-            self.bank_status(status, code or 2, flow, node)
-            return Value()
+        if not 1 <= number <= limit:
+            self.bank_status(status, 2, flow, node)
+            return
         key = program, number
         if reading:
             self.teach_scalar_read(bank, entry.origin, number, cells.lookup(key), numeric, receivers,
                                    status, node, flow, conditional)
         else:
             self.teach_scalar_write(bank, key, cells, kind, inputs[1], status, node, flow)
-        return Value()
 
     def teach_scalar_write(self, bank, key, cells, kind, source, status, node, flow):
         spec = ['STRING', bank.string_capacity] if kind == 'STRING' else [kind]
@@ -376,6 +367,24 @@ class TeachDiscovery(TeachCatalogDiscovery):
         if operands is None:
             return result
         inputs, outputs = operands
+        explicit = bool(trailing or (not (schema or setter) and count > address_count))
+        indices = (*range(address_count), len(inputs) - 1) if explicit else tuple(range(address_count))
+        value = self.address_service_cases(
+            inputs, indices, flow, conditional,
+            lambda values, branch, possible: self.teach_position_transfer(
+                values, outputs, node, branch, possible, explicit=explicit,
+            ),
+            handle=handled, result=bool(schema),
+        )
+        return value if schema else result
+
+    def teach_position_transfer(self, inputs, outputs, node, flow, conditional, *, explicit, access=None):
+        operation = node['value']
+        schema = TEACH_POSITION_GETTERS.get(operation)
+        setter = TEACH_POSITION_SETTERS.get(operation)
+        handled = operation in TEACH_HANDLE_POSITIONS
+        address_count = 2 if handled else 1
+        result = Value(spec=list(schema)) if schema else Value()
         *receivers, status = outputs
         bank = getattr(self.saved_bindings, 'teach_programs', None)
         owner = self.task_roots[-1]
@@ -387,12 +396,19 @@ class TeachDiscovery(TeachCatalogDiscovery):
             access_error = (3, 'TP handle is closed or does not permit access') if target is None else None
         else:
             program = bank.callers.get(owner) if bank is not None else None
-            code = self.teach_local_status(program, flow, write=bool(setter))
+            code = self.teach_local_status(program, flow, write=bool(setter)) if access is None else access
+            if (bank is not None and code is UNKNOWN and self.teach_handle_access(flow)
+                    and flow.teach.catalog.entry(bank, program) is not UNKNOWN):
+                if type(inputs[0].constant) is int and (not explicit or type(inputs[-1].constant) is int):
+                    return self.apply_service_cases(
+                        flow, (0, 4), lambda code, branch: self.teach_position_transfer(
+                            inputs, outputs, node, branch, True, explicit=explicit, access=code,
+                        ), merge_results=bool(schema),
+                    )
             stable = code is not UNKNOWN
             access_error = ({9: (9, 'calling task has no saved TP bank'),
                              4: (4, 'TP bank is held by another task')}.get(code) if stable else None)
         number = inputs[address_count - 1].constant
-        explicit = trailing or (not (schema or setter) and count > address_count)
         group = inputs[-1].constant if explicit else self.default_position_group(bank)
         entry = flow.teach.catalog.entry(bank, program) if bank is not None and program is not None else None
         if bank is None or entry is UNKNOWN or not stable:
@@ -499,9 +515,17 @@ class TeachDiscovery(TeachCatalogDiscovery):
         if operands is None:
             return Value(complete=False)
         inputs, outputs = operands
+        self.address_service_cases(
+            inputs, (0,), flow, conditional,
+            lambda values, branch, _: self.teach_available_transfer(values[0], outputs, node, branch),
+            handle=True,
+        )
+        return Value()
+
+    def teach_available_transfer(self, handle, outputs, node, flow):
         receiver, status = outputs
         bank = getattr(self.saved_bindings, 'teach_programs', None)
-        program = self.teach_handle_program(inputs[0].constant, flow)
+        program = self.teach_handle_program(handle.constant, flow)
         if bank is None or program is UNKNOWN:
             self.teach_unknown_access(node['value'], outputs, node, flow, 'teach-position')
             return Value()

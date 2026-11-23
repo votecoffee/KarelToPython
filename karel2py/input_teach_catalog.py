@@ -201,12 +201,8 @@ class TeachCatalogDiscovery:
         )
         attributes.update(AT_PROG_TYPE=PROGRAM_KINDS[KIND_NAMES[entry.kind]], AT_NUM_LINE=entry.instructions)
         selected = flow.teach.catalog.selected(bank)
-        if selected == name or self.teach_definitely_busy(name, flow):
-            active = True
-        elif flow.teach.handles is None or selected is UNKNOWN:
-            active = UNKNOWN
-        else:
-            active = False
+        busy = self.teach_program_busy(name, flow)
+        active = True if selected == name else UNKNOWN if selected is UNKNOWN and busy is not True else busy
         return {'loaded': True, 'initialized': initialized, 'active': active, 'attributes': attributes}
 
     def teach_header_input(self, entry, name, key, external, externally_changed, node, flow, conditional):
@@ -315,7 +311,7 @@ class TeachCatalogDiscovery:
         blocked = {source, catalog.selected(bank)}
         if handles is not None:
             self.tick(len(handles))
-            blocked.update(handle.program for handle in handles.values())
+            blocked.update(flow.teach.definitely_open_programs())
         for target in names - blocked:
             previous = catalog.entry(bank, target)
             if not isinstance(previous, TeachProgramEntry) or not previous.protected:
@@ -337,7 +333,7 @@ class TeachCatalogDiscovery:
             catalog.headers.pop(name, None)
 
     def teach_definitely_busy(self, name, flow):
-        return name is not UNKNOWN and flow.teach.handles is not None and self.teach_program_busy(name, flow)
+        return name is not UNKNOWN and self.teach_program_busy(name, flow) is True
 
     def teach_catalog_operation(self, operation, bank, values, node, flow):
         catalog = flow.teach.catalog
@@ -367,19 +363,17 @@ class TeachCatalogDiscovery:
             return self.teach_copy_program(bank, name, entry, target, values[2], flow)
         if entry is None:
             return 1
-        if flow.teach.handles is None:
+        busy = self.teach_program_busy(name, flow)
+        if busy is UNKNOWN:
             return UNKNOWN
-        if self.teach_program_busy(name, flow):
+        if busy:
             return 4
         catalog.selection = name
         return 0
 
     def teach_program_busy(self, name, flow):
-        handles = flow.teach.handles
-        if handles is None:
-            return True
-        self.tick(len(handles))
-        return any(name == handle.program for handle in handles.values())
+        self.tick(len(flow.teach.handles or ()))
+        return flow.teach.matching_handle(lambda handle: handle.program == name)
 
     def teach_copy_program(self, bank, source, entry, target, overwrite, flow):
         state = flow.teach
@@ -388,10 +382,12 @@ class TeachCatalogDiscovery:
             return 1
         target_entry = catalog.entry(bank, target)
         selected = catalog.selected(bank)
-        if target_entry is UNKNOWN or selected is UNKNOWN or state.handles is None:
-            return UNKNOWN
-        if self.teach_program_busy(source, flow) or self.teach_program_busy(target, flow) or selected == target:
+        source_busy = self.teach_program_busy(source, flow)
+        target_busy = self.teach_program_busy(target, flow)
+        if source_busy is True or target_busy is True or selected == target:
             return 4
+        if target_entry is UNKNOWN or selected is UNKNOWN or source_busy is UNKNOWN or target_busy is UNKNOWN:
+            return UNKNOWN
         if target_entry is not None:
             if target_entry.protected:
                 return 4
@@ -418,6 +414,16 @@ class TeachCatalogDiscovery:
         if operands is None:
             return Value(complete=False)
         inputs, outputs = operands
+        self.address_service_cases(
+            inputs, (0, 1), flow, conditional,
+            lambda values, branch, possible: self.teach_edit_transfer(values, outputs, node, branch, possible),
+            handle=True,
+        )
+        return Value()
+
+    def teach_edit_transfer(self, inputs, outputs, node, flow, conditional):
+        operation = node['value']
+        comment_write = operation == 'SET_TPE_CMT'
         handle, number = (value.constant for value in inputs[:2])
         bank = getattr(self.saved_bindings, 'teach_programs', None)
         write = operation != 'GET_TPE_CMT'

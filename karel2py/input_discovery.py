@@ -3682,15 +3682,57 @@ class _Analyzer(TeachDiscovery):
             outputs = [self.resolve_path_slot(loc, node, flow) if loc is not None else None for loc in pending]
         return values, outputs
 
-    def apply_service_cases(self, flow, cases, evaluate):
+    def address_service_cases(self, inputs, indices, flow, conditional, transfer, *, handle=False, result=False):
+        """Use captured operands and refine only the selected slot for each case."""
+        if not self.teach_stable(flow):
+            return transfer(inputs, flow, conditional)
+        constants = [item.constant for item in inputs]
+        addressed = operand_cases(inputs, indices) or [constants]
+        cases = []
+        for values in addressed:
+            number = values[0]
+            options = flow.teach.handle_choices(number) if handle and type(number) is int else ()
+            if len(options) > 1:
+                cases.extend((values, (number, choice)) for choice in options)
+            else:
+                cases.append((values, None))
+            if len(cases) > MAX_SERVICE_CASES:
+                return transfer(inputs, flow, conditional)
+        if len(cases) == 1 and cases[0][1] is None:
+            return transfer(inputs, flow, conditional)
+
+        def evaluate(case, branch):
+            values, selected = case
+            resolved = list(inputs)
+            for index in indices:
+                if values[index] is not constants[index]:
+                    resolved[index] = replace(inputs[index], constant=values[index], scalar_choices=())
+            if selected is not None:
+                number, choice = selected
+                branch.teach.set_handle_choices(number, (choice,))
+            return transfer(resolved, branch, True)
+
+        return self.apply_service_cases(flow, cases, evaluate, merge_results=result)
+
+    def apply_service_cases(self, flow, cases, evaluate, *, merge_results=False):
         """Apply alternative service outcomes without carrying unbounded snapshots."""
         combined = None
-        for case in cases:
+        values = []
+        first = None
+        for index, case in enumerate(cases):
             self.tick()
             branch = flow.copy()
-            evaluate(case, branch)
+            value = evaluate(case, branch)
+            if merge_results:
+                if index == 0:
+                    first = value
+                if not branch.stopped:
+                    values.append(value)
             combined = branch if combined is None else _merge([combined, branch])
         flow.take(combined)
+        if merge_results:
+            return _merged_value(values) if values else first
+        return None
 
     def service_outputs_overlap(self, outputs):
         return any(self.path_contains_reference(loc, old) or self.path_contains_reference(old, loc)
@@ -3760,11 +3802,12 @@ class _Analyzer(TeachDiscovery):
             self.unresolved_at('service-output', operation+' requires known ordinary output storage', node)
             self.opaque(flow)
             return _Value(complete=False)
-        stable = not (flow.opaque or flow.task_order_unknown or self.callback_depth or self.repeat_depth)
-        if register:
-            self.register_transfer(operation, inputs, outputs, node, flow, conditional, stable)
-        else:
-            self.indirect_ports(operation, inputs, outputs, node, flow, conditional, stable)
+        stable = self.teach_stable(flow)
+        transfer = self.register_transfer if register else self.indirect_ports
+        self.address_service_cases(
+            inputs, (0,) if register else (0, 1), flow, conditional,
+            lambda values, branch, possible: transfer(operation, values, outputs, node, branch, possible, stable),
+        )
         return _Value()
 
     def bank_status(self, status, code, flow, node):
@@ -3968,8 +4011,21 @@ class _Analyzer(TeachDiscovery):
             self.opaque(flow)
             return _Value(complete=False)
 
+        value = self.address_service_cases(
+            inputs, (0, len(inputs) - 1) if explicit else (0,), flow, conditional,
+            lambda values, branch, possible: self.position_register_transfer(
+                values, outputs, node, branch, possible, explicit=explicit,
+            ), result=bool(target),
+        )
+        return value if target else _Value()
+
+    def position_register_transfer(self, inputs, outputs, node, flow, conditional, *, explicit):
+        operation = node['value']
+        target = POSITION_GETTERS.get(operation)
+        setter = operation in POSITION_SETTERS
+        clear = operation == 'CLR_POS_REG'
         adapter = getattr(self.saved_bindings, 'positions', None)
-        stable = not (flow.opaque or flow.task_order_unknown or self.callback_depth or self.repeat_depth)
+        stable = self.teach_stable(flow)
         group = inputs[-1].constant if explicit else self.default_position_group(adapter)
         number = inputs[0].constant
         *receivers, status = outputs

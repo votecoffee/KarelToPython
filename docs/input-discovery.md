@@ -199,12 +199,13 @@ to the physical TP program and register in the context editor. Editing a scalar
 TP register refreshes discovery because the numeric kind or string length can
 change which outputs the getter writes.
 
-Discovery also follows known `OPEN_TPE` and `CLOSE_TPE` calls in the entry task
-and synchronous linked routines. Positions addressed through a handle have
-separate edit locations from caller-local position registers. The position
-getters require the matching Cartesian or joint representation. Source writes
-preserve saved frame and tool identifiers, and `AVL_POS_NUM` considers all
-configured groups. Adding a missing position refreshes discovery.
+Discovery follows `OPEN_TPE` and `CLOSE_TPE` in the entry task and synchronous
+linked routines. When a read through a handle can reach several saved programs,
+the input template lists the possible positions or comments under their owning
+programs. Positions addressed through a handle have separate edit locations
+from caller-local position registers. Position getters require the matching
+Cartesian or joint representation. Source writes preserve saved frame and
+tool identifiers, and `AVL_POS_NUM` considers all configured groups. Adding a missing position refreshes discovery.
 
 Discovery follows known `CREATE_TPE`, `COPY_TPE` and `SELECT_TPE` calls,
 including catalog membership and the instruction count after
@@ -241,10 +242,13 @@ position comment can be added or edited as a scalar. Edits refresh discovery
 when the new length can change the getter's status. In a linked pause handoff,
 the owning task keeps its handles while paused. The analysis follows reject
 masks, rejects foreign handle operations, and releases the child's handles
-at natural completion when the boundary is known. Dynamic handle targets and
-unsynchronized access remain unresolved. Input discovery can widen large or
-correlated operand choices and eligible destinations of an unrestricted
-overwrite.
+at natural completion when the boundary is known. Discovery follows bounded
+choices of handle, register number and position group. It also follows bounded
+addresses for ordinary numeric, string and position registers and indirect
+ports. A close using an unrestricted handle number can obscure which of the
+task's handles closed, while keeping foreign handles and the allocation
+sequence. Large or correlated choices, unrestricted opens and unsynchronized
+access remain subject to conservative analysis.
 
 ### Robot snapshots and range checks
 
