@@ -141,6 +141,18 @@ def extract(source, *, inspect_entry=False):
             if type(variable_types) is not dict:
                 raise InputContractError('Invalid declared variable types')
             plan = dict(plan, variable_types=variable_types)
+        directives = [node for node in program.body if _field(node, 'source_directives')]
+        if len(directives) == 1:
+            try:
+                pairs = ast.literal_eval(directives[0].value)
+            except ValueError as error:
+                raise InputContractError('Invalid source directives') from error
+            if (type(pairs) is not tuple or any(type(pair) is not tuple or len(pair) != 2
+                                                or type(pair[0]) is not str
+                                                or pair[0] == '%COMMENT' and type(pair[1]) is not str for pair in pairs)):
+                raise InputContractError('Invalid source directives')
+            plan = dict(plan, source_comment=next((argument for directive, argument in pairs
+                                                   if directive == '%COMMENT'), None))
         return dict(plan, entry_checkpoint=_entry_checkpoint(tree)) if inspect_entry else plan
     except (SyntaxError, TypeError, RecursionError) as error:
         raise InputContractError('Invalid generated analysis contract: ' + str(error)) from error

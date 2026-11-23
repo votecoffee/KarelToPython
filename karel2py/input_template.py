@@ -5,6 +5,7 @@ import re
 from . import runtime as rt
 from .dynamic import reserved as variable_reservation
 from .input_discovery import DEFAULT_EMPTY_PATH, MISSING_PATH_RECORD, _discover_inputs
+from .inspection import merge_program_record
 from .storage import collection_array_cost, collection_data_spec, list_spec, restore_value, tuple_spec
 
 
@@ -141,8 +142,21 @@ class _SavedBindings:
         self.references = execution.variables.bindings
         self.snapshots = {}
         self.store = execution.variables
+        self.catalog = execution.programs
+        self.program_attributes = execution.program_attributes
+        self.teach_programs = execution.teach_programs
         self.creation_storage = None
         self.namespaces = None
+
+    def program_catalog(self):
+        catalog = self.catalog.entries if self.catalog is not None else ()
+        teach = self.teach_programs.entries if self.teach_programs is not None else ()
+        return (*catalog, *teach)
+
+    def program_record(self, name, *, attached):
+        record = self.program_attributes.record(name) if self.program_attributes is not None else None
+        teach = self.teach_programs.metadata(name) if self.teach_programs is not None else None
+        return merge_program_record(record, teach, attached=attached)
 
     def reservation(self):
         if self.creation_storage is None:

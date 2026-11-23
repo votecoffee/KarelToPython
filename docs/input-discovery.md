@@ -467,6 +467,22 @@ including empty tail elements. A known failure writes only the status.
 Discovery retains the saved roots that may affect the page on refresh.
 Dynamic selectors and unproved namespace or output storage are reported as gaps.
 
+### Program metadata
+
+With a validated context, `PROG_LIST` follows known patterns, type filters,
+and offsets across the attached modules and saved program catalogs. A
+successful page clears unused buffer slots and advances the optional cursor.
+A cursor read before a source write remains an input. Failed pages preserve
+the buffer, count and cursor.
+
+`LOAD_STATUS` follows known loaded and initialization flags from saved
+records and checked programs. When an attached program has globals whose
+initialization cannot be proved, discovery considers both flag-dependent
+branches. `GET_ATTR_PRG` follows known saved attributes, attached program names
+and types, and source comments. Successful lookups write only the selected
+attribute output and status. Branches that depend on changes to program
+metadata at runtime can still need review.
+
 Dynamic addresses, unsupported schemas/resources/services, host or linked
 routine effects, handlers, nonstructured jumps, recursion, fresh uninitialized
 routine locals and analysis limits produce explicit `unresolved` entries.

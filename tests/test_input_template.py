@@ -1717,6 +1717,62 @@ class InputTemplateTests(unittest.TestCase):
         self.assertEqual([row['code'] for row in report['unresolved']], ['variable-catalog'])
         self.assertEqual(set(by_path(prepared)), {'PATTERN'})
 
+    def test_program_catalog_tracks_cursor_tail_and_failed_page(self):
+        prepared = prepare(
+            "cursor_no=0 PROG_LIST('w?ld',7,0,1,names[2],count,s,cursor_no) "
+            "first=names[2,1] PROG_LIST('w?ld',7,0,1,names[2],count,s,cursor_no) "
+            "IF (first='WALD') AND (count=1) AND (cursor_no=3) AND (names[2,1]='WELD') "
+            "AND (names[2,2]='') THEN "
+            "PROG_LIST('w?ld',7,1,1,names[2],count,s,cursor_no) "
+            "IF (s=2) AND (count=1) AND (cursor_no=3) AND (names[2,1]='WELD') "
+            'THEN WRITE(wanted) ELSE WRITE(unused) ENDIF ELSE WRITE(unused) ENDIF',
+            decl='names:ARRAY[2,2] OF STRING[10] first:STRING[10] count,s,cursor_no,wanted,unused:INTEGER',
+            context={'programs': [dict(name=name,type='PC') for name in ('WALD','WBLD','WELD','WORLD')]},
+        )
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'WANTED'})
+
+    def test_program_catalog_cursor_read_is_an_input_when_unwritten(self):
+        prepared = prepare(
+            "PROG_LIST('*',7,0,1,names,count,s,cursor_no)",
+            decl='names:ARRAY[1] OF STRING[10] count,s,cursor_no:INTEGER',
+        )
+        report = prepared['template']['discovery']
+        self.assertEqual([row['code'] for row in report['unresolved']], ['program-catalog'])
+        self.assertEqual(set(by_path(prepared)), {'CURSOR_NO'})
+
+    def test_program_metadata_tracks_loaded_flags_and_selected_outputs(self):
+        prepared = prepare(
+            "GET_ATTR_PRG('T',AT_COMMENT,n,label,s) "
+            "IF (label='sour') AND (s=0) THEN "
+            "GET_ATTR_PRG('T',AT_PROG_TYPE,n,label,s) "
+            "LOAD_STATUS('T',loaded,initialized) "
+            "IF loaded AND initialized AND (n=PT_KRLPRG) AND (label='sour') THEN "
+            "LOAD_STATUS('EXTRA',loaded,initialized) "
+            "GET_ATTR_PRG('EXTRA',AT_OWNER,n,label,s) "
+            "GET_ATTR_PRG('EXTRA',AT_PROG_SIZE,n,label,unavailable) "
+            "IF loaded AND (NOT initialized) AND (label='team') AND (n=PT_KRLPRG) "
+            'AND (s=0) AND (unavailable=3) THEN WRITE(wanted) ELSE WRITE(unused) ENDIF '
+            'ELSE WRITE(unused) ENDIF ELSE WRITE(unused) ENDIF',
+            prefix="\n%NOLOCKGROUP\n%COMMENT = 'source note'\n",
+            decl='loaded,initialized:BOOLEAN n,s,unavailable,wanted,unused:INTEGER label:STRING[4]',
+            context={'program_attributes': {'extra': {'loaded':True, 'attributes': {'AT_OWNER':'team'}}}},
+        )
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'WANTED'})
+
+    def test_program_metadata_tracks_unknown_initialization_without_fake_values(self):
+        prepared = prepare(
+            "LOAD_STATUS('T',loaded,initialized) IF loaded THEN "
+            'IF initialized THEN WRITE(wanted) ELSE WRITE(alternate) ENDIF ELSE WRITE(unused) ENDIF',
+            decl='loaded,initialized:BOOLEAN wanted,alternate,unused:INTEGER',
+        )
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'WANTED', 'ALTERNATE'})
+
     def test_saved_byname_and_named_transfers_share_the_same_binding(self):
         source = (
             'PROGRAM T VAR first,entry,status,out,wanted,unused:INTEGER '

@@ -7,15 +7,19 @@ import math
 from pathlib import Path
 import re
 
+from .compiler_language import PREDEFINED_CONSTANTS
 from .dynamic import (
     BYNAME_PATH, MAX_LEAVES, UNKNOWN_CREATION_TYPE, creation_cost, creation_type, normalized_name,
     rename_names, rename_plan, renamed_key, root_member,
 )
-from .extended import PREDEFINED_FILE_NAMES, ZERO_BASED_PORTS, path_conversion_layout, path_node_size
+from .extended import (
+    PREDEFINED_FILE_NAMES, PROGRAM_TEXT_ATTRIBUTES, ZERO_BASED_PORTS, path_conversion_layout, path_node_size,
+)
 from .file_io import MAX_PATH_IO_FIELDS, path_io_field_count, path_io_indexes
 from .input_contract import extract, InputContractError
 from .inspection import (
-    CATALOG_SCAN_LIMIT, catalog_key, catalog_type_matches, describe, effective_list_options, variable_list_page,
+    CATALOG_SCAN_LIMIT, catalog_key, catalog_type_matches, describe, effective_list_options,
+    effective_program_list_options, program_attribute_key, program_attribute_value, program_list_page, variable_list_page,
 )
 from .input_value_conversions import (
     SCALARS, UNKNOWN, Value as _Value, array_dimensions as _array_dimensions,
@@ -1386,7 +1390,7 @@ class _Analyzer:
         if kind=='real_literal':
             try:return _Value(float(value))
             except ValueError:return _Value()
-        if kind=='predefined':return _Value({'ON':True,'OFF':False,'MININT':-2147483648,'MAXINT':2147483647}.get(value,UNKNOWN))
+        if kind=='predefined':return _Value(PREDEFINED_CONSTANTS.get(value,UNKNOWN))
         if kind=='name':
             loc=self.slot(value,node,flow)
             if loc:
@@ -2983,6 +2987,17 @@ class _Analyzer:
                  for index, value in enumerate(values, 1)}
         return _Value(spec=target.spec, facts=facts)
 
+    def catalog_buffer(self, loc):
+        dims, leaf = _array_dimensions(loc.spec)
+        if (len(dims) == 1 and type(dims[0]) is int and 1 <= dims[0] <= MAX_FACTS
+                and leaf[0] == 'STRING' and type(leaf[1]) is int):
+            return dims[0], leaf[1]
+        return None
+
+    def catalog_page_outputs(self, names, capacity, text):
+        values = text + [''] * (capacity - len(text))
+        return self.catalog_array_value(names, values), _Value(len(text), spec=['INTEGER']), _Value(0, spec=['INTEGER'])
+
     def variable_list_values(self, known, output, flow):
         owner, pattern, kind, skip, form = known
         if (not all(type(value) is str and value.isascii() for value in (owner, pattern))
@@ -2992,20 +3007,18 @@ class _Analyzer:
         if options is None:
             return (None, None, _Value(2, spec=['INTEGER']))
         names = output[0]
-        dims, leaf = _array_dimensions(names.spec)
-        if (len(dims) != 1 or type(dims[0]) is not int or not 1 <= dims[0] <= MAX_FACTS
-                or leaf[0] != 'STRING' or type(leaf[1]) is not int):
+        buffer = self.catalog_buffer(names)
+        if buffer is None:
             return None
         catalog = self.catalog_rows(options, flow)
         if catalog is None:
             return None
         rows, known_program = catalog
-        status, text = variable_list_page(rows, options, dims[0], leaf[1], known_program=known_program)
+        capacity, width = buffer
+        status, text = variable_list_page(rows, options, capacity, width, known_program=known_program)
         if status:
             return (None, None, _Value(status, spec=['INTEGER']))
-        values = text + [''] * (dims[0] - len(text))
-        return (self.catalog_array_value(names, values), _Value(len(text), spec=['INTEGER']),
-                _Value(0, spec=['INTEGER']))
+        return self.catalog_page_outputs(names, capacity, text)
 
     def inspected_missing(self, loc, node, flow, conditional):
         """Inspect availability without turning the payload into an input."""
@@ -3093,10 +3106,98 @@ class _Analyzer:
                 self.catalog_array_value(output[3], shape), _Value(length, spec=['INTEGER']),
                 _Value(0, spec=['INTEGER']))
 
-    def variable_catalog_call(self, node, flow, conditional):
+    def program_list_values(self, known, output, node, flow, conditional):
+        pattern, kind, skip, form = known
+        cursor = output[3] if len(output) == 4 else None
+        offset = self.read(cursor, node, flow, conditional).constant if cursor is not None else 0
+        if (type(pattern) is not str or not pattern.isascii()
+                or not all(type(value) is int for value in (kind, skip, form, offset))):
+            return None
+        options = effective_program_list_options(pattern, kind, skip, form, offset)
+        if options is None:
+            return None, None, _Value(2, spec=['INTEGER'])
+        buffer = self.catalog_buffer(output[0])
+        if buffer is None or self.saved_bindings is None:
+            return None
+        owners = self.linked_plans if self.linked_plans is not None else (self.program,)
+        saved = self.saved_bindings.program_catalog()
+        # Linked owners contribute both attached programs and task entries.
+        size = len(owners) * (2 if self.linked_plans is not None else 1) + len(saved) + 1
+        if size > CATALOG_SCAN_LIMIT:
+            return None
+        self.tick(size)
+        catalog = {(name, 'PC') for name in owners}
+        catalog.update(saved)
+        capacity, width = buffer
+        status, text = program_list_page(catalog, options, capacity, width)
+        if status:
+            return None, None, _Value(status, spec=['INTEGER'])
+        values = self.catalog_page_outputs(output[0], capacity, text)
+        return values if cursor is None else (*values, _Value(offset+len(text), spec=['INTEGER']))
+
+    def attached_initialization(self, plan, node, flow, conditional):
+        if plan.get('status') != 'available':
+            return UNKNOWN
+        for root in plan['types']:
+            location = self.global_slot(root, node, program=plan['program'])
+            if location is None:
+                continue
+            if location.spec[0] == 'PATH':
+                if self.known_path_count(location, flow, conditional):
+                    return True
+            else:
+                leaves = self.leaves(location)
+                if leaves is not None and any(leaf.key in flow.defined for leaf in leaves):
+                    return True
+        return UNKNOWN if plan['types'] else False
+
+    def program_metadata_values(self, operation, known, outputs, node, flow, conditional):
+        name = known[0]
+        if type(name) is not str or not name.isascii():
+            return None
+        name = name.upper()
+        valid = re.fullmatch(r'[A-Z_][A-Z_0-9]{0,35}', name) is not None
+        plan = self.binding_plan(name) if valid else None
+        attached = plan is not None
+        record = (self.saved_bindings.program_record(name, attached=attached)
+                  if valid and self.saved_bindings is not None else None)
+        known_context = self.saved_bindings is not None or not valid
+        if operation == 'LOAD_STATUS':
+            if attached:
+                initialized = self.attached_initialization(plan, node, flow, conditional)
+                return _Value(True, spec=['BOOLEAN']), _Value(initialized, spec=['BOOLEAN'])
+            if known_context:
+                loaded, initialized = (record.get('loaded', False), record.get('initialized', False)) if record is not None else (False, False)
+                return _Value(loaded, spec=['BOOLEAN']), _Value(initialized, spec=['BOOLEAN'])
+            return None
+
+        selector = known[1]
+        if type(selector) is not int:
+            return None
+        key = program_attribute_key(selector)
+        if key is None:
+            return None, None, _Value(2, spec=['INTEGER'])
+        if not attached and record is None:
+            return (None, None, _Value(1, spec=['INTEGER'])) if known_context else None
+        if not known_context and key not in ('AT_PROG_NAME', 'AT_PROG_TYPE'):
+            return None
+        if attached and key == 'AT_COMMENT' and 'source_comment' not in plan and (
+                record is None or key not in record['attributes']):
+            return None
+        comment = plan.get('source_comment') if attached else None
+        value = program_attribute_value(name, key, record, attached=attached, comment=comment)
+        if value is None:
+            return None, None, _Value(3, spec=['INTEGER'])
+        status = _Value(0, spec=['INTEGER'])
+        if key in PROGRAM_TEXT_ATTRIBUTES:
+            spec = outputs[1].spec
+            value = value[:spec[1]] if type(spec[1]) is int else UNKNOWN
+            return None, _Value(value, spec=spec), status
+        return _Value(value, spec=['INTEGER']), None, status
+
+    def inspection_call(self, node, flow, conditional):
         operation = node['value']
-        listing = operation == 'VAR_LIST'
-        inputs = 5 if listing else 2
+        inputs = {'VAR_INFO': 2, 'VAR_LIST': 5, 'PROG_LIST': 4, 'LOAD_STATUS': 1, 'GET_ATTR_PRG': 2}[operation]
         known = []
         with self.capture_operands() as pending:
             for arg in node['args'][:inputs]:
@@ -3116,15 +3217,22 @@ class _Analyzer:
                 if any(self.path_contains_reference(loc, old) or self.path_contains_reference(old, loc)
                        for old in outputs[:index]):
                     return self.reject_service_overlap(node, flow)
-            if not listing:
+            if operation == 'VAR_INFO':
                 dims, leaf = _array_dimensions(outputs[3].spec)
                 if None not in dims and (dims != [3] or leaf != ['INTEGER']):
                     return self.reject_service_overlap(node, flow, 'VAR_INFO dimensions require ARRAY[3] OF INTEGER')
             if all(self.ordinary_variable_output(loc, node) for loc in outputs):
-                values = (self.variable_list_values(known, outputs, flow) if listing else
-                          self.variable_info_values(known, outputs, node, flow, conditional))
+                if operation == 'VAR_LIST':
+                    values = self.variable_list_values(known, outputs, flow)
+                elif operation == 'VAR_INFO':
+                    values = self.variable_info_values(known, outputs, node, flow, conditional)
+                elif operation == 'PROG_LIST':
+                    values = self.program_list_values(known, outputs, node, flow, conditional)
+                else:
+                    values = self.program_metadata_values(operation, known, outputs, node, flow, conditional)
         if values is None:
-            self.unresolved_at('variable-catalog', operation+' requires a known catalog, lookup and output storage', node)
+            code = 'variable-catalog' if operation in ('VAR_INFO', 'VAR_LIST') else 'program-catalog'
+            self.unresolved_at(code, operation+' requires a known catalog, lookup and output storage', node)
             self.opaque(flow)
             return _Value(complete=False)
         for loc, value in zip(outputs, values):
@@ -3149,8 +3257,8 @@ class _Analyzer:
             return self.create_variable(node, flow, conditional)
         if name in ('RENAME_VAR', 'RENAME_VARS'):
             return self.rename_variable(node, flow, conditional)
-        if name in ('VAR_INFO', 'VAR_LIST'):
-            return self.variable_catalog_call(node, flow, conditional)
+        if name in ('VAR_INFO', 'VAR_LIST', 'PROG_LIST', 'LOAD_STATUS', 'GET_ATTR_PRG'):
+            return self.inspection_call(node, flow, conditional)
         if name in ('UNINIT', 'ARRAY_LEN'):
             return self.data_metadata_call(node, flow, conditional)
         if name in SCALAR_PURE:return self.scalar_call(node,flow,conditional)

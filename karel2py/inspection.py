@@ -193,6 +193,35 @@ def attached_programs(context,state,*,check=None):
     return owners
 
 
+def merge_program_record(record, teach_record, *, attached):
+    if teach_record is None or attached:
+        return record
+    if record is None:
+        return teach_record
+    return {**record, 'active': record.get('active',False) or teach_record['active'],
+            'loaded': True, 'initialized': teach_record['initialized'],
+            'attributes': {**teach_record['attributes'], **record['attributes'],
+                           'AT_PROG_TYPE': teach_record['attributes']['AT_PROG_TYPE'],
+                           'AT_NUM_LINE': teach_record['attributes']['AT_NUM_LINE']}}
+
+
+def program_attribute_key(selector):
+    return next((key for key,value in PROGRAM_ATTRIBUTES.items() if value==selector),None)
+
+
+def program_attribute_value(name, key, record, *, attached, comment=None):
+    attrs = record['attributes'] if record is not None else {}
+    if key == 'AT_PROG_NAME':
+        return name[:PROGRAM_TEXT_ATTRIBUTES[key]]
+    if key == 'AT_PROG_TYPE' and attached:
+        return PROGRAM_KINDS['PT_KRLPRG']
+    if key in attrs:
+        return attrs[key]
+    if key == 'AT_COMMENT' and comment is not None:
+        return comment[:PROGRAM_TEXT_ATTRIBUTES[key]]
+    return None
+
+
 def program_metadata(context,state,operation,args,line=None):
     rt=runtime();name=rt.ascii_string(args[0],line).upper()
     valid=bool(re.fullmatch(r'[A-Z_][A-Z_0-9]{0,35}',name))
@@ -202,14 +231,7 @@ def program_metadata(context,state,operation,args,line=None):
     record=service.record(name) if valid and service is not None else None
     teach=context.teach_programs
     teach_record=teach.metadata(name) if valid and teach is not None else None
-    if teach_record is not None and not owners:
-        if record is None: record=teach_record
-        else:
-            record={**record,'active':record.get('active',False) or teach_record['active'],
-                    'loaded':True,'initialized':teach_record['initialized'],
-                    'attributes':{**teach_record['attributes'],**record['attributes'],
-                                  'AT_PROG_TYPE':teach_record['attributes']['AT_PROG_TYPE'],
-                                  'AT_NUM_LINE':teach_record['attributes']['AT_NUM_LINE']}}
+    record=merge_program_record(record,teach_record,attached=bool(owners))
     if operation=='LOAD_STATUS':
         if owners:
             initialized=False
@@ -221,19 +243,15 @@ def program_metadata(context,state,operation,args,line=None):
             loaded,initialized=(record.get('loaded',False),record.get('initialized',False)) if record is not None else (False,False)
         assign(args[1:],(loaded,initialized),line);return
     selector=rt.integer(args[1],line);status=args[-1]
-    key=next((key for key,value in PROGRAM_ATTRIBUTES.items() if value==selector),None)
+    key=program_attribute_key(selector)
     if key is None: status.set(2,line);return
     if not owners and record is None: status.set(1,line);return
     if operation=='GET_ATTR_PRG':
-        attrs=record['attributes'] if record is not None else {}
-        if key=='AT_PROG_NAME': value=name[:PROGRAM_TEXT_ATTRIBUTES[key]]
-        elif key=='AT_PROG_TYPE' and owners: value=PROGRAM_KINDS['PT_KRLPRG']
-        elif key in attrs: value=attrs[key]
-        elif key=='AT_COMMENT':
-            comments=[argument for owner in owners for directive,argument in owner.program.source_directives if directive=='%COMMENT']
-            if not comments: status.set(3,line);return
-            value=comments[0][:PROGRAM_TEXT_ATTRIBUTES[key]]
-        else: status.set(3,line);return
+        comment=next((argument for owner in owners for directive,argument in owner.program.source_directives
+                      if directive=='%COMMENT'),None) if key=='AT_COMMENT' and not (
+                          record is not None and key in record['attributes']) else None
+        value=program_attribute_value(name,key,record,attached=bool(owners),comment=comment)
+        if value is None: status.set(3,line);return
         target=args[3] if key in PROGRAM_TEXT_ATTRIBUTES else args[2]
         assign((target,status),(value,0),line);return
     if key not in PROGRAM_WRITABLE_ATTRIBUTES: status.set(2,line);return
@@ -877,29 +895,43 @@ def kcl_program_listing(state,operation,args,line=None):
     return 0
 
 
+def effective_program_list_options(pattern, kind, skip, form, offset):
+    pattern = pattern.upper()
+    if (kind not in PROGRAM_TYPES or skip < 0 or offset < 0 or form not in (1,2)
+            or not pattern or any(symbol in pattern for symbol in '[]')
+            or (skip and (pattern!='*' or kind!=7))):
+        return None
+    return pattern, kind, skip, form, offset
+
+
+def program_list_page(catalog, options, capacity, width):
+    pattern, kind, skip, form, offset = options
+    rows = sorted(row for row in catalog if row[1] in PROGRAM_TYPES[kind] and fnmatch.fnmatchcase(row[0],pattern))
+    text = []
+    for name,program_type in rows[skip+offset:skip+offset+capacity]:
+        if form==2 and len(name)>36:
+            return 3, []
+        name_width=12 if len(name)<=12 else 36
+        text.append(name if form==1 else f'{name:<{name_width}} {program_type}')
+    return (3, []) if any(len(value)>width for value in text) else (0, text)
+
+
 def program_list(context,state,args,line=None):
     rt=runtime(); pattern,kind,skip,form,names,count,status=args[:7]
     cursor=args[7] if len(args)==8 else None
-    pattern=rt.ascii_string(pattern,line).upper()
+    pattern=rt.ascii_string(pattern,line)
     kind,skip,form=(rt.integer(value,line) for value in (kind,skip,form))
     offset=rt.integer(cursor.raw(),line) if cursor is not None else 0
-    if (kind not in PROGRAM_TYPES or skip<0 or offset<0 or form not in (1,2)
-            or not pattern or any(symbol in pattern for symbol in '[]')
-            or (skip and (pattern!='*' or kind!=7))):
-        status.set(2,line);return
+    options=effective_program_list_options(pattern,kind,skip,form,offset)
+    if options is None: status.set(2,line);return
     try:
         catalog=program_rows(context,state,check=_catalog_check(state,'PROG_LIST',line))
     except _CatalogScanLimit as error:
         raise rt.KarelRuntimeError(str(error),line) from error
-    rows=sorted(row for row in catalog if row[1] in PROGRAM_TYPES[kind] and fnmatch.fnmatchcase(row[0],pattern))
     capacity=rt.array_dimensions(names.spec)[0]
-    selected=rows[skip+offset:skip+offset+capacity];text=[]
-    for name,program_type in selected:
-        if form==2 and len(name)>36: status.set(3,line);return
-        width=12 if len(name)<=12 else 36
-        text.append(name if form==1 else f'{name:<{width}} {program_type}')
-    if any(len(value)>names.spec[2][1] for value in text): status.set(3,line);return
+    code,text=program_list_page(catalog,options,capacity,names.spec[2][1])
+    if code: status.set(code,line);return
     array=_listing_buffer(state,names,text,line)
-    outputs=(names,count,status);values=(array,len(selected),0)
-    if cursor is not None: outputs+=cursor,;values+=offset+len(selected),
+    outputs=(names,count,status);values=(array,len(text),0)
+    if cursor is not None: outputs+=cursor,;values+=offset+len(text),
     assign(outputs,values,line)

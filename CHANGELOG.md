@@ -1,5 +1,11 @@
 # Changelog
 
+## 26.1123.125653 - 2026-11-23
+
+- Follow PROG_LIST pages and cursors, LOAD_STATUS flags, and GET_ATTR_PRG
+  outputs during Pythonic input discovery with pinned programs and saved context.
+- Use the compiler's predefined constants when resolving source control flow.
+
 ## 26.1121.155843 - 2026-11-21
 
 - Follow VAR_INFO and VAR_LIST outputs during Pythonic input discovery. Model
