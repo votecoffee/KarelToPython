@@ -3688,17 +3688,25 @@ class _Analyzer(TeachDiscovery):
             return transfer(inputs, flow, conditional)
         constants = [item.constant for item in inputs]
         addressed = operand_cases(inputs, indices) or [constants]
+        state = flow.teach
+        tracked_numbers = ()
+        if handle and state.handles is not None and not state.untracked_handles and len(state.handles) < MAX_SERVICE_CASES:
+            # A dynamic number can select a tracked slot or fail to address any slot.
+            tracked_numbers = (0, *state.handles)
         cases = []
-        for values in addressed:
-            number = values[0]
-            options = flow.teach.handle_choices(number) if handle and type(number) is int else ()
-            if len(options) > 1:
-                cases.extend((values, (number, choice)) for choice in options)
-            else:
-                cases.append((values, None))
-            if len(cases) > MAX_SERVICE_CASES:
-                return transfer(inputs, flow, conditional)
-        if len(cases) == 1 and cases[0][1] is None:
+        for original in addressed:
+            first = original[0]
+            numbers = tracked_numbers if first is UNKNOWN and tracked_numbers else (first,)
+            for number in numbers:
+                values = original if number is first else [number, *original[1:]]
+                options = self.teach_resolved_handle_choices(number, flow) if handle and type(number) is int else ()
+                if len(options) > 1:
+                    cases.extend((values, (number, choice)) for choice in options)
+                else:
+                    cases.append((values, None))
+                if len(cases) > MAX_SERVICE_CASES:
+                    return transfer(inputs, flow, conditional)
+        if len(cases) == 1 and cases[0][1] is None and cases[0][0] is constants:
             return transfer(inputs, flow, conditional)
 
         def evaluate(case, branch):

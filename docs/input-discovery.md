@@ -247,8 +247,12 @@ choices of handle, register number and position group. It also follows bounded
 addresses for ordinary numeric, string and position registers and indirect
 ports. A close using an unrestricted handle number can obscure which of the
 task's handles closed, while keeping foreign handles and the allocation
-sequence. Large or correlated choices, unrestricted opens and unsynchronized
-access remain subject to conservative analysis.
+sequence. With a runtime-selected open, discovery considers the valid access
+modes and reject flags. It considers each saved target when the catalog is
+small and known. A large or incomplete catalog can leave the new target
+unresolved while preserving earlier handles. If possible allocation numbers
+exceed the analysis budget, the new number remains unresolved. Correlated
+choices and unsynchronized access still use conservative analysis.
 
 ### Robot snapshots and range checks
 

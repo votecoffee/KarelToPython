@@ -372,8 +372,8 @@ class TeachCatalogDiscovery:
         return 0
 
     def teach_program_busy(self, name, flow):
-        self.tick(len(flow.teach.handles or ()))
-        return flow.teach.matching_handle(lambda handle: handle.program == name)
+        self.tick(len(flow.teach.handles or ()) + len(flow.teach.untracked_handles))
+        return flow.teach.matching_handle(lambda handle: handle.targets(name))
 
     def teach_copy_program(self, bank, source, entry, target, overwrite, flow):
         state = flow.teach

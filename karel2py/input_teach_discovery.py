@@ -7,11 +7,10 @@ from .input_position_values import (
     POSITION_MODIFIED, merge_positions, position_register_result, teach_position_store_facts,
 )
 from .input_teach_catalog import TEACH_COMMENT_KIND, TEACH_HEADER_KIND, TeachCatalogDiscovery, TeachCatalogFacts
-from .input_teach_handles import TeachHandle, TeachHandleDiscovery
+from .input_teach_handles import SEQUENCE_LIMIT, TeachHandle, TeachHandleDiscovery
 from .input_value_conversions import MAX_SCALAR_CHOICES, UNKNOWN, Value
 from .position_register_models import register_description
 from .storage import tuple_spec
-from .teach import teach_rejects
 
 
 LOCAL_POSITION_KIND = 'teach_position_register'
@@ -110,10 +109,11 @@ class TeachFacts:
     # possible unknown handles have the same owner, local access can still
     # be checked for that owner.
     handles: dict[int, tuple[TeachHandle | None, ...]] | None = field(default_factory=dict)
-    sequence: int | None = 0
+    sequences: tuple[int, ...] | None = (0,)
     unknown_handle_owner: str | None = None
     comments: TeachBankFacts = field(default_factory=TeachBankFacts)
     catalog: TeachCatalogFacts = field(default_factory=TeachCatalogFacts)
+    untracked_handles: dict[TeachHandle, int] = field(default_factory=dict)
 
     def data_banks(self):
         return self.numeric, self.strings, self.local_positions, self.program_positions
@@ -124,18 +124,51 @@ class TeachFacts:
     def copy(self):
         return TeachFacts(self.numeric.copy(), self.strings.copy(), self.local_positions.copy(),
                           self.program_positions.copy(), None if self.handles is None else self.handles.copy(),
-                          self.sequence, self.unknown_handle_owner, self.comments.copy(), self.catalog.copy())
+                          self.sequences, self.unknown_handle_owner, self.comments.copy(), self.catalog.copy(),
+                          self.untracked_handles.copy())
 
     def forget_handles(self, owner):
         owners = self.handle_owners()
         self.unknown_handle_owner = owner if owners <= {owner} else None
         self.handles = None
-        self.sequence = None
+        self.sequences = None
+        self.untracked_handles.clear()
 
     def handle_owners(self):
         if self.handles is None:
             return {self.unknown_handle_owner}
-        return {handle.owner for options in self.handles.values() for handle in options if handle is not None}
+        return ({handle.owner for options in self.handles.values() for handle in options if handle is not None}
+                | {handle.owner for handle in self.untracked_handles})
+
+    def restrict_sequence(self, sequence):
+        if self.sequences != (sequence,):
+            self.sequences = (sequence,)
+            self.handles = {number: options for number, options in self.handles.items() if number <= sequence}
+
+    def add_untracked_handle(self, handle):
+        # A newly allocated number is above every handle that is definitely open.
+        lower = 1 + max((number for number, choices in self.handles.items() if None not in choices), default=0)
+        self.untracked_handles[handle] = min(self.untracked_handles.get(handle, lower), lower)
+        self.untracked_handles = self.compact_untracked(self.untracked_handles)
+
+    @staticmethod
+    def compact_untracked(handles):
+        by_owner = {}
+        for handle, lower in handles.items():
+            by_owner.setdefault(handle.owner, {})[handle] = lower
+        compacted = {}
+        for owner, group in by_owner.items():
+            if len(group) > MAX_SCALAR_CHOICES:
+                compacted[TeachHandle(None, owner, None, None)] = min(group.values())
+            else:
+                compacted.update(group)
+        return compacted
+
+    def may_have_untracked(self, number, *, owner=None):
+        return None in self.handle_choices(number) and any(
+            lower <= number <= SEQUENCE_LIMIT and (owner is None or handle.owner == owner)
+            for handle, lower in self.untracked_handles.items()
+        )
 
     def handle_choices(self, number):
         return self.handles.get(number, (None,)) if self.handles is not None else ()
@@ -153,16 +186,18 @@ class TeachFacts:
         possible = False
         for options in self.handles.values():
             checks = [handle is not None and predicate(handle) for handle in options]
-            if all(checks):
+            if all(check is True for check in checks):
                 return True
-            possible |= any(checks)
+            possible |= any(check is not False for check in checks)
+        possible |= any(predicate(handle) is not False for handle in self.untracked_handles)
         return UNKNOWN if possible else False
 
     def definitely_open_programs(self):
         programs = set()
         for options in (self.handles or {}).values():
             first = options[0]
-            if first is not None and all(handle is not None and handle.program == first.program for handle in options):
+            if (first is not None and first.program is not None
+                    and all(handle is not None and handle.program == first.program for handle in options)):
                 programs.add(first.program)
         return programs
 
@@ -174,6 +209,7 @@ class TeachFacts:
         elif self.unknown_handle_owner == owner:
             self.handles = {}
             self.unknown_handle_owner = None
+        self.untracked_handles = {handle: lower for handle, lower in self.untracked_handles.items() if handle.owner != owner}
 
     @staticmethod
     def merge_handles(flows):
@@ -187,25 +223,35 @@ class TeachFacts:
         for number in numbers:
             options = tuple(dict.fromkeys(option for flow in flows for option in flow.handle_choices(number)))
             if len(options) > MAX_SCALAR_CHOICES:
-                return None
+                options = TeachHandle.compact(options)
+                if len(options) > MAX_SCALAR_CHOICES:
+                    return None
             if options != (None,):
                 handles[number] = options
         return handles
 
     @classmethod
     def merge(cls, flows, merge_values):
-        first = flows[0]
-        sequence = first.sequence if all(flow.sequence == first.sequence for flow in flows[1:]) else None
+        sequences = None
+        if all(flow.sequences is not None for flow in flows):
+            candidates = sorted({sequence for flow in flows for sequence in flow.sequences})
+            if len(candidates) <= MAX_SCALAR_CHOICES:
+                sequences = tuple(candidates)
         handles = cls.merge_handles(flows)
         owner = None
+        untracked = {}
         if handles is None:
             owners = set().union(*(flow.handle_owners() for flow in flows))
             if len(owners) == 1:
                 owner = next(iter(owners))
+        else:
+            for flow in flows:
+                for handle, lower in flow.untracked_handles.items():
+                    untracked[handle] = min(untracked.get(handle, lower), lower)
         return cls(*(TeachBankFacts.merge([getattr(flow, name) for flow in flows], merge_values)
                      for name in ('numeric', 'strings', 'local_positions', 'program_positions')),
-                   handles, sequence, owner, TeachBankFacts.merge([flow.comments for flow in flows], merge_values),
-                   TeachCatalogFacts.merge([flow.catalog for flow in flows]))
+                   handles, sequences, owner, TeachBankFacts.merge([flow.comments for flow in flows], merge_values),
+                   TeachCatalogFacts.merge([flow.catalog for flow in flows]), cls.compact_untracked(untracked))
 
 
 class TeachDiscovery(TeachCatalogDiscovery, TeachHandleDiscovery):
@@ -231,10 +277,8 @@ class TeachDiscovery(TeachCatalogDiscovery, TeachHandleDiscovery):
         if state.handles is None:
             return 0 if state.unknown_handle_owner == owner else UNKNOWN
         access = 3 if write else 1
-        self.tick(len(state.handles))
-        conflict = state.matching_handle(
-            lambda handle: handle.owner != owner and handle.program == program and teach_rejects(handle.reject, access),
-        )
+        self.tick(len(state.handles) + len(state.untracked_handles))
+        conflict = state.matching_handle(lambda handle: handle.owner != owner and handle.rejects(program, access))
         if conflict is UNKNOWN:
             return UNKNOWN
         return 4 if conflict else 0

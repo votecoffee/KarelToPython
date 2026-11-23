@@ -171,7 +171,7 @@ END T
             "COPY_TPE('draftTp',target,FALSE,s) OPEN_TPE('clone',TPE_RDACC,TPE_NOREJ,h,s) WRITE(GET_POS_TPE(h,1,s).x)",
             decl='target:STRING[36] s,h:INTEGER', context=tp_context(),
         )
-        self.paths(prepared, ['TARGET', 'H'], ['teach-catalog', 'teach-handle', 'teach-position'])
+        self.paths(prepared, ['TARGET', 'H'], ['teach-catalog', 'position-read', 'teach-position'])
 
     def test_static_catalog_listing_includes_new_programs(self):
         prepared = prepare(

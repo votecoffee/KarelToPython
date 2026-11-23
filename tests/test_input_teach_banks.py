@@ -161,13 +161,18 @@ class TeachBankDiscoveryTests(unittest.TestCase):
         )
         self.assert_paths(prepared, ['GOOD'])
 
-    def test_unknown_handle_does_not_guess_the_program_for_an_edit(self):
+    def test_unknown_name_lists_only_saved_programs_as_possible_open_targets(self):
         prepared = prepare(
             'OPEN_TPE(program_name,TPE_RDACC,TPE_NOREJ,h,s) WRITE(GET_POS_TPE(h,1,s).x)',
             decl='program_name:STRING[36] h,s:INTEGER', context=tp_context(),
         )
-        self.assert_paths(prepared, ['PROGRAM_NAME', 'H'], ['teach-handle', 'teach-position'])
-        self.assertTrue(all(row['kind'] == 'variable' for row in prepared['template']['discovery']['inputs']))
+        report = prepared['template']['discovery']
+        self.assertEqual([row['code'] for row in report['unresolved']], ['position-read'])
+        self.assertCountEqual([(row['program'], row['path']) for row in report['inputs']], [
+            ('T','PROGRAM_NAME'), ('T','H'), ('DRAFTTP','1[group=1]'), ('OTHER','1[group=1]'),
+        ])
+        self.assertTrue(all(row['certainty'] == 'conditional' for row in report['inputs']
+                            if row['kind'] == 'teach_program_position'))
 
     def test_definite_handle_failure_stops_a_function_read(self):
         prepared = prepare(OPEN+'CLOSE_TPE(h,s) WRITE(GET_POS_TPE(h,1,s).x,unreachable)',
