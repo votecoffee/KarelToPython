@@ -79,12 +79,26 @@ def _isolated(plan, linked_plans, tick):
     return True
 
 
-def _local_procedure(plan, node):
+def resolve_routine(plan, linked_plans, name, interface):
+    """Resolve only an implementation with the pinned caller signature."""
+    owner = interface['external']
+    if not owner:
+        return plan, interface
+    target = (linked_plans or {}).get(owner.upper(), {})
+    routine = target.get('routines', {}).get(name)
+    if (target.get('status') != 'available' or routine is None or routine['external'] or
+            routine['result'] != interface['result'] or
+            [spec for _, spec in routine['parameters']] != [spec for _, spec in interface['parameters']]):
+        return None, None
+    return target, routine
+
+
+def _procedure_call(plan, node):
     if node['kind'] != 'call':
         return None
     call = node['args'][0]
     routine = plan['routines'].get(call['value']) if call['kind'] == 'call' else None
-    return call if routine is not None and routine['external'] is None and routine['result'] is None else None
+    return call if routine is not None and routine['result'] is None else None
 
 
 def _branches(node):
@@ -99,11 +113,11 @@ def _branches(node):
 
 def structured_child(plan, linked_plans, tick):
     """Find an isolated child with a pause within or alongside structured flow."""
-    pending = [(iter(plan['body']), False)]
+    pending = [(plan, iter(plan['body']), False)]
     found_control = found_pause = False
     visited_routines = set()
     while pending:
-        statements, nested = pending[-1]
+        owner, statements, nested = pending[-1]
         node = next(statements, None)
         if node is None:
             pending.pop()
@@ -111,15 +125,20 @@ def structured_child(plan, linked_plans, tick):
         tick()
         pause = explicit_pause(node)
         found_pause = found_pause or pause
-        call = _local_procedure(plan, node)
-        found_control = found_control or node['kind'] in STRUCTURED_LOOPS or call is not None
+        call = _procedure_call(owner, node)
+        found_control = found_control or node['kind'] in STRUCTURED_LOOPS
+        pending.extend((owner, iter(body), True) for body in _branches(node) if body)
+        if call is not None:
+            name = call['value']
+            target, routine = resolve_routine(owner, linked_plans, name, owner['routines'][name])
+            if routine is not None:
+                found_control = True
+                key = target['program'], name
+                if key not in visited_routines:
+                    visited_routines.add(key)
+                    pending.append((target, iter(routine['body']), True))
         if (nested and pause) or (found_control and found_pause):
             return _SegmentRules(plan, tick, structured=True) if _isolated(plan, linked_plans, tick) else None
-        pending.extend((iter(body), True) for body in _branches(node) if body)
-        if call is not None and call['value'] not in visited_routines:
-            name = call['value']
-            visited_routines.add(name)
-            pending.append((iter(plan['routines'][name]['body']), True))
     return None
 
 
@@ -134,11 +153,12 @@ class _SegmentRules:
         self.uses_teach = False
         self.uses_pose = False
 
-    def routine_scope(self, name):
-        if name not in self.routine_scopes:
-            self.routine_scopes[name] = _SegmentRules(self.plan, self.tick, structured=True,
-                                                      routine=self.plan['routines'][name])
-        return self.routine_scopes[name]
+    def routine_scope(self, plan, name):
+        key = plan['program'], name
+        if key not in self.routine_scopes:
+            self.routine_scopes[key] = _SegmentRules(plan, self.tick, structured=True,
+                                                     routine=plan['routines'][name])
+        return self.routine_scopes[key]
 
     def reference_schema(self, node):
         self.tick()
@@ -198,7 +218,7 @@ class _SegmentRules:
         return all(self.operand(arg) for arg in node['args'])
 
     def procedure_call(self, node):
-        call = _local_procedure(self.plan, node)
+        call = _procedure_call(self.plan, node)
         if call is None:
             return None
         actuals = call['args']

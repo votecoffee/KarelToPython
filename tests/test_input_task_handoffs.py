@@ -14,7 +14,7 @@ class TaskHandoffTests(unittest.TestCase):
         self.addCleanup(folder.cleanup)
         self.root=Path(folder.name)
 
-    def prepare(self, sources, *, replay=True):
+    def prepare(self, sources, *, replay=True, callers=None):
         case_folder=Path(mkdtemp(dir=self.root))
         paths=[]
         for name, source in sources:
@@ -25,7 +25,7 @@ class TaskHandoffTests(unittest.TestCase):
         document=case_folder/'linked.run.json'
         context={'teach_programs':{
             'programs':{'Shared':{'string_registers':{'1':'ready'}}},
-            'callers':{'MAIN':'Shared'},
+            'callers':{'MAIN':'Shared', **(callers or {})},
         }}
         saved=create_project_document(paths,document,entry='MAIN',context=context,max_cycles=100,discover=True)
         result=runner.run_document(document)['results'] if replay else None
@@ -767,6 +767,160 @@ END CHILD
         self.assert_task_gaps(report,['task-scheduling','task-wait'])
         locations=report['inputs'][0]['locations']
         self.assertEqual([(row['program'],row['routine']) for row in locations],[('CHILD','TAKE_INPUT')])
+
+    def test_linked_child_procedures_resume_in_their_pinned_modules(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER text:STRING[8]
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  text='prior'
+  GET_TPE_STR_REG(1,text,s)
+  WRITE(s,':',text,CR)
+  CONTINUE PROGRAM[2]
+  WAIT FOR PAUSE PROGRAM[2]
+  GET_TPE_STR_REG(1,text,s)
+  WRITE(s,':',text,CR)
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR slot,unused:INTEGER cells:ARRAY[2] OF INTEGER
+ROUTINE bridge(seed:INTEGER; output:INTEGER; selected:INTEGER) FROM LIBA
+BEGIN
+  slot=1
+  cells[2]=99
+  bridge(3,cells[slot],slot)
+  IF (cells[1]=13) AND (cells[2]=99) THEN
+    WRITE(cells[1],':',cells[2])
+  ELSE
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        library_a="""PROGRAM LIBA
+ROUTINE work(amount:INTEGER; output:INTEGER; selected:INTEGER) FROM LIBB
+ROUTINE bridge(seed:INTEGER; output:INTEGER; selected:INTEGER)
+CONST offset=2
+VAR intermediate:INTEGER
+BEGIN
+  intermediate=seed+offset
+  work(intermediate+1,output,selected)
+  output=output+intermediate
+  PAUSE
+  output=output+1
+END bridge
+BEGIN
+END LIBA
+"""
+        library_b="""PROGRAM LIBB
+ROUTINE bridge(output:INTEGER)
+BEGIN
+  output=output+1
+END bridge
+ROUTINE work(amount:INTEGER; output:INTEGER; selected:INTEGER)
+VAR h,s:INTEGER text:STRING[8]
+BEGIN
+  OPEN_TPE('Shared',TPE_RDACC,TPE_ALLREJ,h,s)
+  selected=2
+  PAUSE
+  GET_TPE_STR_REG(1,text,s)
+  WRITE(text,CR)
+  CLOSE_TPE(h,s)
+  output=amount
+  bridge(output)
+  RETURN
+END work
+BEGIN
+END LIBB
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child),('LIBA',library_a),('LIBB',library_b)],
+                                   callers={'CHILD':'Shared'})
+        self.assert_inputs(report,[('teach_string_register','SHARED','1','required')])
+        locations=report['inputs'][0]['locations']
+        self.assertCountEqual([(row['program'],row['routine']) for row in locations],
+                              [('MAIN',None),('LIBB','WORK')])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation',
+                                     'task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed')
+        blocked,inside,ready,output=result['text_output'].splitlines()
+        first_status,previous=blocked.split(':')
+        next_status,current=ready.split(':')
+        self.assertEqual((int(first_status),previous,inside,int(next_status),current),(4,'prior','ready',0,'ready'))
+        self.assertEqual(tuple(map(int,output.split(':'))),(13,99))
+
+    def test_shared_library_globals_only_widen_reached_segments(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER text:STRING[8]
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  text='prior'
+  GET_TPE_STR_REG(1,text,s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+ROUTINE work FROM LIB
+BEGIN
+  work()
+END CHILD
+"""
+        for body,reached in (('WRITE(shared_value) PAUSE',True),('PAUSE WRITE(shared_value)',False)):
+            with self.subTest(body=body):
+                library=f"""PROGRAM LIB
+VAR shared_value:INTEGER
+ROUTINE work
+VAR h,s:INTEGER
+BEGIN
+  OPEN_TPE('Shared',TPE_RDACC,TPE_ALLREJ,h,s)
+  {body}
+END work
+BEGIN
+END LIB
+"""
+                report,result=self.prepare([('MAIN',main),('CHILD',child),('LIB',library)],replay=not reached)
+                if reached:
+                    self.assert_inputs(report,[('variable','LIB','SHARED_VALUE','conditional')])
+                    codes=[row['code'] for row in report['unresolved']]
+                    self.assertIn('condition-source',codes)
+                    self.assertIn('teach-register',codes)
+                else:
+                    self.assert_inputs(report,[])
+                    self.assert_task_gaps(report,['task-scheduling','task-wait'])
+                    self.assertEqual(result['status'],'paused')
+                    values=result['programs']['MAIN']['values']
+                    self.assertEqual((values['S'],values['TEXT']),(4,'prior'))
+
+    def test_missing_or_mismatched_external_procedure_keeps_wait_unresolved(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR payload:INTEGER
+ROUTINE work(amount:INTEGER) FROM LIB
+BEGIN
+  work(payload)
+END CHILD
+"""
+        library="""PROGRAM LIB
+ROUTINE work(amount:REAL)
+BEGIN
+  PAUSE
+END work
+BEGIN
+END LIB
+"""
+        for additional in ([],[('LIB',library)]):
+            with self.subTest(modules=len(additional)):
+                report,_=self.prepare([('MAIN',main),('CHILD',child),*additional],replay=False)
+                self.assert_inputs(report,[('variable','CHILD','PAYLOAD','conditional')])
+                codes=[row['code'] for row in report['unresolved']]
+                self.assertIn('routine',codes)
+                self.assertIn('condition-source',codes)
 
     def test_request_status_is_not_reused_as_prelaunch_task_number(self):
         main="""PROGRAM MAIN

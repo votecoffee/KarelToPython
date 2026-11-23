@@ -24,7 +24,7 @@ from .input_position_values import (
     checked_position_facts, merge_positions, position_register_result,
 )
 from .input_task_segments import (
-    STRUCTURED_LOOPS, bounded_child, explicit_pause, structured_child, task_handoff_window,
+    STRUCTURED_LOOPS, bounded_child, explicit_pause, resolve_routine, structured_child, task_handoff_window,
 )
 from .input_teach_catalog import TEACH_CATALOG_SERVICES, TEACH_EDIT_SERVICES
 from .input_teach_discovery import (
@@ -466,7 +466,7 @@ class _Analyzer(TeachDiscovery):
         self.linked_plans = linked_plans
         self.task_roots = (plan['program'],)
         self.suspended_depth = 0
-        self.exact_task_selection = False
+        self.checked_child_segment = False
         self.capture_values = {}
         self.track_handlers = track_handlers
         self.saw_handler = False
@@ -554,6 +554,10 @@ class _Analyzer(TeachDiscovery):
         plan = self.plan if owner == self.program else (self.linked_plans or {}).get(owner, {})
         if plan.get('status') != 'available' or name not in plan['types']:
             return None
+        if self.checked_child_segment and owner != self.task_roots[-1]:
+            # A linked module's globals can be shared with another invocation.
+            # The child slice only retains its own globals and captured slots.
+            raise _TaskOrderUnknown()
         spec = plan['types'][name]
         visited = set()
         while root in self.imports.get(owner, {}):
@@ -1067,7 +1071,7 @@ class _Analyzer(TeachDiscovery):
 
     def checked_task_selection(self, loc):
         # An unresolved cell can hide effects or prevent reaching the pause.
-        if loc is None and self.exact_task_selection:
+        if loc is None and self.checked_child_segment:
             raise _TaskOrderUnknown()
         return loc
 
@@ -4848,8 +4852,8 @@ class _Analyzer(TeachDiscovery):
         depth = self.suspended_depth + len(self.frames) + 1
         caller_plan, caller_roots, caller_depth = self.plan, self.task_roots, self.suspended_depth
         caller_frames, caller_exits, caller_values = self.frames, self.exits, self.capture_values
-        caller_selection = self.exact_task_selection
-        self.exact_task_selection = rules is not None
+        caller_checked_segment = self.checked_child_segment
+        self.checked_child_segment = rules is not None
         self.plan, self.task_roots, self.suspended_depth = plan, (*caller_roots, plan['program']), depth
         self.frames, self.exits, self.capture_values = [], [], {}
         try:
@@ -4863,21 +4867,27 @@ class _Analyzer(TeachDiscovery):
                 child.requested_tasks = shared.requested_tasks.copy()
             blocks = list(suspension.blocks) if suspension is not None else [(plan['body'], 0)]
             self.frames = [block.frame for block in blocks if isinstance(block, _TaskRoutine)]
+            self.plan = self.task_frame_plan()
             cursor = self.scheduled_segment(blocks, child, rules)
             return cursor, child
         finally:
             self.plan, self.task_roots, self.suspended_depth = caller_plan, caller_roots, caller_depth
             self.frames, self.exits, self.capture_values = caller_frames, caller_exits, caller_values
-            self.exact_task_selection = caller_selection
+            self.checked_child_segment = caller_checked_segment
+
+    def task_frame_plan(self):
+        owner = self.frames[-1]['key'][0] if self.frames else self.task_roots[-1]
+        return self.linked_plans[owner]
 
     def scheduled_segment(self, blocks, child, rules):
         while blocks and not (child.stopped and not child.opaque):
             frame = blocks[-1]
             if isinstance(frame, _TaskRoutine):
                 self.clear_routine_storage(child, self.frames.pop()['owner'])
+                self.plan = self.task_frame_plan()
                 blocks.pop()
                 continue
-            scope = rules.routine_scope(self.frames[-1]['name']) if rules and self.frames else rules
+            scope = rules.routine_scope(self.plan, self.frames[-1]['name']) if rules and self.frames else rules
             if isinstance(frame, _TaskLoop):
                 loop = self.next_task_iteration(frame, child, scope)
                 if loop is None:
@@ -4935,7 +4945,7 @@ class _Analyzer(TeachDiscovery):
         prepared = self.prepare_routine(call['value'], call['args'], call, flow, True, statement_call=True)
         if prepared is None:
             raise _TaskOrderUnknown()
-        _, routine, frame = prepared
+        self.plan, routine, frame = prepared
         self.frames.append(frame)
         blocks.extend((_TaskRoutine(frame), (routine['body'], 0)))
 
@@ -4987,20 +4997,6 @@ class _Analyzer(TeachDiscovery):
     def clear_task_counter(self, counter, node, flow):
         spec = counter.spec
         self.write(counter, _Value(complete=False, spec=spec, uninitialized=spec != ['BYTE']), flow, node)
-
-    def routine_target(self, name, interface):
-        owner = interface['external']
-        if not owner:
-            return self.plan, interface
-        if self.linked_plans is None:
-            return None, None
-        target = self.linked_plans.get(owner.upper(), {})
-        routine = target.get('routines', {}).get(name)
-        if (target.get('status') != 'available' or routine is None or routine['external'] or
-                routine['result'] != interface['result'] or
-                [spec for _, spec in routine['parameters']] != [spec for _, spec in interface['parameters']]):
-            return None, None
-        return target, routine
 
     def byname_gap(self, node, flow, message, *, rejected=False):
         self.unresolved_at('byname', message, node)
@@ -5094,7 +5090,7 @@ class _Analyzer(TeachDiscovery):
                     actual.append(self.expr(item,flow,conditional))
         if flow.stopped and not flow.opaque:
             return None
-        target_plan, target_routine = self.routine_target(name, routine)
+        target_plan, target_routine = resolve_routine(self.plan, self.linked_plans, name, routine)
         routine_key = (target_plan['program'], name) if target_plan else None
         if (target_routine is None or any(frame['key'] == routine_key for frame in self.frames)
                 or self.suspended_depth + len(self.frames) >= MAX_CALL_DEPTH):
