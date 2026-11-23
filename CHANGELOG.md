@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1123.132444 - 2026-11-23
+
+- Follow offline SET_ATTR_PRG writes and activity guards during input
+  discovery, including later metadata reads and branch-dependent changes.
+- Resolve explicit saved system-variable rows for GET_VAR, SET_VAR and
+  VAR_INFO. Preserve backing rows and input addresses on refresh.
+
 ## 26.1123.125653 - 2026-11-23
 
 - Follow PROG_LIST pages and cursors, LOAD_STATUS flags, and GET_ATTR_PRG

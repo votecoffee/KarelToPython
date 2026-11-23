@@ -3,7 +3,7 @@ from copy import deepcopy
 import re
 
 from . import runtime as rt
-from .dynamic import reserved as variable_reservation
+from .dynamic import reserved as variable_reservation, root_member
 from .input_discovery import DEFAULT_EMPTY_PATH, MISSING_PATH_RECORD, _discover_inputs
 from .inspection import merge_program_record
 from .storage import collection_array_cost, collection_data_spec, list_spec, restore_value, tuple_spec
@@ -157,6 +157,11 @@ class _SavedBindings:
         record = self.program_attributes.record(name) if self.program_attributes is not None else None
         teach = self.teach_programs.metadata(name) if self.teach_programs is not None else None
         return merge_program_record(record, teach, attached=attached)
+
+    def system_path(self, owners, path, *, tick):
+        tick(len(self.references))
+        candidates = (key for key in self.references if key[0] in owners and root_member(path, key[1]))
+        return max(candidates, key=lambda key: len(key[1]), default=None)
 
     def reservation(self):
         if self.creation_storage is None:

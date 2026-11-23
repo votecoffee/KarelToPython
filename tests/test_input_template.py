@@ -1773,6 +1773,97 @@ class InputTemplateTests(unittest.TestCase):
         self.assertTrue(report['complete'], report['unresolved'])
         self.assertEqual(set(by_path(prepared)), {'WANTED', 'ALTERNATE'})
 
+    def test_program_attribute_writes_feed_later_reads_and_preserve_rejected_targets(self):
+        context = {'program_attributes': {'stored': {'attributes': {'AT_OWNER': 'prior'}},
+                                           'busy': {'loaded': True, 'active': True}}}
+        prepared = prepare(
+            "SET_ATTR_PRG('stored',AT_OWNER,0,'123456789',s) "
+            "SET_ATTR_PRG('stored',AT_SRC_VRSN,42,'',version_status) "
+            "SET_ATTR_PRG('stored',AT_PROG_SIZE,7,'',readonly_status) "
+            "SET_ATTR_PRG('busy',AT_OWNER,0,'blocked',busy_status) "
+            "SET_ATTR_PRG('T',AT_COMMENT,0,'blocked',active_status) "
+            "SET_ATTR_PRG('missing',AT_OWNER,0,'absent',missing_status) "
+            "GET_ATTR_PRG('stored',AT_OWNER,n,owner,s) "
+            "GET_ATTR_PRG('stored',AT_SRC_VRSN,n,owner,s) "
+            "IF (s=0) AND (n=42) AND (owner='12345') AND (version_status=0) AND (readonly_status=2) "
+            'AND (busy_status=4) AND (active_status=4) AND (missing_status=1) '
+            'THEN WRITE(wanted) ELSE WRITE(unused) ENDIF',
+            decl='owner:STRING[5] n,s,version_status,readonly_status,busy_status,active_status,missing_status,'
+                 'wanted,unused:INTEGER',
+            context=context,
+        )
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'WANTED'})
+        self.assertEqual(prepared['context']['program_attributes'], context['program_attributes'])
+
+    def test_program_attribute_write_values_merge_across_branches(self):
+        prepared = prepare(
+            "IF option THEN SET_ATTR_PRG('stored',AT_OWNER,0,'left',s) "
+            "ELSE SET_ATTR_PRG('stored',AT_OWNER,0,'right',s) ENDIF "
+            "GET_ATTR_PRG('stored',AT_OWNER,n,owner,s) IF s=0 THEN "
+            "IF owner='left' THEN WRITE(wanted) ELSE WRITE(alternate) ENDIF ELSE WRITE(unused) ENDIF",
+            decl='option:BOOLEAN owner:STRING[8] n,s,wanted,alternate,unused:INTEGER',
+            context={'program_attributes': {'stored': {}}},
+        )
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'OPTION', 'WANTED', 'ALTERNATE'})
+
+    def test_branch_dependent_new_attribute_preserves_prior_receiver_on_failure(self):
+        prepared = prepare(
+            "owner='prior' IF option THEN SET_ATTR_PRG('stored',AT_OWNER,0,'left',s) ENDIF "
+            "GET_ATTR_PRG('stored',AT_OWNER,n,owner,s) "
+            "IF owner='left' THEN WRITE(wanted) ELSE WRITE(alternate) ENDIF",
+            decl='option:BOOLEAN owner:STRING[8] n,s,wanted,alternate:INTEGER',
+            context={'program_attributes': {'stored': {}}},
+        )
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'OPTION', 'WANTED', 'ALTERNATE'})
+
+    def test_saved_system_variable_transfers_follow_explicit_storage(self):
+        saved = dict(program='SYSTEM', path='$LIMIT', type=['INTEGER'], value=8)
+        prepared = prepare(
+            "GET_VAR(entry,'','$LIMIT',initial,s) WRITE(initial) "
+            "SET_VAR(entry,'SYSTEM','$LIMIT',17,s) "
+            "VAR_INFO('*SYSTEM*','$LIMIT',missing,label,code,dims,slen,s) "
+            "GET_VAR(entry,'','$LIMIT',out,s) "
+            "IF (s=0) AND (out=17) AND (NOT missing) AND (label='INTEGER') AND (code=16) "
+            'THEN WRITE(wanted) ELSE WRITE(unused) ENDIF',
+            decl='entry,s,initial,out,code,slen,wanted,unused:INTEGER '
+                 'missing:BOOLEAN label:STRING[12] dims:ARRAY[3] OF INTEGER',
+            context={'variables': [saved]},
+        )
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        bindings = by_path(prepared)
+        self.assertEqual(set(bindings), {'$LIMIT', 'WANTED'})
+        self.assertEqual(bindings['$LIMIT']['context_pointer'], '/variables/0/value')
+        self.assertEqual([row['path'] for row in report['binding_storage']], ['$LIMIT'])
+
+    def test_saved_system_lookup_prefers_exact_then_longest_then_saved_order(self):
+        rows = [
+            dict(program='*SYSTEM*', path='$CELLS[1]', type=['VECTOR'], value={'X': 1.0, 'Y': 2.0, 'Z': 3.0}),
+            dict(program='SYSTEM', path='$CELLS[1]', type=['VECTOR'], value={'X': 4.0, 'Y': 5.0, 'Z': 6.0}),
+            dict(program='SYSTEM', path='$CELLS[1].X', type=['REAL'], value=7.0),
+            dict(program='T', path='$CELLS[1].X', type=['REAL'], value=8.0),
+        ]
+        prepared = prepare(
+            "GET_VAR(entry,'','$CELLS[1].X',out,s) WRITE(out) "
+            "GET_VAR(entry,'SYSTEM','$CELLS[1].X',out,s) WRITE(out) "
+            "GET_VAR(entry,'','$CELLS[1].Y',out,s) WRITE(out)",
+            decl='entry,s:INTEGER out:REAL',
+            context={'variables': rows},
+        )
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual({(row['program'], row['path'], row['context_pointer'])
+                          for row in prepared['template']['bindings']},
+                         {('T', '$CELLS[1].X', '/variables/3/value'),
+                          ('SYSTEM', '$CELLS[1].X', '/variables/2/value'),
+                          ('*SYSTEM*', '$CELLS[1].Y', '/variables/0/value')})
+
     def test_saved_byname_and_named_transfers_share_the_same_binding(self):
         source = (
             'PROGRAM T VAR first,entry,status,out,wanted,unused:INTEGER '

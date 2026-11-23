@@ -457,8 +457,12 @@ Discovery follows `VAR_INFO` for known ordinary variable paths, including
 ARRAY prefixes and supported PATH fields and records. It publishes the type,
 dimensions, string capacity and status, using known initialization facts
 when available. When initialization is unknown, both flag-dependent branches
-are considered. A metadata check alone creates no value input. System-variable
-and resource-dependent lookups may still need review.
+are considered. A metadata check alone creates no value input.
+`GET_VAR`, `SET_VAR` and `VAR_INFO` can also follow explicit saved
+`$` bindings. Discovery uses an exact saved path first, then the longest
+matching saved prefix and its stored order. Values point to their backing
+rows, including rows reached through a different system owner spelling.
+Lookups that depend on a robot model or resource state may still need review.
 
 With a validated context, `VAR_LIST` follows known program selectors, name
 patterns, type filters, pagination, and output formats. It uses the current
@@ -480,8 +484,12 @@ records and checked programs. When an attached program has globals whose
 initialization cannot be proved, discovery considers both flag-dependent
 branches. `GET_ATTR_PRG` follows known saved attributes, attached program names
 and types, and source comments. Successful lookups write only the selected
-attribute output and status. Branches that depend on changes to program
-metadata at runtime can still need review.
+attribute output and status. Discovery follows `SET_ATTR_PRG` writes to
+supported offline attributes when the target and its activity state are
+known. Activity and read-only checks preserve the prior attribute. If a
+branch might add a previously absent attribute, the next read may return
+either success or the missing-attribute status and preserves its receiver on
+failure. Task activity with unresolved ordering still requires review.
 
 Dynamic addresses, unsupported schemas/resources/services, host or linked
 routine effects, handlers, nonstructured jumps, recursion, fresh uninitialized

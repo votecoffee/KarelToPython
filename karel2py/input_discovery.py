@@ -13,7 +13,8 @@ from .dynamic import (
     rename_names, rename_plan, renamed_key, root_member,
 )
 from .extended import (
-    PREDEFINED_FILE_NAMES, PROGRAM_TEXT_ATTRIBUTES, ZERO_BASED_PORTS, path_conversion_layout, path_node_size,
+    PREDEFINED_FILE_NAMES, PROGRAM_TEXT_ATTRIBUTES, PROGRAM_WRITABLE_ATTRIBUTES, ZERO_BASED_PORTS,
+    ProgramAttributes, path_conversion_layout, path_node_size,
 )
 from .file_io import MAX_PATH_IO_FIELDS, path_io_field_count, path_io_indexes
 from .input_contract import extract, InputContractError
@@ -32,6 +33,7 @@ from . import runtime as rt
 
 DEFAULT_EMPTY_PATH = object()
 INITIAL_BINDING = object()
+MAYBE_ATTRIBUTE = object()
 MISSING_PATH_RECORD = object()
 MAX_STEPS = 100000
 MAX_INPUTS = 2048
@@ -192,6 +194,7 @@ class _Flow:
     named_bindings: dict = field(default_factory=dict)
     creation_counts: dict = field(default_factory=dict)
     allocated_variable_units: int | None = 0
+    program_attributes: dict = field(default_factory=dict)
 
     def copy(self):
         return _Flow(self.defined.copy(),self.assigned.copy(),self.maybe.copy(),
@@ -200,7 +203,8 @@ class _Flow:
                      self.path_shape_unknown,self.path_orders.copy(),self.uninitialized.copy(),
                      self.changed_path_aggregates.copy(),self.record_storage.copy(),self.retired_paths.copy(),
                      self.variable_entries.copy(),self.next_variable_entry,
-                     self.named_bindings.copy(),self.creation_counts.copy(),self.allocated_variable_units)
+                     self.named_bindings.copy(),self.creation_counts.copy(),self.allocated_variable_units,
+                     self.program_attributes.copy())
 
     def take(self, other):
         self.handlers = other.handlers
@@ -217,6 +221,7 @@ class _Flow:
         self.named_bindings = other.named_bindings
         self.creation_counts = other.creation_counts
         self.allocated_variable_units = other.allocated_variable_units
+        self.program_attributes = other.program_attributes
 
 
 def _merge(flows):
@@ -270,6 +275,15 @@ def _merge(flows):
     units = first.allocated_variable_units
     if any(flow.allocated_variable_units != units for flow in live[1:]):
         units = None
+    attributes = {}
+    for key in set().union(*(flow.program_attributes for flow in live)):
+        values = [flow.program_attributes.get(key) for flow in live]
+        if all(value == values[0] for value in values[1:]):
+            attributes[key] = values[0]
+        elif any(value is None or value is MAYBE_ATTRIBUTE for value in values):
+            attributes[key] = MAYBE_ATTRIBUTE
+        else:
+            attributes[key] = UNKNOWN
     return _Flow(set.intersection(*(flow.defined for flow in live)),
                  set.intersection(*(flow.assigned for flow in live)),
                  set.union(*(flow.maybe for flow in live)),constants,False,any(flow.opaque for flow in live),
@@ -278,7 +292,7 @@ def _merge(flows):
                  pauses,uncertain,any(flow.path_shape_unknown for flow in live),path_orders,
                  set.intersection(*(flow.uninitialized for flow in live)),
                  set.union(*(flow.changed_path_aggregates for flow in live)), record_storage, retired_paths,
-                 variable_entries, next_entry, names, creation_counts, units)
+                 variable_entries, next_entry, names, creation_counts, units, attributes)
 
 
 def _path_record_identity(part):
@@ -413,6 +427,7 @@ class _Analyzer:
         flow.named_bindings.clear()
         flow.creation_counts.clear()
         flow.allocated_variable_units = None
+        flow.program_attributes.clear()
 
     def context(self, service, address):
         self.contexts.setdefault((service,str(address)),dict(service=service,address=address))
@@ -2204,29 +2219,49 @@ class _Analyzer:
                 return loc, len(key[1]), False
         return None, len(root), removed or reject_missing and self.saved_bindings is not None
 
+    def saved_system_location(self, owner, selected, path, flow):
+        if self.saved_bindings is None or flow.opaque or flow.task_order_unknown:
+            return None, 0
+        loc, consumed, _ = self.named_root_binding(owner, selected, path, path, flow)
+        if loc is not None:
+            return loc, consumed
+        key = self.saved_bindings.system_path({owner, selected, 'SYSTEM', '*SYSTEM*', ''}, path, tick=self.tick)
+        if key is None:
+            return None, 0
+        loc = self.named_binding(key, flow)
+        if not isinstance(loc, _Location):
+            return None, 0
+        self.retain_named_bindings((loc,))
+        return loc, len(key[1])
+
     def named_variable_location(self, owner, path, node, flow, conditional, *, capture_node=False, reject_missing=False):
         """Distinguish a rejected selection from an unproved root or storage layout."""
-        if type(owner) is not str or type(path) is not str:
+        if not all(type(value) is str and value.isascii() for value in (owner, path)):
             return None, False
-        root = re.match(r'[A-Za-z_][A-Za-z_0-9]*', path)
         owner, path = owner.upper(), path.upper()
         selected = owner or self.program
-        if root is None:
-            if reject_missing:
-                loc, _, rejected = self.named_root_binding(owner, selected, path, path, flow, reject_missing=True)
-                return loc, rejected
-            return None, False
-        root_name = root[0].upper()
-        loc = self.global_slot(root_name, node, program=selected)
-        consumed = root.end()
-        if loc is None:
-            plan = self.plan if selected == self.program else (self.linked_plans or {}).get(selected)
-            if plan is not None and (plan.get('status') != 'available' or root_name in plan.get('types', {})):
-                return None, False
-            loc, consumed, rejected = self.named_root_binding(owner, selected, path, root_name, flow,
-                                                              reject_missing=reject_missing)
+        if path.startswith('$'):
+            loc, consumed = self.saved_system_location(owner, selected, path, flow)
             if loc is None:
-                return None, rejected
+                return None, False
+        else:
+            root = re.match(r'[A-Z_][A-Z_0-9]*', path)
+            if root is None:
+                if reject_missing:
+                    loc, _, rejected = self.named_root_binding(owner, selected, path, path, flow, reject_missing=True)
+                    return loc, rejected
+                return None, False
+            root_name = root[0]
+            loc = self.global_slot(root_name, node, program=selected)
+            consumed = root.end()
+            if loc is None:
+                plan = self.binding_plan(selected)
+                if plan is not None and (plan.get('status') != 'available' or root_name in plan.get('types', {})):
+                    return None, False
+                loc, consumed, rejected = self.named_root_binding(owner, selected, path, root_name, flow,
+                                                                  reject_missing=reject_missing)
+                if loc is None:
+                    return None, rejected
         rest = path[consumed:]
         while rest and loc:
             if loc.named_data:
@@ -3077,8 +3112,7 @@ class _Analyzer:
 
     def variable_info_values(self, known, output, node, flow, conditional):
         owner, path = known
-        if (not all(type(value) is str and value.isascii() for value in (owner, path))
-                or path.startswith('$')):
+        if not all(type(value) is str and value.isascii() for value in (owner, path)):
             return None
         dims, dim_leaf = _array_dimensions(output[3].spec)
         if dims != [3] or dim_leaf != ['INTEGER']:
@@ -3151,6 +3185,29 @@ class _Analyzer:
                     return True
         return UNKNOWN if plan['types'] else False
 
+    def update_program_attribute(self, name, key, value, record, attached, flow):
+        if key not in PROGRAM_WRITABLE_ATTRIBUTES:
+            return 2
+        active_call = name == self.program or name in self.task_roots or any(
+            frame['key'][0] == name for frame in self.frames
+        )
+        if active_call or record is not None and record.get('active', False):
+            return 4
+        if self.saved_bindings is None or name in flow.requested_tasks:
+            return None
+        if attached and self.saved_bindings.program_attributes is None:
+            return None
+        if value is not UNKNOWN:
+            try:
+                with rt._numeric_scope('pythonic'):
+                    value = ProgramAttributes._value(key, value)
+            except rt.KarelRuntimeError:
+                return None
+        flow.program_attributes[name, key] = value
+        if len(flow.program_attributes) > MAX_FACTS:
+            raise _Limit('Analysis storage limit reached')
+        return 0
+
     def program_metadata_values(self, operation, known, outputs, node, flow, conditional):
         name = known[0]
         if type(name) is not str or not name.isascii():
@@ -3174,11 +3231,17 @@ class _Analyzer:
         selector = known[1]
         if type(selector) is not int:
             return None
+        writing = operation == 'SET_ATTR_PRG'
+        payload = () if writing else (None, None)
         key = program_attribute_key(selector)
         if key is None:
-            return None, None, _Value(2, spec=['INTEGER'])
+            return (*payload, _Value(2, spec=['INTEGER']))
         if not attached and record is None:
-            return (None, None, _Value(1, spec=['INTEGER'])) if known_context else None
+            return (*payload, _Value(1, spec=['INTEGER'])) if known_context else None
+        if writing:
+            value = known[3] if key in PROGRAM_TEXT_ATTRIBUTES else known[2]
+            status = self.update_program_attribute(name, key, value, record, attached, flow)
+            return (_Value(status, spec=['INTEGER']),) if status is not None else None
         if not known_context and key not in ('AT_PROG_NAME', 'AT_PROG_TYPE'):
             return None
         if attached and key == 'AT_COMMENT' and 'source_comment' not in plan and (
@@ -3186,18 +3249,28 @@ class _Analyzer:
             return None
         comment = plan.get('source_comment') if attached else None
         value = program_attribute_value(name, key, record, attached=attached, comment=comment)
+        updated = flow.program_attributes.get((name, key))
+        if updated is MAYBE_ATTRIBUTE:
+            if value is None:
+                target = outputs[1] if key in PROGRAM_TEXT_ATTRIBUTES else outputs[0]
+                self.write(target, _Value(spec=target.spec), flow, node, definite=False)
+                return None, None, _Value(spec=['INTEGER'])
+            value = UNKNOWN
+        elif updated is not None:
+            value = updated
         if value is None:
             return None, None, _Value(3, spec=['INTEGER'])
         status = _Value(0, spec=['INTEGER'])
         if key in PROGRAM_TEXT_ATTRIBUTES:
             spec = outputs[1].spec
-            value = value[:spec[1]] if type(spec[1]) is int else UNKNOWN
+            value = value[:spec[1]] if type(value) is str and type(spec[1]) is int else UNKNOWN
             return None, _Value(value, spec=spec), status
         return _Value(value, spec=['INTEGER']), None, status
 
     def inspection_call(self, node, flow, conditional):
         operation = node['value']
-        inputs = {'VAR_INFO': 2, 'VAR_LIST': 5, 'PROG_LIST': 4, 'LOAD_STATUS': 1, 'GET_ATTR_PRG': 2}[operation]
+        inputs = {'VAR_INFO': 2, 'VAR_LIST': 5, 'PROG_LIST': 4, 'LOAD_STATUS': 1,
+                  'GET_ATTR_PRG': 2, 'SET_ATTR_PRG': 4}[operation]
         known = []
         with self.capture_operands() as pending:
             for arg in node['args'][:inputs]:
@@ -3257,7 +3330,7 @@ class _Analyzer:
             return self.create_variable(node, flow, conditional)
         if name in ('RENAME_VAR', 'RENAME_VARS'):
             return self.rename_variable(node, flow, conditional)
-        if name in ('VAR_INFO', 'VAR_LIST', 'PROG_LIST', 'LOAD_STATUS', 'GET_ATTR_PRG'):
+        if name in ('VAR_INFO', 'VAR_LIST', 'PROG_LIST', 'LOAD_STATUS', 'GET_ATTR_PRG', 'SET_ATTR_PRG'):
             return self.inspection_call(node, flow, conditional)
         if name in ('UNINIT', 'ARRAY_LEN'):
             return self.data_metadata_call(node, flow, conditional)
