@@ -78,6 +78,8 @@ class OperatorLowering:
                 self.error('E_WRITE_ITEM', 'WRITE format specifiers use double colons', token)
             self.error('E_TYPE', f'Unsupported {left_type[0]} {operator} {right_type[0]}', token)
         self._record_binary_operator(expr, left_type, right_type, result_type)
+        if operator == ':':
+            self.geometry_expression_types[id(expr)] = result_type
 
         if self.mode == 'pythonic':
             if boolean_branch:

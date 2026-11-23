@@ -11,7 +11,8 @@ ROBOT_SNAPSHOTS = {'CURPOS': ('XYZWPREXT',), 'CURJPOS': ('JOINTPOS', 9)}
 ROBOT_RANGE_QUERIES = {'IN_RANGE', 'J_IN_RANGE', 'CHECK_EPOS'}
 ROBOT_CONVERSIONS = {'JOINT2POS': 4, 'POS2JOINT': 7}
 CONFIG_TEXT_CONVERSIONS = {'CNV_STR_CONF', 'CNV_CONF_STR', 'CNV_CNF_STRG'}
-POSE_CONSTRUCTORS = {'POS', 'VEC', 'MIRROR'}
+GEOMETRY_FUNCTIONS = {'MIRROR', 'FRAME', 'INV'} | rt.POSITION_AXIS_FUNCTIONS.keys()
+POSE_CONSTRUCTORS = {'POS', 'VEC'} | GEOMETRY_FUNCTIONS
 MODEL_SAMPLE_LIMIT = 1024
 
 
@@ -20,23 +21,57 @@ class RobotFactsUnavailable(ValueError):
 
 
 def constructor_schema(name, arity):
-    if name == 'VEC':
+    if name == 'VEC' or name in rt.POSITION_AXIS_FUNCTIONS:
         return ['VECTOR']
+    if name in ('FRAME', 'INV', ':'):
+        return None
     return ['XYZWPREXT' if name == 'MIRROR' or arity == 10 else 'XYZWPR']
 
 
 def construct_pose(name, arguments, line):
-    if name == 'MIRROR' and any(value.spec and value.spec[0] == 'JOINTPOS' for value in arguments[:2]):
-        raise RobotFactsUnavailable('MIRROR joint operands require a robot-model conversion')
     values = [materialized_value(value) for value in arguments]
     if any(value is UNKNOWN for value in values):
         return None
     with rt._numeric_scope('pythonic'):
         if name == 'MIRROR':
             result = mirror(*values, line=line)
+        elif name == ':':
+            result = rt.frame_transform(*values, line=line)
         else:
             result = rt.builtin(name, values, line)
     return detached_facts(result)
+
+
+def capture_geometry_value(value, operation, line):
+    """Apply the checked context-free operand capture before later operands run."""
+    raw = materialized_value(value)
+    if raw is UNKNOWN or not value.spec:
+        return value
+    with rt._numeric_scope('pythonic'):
+        if operation == 'MIRROR':
+            captured = rt.service_value(raw, line)
+        elif value.spec[0] == 'VECTOR':
+            captured = rt.vector_value(raw, line)
+        elif value.spec[0] == 'CONFIG':
+            captured = rt.positional_value(('CONFIG',), raw, line)
+        else:
+            captured = rt.frame_value(raw, line, expected=tuple_spec(value.spec))
+    return detached_facts(captured)
+
+
+def capture_unpos_value(value, line, *, with_axes):
+    raw = materialized_value(value)
+    if raw is UNKNOWN or not value.spec:
+        return None
+    with rt._numeric_scope('pythonic'):
+        return rt.unpos_source(raw, tuple_spec(value.spec), line, with_axes=with_axes)
+
+
+def unpos_output_facts(value, specs, line):
+    with rt._numeric_scope('pythonic'):
+        outputs = [_reference(spec) for spec in specs]
+        rt.unpos_value(value, outputs, line)
+        return [_output_facts(output) for output in outputs]
 
 
 def current_robot_facts(robot, operation, line, *, select):
@@ -119,6 +154,14 @@ def evaluate_robot_assignment(robot, target, value, line, tick, *, operation='Ki
         ),
         tick, MODEL_SAMPLE_LIMIT if sample_limit is None else sample_limit,
     )
+
+
+def convert_known_robot_value(robot, target, value, line, tick, *, operation):
+    source = materialized_value(value)
+    if source is UNKNOWN:
+        raise RobotFactsUnavailable(operation+' requires known position data at run time')
+    converted = evaluate_robot_assignment(robot, tuple_spec(target), source, line, tick, operation=operation)
+    return detached_facts(converted)
 
 
 def _convert_model_leaf(context, expected, value, line, check):

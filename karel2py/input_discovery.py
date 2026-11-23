@@ -27,9 +27,11 @@ from .position_register_models import register_description
 from .input_robot_tables import RobotTableFacts
 from .input_robot_transfers import inspect_robot_variable, transfer_robot_variable
 from .input_robot_values import (
-    CONFIG_TEXT_CONVERSIONS, POSE_CONSTRUCTORS, ROBOT_CONVERSIONS, ROBOT_RANGE_QUERIES, ROBOT_SNAPSHOTS,
-    RobotFactsUnavailable, check_robot_range, construct_pose, constructor_schema, convert_config_text,
-    convert_robot_coordinates, current_robot_facts, evaluate_robot_aggregate, evaluate_robot_assignment,
+    CONFIG_TEXT_CONVERSIONS, GEOMETRY_FUNCTIONS, POSE_CONSTRUCTORS, ROBOT_CONVERSIONS, ROBOT_RANGE_QUERIES,
+    ROBOT_SNAPSHOTS, RobotFactsUnavailable, capture_geometry_value, capture_unpos_value, check_robot_range,
+    construct_pose, constructor_schema, convert_config_text, convert_known_robot_value, convert_robot_coordinates,
+    current_robot_facts,
+    evaluate_robot_aggregate, evaluate_robot_assignment, unpos_output_facts,
 )
 from .inspection import (
     CATALOG_SCAN_LIMIT, catalog_key, catalog_type_matches, describe, effective_list_options,
@@ -1347,6 +1349,8 @@ class _Analyzer:
         while receiver['kind'] in ('group', 'field', 'index'):
             receiver = receiver['args'][0]
         kind = receiver['kind']
+        if kind == 'binary' and receiver['value'] == ':':
+            return True
         if kind not in ('call', 'name'):
             return False
         name = receiver['value']
@@ -1358,7 +1362,7 @@ class _Analyzer:
         if kind == 'call' and name not in self.plan['routines']:
             result = POSITION_GETTERS.get(name) or ROBOT_SNAPSHOTS.get(name)
             if name in POSE_CONSTRUCTORS:
-                result = constructor_schema(name, len(receiver['args']))
+                return True
         return bool(result and result[0] in (*rt.RECORD_TYPES, 'ARRAY', 'JOINTPOS', 'PATH'))
 
     def select_result_member(self, value, kind, key, node):
@@ -1493,6 +1497,8 @@ class _Analyzer:
             return self.expr(args[0], flow, conditional, partial=partial, path_io=path_io,
                              statement_call=statement_call, raw_scalar=raw_scalar,
                              argument_path_edits=argument_path_edits)
+        if kind == 'binary' and value in (':', '>=<'):
+            return self.pose_constructor_call(node, flow, conditional)
         if kind in ('unary','binary'):
             if kind=='binary' and value in ('AND','OR'):
                 left=self.expr(args[0],flow,conditional);evaluation=node.get('evaluation')
@@ -3843,15 +3849,31 @@ class _Analyzer:
             return
         cross_model = (kind == 'JOINTPOS') != (operation == 'SET_JPOS_REG')
         if cross_model:
+            self.context('robot', None)
             if adapter is not None and self.saved_bindings.robot is None and stable:
                 self.bank_status(status, 3, flow, node)
-            else:
-                self.context('robot', None)
-                self.unresolved_at('position-model', operation+' requires a robot-model conversion', node)
-                self.opaque(flow)
+                return
+            target = ['JOINTPOS', 9] if operation == 'SET_JPOS_REG' else ['XYZWPREXT']
+            converted = self.position_model_value(operation, address[0], target, source, node, flow)
+            if flow.stopped and not flow.opaque:
+                return
+            flow.position_cells[address] = (converted or _Value(spec=target)) if stable else UNKNOWN
+            code = 0 if converted is not None and stable and adapter is not None else UNKNOWN
         else:
             flow.position_cells[address] = checked_position_facts(source) if stable else UNKNOWN
-            self.bank_status(status, 0 if stable and adapter is not None else UNKNOWN, flow, node)
+            code = 0 if stable and adapter is not None else UNKNOWN
+        self.bank_status(status, code, flow, node)
+
+    def position_model_value(self, operation, group, target, value, node, flow):
+        try:
+            selected = self.selected_robot_for_discovery(operation, node, flow, group=group)
+            return convert_known_robot_value(selected, target, value, node.get('line'), self.tick, operation=operation)
+        except RobotFactsUnavailable as error:
+            self.unresolved_at('position-model', str(error), node)
+        except (rt.KarelRuntimeError, TypeError, ValueError, ArithmeticError) as error:
+            self.unresolved_at('position-model', str(error), node)
+            flow.stopped = True
+        return None
 
     def inspect_position(self, stored, initial, receivers, status, node, flow, configured):
         if stored is POSITION_CLEARED:
@@ -3886,14 +3908,19 @@ class _Analyzer:
             self.read(loc, node, flow, conditional or stored is UNKNOWN, partial=True)
         spec = stored.spec if isinstance(stored, _Value) else initial.spec if initial is not None else None
         if spec and (spec[0] == 'JOINTPOS') != (loc.spec[0] == 'JOINTPOS'):
+            self.context('robot', None)
             if (isinstance(stored, _Value) and self.saved_bindings is not None
                     and self.saved_bindings.positions is not None and self.saved_bindings.robot is None):
                 self.position_read_failed(operation, status, 3, node, flow, 'stored representation requires a robot model')
                 return result
-            self.context('robot', None)
-            self.unresolved_at('position-model', operation+' requires a robot-model conversion', node)
-            if self.saved_bindings is not None and self.saved_bindings.robot is not None:
-                self.opaque(flow)
+            if isinstance(stored, _Value):
+                converted = self.position_model_value(operation, loc.parts[0][1], loc.spec, stored, node, flow)
+                if flow.stopped and not flow.opaque:
+                    return result
+                if converted is not None:
+                    result = converted
+            else:
+                self.unresolved_at('position-model', operation+' needs the editable saved register value at run time', node)
         elif isinstance(stored, _Value) and spec:
             try:
                 result = position_register_result(loc.spec, stored, tick=self.tick)
@@ -3976,8 +4003,9 @@ class _Analyzer:
             self.unresolved_at('robot-tables', str(error), node)
             flow.stopped = True
 
-    def selected_robot_for_discovery(self, operation, node, flow):
-        group = self.default_position_group(None)
+    def selected_robot_for_discovery(self, operation, node, flow, *, group=None):
+        if group is None:
+            group = self.default_position_group(None)
         robot = self.query_robot_group(operation, group, node, flow)
         return flow.robot_tables.selected_robot(robot, group)
 
@@ -4203,23 +4231,76 @@ class _Analyzer:
         spec = (_array_value_schema(target, value.spec) or target) if target[0] == 'ARRAY' else target
         return _Value(complete=conversion != 'kinematic_record', spec=spec)
 
+    def geometry_operand_facts(self, operation, value, node, flow):
+        joint = value.spec and value.spec[0] == 'JOINTPOS'
+        line = node.get('line')
+        try:
+            if joint:
+                selected = self.selected_robot_for_discovery(operation, node, flow)
+                return convert_known_robot_value(selected, ['XYZWPREXT'], value, line, self.tick, operation=operation)
+            if operation != 'UNPOS':
+                return capture_geometry_value(value, operation, line)
+            return value
+        except RobotFactsUnavailable as error:
+            self.unresolved_at('geometry', str(error), node)
+        except (rt.KarelRuntimeError, ValueError, ArithmeticError) as error:
+            self.unresolved_at('geometry', str(error), node)
+            flow.stopped = True
+        return _Value(spec=['XYZWPREXT'] if joint else value.spec)
+
     def pose_constructor_call(self, node, flow, conditional):
         name = node['value']
-        result = _Value(spec=constructor_schema(name, len(node['args'])))
-        operands = self.service_operands(node, len(node['args']), flow, conditional)
-        if operands is None:
+        schema = node.get('geometry_result_type') or constructor_schema(name, len(node['args']))
+        result = _Value(spec=['BOOLEAN'] if name == '>=<' else schema)
+        inputs = []
+        for index, operand in enumerate(node['args']):
+            value = self.expr(operand, flow, conditional)
+            if flow.stopped and not flow.opaque:
+                return result
+            if (name in GEOMETRY_FUNCTIONS or name in (':', '>=<')) and not (name == 'MIRROR' and index == 2):
+                value = self.geometry_operand_facts(name, value, operand, flow)
+                if flow.stopped and not flow.opaque:
+                    return result
+            inputs.append(value)
+        if name == '>=<':
+            self.unresolved_at('geometry', 'Pose comparison needs explicit host tolerances at run time', node)
             return result
-        inputs, _ = operands
         try:
             return construct_pose(name, inputs, node.get('line')) or result
-        except RobotFactsUnavailable as error:
-            self.context('robot', None)
-            self.unresolved_at('geometry', str(error), node)
-            return result
         except (rt.KarelRuntimeError, ValueError, ArithmeticError) as error:
             self.unresolved_at('geometry', str(error), node)
             flow.stopped = True
             return result
+
+    def unpos_call(self, node, flow, conditional):
+        source, *outputs = node['args']
+        value = self.expr(source, flow, conditional)
+        if flow.stopped and not flow.opaque:
+            return _Value()
+        value = self.geometry_operand_facts('UNPOS', value, source, flow)
+        if flow.stopped and not flow.opaque:
+            return _Value()
+        line = node.get('line')
+        try:
+            captured = capture_unpos_value(value, line, with_axes=len(outputs) == 10)
+        except (rt.KarelRuntimeError, ValueError, ArithmeticError) as error:
+            self.unresolved_at('geometry', str(error), source)
+            flow.stopped = True
+            return _Value()
+        operands = self.service_operands(dict(node, args=outputs), 0, flow, conditional)
+        if operands is None or not self.checked_robot_service_outputs(operands[1], node, flow):
+            return _Value()
+        locations = operands[1]
+        try:
+            values = (unpos_output_facts(captured, [loc.spec for loc in locations], line) if captured is not None
+                      else [_Value(spec=loc.spec) for loc in locations])
+        except (rt.KarelRuntimeError, ValueError, ArithmeticError) as error:
+            self.unresolved_at('geometry', str(error), node)
+            flow.stopped = True
+            return _Value()
+        for loc, output in zip(locations, values):
+            self.write(loc, output, flow, node)
+        return _Value()
 
     def call(self, node, flow, conditional, *, statement_call=False, argument_path_edits=False):
         name=node['value'];args=node['args']
@@ -4254,6 +4335,8 @@ class _Analyzer:
             return self.config_text_call(node, flow, conditional)
         if name in POSE_CONSTRUCTORS:
             return self.pose_constructor_call(node, flow, conditional)
+        if name == 'UNPOS':
+            return self.unpos_call(node, flow, conditional)
         if name in ('UNINIT', 'ARRAY_LEN'):
             return self.data_metadata_call(node, flow, conditional)
         if name in SCALAR_PURE:return self.scalar_call(node,flow,conditional)

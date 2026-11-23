@@ -116,6 +116,7 @@ class BuiltinFunctionLowering:
         code, spec = self.expression(argument)
         self.frame_result_type([spec], argument.token)
         code = self.geometry_operand(code, spec, argument.token, expr.value)
+        self.geometry_expression_types[id(expr)] = ('VECTOR',)
         self.position_axis_uses.append(dict(
             function=expr.value, body=self.current_routine.name if self.current_routine else self.program.name,
             line=expr.token.line, column=expr.token.column, operand_type=spec[0], result_type='VECTOR',
@@ -140,6 +141,7 @@ class BuiltinFunctionLowering:
             codes.append(code)
             specs.append(spec)
         result_type = self.frame_call_result_type(name, specs, expr.token)
+        self.geometry_expression_types[id(expr)] = result_type
         use = dict(operation=name, body=self.current_routine.name if self.current_routine else self.program.name,
                    line=expr.token.line, column=expr.token.column, operand_types=[spec[0] for spec in specs],
                    result_type=result_type[0], evaluated_once=True, operands_copied=True)

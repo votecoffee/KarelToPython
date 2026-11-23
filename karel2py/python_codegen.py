@@ -63,6 +63,7 @@ class Emitter(DeclarationPasses, TypeQueries, ExpressionLowering, AssignmentLowe
         self.path_assignment_schemas = {}
         self.geometry_assignment_conversions = {}
         self.geometry_argument_conversions = {}
+        self.geometry_expression_types = {}
         self.geometry_return_conversions = {}
         self.path_array_conversion_schemas = {}
         self.predefined_structure_uses = []

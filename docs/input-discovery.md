@@ -177,8 +177,12 @@ Discovery follows compatible source writes into `GET_POS_REG` and
 getter after a proven clear reports the failed read without adding a value to
 seed. For a read from the initial context, the getter schema describes the
 logical result and the editor uses the actual saved representation. Supplying
-a missing register refreshes type-dependent inputs. Pose-to-joint and
-joint-to-pose register conversions still require explicit review.
+a missing register refreshes type-dependent inputs. With known source-written
+values, discovery follows both pose-to-joint and joint-to-pose conversions
+using the register's group and its selected frame and tool. A model-backed
+write records the converted representation for later reads and `POS_REG_TYPE`.
+Editable saved values and conversions that exceed the solver budget remain
+open during discovery.
 
 ### Robot snapshots and range checks
 
@@ -190,8 +194,13 @@ derive a pose from saved joints and the selected frame and tool.
 `IN_RANGE`, `J_IN_RANGE` and `CHECK_EPOS` use known source data, explicit
 joint limits, or the saved DH model. Discovery bounds the solver work and
 considers both branches when a result depends on run-time inputs or exceeds
-that budget. Known `VEC`, `POS` and Cartesian `MIRROR` values can feed
-these checks.
+that budget. Known `VEC`, `POS` and `MIRROR` values can feed these checks.
+Discovery also follows `INV`, `FRAME`, frame composition with `:`,
+`ORIENT`, `APPROACH` and `UNPOS`. A joint operand uses the portable DH
+model and the frame and tool selected when that operand is evaluated.
+`UNPOS` captures the converted pose before evaluating its output
+selectors. Pose comparisons with `>=<` leave both branches open because
+they require explicit host tolerances.
 
 `JOINT2POS` and `POS2JOINT` use known operands and the calling task's
 saved portable DH model. Discovery follows the pose, CONFIG, external-axis

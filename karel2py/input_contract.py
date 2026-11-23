@@ -182,6 +182,9 @@ def build(program, emitter):
             row['args'] = encode(value.args, depth + 1)
             if kind == 'Expr':
                 row['value'] = encode(value.value, depth + 1)
+                geometry_type = emitter.geometry_expression_types.get(id(value))
+                if geometry_type is not None:
+                    row['geometry_result_type'] = encode(geometry_type, depth + 1)
                 if value.kind == 'index' and emitter.path_header_index(value.args[-1]):
                     row['static_zero_subscript'] = True
                 if value.kind=='binary' and value.value in ('AND','OR'):
