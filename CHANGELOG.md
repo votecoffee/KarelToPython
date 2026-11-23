@@ -1,5 +1,13 @@
 # Changelog
 
+## 26.1123.140638 - 2026-11-23
+
+- Follow grouped current robot snapshots and masks through CURPOS and CURJPOS.
+  Use explicit joint limits and the portable DH model for known range checks.
+- Carry known fields through VEC, POS and Cartesian MIRROR. Decline model
+  results when operands, frame selection, task ordering or solver budget
+  prevent a proof.
+
 ## 26.1123.135359 - 2026-11-23
 
 - Track grouped position-register writes, clears, type queries, and getter

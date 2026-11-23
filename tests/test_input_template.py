@@ -3390,6 +3390,94 @@ class InputTemplateTests(unittest.TestCase):
         self.assertEqual(result['template']['bindings'],[])
         self.assertEqual(result['template']['requirements'][0]['service'],'numeric')
 
+    def test_current_robot_snapshots_follow_groups_masks_and_direct_selectors(self):
+        context = {'robot': {'active_group': 2, 'groups': {
+            '1': {'current': {'joints': {'type': ['JOINTPOS', 1], 'value': [5.0]}}},
+            '2': {'dh': [{'a': 100.0, 'min': 0.0, 'max': 0.0}],
+                  'current': {'joints': {'type': ['JOINTPOS', 1], 'value': [0.0]},
+                              'axis_limit_mask': 3, 'overtravel_mask': 7}},
+        }}}
+        prepared = prepare(
+            'xcoord=CURPOS((0),travel).x joints=CURJPOS(limit_mask,0,2) from_one=CURJPOS(0,0,1) '
+            'IF (xcoord=100.0) AND (limit_mask=3) AND (travel=7) AND (joints[9]=0.0) AND (from_one[1]=5.0) '
+            'THEN WRITE(wanted) ELSE WRITE(unused) ENDIF',
+            decl='xcoord:REAL joints,from_one:JOINTPOS limit_mask,travel,wanted,unused:INTEGER',
+            context=context,
+        )
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'WANTED'})
+        self.assertEqual(report['context_requirements'], [{'service': 'robot', 'address': None}])
+        self.assertFalse(any(row['code'] == 'service' for row in prepared['template']['requirements']))
+
+    def test_robot_range_checks_follow_complete_pose_and_joint_operands(self):
+        prepared = prepare(
+            'cfg=CURPOS().config_data f=POS(0,0,0,0,0,0,cfg) '
+            'p=POS(100,0,0,0,0,0,cfg) j[1]=0.0 '
+            'IF IN_RANGE(p) AND J_IN_RANGE(j) THEN CHECK_EPOS(j,f,f,s) '
+            'p=POS(120,0,0,0,0,0,cfg) CHECK_EPOS(p,f,f,unreachable) '
+            'IF (s=0) AND (unreachable=1) THEN WRITE(wanted) ELSE WRITE(unused) ENDIF '
+            'ELSE WRITE(unused) ENDIF',
+            decl='cfg:CONFIG p,f:XYZWPR j:JOINTPOS1 s,unreachable,wanted,unused:INTEGER',
+            context={'robot': {'dh': [{'a': 100.0, 'min': 0.0, 'max': 0.0}],
+                               'current': {'joints': {'type': ['JOINTPOS', 1], 'value': [0.0]}}}},
+        )
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'WANTED'})
+
+    def test_geometry_constructors_and_cartesian_mirror_keep_known_fields(self):
+        prepared = prepare(
+            'cfg=CURPOS().config_data f=POS(0,0,0,0,0,0,cfg) point=VEC(11,2,3) '
+            'p=POS(point.x,point.y,point.z,0,0,0,cfg) reflected=MIRROR(p,f,FALSE) '
+            'IF (reflected.x=11.0) AND (reflected.y=-2.0) AND (reflected.z=3.0) '
+            'THEN WRITE(wanted) ELSE WRITE(unused) ENDIF',
+            decl='cfg:CONFIG p,f:XYZWPR point:VECTOR reflected:XYZWPREXT wanted,unused:INTEGER',
+            context={'robot': {'dh': [{'a': 100.0}], 'current': {
+                'joints': {'type': ['JOINTPOS', 1], 'value': [0.0]}}}},
+        )
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'WANTED'})
+
+    def test_unknown_joint_input_keeps_range_branches_and_unrelated_facts(self):
+        prepared = prepare(
+            'keep=7 joint[1]=angle '
+            'IF J_IN_RANGE(joint) THEN WRITE(wanted,keep) ELSE WRITE(alternate,keep) ENDIF',
+            decl='angle:REAL joint:JOINTPOS1 wanted,alternate,keep:INTEGER',
+            context={'robot': {'joint_limits': [[-10.0, 10.0]]}},
+        )
+        report = prepared['template']['discovery']
+        self.assertEqual([row['code'] for row in report['unresolved']], ['robot-range'])
+        self.assertEqual(set(by_path(prepared)), {'ANGLE', 'ALTERNATE', 'WANTED'})
+
+    def test_source_frame_selection_blocks_stale_model_pose_but_keeps_current_joints(self):
+        prepared = prepare(
+            '$MNUFRAMENUM[1]=frame_no p=CURPOS() j=CURJPOS() '
+            'IF j[1]=0.0 THEN IF p.x=100.0 THEN WRITE(wanted) ELSE WRITE(alternate) ENDIF '
+            'ELSE WRITE(unused) ENDIF',
+            decl='p:XYZWPREXT j:JOINTPOS frame_no,wanted,alternate,unused:INTEGER',
+            context={'robot': {'dh': [{'a': 100.0}], 'current': {
+                'joints': {'type': ['JOINTPOS', 1], 'value': [0.0]}}}},
+        )
+        report = prepared['template']['discovery']
+        self.assertEqual([row['code'] for row in report['unresolved']], ['robot-tables', 'robot-state'])
+        self.assertEqual(set(by_path(prepared)), {'FRAME_NO', 'ALTERNATE', 'WANTED'})
+
+    def test_robot_solver_budget_keeps_both_branches(self):
+        with mock.patch('karel2py.input_robot_values.MODEL_SAMPLE_LIMIT', 1):
+            prepared = prepare(
+                'cfg=CURPOS().config_data p=POS(0,0,30,0,0,0,cfg) '
+                'IF IN_RANGE(p) THEN WRITE(wanted) ELSE WRITE(alternate) ENDIF',
+                decl='cfg:CONFIG p:XYZWPR wanted,alternate:INTEGER',
+                context={'robot': {'dh': [{'type': 'prismatic', 'min': 0.0, 'max': 100.0}], 'current': {
+                    'joints': {'type': ['JOINTPOS', 1], 'value': [0.0]}}}},
+            )
+        report = prepared['template']['discovery']
+        self.assertEqual([row['code'] for row in report['unresolved']], ['robot-range'])
+        self.assertIn('model-sample limit', report['unresolved'][0]['message'])
+        self.assertEqual(set(by_path(prepared)), {'ALTERNATE', 'WANTED'})
+
     def test_position_type_and_clears_track_groups_without_creating_value_inputs(self):
         context = {'positions': {'count': 1, 'groups': [1, 2], 'values': {
             '1:1': {'type': ['JOINTPOS', 2], 'value': {'axes': [6.0, 7.0]}},

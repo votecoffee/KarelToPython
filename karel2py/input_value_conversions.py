@@ -112,6 +112,29 @@ def _const_facts(spec, path, value, output):
         _const_facts(child, path + parts, value.values[slot], output)
 
 
+def materialized_value(value):
+    """Create a detached runtime value only when its data facts are sufficient."""
+    if not value.complete:
+        return UNKNOWN
+    if value.spec is None or value.spec[0] in SCALARS:
+        return value.constant
+    if value.facts is None:
+        return UNKNOWN
+    spec = tuple_spec(value.spec)
+
+    def fact_at(path, schema):
+        return value.facts.get(path, Value(complete=False, spec=list(schema)))
+
+    return _materialize(spec, (), fact_at)
+
+
+def detached_facts(value):
+    """Capture a checked aggregate as independent scalar analysis facts."""
+    facts = {}
+    _const_facts(value.spec, (), value, facts)
+    return Value(complete=all(fact.complete for fact in facts.values()), spec=list(value.spec), facts=facts)
+
+
 def _cast_scalar(expected, actual, source):
     schema = list(expected)
     if source.uninitialized:

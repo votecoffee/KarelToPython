@@ -178,7 +178,22 @@ getter after a proven clear reports the failed read without adding a value to
 seed. For a read from the initial context, the getter schema describes the
 logical result and the editor uses the actual saved representation. Supplying
 a missing register refreshes type-dependent inputs. Pose-to-joint and
-joint-to-pose model conversions still require explicit review.
+joint-to-pose register conversions still require explicit review.
+
+### Robot snapshots and range checks
+
+`CURPOS` and `CURJPOS` can use the saved position or joint snapshot for the
+calling group or an explicit group. Discovery follows supplied mask outputs,
+joint padding and pose fields. With the portable DH model, `CURPOS` can also
+derive a pose from saved joints and the selected frame and tool.
+
+`IN_RANGE`, `J_IN_RANGE` and `CHECK_EPOS` use known source data, explicit
+joint limits, or the saved DH model. Discovery bounds the solver work and
+considers both branches when a result depends on run-time inputs or exceeds
+that budget. Writes to robot frames or tools leave subsequent table-dependent
+queries unresolved. Known `VEC`, `POS` and Cartesian `MIRROR` values can
+feed these checks.
+
 `context_requirements` separately identifies services/addresses used even when
 the source writes before reading. Bank sizes, routes, initial values, robot
 models and successful runtime service statuses are never inferred from that list.
