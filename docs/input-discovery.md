@@ -190,9 +190,19 @@ derive a pose from saved joints and the selected frame and tool.
 `IN_RANGE`, `J_IN_RANGE` and `CHECK_EPOS` use known source data, explicit
 joint limits, or the saved DH model. Discovery bounds the solver work and
 considers both branches when a result depends on run-time inputs or exceeds
-that budget. Writes to robot frames or tools leave subsequent table-dependent
-queries unresolved. Known `VEC`, `POS` and Cartesian `MIRROR` values can
-feed these checks.
+that budget. Known `VEC`, `POS` and Cartesian `MIRROR` values can feed
+these checks.
+
+Discovery follows direct `$MNUFRAMENUM` and `$MNUTOOLNUM` assignments,
+numbered and active frame/tool pose assignments, and subsequent reads in the
+same group. It tracks whole rows, writable pose fields and JOINTPOS writes
+with a saved portable DH model. Later `CURPOS` and Cartesian `IN_RANGE`
+queries use the updated selection and rows. Where branches disagree or
+selectors depend on unknown inputs, discovery reports affected reads and
+keeps both possible branches. Independent groups and rows can still supply
+known values. The editor retains the original saved robot configuration.
+Quoted robot paths in `GET_VAR` and `SET_VAR` still need review during
+discovery unless an explicit saved variable binding supplies the path.
 
 `context_requirements` separately identifies services/addresses used even when
 the source writes before reading. Bank sizes, routes, initial values, robot

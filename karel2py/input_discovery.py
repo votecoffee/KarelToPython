@@ -23,6 +23,7 @@ from .input_position_values import (
     checked_position_facts, merge_positions, position_register_result,
 )
 from .position_register_models import register_description
+from .input_robot_tables import RobotTableFacts, forward_robot_value
 from .input_robot_values import (
     POSE_CONSTRUCTORS, ROBOT_RANGE_QUERIES, ROBOT_SNAPSHOTS, RobotFactsUnavailable,
     check_robot_range, construct_pose, constructor_schema, current_robot_facts,
@@ -34,7 +35,7 @@ from .inspection import (
 from .input_value_conversions import (
     SCALARS, UNKNOWN, Value as _Value, array_dimensions as _array_dimensions,
     array_prefix_addresses, array_prefix_values, convert_value_facts,
-    stored_value as _stored_value, variable_array_prefix_size, variable_transfer_policy,
+    materialized_value, stored_value as _stored_value, variable_array_prefix_size, variable_transfer_policy,
 )
 from .storage import collection_array_cost, list_spec, tuple_spec
 from . import runtime as rt
@@ -213,7 +214,7 @@ class _Flow:
     port_simulation: dict = field(default_factory=dict)
     position_cells: dict = field(default_factory=dict)
     position_order_unknown: bool = False
-    robot_tables_unknown: bool = False
+    robot_tables: RobotTableFacts = field(default_factory=RobotTableFacts)
 
     def copy(self):
         return _Flow(self.defined.copy(),self.assigned.copy(),self.maybe.copy(),
@@ -224,7 +225,7 @@ class _Flow:
                      self.variable_entries.copy(),self.next_variable_entry,
                      self.named_bindings.copy(),self.creation_counts.copy(),self.allocated_variable_units,
                      self.program_attributes.copy(),self.numeric_kinds.copy(),self.port_simulation.copy(),
-                     self.position_cells.copy(),self.position_order_unknown,self.robot_tables_unknown)
+                     self.position_cells.copy(),self.position_order_unknown,self.robot_tables.copy())
 
     def take(self, other):
         self.handlers = other.handlers
@@ -246,7 +247,7 @@ class _Flow:
         self.port_simulation = other.port_simulation
         self.position_cells = other.position_cells
         self.position_order_unknown = other.position_order_unknown
-        self.robot_tables_unknown = other.robot_tables_unknown
+        self.robot_tables = other.robot_tables
 
 
 def _merge(flows):
@@ -326,7 +327,7 @@ def _merge(flows):
                  variable_entries, next_entry, names, creation_counts, units, attributes, numeric_kinds, simulation,
                  merge_positions([flow.position_cells for flow in live], _merged_value),
                  any(flow.position_order_unknown for flow in live),
-                 any(flow.robot_tables_unknown for flow in live))
+                 RobotTableFacts.merge([flow.robot_tables for flow in live]))
 
 
 def _path_record_identity(part):
@@ -466,7 +467,7 @@ class _Analyzer:
         flow.port_simulation.clear()
         flow.position_cells.clear()
         flow.position_order_unknown = True
-        flow.robot_tables_unknown = True
+        flow.robot_tables.invalidate_all()
 
     def context(self, service, address):
         self.contexts.setdefault((service,str(address)),dict(service=service,address=address))
@@ -1467,6 +1468,10 @@ class _Analyzer:
                 if location is not None:
                     self.read(location, node, flow, conditional)
             return _Value(complete=False)
+        if kind in ('system_pose', 'system_selection', 'field'):
+            root, fields = self.robot_table_path(node)
+            if root['kind'] in ('system_pose', 'system_selection'):
+                return self.robot_table_expression(root, fields, node, flow, conditional)
         if kind in ('field','index'):
             if self.selects_routine_result(args[0]):
                 selected = self.routine_result_selection(node, flow, conditional, path_io=path_io)
@@ -2836,7 +2841,7 @@ class _Analyzer:
             if not getting:
                 flow.path_shape_unknown = True
                 if type(path) is not str or path.startswith('$'):
-                    flow.robot_tables_unknown = True
+                    flow.robot_tables.invalidate_all()
                 self.lose_task_order(flow)
         self.write(entry, _Value(), flow, node, definite=False)
         if getting:
@@ -3717,6 +3722,77 @@ class _Analyzer:
         self.bank_status(status, 0, flow, node)
         return result
 
+    @staticmethod
+    def robot_table_path(node):
+        fields = []
+        while node['kind'] in ('field', 'group'):
+            if node['kind'] == 'field':
+                fields.append(node['value'])
+            node = node['args'][0]
+        return node, tuple(reversed(fields))
+
+    def robot_table_selectors(self, root, flow, conditional):
+        selectors = []
+        for arg in root['args']:
+            if flow.stopped and not flow.opaque:
+                return UNKNOWN, UNKNOWN
+            selectors.append(self.expr(arg, flow, conditional).constant)
+        return selectors[0], selectors[1] if len(selectors) == 2 else None
+
+    def robot_table_expression(self, root, fields, node, flow, conditional):
+        operation = root['value']
+        selection = root['kind'] == 'system_selection'
+        group, number = self.robot_table_selectors(root, flow, conditional)
+        if not flow.stopped or flow.opaque:
+            try:
+                robot = self.query_robot_group(operation, group, node, flow)
+                return flow.robot_tables.read(robot, group, operation, number, fields,
+                                              selection=selection, line=node.get('line'))
+            except RobotFactsUnavailable as error:
+                self.unresolved_at('robot-tables', str(error), node)
+            except (rt.KarelRuntimeError, ValueError, ArithmeticError) as error:
+                self.unresolved_at('robot-tables', str(error), node)
+                flow.stopped = True
+        return _Value(complete=False, spec=['INTEGER'] if selection else ['POSITION'] if not fields else None)
+
+    def robot_table_assignment(self, target, operand, node, flow, conditional):
+        root, fields = self.robot_table_path(target)
+        operation = root['value']
+        selection = root['kind'] == 'system_selection'
+        value = self.expr(operand, flow, conditional, partial=True)
+        if flow.stopped and not flow.opaque:
+            return
+        source = materialized_value(value)
+        line = node.get('line')
+        if isinstance(source, rt.JointPosition):
+            try:
+                group = self.default_position_group(None)
+                robot = self.query_robot_group(operation, group, node, flow)
+                selected = flow.robot_tables.selected_robot(robot, group)
+                source = forward_robot_value(selected, source, line, self.tick)
+            except RobotFactsUnavailable as error:
+                self.unresolved_at('robot-tables', str(error), node)
+                source = UNKNOWN
+            except (rt.KarelRuntimeError, ValueError, ArithmeticError) as error:
+                self.unresolved_at('robot-tables', str(error), node)
+                flow.stopped = True
+                return
+        group, number = self.robot_table_selectors(root, flow, conditional)
+        if flow.stopped and not flow.opaque:
+            return
+        try:
+            try:
+                robot = self.query_robot_group(operation, group, node, flow)
+            except RobotFactsUnavailable:
+                robot = None
+            flow.robot_tables.write(robot, None if group is UNKNOWN else group, operation, number, fields,
+                                    source, selection=selection, line=line)
+        except RobotFactsUnavailable as error:
+            self.unresolved_at('robot-tables', str(error), node)
+        except (rt.KarelRuntimeError, ValueError, ArithmeticError) as error:
+            self.unresolved_at('robot-tables', str(error), node)
+            flow.stopped = True
+
     def query_robot_group(self, operation, group, node, flow):
         self.context('robot', None)
         if group is UNKNOWN or flow.opaque or flow.task_order_unknown or self.callback_depth or self.repeat_depth:
@@ -3760,7 +3836,8 @@ class _Analyzer:
         masks = UNKNOWN, UNKNOWN
         try:
             robot = self.query_robot_group(operation, group, node, flow)
-            result = current_robot_facts(robot, operation, node.get('line'), tables_known=not flow.robot_tables_unknown)
+            result = current_robot_facts(robot, operation, node.get('line'),
+                                         select=lambda: flow.robot_tables.selected_robot(robot, group))
             masks = robot.current.axis_limit_mask, robot.current.overtravel_mask
         except (RobotFactsUnavailable, rt.KarelRuntimeError, ValueError, ArithmeticError) as error:
             self.unresolved_at('robot-state', str(error), node)
@@ -3794,7 +3871,7 @@ class _Analyzer:
         try:
             robot = self.query_robot_group(operation, group, node, flow)
             answer = check_robot_range(robot, operation, values, node.get('line'),
-                                       tables_known=not flow.robot_tables_unknown, tick=self.tick)
+                                       select=lambda: flow.robot_tables.selected_robot(robot, group), tick=self.tick)
         except (RobotFactsUnavailable, rt.KarelRuntimeError, ValueError, ArithmeticError) as error:
             self.unresolved_at('robot-range', str(error), node)
         if framed:
@@ -4492,17 +4569,7 @@ class _Analyzer:
                 self.write(target, value, flow, node)
             return
         if kind in ('system_selection_assign', 'system_pose_assign'):
-            target, source = args
-            self.expr(source, flow, conditional, partial=True)
-            while target['kind'] == 'field':
-                target = target['args'][0]
-            for selector in target['args']:
-                if flow.stopped and not flow.opaque:
-                    return
-                self.expr(selector, flow, conditional)
-            self.context('robot', None)
-            self.unresolved_at('robot-tables', 'Robot frame or tool write needs run-time evaluation', node)
-            flow.robot_tables_unknown = True
+            self.robot_table_assignment(*args, node, flow, conditional)
             return
         if kind == 'call':
             self.expr(args[0], flow, conditional, statement_call=True)

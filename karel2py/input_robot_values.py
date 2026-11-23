@@ -36,17 +36,16 @@ def construct_pose(name, arguments, line):
     return detached_facts(result)
 
 
-def current_robot_facts(robot, operation, line, *, tables_known):
+def current_robot_facts(robot, operation, line, *, select):
     if operation == 'CURPOS' and robot.current is not None and robot.current.position is None:
-        if not tables_known:
-            raise RobotFactsUnavailable('CURPOS depends on the current frame and tool selection')
         if type(robot.model) is not SerialRobotModel:
             raise RobotFactsUnavailable('CURPOS requires a saved pose or the portable DH model')
+        robot = select()
     with rt._numeric_scope('pythonic'):
         return detached_facts(robot.current_value(operation, line))
 
 
-def check_robot_range(robot, operation, arguments, line, *, tables_known, tick):
+def check_robot_range(robot, operation, arguments, line, *, select, tick):
     values = [materialized_value(value) for value in arguments]
     if any(value is UNKNOWN for value in values):
         raise RobotFactsUnavailable(operation+' needs the source position at run time')
@@ -64,8 +63,7 @@ def check_robot_range(robot, operation, arguments, line, *, tables_known, tick):
                 # temporary context publishes only to local conversion outputs.
                 point = rt.ExecutionContext(robot=robot)._forward_pose(point, frame, tool, None, line)
         else:
-            if not tables_known:
-                raise RobotFactsUnavailable(operation+' depends on the current frame and tool selection')
+            robot = select()
             frame, tool = robot.frame(robot.active_frame), robot.tool(robot.active_tool)
         point = rt.frame_value(point, line)
         checked = 0
