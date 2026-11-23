@@ -184,6 +184,22 @@ class SavedRunEditorTests(unittest.TestCase):
         self.assertEqual(result['text_output'], ' 7\n')
         self.assertEqual(result['variables']['OUT'], {'AMOUNT': 42})
 
+    def test_first_position_value_refreshes_type_dependent_inputs(self):
+        self.create(
+            'POS_REG_TYPE(1,kind,axes,s) '
+            'IF (s=0) AND (kind=9) THEN p=GET_JPOS_REG(1,s) WRITE(p[1],wanted,CR) ELSE WRITE(unused,CR) ENDIF',
+            declarations='VAR kind,axes,s,wanted,unused:INTEGER p:JOINTPOS',
+            context={'positions': {'count': 1, 'groups': [1]}},
+        )
+        before = self.saved['inputs']['template']['bindings']
+        self.assertIn('UNUSED', {row['path'] for row in before})
+        edited = self.save_structure(('position_register', None, '1[group=1]'), {'joints': [3.0] + [0.0]*8})
+        after = edited['inputs']['template']['bindings']
+        self.assertEqual({row['path'] for row in after}, {'1[group=1]', 'WANTED'})
+        self.set_input('variable', 'WANTED', 'INTEGER', '17')
+        results = runner.run_document(self.path)['results']
+        self.assertEqual([float(value) for value in results['text_output'].split()], [3.0, 17.0])
+
     def test_structured_new_position_requires_complete_cartesian_data(self):
         self.create('p=GET_POS_REG(2,s,3)', declarations='VAR p:XYZWPREXT s:INTEGER',
                     context={'positions': {'count': 2, 'groups': [3], 'comments': {'2': 'keep'}}})

@@ -3390,6 +3390,82 @@ class InputTemplateTests(unittest.TestCase):
         self.assertEqual(result['template']['bindings'],[])
         self.assertEqual(result['template']['requirements'][0]['service'],'numeric')
 
+    def test_position_type_and_clears_track_groups_without_creating_value_inputs(self):
+        context = {'positions': {'count': 1, 'groups': [1, 2], 'values': {
+            '1:1': {'type': ['JOINTPOS', 2], 'value': {'axes': [6.0, 7.0]}},
+            '2:1': {'type': ['JOINTPOS', 3], 'value': {'axes': [8.0, 9.0, 10.0]}},
+        }}}
+        prepared = prepare(
+            'POS_REG_TYPE(1,2,kind,axes,before) CLR_POS_REG(1,2,s) '
+            'POS_REG_TYPE(1,2,kind,axes,cleared) '
+            'IF (before=0) AND (s=0) AND (cleared=1) AND (kind=9) AND (axes=3) THEN '
+            'POS_REG_TYPE(1,1,kind,axes,s) '
+            'IF (s=0) AND (axes=2) THEN '
+            'CLR_POS_REG(1,0,s) POS_REG_TYPE(1,1,kind,axes,cleared) '
+            'IF (s=0) AND (cleared=1) AND (axes=2) '
+            'THEN WRITE(wanted) ELSE WRITE(unused) ENDIF ELSE WRITE(unused) ENDIF ELSE WRITE(unused) ENDIF',
+            decl='kind,axes,before,s,cleared,wanted,unused:INTEGER',
+            context=context,
+        )
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'WANTED'})
+        self.assertEqual(prepared['context']['positions'], context['positions'])
+
+    def test_source_joint_write_preserves_width_and_pads_getter_result(self):
+        prepared = prepare(
+            'joint[1]=21.0 joint[2]=22.0 SET_JPOS_REG(1,joint,s) POS_REG_TYPE(1,kind,axes,s) '
+            'out=GET_JPOS_REG(1,s) '
+            'IF (s=0) AND (kind=9) AND (axes=2) AND (out[2]=22.0) AND (out[9]=0.0) '
+            'THEN WRITE(wanted) ELSE WRITE(unused) ENDIF',
+            decl='joint:JOINTPOS2 out:JOINTPOS kind,axes,s,wanted,unused:INTEGER',
+            context={'positions': {'count': 1, 'groups': [1], 'values': {}}},
+        )
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'WANTED'})
+
+    def test_position_getter_selector_uses_source_written_cartesian_fields(self):
+        saved = {'type': ['XYZWPR'], 'value': {
+            'X': 1.0, 'Y': 2.0, 'Z': 3.0, 'W': 0.0, 'P': 0.0, 'R': 0.0,
+            'CONFIG_DATA': {'CFG_TURN_NO1': 0, 'CFG_TURN_NO2': 0, 'CFG_TURN_NO3': 0,
+                            'CFG_FLIP': False, 'CFG_LEFT': False, 'CFG_UP': False, 'CFG_FRONT': False},
+        }}
+        prepared = prepare(
+            'pose=GET_POS_REG(1,s,3) pose.x=13.0 SET_EPOS_REG(2,pose,s,3) '
+            'xcoord=GET_POS_REG(2,s,3).x POS_REG_TYPE(2,3,kind,axes,s) '
+            'IF (s=0) AND (xcoord=13.0) AND (kind=6) AND (axes=3) '
+            'THEN WRITE(wanted) ELSE WRITE(unused) ENDIF',
+            decl='pose:XYZWPREXT xcoord:REAL s,kind,axes,wanted,unused:INTEGER',
+            context={'positions': {'count': 2, 'groups': [3], 'values': {'3:1': saved}}},
+        )
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'1[group=3]', 'WANTED'})
+
+    def test_cross_model_write_without_robot_preserves_source_written_position(self):
+        prepared = prepare(
+            'joint[1]=3.0 SET_JPOS_REG(1,joint,s) SET_POS_REG(1,joint,failed) '
+            'POS_REG_TYPE(1,kind,axes,s) '
+            'IF (failed=3) AND (s=0) AND (kind=9) AND (axes=1) '
+            'THEN WRITE(wanted) ELSE WRITE(unused) ENDIF',
+            decl='joint:JOINTPOS1 s,failed,kind,axes,wanted,unused:INTEGER',
+            context={'positions': {'count': 1, 'values': {}}},
+        )
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'WANTED'})
+
+    def test_getter_after_source_clear_reports_failure_without_seed_rows(self):
+        prepared = prepare(
+            'CLR_POS_REG(1,0,s) out=GET_JPOS_REG(1,s) WRITE(unreachable)',
+            decl='out:JOINTPOS s,unreachable:INTEGER',
+            context={'positions': {'count': 1, 'values': {}}},
+        )
+        report = prepared['template']['discovery']
+        self.assertEqual([row['code'] for row in report['unresolved']], ['position-read'])
+        self.assertEqual(prepared['template']['bindings'], [])
+
     def test_position_groups_and_noncanonical_existing_addresses(self):
         context={'positions':{'count':2,'groups':[3],'values':{'3:02':{'type':['JOINTPOS',2],'value':{'axes':[1.0,2.0]}}}}}
         result=prepare('p=GET_JPOS_REG(2,s,3)',decl='p:JOINTPOS s:INTEGER',context=context)
@@ -3397,7 +3473,10 @@ class InputTemplateTests(unittest.TestCase):
         self.assertEqual((row['status'],row['context_pointer']),('supplied','/positions/values/3:02'))
         self.assertEqual(result['template']['requirements'],[])
         result=prepare('p=GET_POS_REG(2,s)',decl='p:XYZWPREXT s:INTEGER',context=context)
-        self.assertEqual(result['template']['bindings'][0]['status'],'unmapped')
+        self.assertEqual(result['template']['bindings'], [])
+        self.assertEqual([row['code'] for row in result['template']['discovery']['unresolved']], ['position-read'])
+        result=prepare('p=GET_POS_REG(2,s)',decl='p:XYZWPREXT s:INTEGER')
+        self.assertEqual(result['template']['bindings'][0]['status'], 'unmapped')
         self.assertTrue(any(row['code']=='group' for row in result['template']['requirements']))
 
     def test_dynamic_and_external_gaps_are_kept_in_the_same_document(self):

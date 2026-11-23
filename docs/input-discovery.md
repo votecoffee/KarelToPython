@@ -164,8 +164,21 @@ changes. A supplied bank value can establish that a compatible getter
 initializes its receiver while the value itself remains editable. Saving the
 first value for a bank input refreshes the reachable inputs. Comment, routing,
 and live port effects still require review.
-Unspecified position groups retain a caller-default marker. Position getter
-schemas describe the logical read shape, rather than authenticated stored data.
+
+With a configured position bank, discovery resolves an omitted group from the
+calling task's source group, the active robot group, or the runtime default of
+group 1. An unresolved caller group retains a marker.
+`POS_REG_TYPE` uses the stored schema and reports the joint width or
+external-axis count without requiring a value input. `CLR_POS_REG` follows
+single-group clears and group 0 clears across the configured groups.
+
+Discovery follows compatible source writes into `GET_POS_REG` and
+`GET_JPOS_REG`, including direct result selectors and joint padding. A
+getter after a proven clear reports the failed read without adding a value to
+seed. For a read from the initial context, the getter schema describes the
+logical result and the editor uses the actual saved representation. Supplying
+a missing register refreshes type-dependent inputs. Pose-to-joint and
+joint-to-pose model conversions still require explicit review.
 `context_requirements` separately identifies services/addresses used even when
 the source writes before reading. Bank sizes, routes, initial values, robot
 models and successful runtime service statuses are never inferred from that list.

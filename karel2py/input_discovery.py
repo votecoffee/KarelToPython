@@ -18,6 +18,11 @@ from .extended import (
 )
 from .file_io import MAX_PATH_IO_FIELDS, path_io_field_count, path_io_indexes
 from .input_contract import extract, InputContractError
+from .input_position_values import (
+    POSITION_CLEARED, POSITION_GETTERS, POSITION_MODIFIED, POSITION_SERVICES, POSITION_SETTERS,
+    checked_position_facts, merge_positions, position_register_result,
+)
+from .position_register_models import register_description
 from .inspection import (
     CATALOG_SCAN_LIMIT, catalog_key, catalog_type_matches, describe, effective_list_options,
     effective_program_list_options, program_attribute_key, program_attribute_value, program_list_page, variable_list_page,
@@ -202,6 +207,8 @@ class _Flow:
     program_attributes: dict = field(default_factory=dict)
     numeric_kinds: dict = field(default_factory=dict)
     port_simulation: dict = field(default_factory=dict)
+    position_cells: dict = field(default_factory=dict)
+    position_order_unknown: bool = False
 
     def copy(self):
         return _Flow(self.defined.copy(),self.assigned.copy(),self.maybe.copy(),
@@ -211,7 +218,8 @@ class _Flow:
                      self.changed_path_aggregates.copy(),self.record_storage.copy(),self.retired_paths.copy(),
                      self.variable_entries.copy(),self.next_variable_entry,
                      self.named_bindings.copy(),self.creation_counts.copy(),self.allocated_variable_units,
-                     self.program_attributes.copy(),self.numeric_kinds.copy(),self.port_simulation.copy())
+                     self.program_attributes.copy(),self.numeric_kinds.copy(),self.port_simulation.copy(),
+                     self.position_cells.copy(),self.position_order_unknown)
 
     def take(self, other):
         self.handlers = other.handlers
@@ -231,6 +239,8 @@ class _Flow:
         self.program_attributes = other.program_attributes
         self.numeric_kinds = other.numeric_kinds
         self.port_simulation = other.port_simulation
+        self.position_cells = other.position_cells
+        self.position_order_unknown = other.position_order_unknown
 
 
 def _merge(flows):
@@ -307,7 +317,9 @@ def _merge(flows):
                  pauses,uncertain,any(flow.path_shape_unknown for flow in live),path_orders,
                  set.intersection(*(flow.uninitialized for flow in live)),
                  set.union(*(flow.changed_path_aggregates for flow in live)), record_storage, retired_paths,
-                 variable_entries, next_entry, names, creation_counts, units, attributes, numeric_kinds, simulation)
+                 variable_entries, next_entry, names, creation_counts, units, attributes, numeric_kinds, simulation,
+                 merge_positions([flow.position_cells for flow in live], _merged_value),
+                 any(flow.position_order_unknown for flow in live))
 
 
 def _path_record_identity(part):
@@ -445,6 +457,8 @@ class _Analyzer:
         flow.program_attributes.clear()
         flow.numeric_kinds.clear()
         flow.port_simulation.clear()
+        flow.position_cells.clear()
+        flow.position_order_unknown = True
 
     def context(self, service, address):
         self.contexts.setdefault((service,str(address)),dict(service=service,address=address))
@@ -1328,6 +1342,8 @@ class _Analyzer:
                                                    or name in self.frames[-1]['constants'])):
             return False
         result = self.plan['routines'].get(name, {}).get('result')
+        if kind == 'call' and name not in self.plan['routines']:
+            result = POSITION_GETTERS.get(name)
         return bool(result and result[0] in (*rt.RECORD_TYPES, 'ARRAY', 'JOINTPOS', 'PATH'))
 
     def select_result_member(self, value, kind, key, node):
@@ -3284,16 +3300,26 @@ class _Analyzer:
             return None, _Value(value, spec=spec), status
         return _Value(value, spec=['INTEGER']), None, status
 
-    def service_operands(self, node, input_count, flow, conditional):
+    def service_operands(self, node, input_count, flow, conditional, *, trailing=0, complete_input=None):
         values = []
         with self.capture_operands() as pending:
-            for arg in node['args'][:input_count]:
-                values.append(self.expr(arg, flow, conditional))
+            for index, arg in enumerate(node['args'][:input_count]):
+                value = self.expr(arg, flow, conditional)
                 if flow.stopped and not flow.opaque:
                     return None
-            for arg in node['args'][input_count:]:
+                if index == complete_input and _known_missing(value):
+                    self.unresolved_at('position-data', node['value']+' reads a known uninitialized position field', arg)
+                    flow.stopped = True
+                    return None
+                values.append(value)
+            output_end = len(node['args']) - trailing
+            for arg in node['args'][input_count:output_end]:
                 pending.append(self.locate(arg, flow, conditional, capture_node=True,
                                            selector_path_edits=bool(pending)))
+                if flow.stopped and not flow.opaque:
+                    return None
+            for arg in node['args'][output_end:]:
+                values.append(self.expr(arg, flow, conditional, argument_path_edits=all(loc is not None for loc in pending)))
                 if flow.stopped and not flow.opaque:
                     return None
             outputs = [self.resolve_path_slot(loc, node, flow) if loc is not None else None for loc in pending]
@@ -3525,6 +3551,160 @@ class _Analyzer:
             flow.port_simulation[address] = True if code == 0 or simulated is True else UNKNOWN
         self.bank_status(status, code, flow, node)
 
+    def default_position_group(self, adapter):
+        root = self.binding_plan(self.task_roots[-1])
+        explicit = root.get('default_group') if root is not None else None
+        if explicit is not None:
+            return explicit
+        robot = getattr(self.saved_bindings, 'robot', None)
+        if robot is not None:
+            return robot.active_group or 1
+        return 1 if adapter is not None else None
+
+    def position_register_call(self, node, flow, conditional):
+        operation = node['value']
+        target = POSITION_GETTERS.get(operation)
+        setter = operation in POSITION_SETTERS
+        clear = operation == 'CLR_POS_REG'
+        argc = len(node['args'])
+        if target or setter:
+            count = 2 if setter else 1
+            trailing = int(argc > count + 1)
+            explicit = trailing != 0
+        else:
+            count = argc - (1 if clear else 3)
+            trailing = 0
+            explicit = count == 2
+        operands = self.service_operands(node, count, flow, conditional, trailing=trailing,
+                                         complete_input=1 if setter else None)
+        if operands is None:
+            return _Value(complete=False)
+        inputs, outputs = operands
+        if all(loc is not None for loc in outputs) and self.service_outputs_overlap(outputs):
+            return self.reject_service_overlap(node, flow)
+        if not all(loc is not None and self.ordinary_variable_output(loc, node) for loc in outputs):
+            self.unresolved_at('service-output', operation+' requires known ordinary output storage', node)
+            self.opaque(flow)
+            return _Value(complete=False)
+
+        adapter = getattr(self.saved_bindings, 'positions', None)
+        stable = not (flow.opaque or flow.task_order_unknown or self.callback_depth or self.repeat_depth)
+        group = inputs[-1].constant if explicit else self.default_position_group(adapter)
+        number = inputs[0].constant
+        *receivers, status = outputs
+        result = _Value(spec=list(target)) if target else _Value()
+        if type(number) is not int or explicit and type(group) is not int or adapter is None and (
+                number < 1 or group is not None and group < (0 if clear else 1)):
+            self.unresolved_at('dynamic-address', 'Position register address requires a known number and group', node)
+            if clear or setter:
+                flow.position_cells.clear()
+                flow.position_order_unknown = True
+            self.uncertain_bank_read(receivers, status, flow, node, code=0 if target else UNKNOWN)
+            return result
+        address = group, number
+        if adapter is not None and (not 1 <= number <= adapter.count
+                                    or group not in adapter.groups and not (clear and group == 0)):
+            if target:
+                self.position_read_failed(operation, status, 2, node, flow, 'address is outside the configured bank')
+            else:
+                self.bank_status(status, 2, flow, node)
+            return result
+        loc = _Location('position_register', '', number, (('group', group),), result.spec)
+        self.context('positions', None if clear and group == 0 else loc.path)
+        if clear:
+            self.clear_position(address, adapter, status, node, flow, stable)
+        elif setter:
+            self.set_position(operation, address, inputs[1], adapter, status, node, flow, stable)
+        else:
+            stored = flow.position_cells.get(address, UNKNOWN if flow.position_order_unknown else None) if stable else UNKNOWN
+            initial = adapter.values.get(address) if adapter is not None and stored is None else None
+            if target:
+                return self.get_position(operation, loc, stored, initial, status, node, flow, conditional)
+            self.inspect_position(stored, initial, receivers, status, node, flow, stable and adapter is not None)
+        return result
+
+    def clear_position(self, address, adapter, status, node, flow, stable):
+        group, number = address
+        if group == 0 and adapter is None:
+            flow.position_cells.clear()
+            flow.position_order_unknown = True
+        else:
+            groups = adapter.groups if group == 0 else (group,)
+            self.tick(len(groups))
+            for member in groups:
+                flow.position_cells[member, number] = POSITION_CLEARED if stable and adapter is not None else UNKNOWN
+        self.bank_status(status, 0 if stable and adapter is not None else UNKNOWN, flow, node)
+
+    def set_position(self, operation, address, source, adapter, status, node, flow, stable):
+        kind = source.spec[0] if source.spec else None
+        if kind not in ('POSITION', 'XYZWPR', 'XYZWPREXT', 'JOINTPOS'):
+            self.unresolved_at('position-data', operation+' requires a known source pose or joint schema', node)
+            flow.position_cells[address] = UNKNOWN
+            self.bank_status(status, UNKNOWN, flow, node)
+            return
+        cross_model = (kind == 'JOINTPOS') != (operation == 'SET_JPOS_REG')
+        if cross_model:
+            if adapter is not None and self.saved_bindings.robot is None and stable:
+                self.bank_status(status, 3, flow, node)
+            else:
+                self.context('robot', None)
+                self.unresolved_at('position-model', operation+' requires a robot-model conversion', node)
+                self.opaque(flow)
+        else:
+            flow.position_cells[address] = checked_position_facts(source) if stable else UNKNOWN
+            self.bank_status(status, 0 if stable and adapter is not None else UNKNOWN, flow, node)
+
+    def inspect_position(self, stored, initial, receivers, status, node, flow, configured):
+        if stored is POSITION_CLEARED:
+            self.bank_status(status, 1, flow, node)
+            return
+        spec = tuple_spec(stored.spec) if isinstance(stored, _Value) and stored.spec else getattr(initial, 'spec', None)
+        if configured and spec is not None:
+            kind, axes = register_description(spec)
+            for output, value in zip(receivers, (kind, axes)):
+                self.write(output, _Value(value, spec=['INTEGER']), flow, node)
+            self.bank_status(status, 0, flow, node)
+            return
+        present = configured and isinstance(stored, _Value)
+        if present:
+            for output in receivers:
+                self.write(output, _Value(spec=['INTEGER']), flow, node)
+            self.bank_status(status, 0, flow, node)
+        else:
+            self.uncertain_bank_read(receivers, status, flow, node)
+
+    def position_read_failed(self, operation, status, code, node, flow, reason):
+        self.bank_status(status, code, flow, node)
+        self.unresolved_at('position-read', operation+' cannot return a value because the '+reason, node)
+        flow.stopped = True
+
+    def get_position(self, operation, loc, stored, initial, status, node, flow, conditional):
+        result = _Value(spec=loc.spec)
+        if stored is POSITION_CLEARED:
+            self.position_read_failed(operation, status, 1, node, flow, 'source cleared the register')
+            return result
+        if not isinstance(stored, _Value) and stored is not POSITION_MODIFIED:
+            self.read(loc, node, flow, conditional or stored is UNKNOWN, partial=True)
+        spec = stored.spec if isinstance(stored, _Value) else initial.spec if initial is not None else None
+        if spec and (spec[0] == 'JOINTPOS') != (loc.spec[0] == 'JOINTPOS'):
+            if (isinstance(stored, _Value) and self.saved_bindings is not None
+                    and self.saved_bindings.positions is not None and self.saved_bindings.robot is None):
+                self.position_read_failed(operation, status, 3, node, flow, 'stored representation requires a robot model')
+                return result
+            self.context('robot', None)
+            self.unresolved_at('position-model', operation+' requires a robot-model conversion', node)
+            if self.saved_bindings is not None and self.saved_bindings.robot is not None:
+                self.opaque(flow)
+        elif isinstance(stored, _Value) and spec:
+            try:
+                result = position_register_result(loc.spec, stored, tick=self.tick)
+            except (rt.KarelRuntimeError, TypeError, ValueError) as error:
+                self.unresolved_at('position-data', 'Position register conversion failed: '+str(error), node)
+                flow.stopped = True
+                return result
+        self.bank_status(status, 0, flow, node)
+        return result
+
     def call(self, node, flow, conditional, *, statement_call=False, argument_path_edits=False):
         name=node['value'];args=node['args']
         if name in self.plan['routines']:
@@ -3546,6 +3726,8 @@ class _Analyzer:
             return self.inspection_call(node, flow, conditional)
         if name in REGISTER_SERVICES or name in INDIRECT_PORT_SERVICES:
             return self.bank_call(node, flow, conditional)
+        if name in POSITION_SERVICES:
+            return self.position_register_call(node, flow, conditional)
         if name in ('UNINIT', 'ARRAY_LEN'):
             return self.data_metadata_call(node, flow, conditional)
         if name in SCALAR_PURE:return self.scalar_call(node,flow,conditional)
@@ -3574,29 +3756,11 @@ class _Analyzer:
             for _, loc in outputs:
                 self.write(loc, _Value(), flow, node, definite=parked)
             return _Value()
-        bank=None;reading=False;writing=False
-        if name in ('GET_POS_REG','GET_JPOS_REG','GET_EPOS_REG','SET_POS_REG','SET_JPOS_REG','SET_EPOS_REG'):
-            group=known[-1] if len(args)>(2 if name.startswith('GET_') else 3) else self.plan.get('default_group')
-            if (known and type(known[0]) is int and known[0]>0
-                    and (group is None or type(group) is int and group>0)):
-                bank=_Location('position_register','',known[0],(('group',group),),['JOINTPOS',9] if 'JPOS' in name else ['XYZWPREXT'])
-            reading=name.startswith('GET_');writing=not reading
-        handled=reading or writing
-        if handled:
-            if bank:
-                self.context('positions',bank.path)
-                if reading:self.read(bank,node,flow,conditional)
-                else:self.write(bank,_Value(),flow,node)
-            else:self.unresolved_at('dynamic-address','Register address requires an explicit runtime mapping',node)
-        else:
-            self.unresolved_at('service','Service or external input effects require explicit review: '+name,node)
-            self.opaque(flow)
-        for index,loc in outputs:
-            status=handled and index==len(args)-1
-            if name in ('GET_POS_REG','GET_JPOS_REG','GET_EPOS_REG'):status=index==1
-            if name in ('SET_POS_REG','SET_JPOS_REG','SET_EPOS_REG'):status=index==2
-            self.write(loc,_Value(),flow,node,definite=status)
-        return _Value(complete=reading or not signature)
+        self.unresolved_at('service','Service or external input effects require explicit review: '+name,node)
+        self.opaque(flow)
+        for _,loc in outputs:
+            self.write(loc,_Value(),flow,node,definite=False)
+        return _Value(complete=not signature)
 
     def task_target(self, operation, target, node):
         if type(target) is not str:

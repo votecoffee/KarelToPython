@@ -1,5 +1,13 @@
 # Changelog
 
+## 26.1123.135359 - 2026-11-23
+
+- Track grouped position-register writes, clears, type queries, and getter
+  results in discovery. Preserve Cartesian fields and joint padding through
+  portable readbacks.
+- Use the caller's group for linked routines and refresh status-dependent
+  inputs when a saved position register is first supplied.
+
 ## 26.1123.133329 - 2026-11-23
 
 - Follow source-written numeric and string registers through discovery,

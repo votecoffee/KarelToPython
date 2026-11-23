@@ -509,9 +509,9 @@ class PositionRegisters:
         rt=runtime(); number=rt.integer(number,line); group=rt.integer(group,line)
         code,value=self.read(number,group)
         if code: return code,None,None
-        kind=value.spec[0]
-        axes=rt.joint_width(value.spec) if kind=='JOINTPOS' else 3 if kind=='XYZWPREXT' else 0
-        return 0,{'POSITION':1,'XYZWPR':2,'XYZWPREXT':6,'JOINTPOS':9}[kind],axes
+        from .position_register_models import register_description
+        kind,axes=register_description(value.spec)
+        return 0,kind,axes
     def clear(self,number,group=1,line=None):
         rt=runtime(); number=rt.integer(number,line); group=rt.integer(group,line)
         if not 1<=number<=self.count or (group!=0 and group not in self.groups): return 2

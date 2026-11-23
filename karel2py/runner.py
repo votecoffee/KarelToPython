@@ -343,7 +343,7 @@ def save_input_value(path, selected, kind, text, *, expected, protected=()):
     def update(context, candidate, binding):
         scalar_slot(context, candidate, binding).set_text(kind, text)
         # A newly supplied bank value can make a getter's successful outputs definite.
-        return binding['status'] == 'missing' and candidate['kind'] in ('numeric_register', 'string_register', 'port')
+        return binding['status'] == 'missing'and candidate['kind'] in ('numeric_register', 'string_register', 'port')
 
     return _save_discovered_value(path, selected, update, expected=expected, protected=protected)
 
@@ -362,7 +362,7 @@ def save_input_structure(path, selected, payload, *, expected, protected=()):
         if previously_missing:
             root = tuple_spec(candidate['root_type'])
             return rt.array_leaf_spec(root)[0] == 'PATH'
-        return False
+        return candidate['kind'] == 'position_register' and binding['status'] == 'missing'
 
     return _save_discovered_value(path, selected, update, expected=expected, protected=protected)
 

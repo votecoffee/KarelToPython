@@ -2,6 +2,15 @@
 from .reference_contracts import capture_location,same_location,capture_model_value,same_model_value
 
 
+def register_description(spec):
+    """Return the portable stored representation code and reported axis count."""
+    from .runtime import joint_width
+
+    kind = spec[0]
+    axes = joint_width(spec) if kind == 'JOINTPOS' else 3 if kind == 'XYZWPREXT' else 0
+    return {'POSITION': 1, 'XYZWPR': 2, 'XYZWPREXT': 6, 'JOINTPOS': 9}[kind], axes
+
+
 class _RegisterGuard:
     def __init__(self,context,state,bank,number,group,status,line):
         from . import runtime as rt,extended as ex
