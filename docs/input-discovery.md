@@ -201,8 +201,15 @@ queries use the updated selection and rows. Where branches disagree or
 selectors depend on unknown inputs, discovery reports affected reads and
 keeps both possible branches. Independent groups and rows can still supply
 known values. The editor retains the original saved robot configuration.
-Quoted robot paths in `GET_VAR` and `SET_VAR` still need review during
-discovery unless an explicit saved variable binding supplies the path.
+
+`GET_VAR`, `SET_VAR` and `VAR_INFO` can also use literal frame, tool
+and selection paths in the empty, `SYSTEM` and `*SYSTEM*` namespaces.
+They follow the same rows and selections as direct source assignments. Saved
+variable bindings take precedence. Discovery follows transfer status and cache
+entries, and `VAR_INFO` reports the stored pose representation without
+allocating a transfer entry. Whole-pose JOINTPOS transfers use the calling
+task's portable DH model and a bounded inverse solve. Dynamic paths, uncertain
+bindings and conversions that exceed the solver budget remain review items.
 
 `context_requirements` separately identifies services/addresses used even when
 the source writes before reading. Bank sizes, routes, initial values, robot

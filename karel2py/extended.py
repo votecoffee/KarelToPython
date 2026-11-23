@@ -2281,10 +2281,10 @@ class _SystemVariableTarget:
         self.reference=rt.Reference(spec,{'value':value},'value')
         return self.reference
 
-    def prepare(self,source,line,*,model=False):
+    def prepare(self,source_spec,line,*,model=False):
         rt=runtime()
         if not self.selection and not self.path:
-            spec=('XYZWPREXT',) if model and source.spec[0]=='JOINTPOS' else source.spec
+            spec=('XYZWPREXT',) if model and source_spec[0]=='JOINTPOS' else source_spec
             if spec not in (('POSITION',),('XYZWPR',),('XYZWPREXT',)):return False
             self.reference=rt.Reference(spec,{'value':rt.initial_value(spec)},'value')
         return True
@@ -2303,8 +2303,8 @@ class _SystemVariableTarget:
         else:self.context.system_pose_write(self.kind,self.group,None if self.kind.startswith('ACTIVE_') else self.number,value,self.path,line)
 
 
-def _system_variable_target(context,path,write,line):
-    """Parse only literal bounded robot paths; never evaluate quoted expressions."""
+def _parse_system_variable_path(path):
+    """Parse only literal bounded robot paths."""
     suffix=r'((?:\.[A-Z_][A-Z_0-9]*){0,2})'
     numbered=re.fullmatch(r'\$(MNUFRAME|MNUTOOL)\[([0-9]{1,5}),([0-9]{1,5})\]'+suffix,path)
     active=re.fullmatch(r'\$GROUP\[([0-9]{1,5})\]\.\$(UFRAME|UTOOL)'+suffix,path)
@@ -2315,8 +2315,14 @@ def _system_variable_target(context,path,write,line):
         kind='ACTIVE_FRAME' if active[2]=='UFRAME' else 'ACTIVE_TOOL';group,number,tail=int(active[1]),None,active[3]
     elif selection:
         kind='FRAME_ID' if selection[1]=='MNUFRAMENUM' else 'TOOL_ID';group,number,tail=int(selection[2]),None,''
-    else:fail('Unsupported static robot system variable path',line)
-    return _SystemVariableTarget(context,kind,group,number,tuple(tail[1:].split('.')) if tail else (),write,line)
+    else:return None
+    return kind,group,number,tuple(tail[1:].split('.')) if tail else ()
+
+
+def _system_variable_target(context,path,write,line):
+    address=_parse_system_variable_path(path)
+    if address is None:fail('Unsupported static robot system variable path',line)
+    return _SystemVariableTarget(context,*address,write,line)
 
 
 class ExecutionContext:
@@ -3142,7 +3148,7 @@ class ExecutionContext:
                 if spec is None: fail('SET_VAR requires a typed data input',line)
                 source=variable_value(spec,value,line,check=check)
             if system_target is not None:
-                if not system_target.prepare(source,line,model=model_guard is not None):status.set(3,line);return
+                if not system_target.prepare(source.spec,line,model=model_guard is not None):status.set(3,line);return
                 target=system_target.reference
             destination=target
         from .variable_kinematics import transfer as model_transfer

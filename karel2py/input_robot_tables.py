@@ -4,7 +4,7 @@ from copy import copy
 from dataclasses import dataclass, field
 
 from . import runtime as rt
-from .extended import SYSTEM_POSE_AXES
+from .extended import SYSTEM_POSE_AXES, _SystemVariableTarget
 from .input_robot_values import RobotFactsUnavailable
 from .input_value_conversions import UNKNOWN, Value, detached_facts, materialized_value
 from .kinematics import SerialRobotModel
@@ -86,6 +86,53 @@ class RobotTableFacts:
             number = self.value(robot, group, kind, None)
             setattr(result, selection, number)
         return rt.ExecutionContext(robot=result), kind, table, number
+
+    def named_endpoint(self, robot, address, *, writing, line):
+        operation, group, number, path = address
+        selection = operation.endswith('_ID')
+        kind = operation.removeprefix('ACTIVE_').removesuffix('_ID')
+        endpoint_kind = kind if selection else operation
+        context, _, table, resolved = self._endpoint(robot, group, endpoint_kind, number)
+        if selection:
+            resolved = self.value(robot, group, kind, None)
+            setattr(context.robot, _ATTRIBUTES[kind][1], resolved)
+        if resolved is UNKNOWN:
+            raise RobotFactsUnavailable('Frame or tool selection needs run-time evaluation')
+        # A numbered Cartesian replacement can publish even without a previous
+        # row. Capture a known row when available for metadata and model checks.
+        if not (selection and writing):
+            row = self.value(robot, group, kind, resolved)
+            requires_row = not writing or bool(path) or operation.startswith('ACTIVE_')
+            if row is UNKNOWN and requires_row:
+                raise RobotFactsUnavailable('Frame or tool row needs run-time evaluation')
+            if row is not None and row is not UNKNOWN:
+                getattr(context.robot, table)[resolved] = row
+        return _SystemVariableTarget(context, *address, writing, line)
+
+    def publish_named(self, robot, endpoint, value, line):
+        group = endpoint.group
+        kind = endpoint.kind.removeprefix('ACTIVE_').removesuffix('_ID')
+        if endpoint.selection:
+            number = rt.integer(value, line)
+            row = self.value(robot, group, kind, number)
+            if row is UNKNOWN:
+                raise RobotFactsUnavailable('Newly selected frame or tool row needs run-time evaluation')
+            if row is not None:
+                endpoint.table[number] = row
+        endpoint.guard((), line)
+        endpoint.publish(value, line)
+        key = group, kind, None if endpoint.selection else endpoint.number
+        self.values[key] = value if endpoint.selection else detached_facts(endpoint.table[endpoint.number])
+
+    def invalidate_named(self, robot, address):
+        operation, group, number, _ = address
+        kind = operation.removeprefix('ACTIVE_').removesuffix('_ID')
+        if operation.startswith('ACTIVE_'):
+            if robot is None:
+                number = UNKNOWN
+            else:
+                number = self.value(robot, group, kind, None)
+        self.invalidate(group, kind, number)
 
     def read(self, robot, group, operation, number, path, *, selection, line):
         kind = operation.removeprefix('ACTIVE_')

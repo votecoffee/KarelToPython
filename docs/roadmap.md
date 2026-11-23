@@ -74,10 +74,9 @@ document and reports changed, omitted and unresolved inputs.
 1. **Expand linked discovery.** Model suspension in routine frames and nested
    control flow, synchronization between tasks, and handler rearming where
    order and targets can be determined. Track effects between motion
-   callbacks and keep dynamic selections and external effects visible. Follow
-   quoted frame and tool paths in `GET_VAR` and `SET_VAR` through the same
-   discovery state as direct assignments, including saved binding precedence
-   and transfer status.
+   callbacks and keep dynamic selections and external effects visible. Extend
+   robot discovery to more model-backed assignments and service outputs,
+   including `JOINT2POS` and `POS2JOINT`.
 2. **Export linked sources from the desktop.** Reuse linked-project validation
    and cooperative Python export so the desktop workflow can begin with KAREL
    source files. Keep the existing output and source-file protections.

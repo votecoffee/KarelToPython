@@ -14,7 +14,7 @@ from .dynamic import (
 )
 from .extended import (
     OUTPUT_PORTS, PORT_TYPES, PREDEFINED_FILE_NAMES, PROGRAM_TEXT_ATTRIBUTES, PROGRAM_WRITABLE_ATTRIBUTES,
-    ZERO_BASED_PORTS, ProgramAttributes, path_conversion_layout, path_node_size, port_value,
+    ZERO_BASED_PORTS, ProgramAttributes, _parse_system_variable_path, path_conversion_layout, path_node_size, port_value,
 )
 from .file_io import MAX_PATH_IO_FIELDS, path_io_field_count, path_io_indexes
 from .input_contract import extract, InputContractError
@@ -24,6 +24,7 @@ from .input_position_values import (
 )
 from .position_register_models import register_description
 from .input_robot_tables import RobotTableFacts, forward_robot_value
+from .input_robot_transfers import inspect_robot_variable, transfer_robot_variable
 from .input_robot_values import (
     POSE_CONSTRUCTORS, ROBOT_RANGE_QUERIES, ROBOT_SNAPSHOTS, RobotFactsUnavailable,
     check_robot_range, construct_pose, constructor_schema, current_robot_facts,
@@ -2554,7 +2555,8 @@ class _Analyzer:
         while expression['kind'] == 'group':
             expression = expression['args'][0]
         kind = expression['kind']
-        if kind in ('name', 'field', 'index') and not self.selects_routine_result(expression):
+        robot_value = kind == 'field' and self.robot_table_path(expression)[0]['kind'] == 'system_pose'
+        if kind in ('name', 'field', 'index') and not robot_value and not self.selects_routine_result(expression):
             location = self.locate(expression, flow, conditional)
             if location is not None:
                 whole_record = self.whole_path_record(location)
@@ -2700,6 +2702,71 @@ class _Analyzer:
             unknown |= overlap is None
         return None if unknown else False
 
+    def can_lookup_robot_variable(self, owner, path, flow):
+        if (not all(type(item) is str and item.isascii() for item in (owner, path))
+                or owner.upper() not in ('', 'SYSTEM', '*SYSTEM*')
+                or not path.upper().startswith(('$MNUFRAME', '$MNUTOOL', '$GROUP['))
+                or flow.opaque or flow.task_order_unknown):
+            return False
+        owners = {owner.upper() or self.program, 'SYSTEM', '*SYSTEM*', ''}
+        path = path.upper()
+        # An explicit row or longer binding prefix outranks the robot endpoint.
+        # The caller already tried resolution, so a remaining potential shadow
+        # means the binding or its descendant storage could not be proven.
+        if self.saved_bindings is not None and self.saved_bindings.system_path(owners, path, tick=self.tick) is not None:
+            return False
+        self.tick(len(flow.named_bindings))
+        return not any(program in owners and root_member(path, root) and binding is not None
+                       for (program, root), binding in flow.named_bindings.items())
+
+    def robot_variable_transfer(self, owner, path, target, source, entry, status, node, flow):
+        getting = node['value'] == 'GET_VAR'
+        address = _parse_system_variable_path(path.upper())
+        robot = None
+        line = node.get('line')
+
+        def model_robot():
+            group = self.default_position_group(None)
+            selected = self.query_robot_group(node['value'], group, node, flow)
+            return flow.robot_tables.selected_robot(selected, group)
+
+        try:
+            if address is None:
+                result, value = 1, None
+            else:
+                group = address[1]
+                try:
+                    robot = self.query_robot_group(node['value'], group, node, flow)
+                except rt.KarelRuntimeError:
+                    result, value = 1, None
+                else:
+                    result, value = transfer_robot_variable(
+                        flow.robot_tables, robot, address, getting=getting,
+                        target_spec=target.spec if getting else None, source=source,
+                        model_robot=model_robot, line=line, tick=self.tick,
+                    )
+        except RobotFactsUnavailable as error:
+            self.unresolved_at('robot-tables', str(error), node)
+            if not getting:
+                flow.robot_tables.invalidate_named(robot, address)
+            flow.next_variable_entry = None
+            self.write(entry, _Value(), flow, node, definite=False)
+            if getting:
+                self.write(target, _Value(complete=False, spec=target.spec), flow, node, definite=False)
+            self.write(status, _Value(), flow, node)
+            return
+        except (rt.KarelRuntimeError, ValueError, ArithmeticError) as error:
+            self.unresolved_at('robot-tables', str(error), node)
+            flow.stopped = True
+            return
+
+        if result in (0, 12311):
+            if getting:
+                self.write(target, value, flow, node)
+            self.publish_variable_result(entry, status, result, (owner.upper() or self.program, path.upper()), node, flow)
+        else:
+            self.write(status, _Value(result, spec=['INTEGER']), flow, node)
+
     def variable_call(self, node, flow, conditional):
         name = node['value']
         args = node['args']
@@ -2750,6 +2817,12 @@ class _Analyzer:
                          if named is not None else None)
         if (rejected or named_storage is False) and status is not None and not flow.opaque:
             self.write(status, _Value(1, spec=['INTEGER']), flow, node)
+            return _Value()
+        if (named is None and not rejected and self.can_lookup_robot_variable(owner, path, flow)
+                and all(loc is not None and self.ordinary_variable_output(loc, node) for loc in outputs)
+                and (not getting or overlap is False and target is not None
+                     and target_storage is True and self.ordinary_variable_output(target, node))):
+            self.robot_variable_transfer(owner, path, target, value, entry, status, node, flow)
             return _Value()
         destination = target if getting else named
         if not getting:
@@ -3171,6 +3244,8 @@ class _Analyzer:
         if rejected:
             return (None,)*5 + (_Value(1, spec=['INTEGER']),)
         if loc is None:
+            if self.can_lookup_robot_variable(owner, path, flow):
+                return self.robot_variable_info(path, output, node, flow)
             return None
         storage = self.variable_path_storage(loc, flow, conditional, named_lookup=True)
         if storage is False:
@@ -3184,6 +3259,27 @@ class _Analyzer:
         if any(type(size) is not int for size in shape) or type(length) is not int:
             return None
         missing = True if storage is MISSING_PATH_RECORD else self.inspected_missing(loc, node, flow, conditional)
+        return self.variable_info_output(output, name, code, shape, length, missing)
+
+    def robot_variable_info(self, path, output, node, flow):
+        address = _parse_system_variable_path(path.upper())
+        status, description = 1, None
+        if address is not None:
+            try:
+                robot = self.query_robot_group('VAR_INFO', address[1], node, flow)
+                status, description = inspect_robot_variable(flow.robot_tables, robot, address, node.get('line'), self.tick)
+            except RobotFactsUnavailable as error:
+                self.unresolved_at('robot-tables', str(error), node)
+                for loc in output[:5]:
+                    self.write(loc, _Value(complete=False, spec=loc.spec), flow, node, definite=False)
+                status = UNKNOWN
+            except rt.KarelRuntimeError:
+                pass
+        if description is not None:
+            return self.variable_info_output(output, *description)
+        return (None,) * 5 + (_Value(status, spec=['INTEGER']),)
+
+    def variable_info_output(self, output, name, code, shape, length, missing):
         width = output[1].spec[1]
         text = name[:width] if type(width) is int else UNKNOWN
         return (_Value(missing, spec=['BOOLEAN']), _Value(text, spec=output[1].spec), _Value(code, spec=['INTEGER']),
