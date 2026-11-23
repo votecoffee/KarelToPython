@@ -342,7 +342,8 @@ def save_input_value(path, selected, kind, text, *, expected, protected=()):
 
     def update(context, candidate, binding):
         scalar_slot(context, candidate, binding).set_text(kind, text)
-        return False
+        # A newly supplied bank value can make a getter's successful outputs definite.
+        return binding['status'] == 'missing' and candidate['kind'] in ('numeric_register', 'string_register', 'port')
 
     return _save_discovered_value(path, selected, update, expected=expected, protected=protected)
 

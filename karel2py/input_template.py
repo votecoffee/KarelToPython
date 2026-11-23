@@ -99,7 +99,7 @@ def _service_address(context, service, address):
     bank = getattr(context, service, None)
     if bank is None:
         return False
-    if service in ('motion', 'group_locks'):
+    if service in ('motion', 'group_locks') or service == 'ports' and address is None:
         return address is None
     if service == 'predefined_files':
         return type(address) is str and address in bank
@@ -144,6 +144,9 @@ class _SavedBindings:
         self.store = execution.variables
         self.catalog = execution.programs
         self.program_attributes = execution.program_attributes
+        self.numeric = execution.numeric
+        self.strings = execution.strings
+        self.ports = execution.ports
         self.teach_programs = execution.teach_programs
         self.creation_storage = None
         self.namespaces = None

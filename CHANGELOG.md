@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1123.133329 - 2026-11-23
+
+- Follow source-written numeric and string registers through discovery,
+  including numeric kind, string capacity, and status-only range failures.
+- Resolve indirect port values and simulation through saved type-code
+  mappings. Share input and write tracking with direct port syntax.
+
 ## 26.1123.132444 - 2026-11-23
 
 - Follow offline SET_ATTR_PRG writes and activity guards during input

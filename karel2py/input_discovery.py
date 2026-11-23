@@ -13,8 +13,8 @@ from .dynamic import (
     rename_names, rename_plan, renamed_key, root_member,
 )
 from .extended import (
-    PREDEFINED_FILE_NAMES, PROGRAM_TEXT_ATTRIBUTES, PROGRAM_WRITABLE_ATTRIBUTES, ZERO_BASED_PORTS,
-    ProgramAttributes, path_conversion_layout, path_node_size,
+    OUTPUT_PORTS, PORT_TYPES, PREDEFINED_FILE_NAMES, PROGRAM_TEXT_ATTRIBUTES, PROGRAM_WRITABLE_ATTRIBUTES,
+    ZERO_BASED_PORTS, ProgramAttributes, path_conversion_layout, path_node_size, port_value,
 )
 from .file_io import MAX_PATH_IO_FIELDS, path_io_field_count, path_io_indexes
 from .input_contract import extract, InputContractError
@@ -40,6 +40,11 @@ MAX_INPUTS = 2048
 MAX_CALL_DEPTH = 32
 MAX_FACTS = 32767
 MAX_BYTES = 16 * 1024 * 1024
+REGISTER_SERVICES = {
+    'GET_REG': ('numeric', 'NUMERIC'), 'SET_INT_REG': ('numeric', 'INTEGER'), 'SET_REAL_REG': ('numeric', 'REAL'),
+    'GET_STR_REG': ('strings', 'STRING'), 'SET_STR_REG': ('strings', 'STRING'),
+}
+INDIRECT_PORT_SERVICES = {'GET_PORT_VAL', 'SET_PORT_VAL', 'GET_PORT_SIM', 'SET_PORT_SIM', 'CLR_PORT_SIM'}
 SCALAR_PURE = {'ABS':1,'ROUND':1,'TRUNC':1,'SQRT':1,'SIN':1,'COS':1,'TAN':1,
                'ASIN':1,'ACOS':1,'ATAN2':2,'EXP':1,'LN':1,'STR_LEN':1,
                'SUB_STR':3,'INDEX':2,'CHR':1,'ORD':2}
@@ -195,6 +200,8 @@ class _Flow:
     creation_counts: dict = field(default_factory=dict)
     allocated_variable_units: int | None = 0
     program_attributes: dict = field(default_factory=dict)
+    numeric_kinds: dict = field(default_factory=dict)
+    port_simulation: dict = field(default_factory=dict)
 
     def copy(self):
         return _Flow(self.defined.copy(),self.assigned.copy(),self.maybe.copy(),
@@ -204,7 +211,7 @@ class _Flow:
                      self.changed_path_aggregates.copy(),self.record_storage.copy(),self.retired_paths.copy(),
                      self.variable_entries.copy(),self.next_variable_entry,
                      self.named_bindings.copy(),self.creation_counts.copy(),self.allocated_variable_units,
-                     self.program_attributes.copy())
+                     self.program_attributes.copy(),self.numeric_kinds.copy(),self.port_simulation.copy())
 
     def take(self, other):
         self.handlers = other.handlers
@@ -222,6 +229,8 @@ class _Flow:
         self.creation_counts = other.creation_counts
         self.allocated_variable_units = other.allocated_variable_units
         self.program_attributes = other.program_attributes
+        self.numeric_kinds = other.numeric_kinds
+        self.port_simulation = other.port_simulation
 
 
 def _merge(flows):
@@ -284,6 +293,12 @@ def _merge(flows):
             attributes[key] = MAYBE_ATTRIBUTE
         else:
             attributes[key] = UNKNOWN
+    numeric_kinds = {number: kind for number, kind in first.numeric_kinds.items()
+                     if all(other.numeric_kinds.get(number) == kind for other in live[1:])}
+    simulation = {}
+    for key in set().union(*(flow.port_simulation for flow in live)):
+        value = first.port_simulation.get(key)
+        simulation[key] = value if all(other.port_simulation.get(key) is value for other in live[1:]) else UNKNOWN
     return _Flow(set.intersection(*(flow.defined for flow in live)),
                  set.intersection(*(flow.assigned for flow in live)),
                  set.union(*(flow.maybe for flow in live)),constants,False,any(flow.opaque for flow in live),
@@ -292,7 +307,7 @@ def _merge(flows):
                  pauses,uncertain,any(flow.path_shape_unknown for flow in live),path_orders,
                  set.intersection(*(flow.uninitialized for flow in live)),
                  set.union(*(flow.changed_path_aggregates for flow in live)), record_storage, retired_paths,
-                 variable_entries, next_entry, names, creation_counts, units, attributes)
+                 variable_entries, next_entry, names, creation_counts, units, attributes, numeric_kinds, simulation)
 
 
 def _path_record_identity(part):
@@ -428,6 +443,8 @@ class _Analyzer:
         flow.creation_counts.clear()
         flow.allocated_variable_units = None
         flow.program_attributes.clear()
+        flow.numeric_kinds.clear()
+        flow.port_simulation.clear()
 
     def context(self, service, address):
         self.contexts.setdefault((service,str(address)),dict(service=service,address=address))
@@ -3267,29 +3284,39 @@ class _Analyzer:
             return None, _Value(value, spec=spec), status
         return _Value(value, spec=['INTEGER']), None, status
 
+    def service_operands(self, node, input_count, flow, conditional):
+        values = []
+        with self.capture_operands() as pending:
+            for arg in node['args'][:input_count]:
+                values.append(self.expr(arg, flow, conditional))
+                if flow.stopped and not flow.opaque:
+                    return None
+            for arg in node['args'][input_count:]:
+                pending.append(self.locate(arg, flow, conditional, capture_node=True,
+                                           selector_path_edits=bool(pending)))
+                if flow.stopped and not flow.opaque:
+                    return None
+            outputs = [self.resolve_path_slot(loc, node, flow) if loc is not None else None for loc in pending]
+        return values, outputs
+
+    def service_outputs_overlap(self, outputs):
+        return any(self.path_contains_reference(loc, old) or self.path_contains_reference(old, loc)
+                   for index, loc in enumerate(outputs) for old in outputs[:index])
+
     def inspection_call(self, node, flow, conditional):
         operation = node['value']
         inputs = {'VAR_INFO': 2, 'VAR_LIST': 5, 'PROG_LIST': 4, 'LOAD_STATUS': 1,
                   'GET_ATTR_PRG': 2, 'SET_ATTR_PRG': 4}[operation]
-        known = []
-        with self.capture_operands() as pending:
-            for arg in node['args'][:inputs]:
-                known.append(self.expr(arg, flow, conditional).constant)
-                if flow.stopped and not flow.opaque:
-                    return _Value(complete=False)
-            for arg in node['args'][inputs:]:
-                pending.append(self.locate(arg, flow, conditional, capture_node=True,
-                                           selector_path_edits=bool(pending)))
-                if flow.stopped and not flow.opaque:
-                    return _Value(complete=False)
-            outputs = [self.resolve_path_slot(loc, node, flow) if loc is not None else None for loc in pending]
+        operands = self.service_operands(node, inputs, flow, conditional)
+        if operands is None:
+            return _Value(complete=False)
+        inputs, outputs = operands
+        known = [value.constant for value in inputs]
         values = None
         if not (flow.opaque or flow.task_order_unknown or self.repeat_depth or self.callback_depth or flow.handlers
                 or any(loc is None for loc in outputs)):
-            for index, loc in enumerate(outputs):
-                if any(self.path_contains_reference(loc, old) or self.path_contains_reference(old, loc)
-                       for old in outputs[:index]):
-                    return self.reject_service_overlap(node, flow)
+            if self.service_outputs_overlap(outputs):
+                return self.reject_service_overlap(node, flow)
             if operation == 'VAR_INFO':
                 dims, leaf = _array_dimensions(outputs[3].spec)
                 if None not in dims and (dims != [3] or leaf != ['INTEGER']):
@@ -3313,6 +3340,191 @@ class _Analyzer:
                 self.write(loc, value, flow, node)
         return _Value()
 
+    def bank_call(self, node, flow, conditional):
+        operation = node['value']
+        register = operation in REGISTER_SERVICES
+        input_count = (1 if register else 2) + int(operation.startswith('SET_'))
+        operands = self.service_operands(node, input_count, flow, conditional)
+        if operands is None:
+            return _Value(complete=False)
+        inputs, outputs = operands
+        if all(loc is not None for loc in outputs) and not flow.opaque and self.service_outputs_overlap(outputs):
+            return self.reject_service_overlap(node, flow)
+        if not all(loc is not None and self.ordinary_variable_output(loc, node) for loc in outputs):
+            self.unresolved_at('service-output', operation+' requires known ordinary output storage', node)
+            self.opaque(flow)
+            return _Value(complete=False)
+        stable = not (flow.opaque or flow.task_order_unknown or self.callback_depth or self.repeat_depth)
+        if register:
+            self.register_transfer(operation, inputs, outputs, node, flow, conditional, stable)
+        else:
+            self.indirect_ports(operation, inputs, outputs, node, flow, conditional, stable)
+        return _Value()
+
+    def bank_status(self, status, code, flow, node):
+        self.write(status, _Value(code, spec=['INTEGER']), flow, node)
+
+    def uncertain_bank_read(self, outputs, status, flow, node, *, code=UNKNOWN):
+        for output in outputs:
+            self.write(output, _Value(spec=output.spec), flow, node, definite=False)
+        self.bank_status(status, code, flow, node)
+
+    def invalidate_bank_constants(self, kind, flow):
+        self.tick(len(flow.constants))
+        flow.constants = {key: value for key, value in flow.constants.items() if key[0] != kind}
+
+    def register_transfer(self, operation, inputs, outputs, node, flow, conditional, stable):
+        service, kind = REGISTER_SERVICES[operation]
+        numeric = service == 'numeric'
+        location_kind = 'numeric_register' if numeric else 'string_register'
+        number = inputs[0].constant
+        reading = operation.startswith('GET_')
+        *receivers, status = outputs
+        adapter = getattr(self.saved_bindings, service, None)
+        if type(number) is not int or adapter is None and number < 1:
+            self.unresolved_at('dynamic-address', 'Register address requires an explicit runtime mapping', node)
+            if not reading:
+                self.invalidate_bank_constants(location_kind, flow)
+                if numeric:
+                    flow.numeric_kinds.clear()
+            self.uncertain_bank_read(receivers, status, flow, node)
+            return
+        storage = [kind] if numeric else ['STRING', None if reading or adapter is None else adapter.capacity]
+        if not reading:
+            value = inputs[1].constant
+            if value is not UNKNOWN and (numeric or adapter is not None):
+                try:
+                    with rt._numeric_scope('pythonic'):
+                        value = rt.checked(tuple_spec(storage), value)
+                except rt.KarelRuntimeError:
+                    self.unresolved_at('register-value', operation+' cannot store the resolved value', node)
+                    flow.stopped = True
+                    return
+            else:
+                value = UNKNOWN
+        if adapter is not None and not 1 <= number <= adapter.count:
+            self.bank_status(status, rt.REGISTER_OUT_OF_RANGE, flow, node)
+            return
+        loc = _Location(location_kind, '', number, spec=storage)
+        self.context(service, loc.path)
+        if not reading:
+            self.write(loc, _Value(value, spec=storage), flow, node)
+            if numeric:
+                flow.numeric_kinds[number] = kind
+            self.bank_status(status, 0 if stable and adapter is not None else UNKNOWN, flow, node)
+            return
+        value = self.read(loc, node, flow, conditional)
+        present = stable and adapter is not None and (loc.key in flow.defined or adapter.read(number)[0] == 0)
+        if not present:
+            self.uncertain_bank_read(receivers, status, flow, node)
+            return
+        if not numeric:
+            target = receivers[0]
+            text = value.constant[:target.spec[1]] if type(value.constant) is str and type(target.spec[1]) is int else UNKNOWN
+            self.write(target, _Value(text, spec=target.spec), flow, node)
+            self.bank_status(status, 0, flow, node)
+            return
+        stored_kind = flow.numeric_kinds.get(number)
+        flag, integer, real = receivers
+        is_real = stored_kind == 'REAL' if stored_kind is not None else UNKNOWN
+        self.write(flag, _Value(is_real, spec=['BOOLEAN']), flow, node)
+        if is_real is UNKNOWN:
+            self.uncertain_bank_read((integer, real), status, flow, node, code=0)
+        else:
+            target = real if is_real else integer
+            self.write(target, _Value(value.constant, spec=target.spec), flow, node)
+            self.bank_status(status, 0, flow, node)
+
+    def indirect_ports(self, operation, inputs, outputs, node, flow, conditional, stable):
+        adapter = getattr(self.saved_bindings, 'ports', None)
+        code, number = [value.constant for value in inputs[:2]]
+        *receivers, status = outputs
+        if adapter is None or not adapter.type_codes or type(code) is not int or type(number) is not int:
+            self.context('ports', None)
+            self.unresolved_at('dynamic-address', operation+' requires a known index and explicit port type-code mapping', node)
+            if operation in ('SET_PORT_VAL', 'SET_PORT_SIM'):
+                self.invalidate_bank_constants('port', flow)
+            if operation in ('SET_PORT_SIM', 'CLR_PORT_SIM'):
+                # An unknown selection can change the simulation state of any input.
+                flow.port_simulation = {None: UNKNOWN}
+            self.uncertain_bank_read(receivers, status, flow, node)
+            return
+        kind = adapter.type_codes.get(code)
+        if not adapter.contains(kind, number):
+            self.bank_status(status, 2, flow, node)
+            return
+        loc = _Location('port', '', kind, (('index', number),), [PORT_TYPES[kind]])
+        self.context('ports', loc.path)
+        address = kind, number
+        default = UNKNOWN if None in flow.port_simulation else address in adapter.simulated
+        simulated = flow.port_simulation.get(address, default) if stable else UNKNOWN
+        if operation == 'CLR_PORT_SIM':
+            flow.port_simulation[address] = False if stable else UNKNOWN
+            self.bank_status(status, 0 if stable else UNKNOWN, flow, node)
+        elif operation == 'GET_PORT_SIM':
+            target = receivers[0]
+            value = int(simulated) if target.spec == ['INTEGER'] and type(simulated) is bool else simulated
+            self.write(target, _Value(value, spec=target.spec), flow, node)
+            self.bank_status(status, 0 if stable else UNKNOWN, flow, node)
+        elif operation == 'GET_PORT_VAL':
+            self.read_indirect_port(loc, receivers[0], status, node, flow, conditional, stable,
+                                    supplied=address in adapter.values)
+        else:
+            self.write_indirect_port(loc, address, inputs[2], status, operation == 'SET_PORT_SIM',
+                                     simulated, node, flow, stable)
+
+    def converted_port_value(self, value, spec):
+        with rt._numeric_scope('pythonic'):
+            converted = port_value(value, spec[0])
+            if spec[0] == 'STRING' and spec[1] is None:
+                return UNKNOWN
+            return rt.checked(tuple_spec(spec), converted)
+
+    def read_indirect_port(self, loc, output, status, node, flow, conditional, stable, *, supplied):
+        value = self.read(loc, node, flow, conditional)
+        if not stable or not (supplied or loc.key in flow.defined):
+            self.uncertain_bank_read((output,), status, flow, node)
+            return
+        constant = value.constant
+        if constant is UNKNOWN:
+            source_kind, target_kind = loc.spec[0], output.spec[0]
+            if target_kind not in ('STRING', 'REAL', source_kind) and source_kind != 'BOOLEAN':
+                self.uncertain_bank_read((output,), status, flow, node)
+                return
+        else:
+            try:
+                constant = self.converted_port_value(constant, output.spec)
+            except (ValueError, OverflowError, rt.KarelRuntimeError):
+                self.bank_status(status, 3, flow, node)
+                return
+        self.write(output, _Value(constant, spec=output.spec), flow, node)
+        self.bank_status(status, 0, flow, node)
+
+    def write_indirect_port(self, loc, address, value, status, simulate, simulated, node, flow, stable):
+        eligible = simulate or address[0] in OUTPUT_PORTS or simulated
+        if eligible is False:
+            self.bank_status(status, 4, flow, node)
+            return
+        constant = value.constant
+        code = UNKNOWN
+        if constant is not UNKNOWN:
+            try:
+                constant = self.converted_port_value(constant, loc.spec)
+                if loc.spec == ['INTEGER'] and constant < 0:
+                    raise ValueError('Group ports require nonnegative INTEGER values')
+            except (ValueError, OverflowError, rt.KarelRuntimeError):
+                self.bank_status(status, 3 if eligible is True else UNKNOWN, flow, node)
+                return
+            if eligible is True and stable:
+                code = 0
+        elif (eligible is True and stable and value.spec
+              and (value.spec == ['BOOLEAN'] or loc.spec == ['REAL'] and value.spec[0] in ('REAL', 'INTEGER'))):
+            code = 0
+        self.write(loc, _Value(constant, spec=loc.spec), flow, node, definite=code == 0)
+        if simulate:
+            flow.port_simulation[address] = True if code == 0 or simulated is True else UNKNOWN
+        self.bank_status(status, code, flow, node)
+
     def call(self, node, flow, conditional, *, statement_call=False, argument_path_edits=False):
         name=node['value'];args=node['args']
         if name in self.plan['routines']:
@@ -3332,6 +3544,8 @@ class _Analyzer:
             return self.rename_variable(node, flow, conditional)
         if name in ('VAR_INFO', 'VAR_LIST', 'PROG_LIST', 'LOAD_STATUS', 'GET_ATTR_PRG', 'SET_ATTR_PRG'):
             return self.inspection_call(node, flow, conditional)
+        if name in REGISTER_SERVICES or name in INDIRECT_PORT_SERVICES:
+            return self.bank_call(node, flow, conditional)
         if name in ('UNINIT', 'ARRAY_LEN'):
             return self.data_metadata_call(node, flow, conditional)
         if name in SCALAR_PURE:return self.scalar_call(node,flow,conditional)
@@ -3339,9 +3553,7 @@ class _Analyzer:
             for item in args:self.expr(item,flow,conditional)
             return _Value()
         signature=node.get('signature')
-        if name=='GET_REG':signature=[['i','INTEGER'],['o','BOOLEAN'],['o','INTEGER'],['o','REAL'],['o','INTEGER']]
-        elif name in ('SET_INT_REG','SET_REAL_REG'):signature=[['i','INTEGER'],['i','INTEGER'],['o','INTEGER']]
-        elif name=='CNV_STR_INT':signature=[['i','STRING'],['o','INTEGER']]
+        if name=='CNV_STR_INT':signature=[['i','STRING'],['o','INTEGER']]
         values=[];outputs=[]
         with self.capture_operands() as pending:
             for index,item in enumerate(args):
@@ -3362,15 +3574,8 @@ class _Analyzer:
             for _, loc in outputs:
                 self.write(loc, _Value(), flow, node, definite=parked)
             return _Value()
-        bank=None;reading=False;writing=False;bank_type=None
-        if name in ('GET_REG','SET_INT_REG','SET_REAL_REG'):
-            bank_type=['REAL'] if name=='SET_REAL_REG' else ['INTEGER'] if name=='SET_INT_REG' else None
-            if known and type(known[0]) is int and known[0]>0:bank=_Location('numeric_register','',known[0],spec=bank_type or ['NUMERIC'])
-            reading=name=='GET_REG';writing=not reading
-        elif name in ('GET_STR_REG','SET_STR_REG'):
-            if known and type(known[0]) is int and known[0]>0:bank=_Location('string_register','',known[0],spec=['STRING',None])
-            reading=name=='GET_STR_REG';writing=not reading
-        elif name in ('GET_POS_REG','GET_JPOS_REG','GET_EPOS_REG','SET_POS_REG','SET_JPOS_REG','SET_EPOS_REG'):
+        bank=None;reading=False;writing=False
+        if name in ('GET_POS_REG','GET_JPOS_REG','GET_EPOS_REG','SET_POS_REG','SET_JPOS_REG','SET_EPOS_REG'):
             group=known[-1] if len(args)>(2 if name.startswith('GET_') else 3) else self.plan.get('default_group')
             if (known and type(known[0]) is int and known[0]>0
                     and (group is None or type(group) is int and group>0)):
@@ -3379,7 +3584,7 @@ class _Analyzer:
         handled=reading or writing
         if handled:
             if bank:
-                self.context('numeric' if bank.kind=='numeric_register' else 'strings' if bank.kind=='string_register' else 'positions',bank.path)
+                self.context('positions',bank.path)
                 if reading:self.read(bank,node,flow,conditional)
                 else:self.write(bank,_Value(),flow,node)
             else:self.unresolved_at('dynamic-address','Register address requires an explicit runtime mapping',node)

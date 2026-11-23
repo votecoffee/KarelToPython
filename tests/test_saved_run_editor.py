@@ -269,6 +269,21 @@ class SavedRunEditorTests(unittest.TestCase):
         self.assertEqual(config['ports']['values'], {'DIN': {'1': False}})
         self.assertEqual(runner.run_document(self.path)['results']['variables']['R'], 4.0)
 
+    def test_supplied_indirect_port_refreshes_status_dependent_inputs(self):
+        self.create(
+            'GET_PORT_VAL(10,1,value,s) IF s=0 THEN WRITE(value,wanted,CR) ELSE WRITE(unused,CR) ENDIF',
+            declarations='VAR value:REAL s,wanted,unused:INTEGER',
+            context={'ports': {'counts': {'AIN': 1}, 'type_codes': {'10': 'AIN'}}},
+        )
+        before = self.saved['inputs']['template']['bindings']
+        self.assertEqual({row['path'] for row in before}, {'AIN[1]', 'VALUE', 'WANTED', 'UNUSED'})
+        edited = self.set_input('port', 'AIN[1]', 'REAL', '3.5', owner=None)
+        after = edited['inputs']['template']['bindings']
+        self.assertEqual({row['path'] for row in after}, {'AIN[1]', 'WANTED'})
+        self.set_input('variable', 'WANTED', 'INTEGER', '17')
+        results = runner.run_document(self.path)['results']
+        self.assertEqual([float(value) for value in results['text_output'].split()], [3.5, 17.0])
+
     def test_legacy_flat_joint_array_with_singleton_dimension(self):
         missing = {'uninitialized': True}
         context = {'variables': [{'program': 'DEMO', 'path': 'J', 'type': ['ARRAY', [2, 1], ['JOINTPOS', 1]],

@@ -151,8 +151,19 @@ groups and motion responses explicitly in the context. The presence of these
 services alone cannot establish that any request will succeed.
 [Offline motion services](offline-services.md)
 
-Port and register candidates retain known indexes and position groups. Numeric
-register reads list INTEGER/REAL alternatives without guessing the stored kind.
+Port and register candidates retain known indexes and position groups. An
+initial numeric register read still offers INTEGER and REAL as editable
+alternatives. With a configured bank, discovery follows source writes into
+`GET_REG` and `GET_STR_REG`, including the selected numeric receiver and
+string truncation. A known range failure updates only status.
+
+`GET_PORT_VAL`, `SET_PORT_VAL` and the simulation calls use the saved
+`ports.type_codes` mapping. Direct and indirect accesses share one address in
+the input template. Discovery follows known value conversions and simulation
+changes. A supplied bank value can establish that a compatible getter
+initializes its receiver while the value itself remains editable. Saving the
+first value for a bank input refreshes the reachable inputs. Comment, routing,
+and live port effects still require review.
 Unspecified position groups retain a caller-default marker. Position getter
 schemas describe the logical read shape, rather than authenticated stored data.
 `context_requirements` separately identifies services/addresses used even when
@@ -342,8 +353,8 @@ independent execution and discovery expectations; their
 [regressions](../tests/test_input_discovery_arrays.py) require discovery without
 target execution. These facts use the existing contract and report schemas.
 
-Literal/propagated addresses support direct ports, numeric/string/position
-registers and statically named GET_VAR/SET_VAR data paths in the current or a
+Literal and propagated addresses support direct ports, numeric, string and
+position registers, and statically named GET_VAR/SET_VAR data paths in the current or a
 pinned linked program. For whole PATHs, PATH arrays and bounded row or plane
 selections, discovery follows the captured source data and retains the
 receiver's updated topology. SET_VAR captures its value before resolving the

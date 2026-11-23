@@ -3264,6 +3264,93 @@ class InputTemplateTests(unittest.TestCase):
         self.assertEqual(result['context'],context)
         self.assertEqual(by_path(result)['A[1]']['status'],'missing')
 
+    def test_source_numeric_register_writes_select_only_the_matching_getter_output(self):
+        prepared = prepare(
+            'n=11 r=9.5 SET_INT_REG(1,42,s) GET_REG(1,flag,n,r,s) '
+            'IF (s=0) AND (NOT flag) AND (n=42) AND (r=9.5) THEN '
+            'SET_REAL_REG(1,8,s) GET_REG(1,flag,n,r,s) '
+            'IF (s=0) AND flag AND (n=42) AND (r=8.0) '
+            'THEN WRITE(wanted) ELSE WRITE(unused) ENDIF ELSE WRITE(unused) ENDIF',
+            decl='n,s,wanted,unused:INTEGER r:REAL flag:BOOLEAN',
+            context={'numeric': {'count': 1, 'values': {}}},
+        )
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'WANTED'})
+
+    def test_numeric_kind_survives_branch_merge_with_an_unknown_source_value(self):
+        prepared = prepare(
+            'IF option THEN SET_INT_REG(1,first,s) ELSE SET_INT_REG(1,second,s) ENDIF '
+            'GET_REG(1,flag,n,r,s) IF (s=0) AND (NOT flag) '
+            'THEN WRITE(n,wanted) ELSE WRITE(unused) ENDIF',
+            decl='n,s,first,second,wanted,unused:INTEGER r:REAL flag,option:BOOLEAN',
+            context={'numeric': {'count': 1, 'values': {}}},
+        )
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'OPTION', 'FIRST', 'SECOND', 'WANTED'})
+
+    def test_dynamic_numeric_write_invalidates_the_prior_kind_without_unsetting_the_cell(self):
+        prepared = prepare(
+            'SET_INT_REG(1,42,s) SET_REAL_REG(address,2.5,s) GET_REG(1,flag,n,r,s) '
+            'IF flag THEN WRITE(real_value) ELSE WRITE(int_value) ENDIF',
+            decl='n,s,address,real_value,int_value:INTEGER r:REAL flag:BOOLEAN',
+            context={'numeric': {'count': 2, 'values': {}}},
+        )
+        report = prepared['template']['discovery']
+        self.assertEqual([row['code'] for row in report['unresolved']], ['dynamic-address'])
+        self.assertEqual(set(by_path(prepared)), {'ADDRESS', 'REAL_VALUE', 'INT_VALUE'})
+
+    def test_register_range_failures_preserve_receivers_and_string_capacity(self):
+        prepared = prepare(
+            "SET_STR_REG(1,'abcd',s) GET_STR_REG(1,out,s) "
+            "IF (s=0) AND (out='abc') THEN "
+            'GET_STR_REG(2,out,range_status) '
+            'SET_INT_REG(0,66,s) '
+            "IF (s=2) AND (range_status=2) AND (out='abc') "
+            'THEN WRITE(wanted) ELSE WRITE(unused) ENDIF ELSE WRITE(unused) ENDIF',
+            decl='out:STRING[6] s,range_status,wanted,unused:INTEGER',
+            context={'strings': {'count': 1, 'capacity': 3, 'values': {}},
+                     'numeric': {'count': 1, 'values': {}}},
+        )
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'WANTED'})
+        self.assertFalse(any(row['code'] == 'service' for row in prepared['template']['requirements']))
+
+    def test_indirect_port_value_and_simulation_share_direct_port_storage(self):
+        prepared = prepare(
+            "SET_PORT_SIM(10,1,ON,s) IF (s=0) AND DIN[1] THEN "
+            "SET_PORT_VAL(10,1,'OFF',s) GET_PORT_VAL(10,1,result,s) "
+            'GET_PORT_SIM(10,1,simulated,sim_status) '
+            "IF (s=0) AND (result='0') AND simulated AND (sim_status=0) THEN "
+            'CLR_PORT_SIM(10,1,s) SET_PORT_VAL(10,1,ON,denied) '
+            'GET_PORT_SIM(10,1,simulated,s) '
+            'IF (s=0) AND (denied=4) AND (NOT simulated) AND (NOT DIN[1]) '
+            'THEN WRITE(wanted) ELSE WRITE(unused) ENDIF ELSE WRITE(unused) ENDIF ELSE WRITE(unused) ENDIF',
+            decl='result:STRING[4] simulated:BOOLEAN sim_status,denied,s,wanted,unused:INTEGER',
+            context={'ports': {'counts': {'DIN': 1}, 'type_codes': {'10':'DIN'}}},
+        )
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'WANTED'})
+
+    def test_indirect_port_reports_seeded_address_and_converts_analog_and_group_values(self):
+        prepared = prepare(
+            'GET_PORT_VAL(10,1,input_value,s) '
+            'AOUT[1]=2.5 n=12 GET_PORT_VAL(20,1,n,bad) '
+            "SET_PORT_VAL(30,1,'42',s) GET_PORT_VAL(30,1,converted,s) "
+            "IF (bad=3) AND (n=12) AND (s=0) AND (converted='42') AND (GOUT[1]=42) "
+            'THEN WRITE(wanted) ELSE WRITE(unused) ENDIF',
+            decl='input_value:REAL converted:STRING[4] n,bad,s,wanted,unused:INTEGER',
+            context={'ports': {'counts': {'AIN':1,'AOUT':1,'GOUT':1},
+                               'type_codes': {'10':'AIN','20':'AOUT','30':'GOUT'}}},
+        )
+        report = prepared['template']['discovery']
+        self.assertTrue(report['complete'], report['unresolved'])
+        self.assertEqual(set(by_path(prepared)), {'AIN[1]', 'WANTED'})
+        self.assertEqual(by_path(prepared)['AIN[1]']['status'], 'missing')
+
     def test_numeric_string_and_port_inputs_preserve_explicit_bank_values(self):
         context={'numeric':{'count':1,'values':{'1':0.1}},'strings':{'count':1,'values':{'01':'ready'}},
             'ports':{'counts':{'din':1},'values':{'din':{'01':True}}}}
