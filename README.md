@@ -3,7 +3,7 @@
 ![KarelToPython icon](karel2py/assets/icons/karel_to_python_icon_64x64.png)
 
 KarelToPython translates a supported subset of FANUC KAREL into Python for
-offline inspection and execution. The current build is **26.1123.174633**.
+offline inspection and execution. The current build is **26.1123.175336**.
 
 ## Table of Contents
 
@@ -94,7 +94,8 @@ positions, position comments and writable TP headers. Discovery follows bounded
 choices for TP programs, handles and bank addresses, including reads across
 child pause handoffs in entry programs and synchronous routines. Known
 branches and bounded loops in a child can pause and resume across a pinned
-task wait. Status and handle checks after an open follow the handle for each
+task wait, including `FOR` loops with captured integral fields or ARRAY
+cells. Status and handle checks after an open follow the handle for each
 outcome. Inputs and results share one JSON file.
 Use `runner refresh` to carry compatible inputs to a new translation.
 See [saved runs](docs/run-documents.md) and [input discovery](docs/input-discovery.md).

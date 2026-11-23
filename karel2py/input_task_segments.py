@@ -2,8 +2,9 @@
 
 from dataclasses import dataclass
 
+from .compiler_language import INTEGRAL_TYPES
 from .input_robot_values import POSE_CONSTRUCTORS
-from .input_value_conversions import SCALARS
+from .input_value_conversions import SCALARS, array_dimensions
 from .teach import TPE_NAMES
 
 
@@ -103,17 +104,39 @@ def structured_child(plan, linked_plans, tick):
         found_pause = found_pause or pause
         found_loop = found_loop or node['kind'] in STRUCTURED_LOOPS
         if (nested and pause) or (found_loop and found_pause):
-            return _SegmentRules(plan, tick) if _isolated(plan, linked_plans, tick) else None
+            return _SegmentRules(plan, tick, structured=True) if _isolated(plan, linked_plans, tick) else None
         pending.extend((iter(body), True) for body in _branches(node) if body)
     return None
 
 
 class _SegmentRules:
-    def __init__(self, plan, tick):
+    def __init__(self, plan, tick, *, structured=False):
         self.plan = plan
         self.tick = tick
+        self.structured = structured
         self.uses_teach = False
         self.uses_pose = False
+
+    def reference_schema(self, node):
+        self.tick()
+        kind = node['kind']
+        if kind == 'name':
+            return self.plan['types'].get(node['value'])
+        if not self.structured or kind not in ('field', 'index'):
+            return None
+        receiver, *indices = node['args']
+        schema = self.reference_schema(receiver)
+        if schema is None:
+            return None
+        if kind == 'field':
+            return dict(schema[2]).get(node['value']) if schema[0] == 'STRUCTURE' else None
+        if schema[0] != 'ARRAY':
+            return None
+        dimensions, element = array_dimensions(schema)
+        if not 0 < len(indices) <= len(dimensions) or not all(self.operand(index) for index in indices):
+            return None
+        remaining = dimensions[len(indices):]
+        return ['ARRAY', remaining, element] if remaining else element
 
     def operand(self, node):
         self.tick()
@@ -132,6 +155,9 @@ class _SegmentRules:
         if kind == 'call':
             return self.call(node)
         if kind in ('field', 'index'):
+            schema = self.reference_schema(node)
+            if schema and schema[0] in SCALARS:
+                return True
             self.uses_pose = True
         return kind in ('group', 'unary', 'binary', 'write_item', 'field', 'index', 'repeat_eval') and all(
             self.operand(arg) for arg in node['args'])
@@ -161,15 +187,18 @@ class _SegmentRules:
         if node['kind'] == 'while':
             return self.operand(args[0])
         target, initial, final, _ = args
-        schema = self.plan['types'].get(target['value']) if target['kind'] == 'name' else None
-        return bool(schema and schema[0] == 'INTEGER' and self.operand(initial) and self.operand(final))
+        schema = self.reference_schema(target)
+        return bool(schema and schema[0] in INTEGRAL_TYPES and self.operand(initial) and self.operand(final))
 
     def statement(self, node):
         self.tick()
         kind, args = node['kind'], node['args']
         if kind == 'assign':
             target, value = args
-            return target['kind'] == 'name' and self.operand(target) and self.operand(value)
+            if target['kind'] == 'name':
+                return self.operand(target) and self.operand(value)
+            schema = self.reference_schema(target)
+            return bool(schema and schema[0] in SCALARS and self.operand(value))
         if kind == 'call':
             return args[0]['kind'] == 'call' and self.call(args[0])
         if kind in ('if', 'select'):

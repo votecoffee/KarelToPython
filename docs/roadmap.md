@@ -64,8 +64,10 @@ Discovery follows synchronous linked calls, known child task bodies, and
 global and motion-local condition callbacks. Child and scan-time reads are
 conditional. Linked discovery follows known paused entries and explicit
 child pauses at the top level, in known `IF` and `SELECT` arms, and in
-bounded `FOR`, `WHILE`, and `REPEAT` iterations. It tracks numbered handler
-activation within each invocation and follows emitted motion capture order.
+bounded `FOR`, `WHILE`, and `REPEAT` iterations. A child can retain an
+integral `FOR` counter in an owned variable, ordinary ARRAY cell, or
+STRUCTURE field. Discovery tracks numbered handler activation within each
+invocation and follows emitted motion capture order.
 Refreshing a module set carries compatible owner-qualified values into a new
 document and reports changed, omitted and unresolved inputs.
 [Linked input discovery](input-discovery.md#linked-project-discovery)
@@ -73,9 +75,9 @@ document and reports changed, omitted and unresolved inputs.
 ### Remaining linked-run work
 
 1. **Expand linked discovery.** Model pauses inside child routine frames,
-   broaden resumable `FOR` counter types and capture targets, and model
-   additional synchronization and handler
-   rearming where order and targets can be determined. Track effects between motion
+   extend resumable `FOR` capture to PATH and USING storage, and model
+   additional synchronization and handler rearming where order and targets
+   can be determined. Track effects between motion
    callbacks and keep dynamic selections and external effects visible. Extend
    TP discovery to unsynchronized task interleavings, external pause and abort
    requests, and correlations across intervening service calls or between

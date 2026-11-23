@@ -449,6 +449,146 @@ END CHILD
                 self.assert_inputs(report,required)
                 self.assertIn('condition-source',[row['code'] for row in report['unresolved']])
 
+    def test_narrow_counters_reach_domain_endpoints_and_restore_their_cleanup_markers(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        cases=(('BYTE','254 TO 255',[254,255],{'unknown_byte':True}),
+               ('SHORT','-32767 DOWNTO -32768',[-32767,-32768],{'uninitialized':True}))
+        for kind,bounds,expected,marker in cases:
+            with self.subTest(kind=kind):
+                child=f"""PROGRAM CHILD
+VAR i:{kind}
+BEGIN
+  FOR i={bounds} DO
+    PAUSE
+    WRITE(i,CR)
+  ENDFOR
+END CHILD
+"""
+                report,result=self.prepare([('MAIN',main),('CHILD',child)])
+                self.assert_inputs(report,[])
+                self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation',
+                                             'task-wait','task-continuation'])
+                self.assertEqual(result['status'],'completed')
+                self.assertEqual([int(line) for line in result['text_output'].splitlines()],expected)
+                self.assertEqual(result['programs']['CHILD']['values']['I'],marker)
+
+    def test_indexed_record_counter_preserves_captured_leaf_across_pauses(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER text:STRING[8]
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  text='prior'
+  GET_TPE_STR_REG(1,text,s)
+  WRITE(s,':',text,CR)
+  CONTINUE PROGRAM[2]
+  WAIT FOR PAUSE PROGRAM[2]
+  GET_TPE_STR_REG(1,text,s)
+  WRITE(s,':',text,CR)
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+TYPE row_type=STRUCTURE tally:SHORT ENDSTRUCTURE
+VAR items:ARRAY[2,2] OF row_type slot,h,s,unused:INTEGER
+BEGIN
+  slot=1
+  items[2,2].tally=55
+  FOR items[slot,1].tally=1 TO items[slot,1].tally+1 DO
+    IF items[1,1].tally=1 THEN
+      OPEN_TPE('Shared',TPE_RDACC,TPE_ALLREJ,h,s)
+      slot=2
+    ELSE
+      CLOSE_TPE(h,s)
+    ENDIF
+    PAUSE
+    WRITE(items[1,1].tally,CR)
+  ENDFOR
+  IF UNINIT(items[1,1].tally) AND (items[2,2].tally=55) THEN
+    WRITE('clear')
+  ELSE
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assert_inputs(report,[('teach_string_register','SHARED','1','required')])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation',
+                                     'task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed')
+        blocked,first,ready,second,cleanup=result['text_output'].splitlines()
+        blocked_status,previous=blocked.split(':')
+        ready_status,current=ready.split(':')
+        self.assertEqual((int(blocked_status),previous,int(first),int(ready_status),current,int(second),cleanup),
+                         (4,'prior',1,0,'ready',2,'clear'))
+
+    def test_out_of_domain_narrow_bounds_do_not_establish_a_pause(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+END MAIN
+"""
+        cases=(('BYTE','256 DOWNTO 254',7),('BYTE','254 TO 256',{'unknown_byte':True}),
+               ('SHORT','32767 DOWNTO 32765',7),('SHORT','32765 TO 32767',{'uninitialized':True}))
+        for kind,bounds,value_after_error in cases:
+            with self.subTest(kind=kind,bounds=bounds):
+                child=f"""PROGRAM CHILD
+VAR i:{kind}
+BEGIN
+  i=7
+  FOR i={bounds} DO
+    PAUSE
+  ENDFOR
+END CHILD
+"""
+                report,result=self.prepare([('MAIN',main),('CHILD',child)])
+                self.assertIn('condition-source',[row['code'] for row in report['unresolved']])
+                self.assertEqual(result['status'],'failed')
+                self.assertIn('FOR bounds require initialized values',result['error']['message'])
+                self.assertEqual(result['programs']['CHILD']['values']['I'],value_after_error)
+
+    def test_unknown_composite_selection_keeps_the_parent_wait_unresolved(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER text:STRING[8]
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  GET_TPE_STR_REG(1,text,s)
+END MAIN
+"""
+        loops=(
+            ('FOR cells[slot]=1 TO 1 DO PAUSE ENDFOR','dynamic-address'),
+            ('FOR i=1 TO 1 DO cells[slot]=i PAUSE ENDFOR','dynamic-address'),
+            ('FOR i=1 TO 1 DO WRITE(cells[3]) PAUSE ENDFOR','selection'),
+        )
+        for loop,problem in loops:
+            with self.subTest(loop=loop):
+                child=f"""PROGRAM CHILD
+VAR cells:ARRAY[2] OF INTEGER slot,i,h,s:INTEGER
+BEGIN
+  OPEN_TPE('Shared',TPE_RDACC,TPE_ALLREJ,h,s)
+  {loop}
+END CHILD
+"""
+                report,_=self.prepare([('MAIN',main),('CHILD',child)],replay=False)
+                inputs=[('variable','CHILD','SLOT','conditional')] if problem=='dynamic-address' else []
+                self.assert_inputs(report,inputs)
+                codes=[row['code'] for row in report['unresolved']]
+                self.assertIn(problem,codes)
+                self.assertIn('condition-source',codes)
+                self.assertIn('teach-register',codes)
+
     def test_request_status_is_not_reused_as_prelaunch_task_number(self):
         main="""PROGRAM MAIN
 VAR task_no,s:INTEGER text:STRING[8]

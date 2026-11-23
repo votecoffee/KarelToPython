@@ -7,7 +7,7 @@ import math
 from pathlib import Path
 import re
 
-from .compiler_language import PREDEFINED_CONSTANTS
+from .compiler_language import INTEGRAL_TYPES, PREDEFINED_CONSTANTS
 from .dynamic import (
     BYNAME_PATH, MAX_LEAVES, UNKNOWN_CREATION_TYPE, creation_cost, creation_type, normalized_name,
     rename_names, rename_plan, renamed_key, root_member,
@@ -459,6 +459,7 @@ class _Analyzer(TeachDiscovery):
         self.linked_plans = linked_plans
         self.task_roots = (plan['program'],)
         self.suspended_depth = 0
+        self.exact_task_selection = False
         self.capture_values = {}
         self.track_handlers = track_handlers
         self.saw_handler = False
@@ -1057,6 +1058,12 @@ class _Analyzer(TeachDiscovery):
             self.opaque(flow)
         return False
 
+    def checked_task_selection(self, loc):
+        # An unresolved cell can hide effects or prevent reaching the pause.
+        if loc is None and self.exact_task_selection:
+            raise _TaskOrderUnknown()
+        return loc
+
     def locate(self, expr, flow, conditional, *, path_io=False, capture_node=False,
                selector_path_edits=False, reading=False):
         if not isinstance(expr,dict):return None
@@ -1070,7 +1077,8 @@ class _Analyzer(TeachDiscovery):
             base=self.locate(args[0],flow,conditional)
             if base is not None and base.named_data and not self.check_named_container(base, expr, flow):
                 return None
-            return self.field_child(base, expr['value'], expr, flow) if base else None
+            selected = self.field_child(base, expr['value'], expr, flow) if base else None
+            return self.checked_task_selection(selected)
         if kind=='index':
             base=args[0]
             if base.get('kind')=='name' and base['value'] in self.plan.get('port_types',{}):
@@ -1144,7 +1152,7 @@ class _Analyzer(TeachDiscovery):
                 return None
             if any(not self.check_named_container(parent, expr, flow) for parent in saved_parents):
                 return None
-            return loc
+            return self.checked_task_selection(loc)
         if kind in ('call','binary','unary','literal','real_literal','predefined'):
             self.expr(expr,flow,conditional)
         return None
@@ -4833,6 +4841,8 @@ class _Analyzer(TeachDiscovery):
         depth = self.suspended_depth + len(self.frames) + 1
         caller_plan, caller_roots, caller_depth = self.plan, self.task_roots, self.suspended_depth
         caller_frames, caller_exits, caller_values = self.frames, self.exits, self.capture_values
+        caller_selection = self.exact_task_selection
+        self.exact_task_selection = rules is not None
         self.plan, self.task_roots, self.suspended_depth = plan, (*caller_roots, plan['program']), depth
         self.frames, self.exits, self.capture_values = [], [], {}
         try:
@@ -4850,6 +4860,7 @@ class _Analyzer(TeachDiscovery):
         finally:
             self.plan, self.task_roots, self.suspended_depth = caller_plan, caller_roots, caller_depth
             self.frames, self.exits, self.capture_values = caller_frames, caller_exits, caller_values
+            self.exact_task_selection = caller_selection
 
     def scheduled_segment(self, blocks, child, rules):
         while blocks and not (child.stopped and not child.opaque):
@@ -4900,7 +4911,7 @@ class _Analyzer(TeachDiscovery):
     def start_task_loop(self, node, flow):
         if node['kind'] != 'for':
             return _TaskLoop(node)
-        counter, start, step, count = self.for_bounds(node, flow, True)
+        counter, start, step, count = self.for_bounds(node, flow, True, task=True)
         if count is None:
             raise _TaskOrderUnknown()
         return _TaskLoop(node, counter=counter, values=range(start, start + step * count, step))
@@ -4914,7 +4925,8 @@ class _Analyzer(TeachDiscovery):
             try:
                 value = loop.values[iterations]
             except IndexError:
-                cleared = _Value(complete=False, spec=loop.counter.spec, uninitialized=True)
+                spec = loop.counter.spec
+                cleared = _Value(complete=False, spec=spec, uninitialized=spec != ['BYTE'])
                 self.write(loop.counter, cleared, flow, node)
                 return None
         elif kind == 'while' or iterations:
@@ -5454,12 +5466,19 @@ class _Analyzer(TeachDiscovery):
         default = node['alternate'] if node['has_else'] else None
         return next((body for values, body in cases if selected in values), default), ()
 
-    def for_bounds(self, node, flow, conditional):
+    def for_bounds(self, node, flow, conditional, *, task=False):
         counter, first, last, direction = node['args']
         loc = self.locate(counter, flow, conditional)
+        if task and (loc is None or loc.kind != 'variable' or loc.owner != self.program
+                     or loc.spec[0] not in INTEGRAL_TYPES):
+            raise _TaskOrderUnknown()
         initial = self.expr(first, flow, conditional)
+        if task:
+            self.check_task_for_bound(loc, initial.constant, first)
         self.write(loc, initial, flow, node)
         final = self.expr(last, flow, conditional).constant
+        if task:
+            self.check_task_for_bound(loc, final, last)
         # The emitted iterator reads the captured counter after final-bound effects.
         start = UNKNOWN
         if loc and not flow.stopped:
@@ -5472,6 +5491,12 @@ class _Analyzer(TeachDiscovery):
         step = -1 if direction == 'DOWNTO' else 1
         count = max(0, (final - start) * step + 1) if type(start) is int and type(final) is int else None
         return loc, start, step, count
+
+    def check_task_for_bound(self, counter, value, node):
+        try:
+            rt.for_bound(tuple(counter.spec), value, node.get('line'))
+        except rt.KarelRuntimeError:
+            raise _TaskOrderUnknown() from None
 
     def statement(self, node, flow, conditional):
         self.tick();kind=node['kind'];args=node['args']

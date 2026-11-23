@@ -68,8 +68,12 @@ come from a constant or a known scalar. The wait can follow a pause inside
 a statically chosen `IF` or `SELECT` branch. A continuation resumes within
 the same arm without reevaluating its condition or selector and rejoins the
 surrounding body when that arm ends. The wait can also follow pauses in
-`FOR`, `WHILE`, and `REPEAT` loops. A simple `INTEGER` counter keeps its
-captured `FOR` bounds across continuations and clears when the loop ends.
+`FOR`, `WHILE`, and `REPEAT` loops. Discovery follows `INTEGER`,
+`BYTE`, and `SHORT` counters in child-owned variables, ordinary ARRAY cells,
+and STRUCTURE fields. The captured reference and inclusive bounds survive
+continuation even if the source index changes. Loop exit clears the same
+cell, using the unknown BYTE marker for `BYTE` and the uninitialized marker
+for `INTEGER` and `SHORT`.
 `WHILE` reevaluates its predicate before the next iteration. `REPEAT`
 evaluates its predicate after the body and keeps its first `EVAL` sample
 until that loop exits. Discovery follows up to 32 iterations per loop
@@ -79,9 +83,10 @@ The analysis carries TP handles and bank effects across that wait and uses
 the current shared bank when the child resumes. An eligible final launch or
 continuation can also reach natural completion when cleanup of the entry task's
 handles cannot race with the child. Shared operations between the request
-and wait, unresolved branches and loop tests, composite or narrow `FOR`
-counters, pauses inside child routines, and ambiguous suspended positions
-still use conservative analysis.
+and wait, unresolved branches and loop tests, unsupported or unresolved
+`FOR` targets or bounds, pauses inside child routines, and ambiguous
+suspended positions still use conservative analysis. PATH and USING counter
+captures remain outside checked pause handoffs.
 
 Discovery evaluates signal and wait selectors and can track known pauses
 across a delay or simple event wait. A signal or delay alone does not
