@@ -60,13 +60,20 @@ Discovery can also stop at an explicit top-level `PAUSE` in a child body
 limited to private scalar assignments, simple IF blocks, WRITE and event
 signals. A known continuation resumes at the next statement and keeps
 initialization and scalar value facts from earlier statements in that child.
-Several such pauses can be tracked. For supported TP operations, an immediately
-following `WAIT FOR PAUSE PROGRAM[n]` can establish the child boundary.
+Several such pauses can be tracked. For supported TP operations,
+`WAIT FOR PAUSE PROGRAM[n]` can establish the child boundary after a launch
+or continuation, including inside a synchronous routine. Simple assignments
+to parent-owned scalar storage may precede the wait, and the task number can
+come from a constant or a known scalar. Discovery checks the child segment
+through the requested pause, so an unreached tail can remain dormant even if
+it contains operations that require further analysis.
+
 The analysis carries TP handles and bank effects across that wait and uses
 the current shared bank when the child resumes. An eligible final launch or
 continuation can also reach natural completion when cleanup of the entry task's
-handles cannot race with the child. Nested pauses, ambiguous suspended
-positions and other concurrent shared effects use conservative analysis.
+handles cannot race with the child. Shared operations between the request
+and wait, pauses inside child routine frames or nested control flow, and
+ambiguous suspended positions still use conservative analysis.
 
 Discovery evaluates signal and wait selectors and can track known pauses
 across a delay or simple event wait. A signal or delay alone does not

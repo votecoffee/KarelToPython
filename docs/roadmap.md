@@ -71,15 +71,16 @@ document and reports changed, omitted and unresolved inputs.
 
 ### Remaining linked-run work
 
-1. **Expand linked discovery.** Model suspension in routine frames and nested
-   control flow, synchronization between tasks, and handler rearming where
-   order and targets can be determined. Track effects between motion
+1. **Expand linked discovery.** Model pauses inside child routine frames and
+   nested control flow, additional synchronization between tasks, and handler
+   rearming where order and targets can be determined. Track effects between motion
    callbacks and keep dynamic selections and external effects visible. Extend
    TP discovery to unsynchronized task interleavings, external pause and abort
    requests, and correlations across intervening service calls or between
    several catalog operands.
    Known child pause handoffs carry TP handle ownership, reject masks, shared
-   bank writes, and header edits across continuations.
+   bank writes, and header edits across continuations. A parent can launch or
+   resume the child and wait for its pause from a synchronous routine.
 2. **Export linked sources from the desktop.** Reuse linked-project validation
    and cooperative Python export so the desktop workflow can begin with KAREL
    source files. Keep the existing output and source-file protections.
