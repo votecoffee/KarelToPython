@@ -82,7 +82,9 @@ def check_robot_range(robot, operation, arguments, line, *, select, tick):
         return model.reachable(point, frame, tool, reference=reference, check=checkpoint)
 
 
-def _run_portable_model(robot, operation, evaluate, tick, sample_limit):
+def _run_portable_model(robot, operation, evaluate, tick, sample_limit=None):
+    if sample_limit is None:
+        sample_limit = MODEL_SAMPLE_LIMIT
     if type(robot.model) is not SerialRobotModel:
         raise RobotFactsUnavailable(operation+' requires the portable DH model')
     samples = 0
@@ -119,6 +121,11 @@ def evaluate_robot_assignment(robot, target, value, line, tick, *, operation='Ki
     )
 
 
+def _convert_model_leaf(context, expected, value, line, check):
+    check()
+    return context.kinematic_assignment(None, expected, value, line, group=context.robot.active_group, check=check)
+
+
 def evaluate_robot_aggregate(robot, conversion, target, value, line, tick, *, operation):
     """Preflight the whole ARRAY or STRUCTURE and meter one private conversion."""
     def evaluate(context, check):
@@ -132,10 +139,7 @@ def evaluate_robot_aggregate(robot, conversion, target, value, line, tick, *, op
         else:
             result, pending = rt.prepare_kinematic_record(target, value, line)
         for storage, key, expected, item in pending:
-            check()
-            storage[key] = context.kinematic_assignment(
-                None, expected, item, line, group=robot.active_group, check=check,
-            )
+            storage[key] = _convert_model_leaf(context, expected, item, line, check)
         if conversion == 'kinematic_record':
             return rt._partial_aggregate_value(result.spec, result, line)
         return result

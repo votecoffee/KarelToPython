@@ -18,6 +18,7 @@ from .extended import (
 )
 from .file_io import MAX_PATH_IO_FIELDS, path_io_field_count, path_io_indexes
 from .input_contract import extract, InputContractError
+from .input_model_transfers import evaluate_model_paths, evaluate_model_variables
 from .input_position_values import (
     POSITION_CLEARED, POSITION_GETTERS, POSITION_MODIFIED, POSITION_SERVICES, POSITION_SETTERS,
     checked_position_facts, merge_positions, position_register_result,
@@ -1722,12 +1723,26 @@ class _Analyzer:
             return 'rejected'
         return 'rejected' if convert is False else None
 
-    def convert_path_seed(self, target, seed, node, flow):
+    def convert_path_seed(self, target, seed, node, flow, layout):
         # Continuing past the source capture requires every source field.
         seed = self.complete_path_record(seed)
         try:
-            converted = self.convert_path_record(target, seed, node)
-        except rt.KarelRuntimeError as error:
+            if layout == 'kinematic':
+                operation = node['value']+' seed conversion'
+                robot = self.selected_robot_for_discovery(operation, node, flow)
+                raw = materialized_value(seed)
+                if raw is UNKNOWN:
+                    raise RobotFactsUnavailable(operation+' needs known source data at run time')
+                converted = detached_facts(evaluate_robot_aggregate(
+                    robot, 'kinematic_record', tuple_spec(target), raw, node.get('line'), self.tick,
+                    operation=operation,
+                ))
+            else:
+                converted = self.convert_path_record(target, seed, node)
+        except RobotFactsUnavailable as error:
+            self.unresolved_at('path-conversion', str(error), node)
+            return None
+        except (rt.KarelRuntimeError, ValueError, ArithmeticError) as error:
             self.unresolved_at('path-conversion', str(error), node)
             flow.stopped = True
             return None
@@ -1799,9 +1814,8 @@ class _Analyzer:
                 removed = order.nodes[offset] if removing else None
                 if layout == 'kinematic':
                     self.context('robot', None)
-                    self.unresolved_at('path-conversion', 'PATH seed conversion requires robot model results', node)
-                elif (self.can_publish_path(path, flow, conditional, argument_edit=True)
-                      and self.node_edit_preserves_borrows(path, order, prefix, shifted, removed)):
+                if (self.can_publish_path(path, flow, conditional, argument_edit=True)
+                        and self.node_edit_preserves_borrows(path, order, prefix, shifted, removed)):
                     detached = order.detached
                     inserted = order.inserted
                     if removing:
@@ -1818,9 +1832,11 @@ class _Analyzer:
                     else:
                         node_type = self.path_node_schema(path)
                         value = (_Value(complete=False, spec=node_type, uninitialized=True) if seed is None
-                                 else self.convert_path_seed(node_type, seed, node, flow))
+                                 else self.convert_path_seed(node_type, seed, node, flow, layout))
                         if value is None:
-                            return _Value(complete=False)
+                            if flow.stopped:
+                                return _Value(complete=False)
+                            return self.unknown_path_edit(path, status, node, flow)
                         self.serial += 1
                         nodes = prefix + (-self.serial,) + shifted
                         self.tick(len(inserted))
@@ -1834,8 +1850,11 @@ class _Analyzer:
                     self.write(status, _Value(0, spec=['INTEGER']), flow, node)
                     return _Value()
 
+        return self.unknown_path_edit(path, status, node, flow)
+
+    def unknown_path_edit(self, path, status, node, flow):
         flow.path_orders[path.key if path is not None else None] = None
-        self.unresolved_at('path-topology', name+' may change PATH topology or captured node references', node)
+        self.unresolved_at('path-topology', node['value']+' may change PATH topology or captured node references', node)
         self.opaque(flow)
         self.write(status, _Value(), flow, node)
         return _Value()
@@ -1915,19 +1934,22 @@ class _Analyzer:
                     argument_copy = not self.can_publish_path(target, flow, conditional)
                     captured = self.capture_path_copy(source, indexes, node, flow, conditional,
                                                       require_storage=argument_copy, archived=archived)
-                    if captured is not None:
-                        if _path_conversion_needs_model(layout, len(indexes)):
-                            self.context('robot', None)
-                            self.unresolved_at('path-conversion', 'COPY_PATH conversion requires robot model results', node)
-                        elif target.spec[1] or self.plan.get('default_path_node') or not len(indexes) or target.spec == source.spec:
-                            snapshot = _Value(spec=source.spec, path_records=tuple(captured),
-                                              complete=all(record.complete for record in captured))
-                            try:
-                                value = self.convert_path_records(target.spec, snapshot, node)
-                            except rt.KarelRuntimeError as error:
-                                self.unresolved_at('path-conversion', str(error), node)
-                                flow.stopped = True
-                                return _Value(complete=False)
+                    if captured is not None and (target.spec[1] or self.plan.get('default_path_node')
+                                                 or not len(indexes) or target.spec == source.spec):
+                        snapshot = _Value(spec=source.spec, path_records=tuple(captured),
+                                          complete=all(record.complete for record in captured))
+                        try:
+                            value, = self.convert_captured_paths(
+                                target.spec, [snapshot], layout, len(indexes), node, flow,
+                                operation='COPY_PATH conversion', allow_missing=False,
+                            )
+                        except RobotFactsUnavailable as error:
+                            self.unresolved_at('path-conversion', str(error), node)
+                        except (rt.KarelRuntimeError, ValueError, ArithmeticError) as error:
+                            self.unresolved_at('path-conversion', str(error), node)
+                            flow.stopped = True
+                            return _Value(complete=False)
+                        else:
                             history = self.retain_path_descriptor(target, flow, conditional, history)
                             self.publish_path_records(target, value.path_records, node, flow, history=history)
                             self.write(status, _Value(0, spec=['INTEGER']), flow, node)
@@ -2042,21 +2064,23 @@ class _Analyzer:
             self.unresolved_at('limit', 'PATH ARRAY conversion target exceeds the scalar snapshot limit', node)
             flow.stopped = True
             return _Value(complete=False, spec=target)
-        if _path_conversion_needs_model(layout, count):
-            self.context('robot', None)
-            self.unresolved_at('path-conversion', 'PATH ARRAY conversion requires robot model results', node)
-            self.opaque(flow)
-            return _Value(complete=False, spec=target)
         if count and cell_type[1] is None and not self.plan.get('default_path_node'):
             self.unresolved_at('path-schema', 'Retranslate to include default NODEDATA for PATH ARRAY conversion', node)
             self.opaque(flow)
             return _Value(complete=False, spec=target)
         try:
-            cells = {key: self.convert_path_records(cell_type, cell, node) for key, cell in value.facts.items()}
-        except rt.KarelRuntimeError as error:
+            converted = self.convert_captured_paths(
+                cell_type, value.facts.values(), layout, count, node, flow, operation='PATH ARRAY conversion',
+            )
+        except RobotFactsUnavailable as error:
+            self.unresolved_at('path-conversion', str(error), node)
+            self.opaque(flow)
+            return _Value(complete=False, spec=target)
+        except (rt.KarelRuntimeError, ValueError, ArithmeticError) as error:
             self.unresolved_at('path-conversion', str(error), node)
             flow.stopped = True
             return _Value(complete=False, spec=target)
+        cells = dict(zip(value.facts, converted, strict=True))
         return _Value(complete=all(cell.complete for cell in cells.values()), spec=target, facts=cells)
 
     def publish_private_path_array(self, target, value, node, flow):
@@ -2115,6 +2139,16 @@ class _Analyzer:
         )
         return _Value(complete=all(item.complete for item in records), spec=target, path_records=records)
 
+    def convert_captured_paths(self, target, snapshots, layout, count, node, flow, *, operation, allow_missing=True):
+        if not _path_conversion_needs_model(layout, count):
+            return [self.convert_path_records(target, value, node) for value in snapshots]
+        try:
+            robot = self.selected_robot_for_discovery(operation, node, flow)
+        except RobotFactsUnavailable as error:
+            raise RobotFactsUnavailable(operation+' requires robot model results. '+str(error)) from error
+        return evaluate_model_paths(robot, target, snapshots, layout, node.get('line'), self.tick,
+                                    operation=operation, allow_missing=allow_missing)
+
     def convert_path_value(self, target, value, node, flow):
         """Convert a captured private PATH before evaluating later operands."""
         if value.path_records is not None:
@@ -2129,13 +2163,15 @@ class _Analyzer:
                     self.unresolved_at('limit', 'PATH conversion target exceeds the scalar snapshot limit', node)
                     flow.stopped = True
                     return _Value(complete=False, spec=target)
-                if _path_conversion_needs_model(layout, count):
-                    self.context('robot', None)
-                    self.unresolved_at('path-conversion', 'PATH conversion requires robot model results', node)
-                elif node_type or not count:
+                if node_type or not count:
                     try:
-                        return self.convert_path_records(target, value, node)
-                    except rt.KarelRuntimeError as error:
+                        converted, = self.convert_captured_paths(
+                            target, [value], layout, count, node, flow, operation='PATH conversion',
+                        )
+                        return converted
+                    except RobotFactsUnavailable as error:
+                        self.unresolved_at('path-conversion', str(error), node)
+                    except (rt.KarelRuntimeError, ValueError, ArithmeticError) as error:
                         self.unresolved_at('path-conversion', str(error), node)
                         flow.stopped = True
                         return _Value(complete=False, spec=target)
@@ -2491,6 +2527,11 @@ class _Analyzer:
             return False
         target_spec = tuple_spec(target.spec)
         conversion = layout if target_spec != tuple_spec(value.spec) else None
+        if conversion is not None and 'kinematic' in conversion:
+            self.context('robot', None)
+            if self.saved_bindings is not None and self.saved_bindings.robot is None:
+                self.write(status, _Value(3, spec=['INTEGER']), flow, node)
+                return True
 
         if target.spec[0] == 'PATH':
             count = self.known_path_count(target, flow, conditional)
@@ -2637,32 +2678,26 @@ class _Analyzer:
         if policy == 'rejected':
             self.write(status, _Value(3, spec=['INTEGER']), flow, node)
             return
-        if policy == 'model':
+        modeled = policy == 'model'
+        if modeled:
             self.context('robot', None)
-            self.unresolved_at('variable-model', 'Variable transfer requires robot model results', node)
-            self.opaque(flow)
-            return
+            if self.saved_bindings is not None and self.saved_bindings.robot is None:
+                self.write(status, _Value(3, spec=['INTEGER']), flow, node)
+                return
         if prefix is None:
             pairs = ((target, value),)
         else:
             count, values = prefix
             pairs = zip(self.variable_array_locations(target, count, node), values, strict=True)
-        prepared = []
-        try:
-            for destination, source in pairs:
-                if source.whole_record_missing:
-                    # An admitted record conversion preserves the whole marker.
-                    converted = _Value(complete=False, spec=destination.spec, uninitialized=True,
-                                       whole_record_missing=True)
-                else:
-                    converted, unproven = convert_value_facts(destination.spec, source, tick=self.tick)
-                    if unproven:
-                        self.unresolved_at('conversion-value', 'Variable conversion requires complete source data', node)
-                prepared.append((destination, converted))
-        except rt.KarelRuntimeError as error:
-            self.unresolved_at('variable-conversion', str(error), node)
-            flow.stopped = True
-            return
+        if modeled:
+            converted_batch = self.model_variable_data_copy(tuple(pairs), prefix is not None, entry, status, node, flow)
+            if converted_batch is None:
+                return
+            prepared, result = converted_batch
+        else:
+            prepared = self.convert_variable_pairs(pairs, node, flow)
+            if prepared is None:
+                return
         if target.spec[0] == 'ARRAY' and not source_array_storage:
             _, terminal = _array_dimensions(target.root_spec)
             if terminal and terminal[0] == 'PATH' and any(not converted.complete for _, converted in prepared):
@@ -2681,9 +2716,55 @@ class _Analyzer:
                     self.opaque(flow)
                     return
             self.write(destination, converted, flow, node, shaped_record=shaped_source_record)
-            codes.append(self.variable_transfer_status(converted))
-        result = 12311 if 12311 in codes else 0 if all(code == 0 for code in codes) else UNKNOWN
+            if not modeled:
+                codes.append(self.variable_transfer_status(converted))
+        if not modeled:
+            result = 12311 if 12311 in codes else 0 if all(code == 0 for code in codes) else UNKNOWN
         self.publish_variable_result(entry, status, result, entry_key, node, flow)
+
+    def convert_variable_pairs(self, pairs, node, flow):
+        prepared = []
+        try:
+            for destination, source in pairs:
+                if source.whole_record_missing:
+                    # An admitted record conversion preserves the whole marker.
+                    converted = _Value(complete=False, spec=destination.spec, uninitialized=True,
+                                       whole_record_missing=True)
+                else:
+                    converted, unproven = convert_value_facts(destination.spec, source, tick=self.tick)
+                    if unproven:
+                        self.unresolved_at('conversion-value', 'Variable conversion requires complete source data', node)
+                prepared.append((destination, converted))
+        except rt.KarelRuntimeError as error:
+            self.unresolved_at('variable-conversion', str(error), node)
+            flow.stopped = True
+            return None
+        return prepared
+
+    def model_variable_data_copy(self, pairs, prefix, entry, status, node, flow):
+        operation = node['value']+' conversion'
+        try:
+            robot = self.selected_robot_for_discovery(operation, node, flow)
+            values, result = evaluate_model_variables(
+                robot, [(destination.spec, source) for destination, source in pairs], node.get('line'), self.tick,
+                prefix=prefix, operation=operation,
+            )
+        except RobotFactsUnavailable as error:
+            self.unresolved_at('variable-model', str(error), node)
+            flow.next_variable_entry = None
+            for destination, _ in pairs:
+                self.write(destination, _Value(complete=False, spec=destination.spec), flow, node, definite=False)
+            self.write(entry, _Value(), flow, node, definite=False)
+            self.write(status, _Value(), flow, node)
+            return None
+        except (rt.KarelRuntimeError, ValueError, ArithmeticError) as error:
+            self.unresolved_at('variable-model', str(error), node)
+            flow.stopped = True
+            return None
+        if result == 3:
+            self.write(status, _Value(result, spec=['INTEGER']), flow, node)
+            return None
+        return [(pair[0], value) for pair, value in zip(pairs, values, strict=True)], result
 
     def variable_target_overlap(self, target, outputs, flow, conditional):
         """Compare captured scalar outputs with the receiver's live storage."""
@@ -2728,9 +2809,7 @@ class _Analyzer:
         line = node.get('line')
 
         def model_robot():
-            group = self.default_position_group(None)
-            selected = self.query_robot_group(node['value'], group, node, flow)
-            return flow.robot_tables.selected_robot(selected, group)
+            return self.selected_robot_for_discovery(node['value'], node, flow)
 
         try:
             if address is None:
@@ -2873,7 +2952,8 @@ class _Analyzer:
             policy = variable_transfer_policy(destination.spec, source_spec)
             if policy is not None:
                 capture, captured_flow = (named, flow) if getting else captured_array or (None, None)
-                count = variable_array_prefix_size(destination.spec, source_spec) if policy == 'data' else None
+                count = (variable_array_prefix_size(destination.spec, source_spec, include_equal=policy == 'model')
+                         if policy in ('data', 'model') else None)
                 prefix = None
                 if count is not None:
                     values = (self.variable_array_source(capture, count, args[3] if not getting else node,
@@ -3895,6 +3975,11 @@ class _Analyzer:
         except (rt.KarelRuntimeError, ValueError, ArithmeticError) as error:
             self.unresolved_at('robot-tables', str(error), node)
             flow.stopped = True
+
+    def selected_robot_for_discovery(self, operation, node, flow):
+        group = self.default_position_group(None)
+        robot = self.query_robot_group(operation, group, node, flow)
+        return flow.robot_tables.selected_robot(robot, group)
 
     def query_robot_group(self, operation, group, node, flow):
         self.context('robot', None)

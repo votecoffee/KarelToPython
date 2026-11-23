@@ -492,7 +492,11 @@ layout mismatch produces status 3. Discovery checks the source topology for a
 rejected `GET_VAR` on a PATH or PATH bank and omits unused payload inputs. An
 earlier `SET_VAR` source capture stays visible. A proved conversion failure
 stops discovery before any receiver, entry, or status update. Destination fields
-with special write guards and robot-dependent operations remain conservative.
+with special write guards remain conservative. A saved portable DH model
+allows named joint and Cartesian transfers, including compatible records and
+the selected ARRAY prefix. Discovery retains the cache entry and missing-data
+status from the prepared transfer. A saved context with no robot returns
+status 3 for a transfer that requires a model.
 
 ### Named routine arguments
 
@@ -632,9 +636,11 @@ conversions and retains known values and missing markers through nested
 records and array components. It can prove joint padding and track fields
 from checked CONFIG word and Cartesian conversions when their inputs are known.
 Whole returned-bank WRITE checks the combined scalar field limit.
-Model-dependent conversions report the robot context requirement when the
-conversion would use a model. Retranslate older targets to include the order
-of static conversions before destination index expressions.
+With the calling task's saved portable DH model, discovery also follows
+joint and Cartesian conversions in a PATH ARRAY. It checks every captured
+cell before publishing any model results, with a shared solver budget across
+the bank. Retranslate older targets to include the order of static
+conversions before destination index expressions.
 
 A discovered header in a fresh PATH or fixed PATH ARRAY can be edited directly.
 The template builds an empty node list and the declared header with missing
@@ -699,9 +705,10 @@ live receiver and its status reference, after discovering any earlier
 operand reads. If a conversion operand has already detached the captured
 status field from the receiver, the status write reaches that original field.
 
-Model-dependent seed conversions, unknown conversion choices for different
-layouts, unproved alias origins, and uncertain or potentially repeated edits
-leave the topology unresolved.
+A known model-backed seed is converted using the frame and tool selected
+after the other operands have been evaluated. Unknown seeds, conversion
+choices for different layouts, unproved alias origins, and uncertain or
+potentially repeated edits leave the topology unresolved.
 When discovery loses the order of a tracked PATH, it reports unknown saved
 origins for its node selectors.
 
@@ -719,7 +726,7 @@ A copy preserves missing leaves. Reading an incompletely proven copied
 value later can report a `derived-value` gap. Known rejected layouts or
 bounds produce status 3 or 2 before reading the source records. A known
 conversion failure prevents publication and the success status write.
-Unknown bounds, unproved destination references, and model-dependent
+Unknown bounds, unproved destination references, and unavailable model
 results leave the destination effect unresolved.
 
 Discovery also follows whole scalar PATH assignments between declared
@@ -728,15 +735,17 @@ It captures the source header and nodes before evaluating the destination
 selector. Later writes to the source leave the copied values independent.
 Exact and context-free conversions preserve partial data, and the destination
 can start without a saved seed. Retranslate older Python to include the
-checked assignment schema. Uncertain receiver selection and model-dependent
-assignments still produce a discovery gap.
+checked assignment schema. A saved portable DH model also enables conversion
+of compatible NODEDATA and PATHHEADER records. Uncertain receiver selection
+and unavailable model results produce a discovery gap.
 
 Grouped scalar PATH arguments capture private values before later arguments
 are evaluated. Bare reference arguments retain the caller's storage and
 ordinary field writes. Fresh routine-local PATHs begin empty. Definite
 assignments and node edits on the routine's own local or private PATHs can
-establish their shape. Returning an exact or context-free PATH snapshot
-preserves partial data and detaches it from the routine frame. The caller can
+establish their shape. Returning a checked PATH snapshot preserves partial
+data and detaches it from the routine frame. Model-backed layout conversion
+uses the calling task's saved model. The caller can
 assign that result or use its node count in `PATH_LEN`. These rules also apply
 across pinned linked routines with matching interfaces.
 

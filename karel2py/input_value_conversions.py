@@ -173,13 +173,13 @@ def variable_transfer_policy(target, source):
     return 'rejected'
 
 
-def variable_array_prefix_size(target, source):
+def variable_array_prefix_size(target, source, *, include_equal=False):
     """Return the transferred element count for differing concrete extents."""
     if target[0] != 'ARRAY' or source[0] != 'ARRAY':
         return None
     target_shape, _ = array_dimensions(target)
     source_shape, _ = array_dimensions(source)
-    if target_shape == source_shape:
+    if target_shape == source_shape and not include_equal:
         return None
     return min(math.prod(target_shape), math.prod(source_shape))
 

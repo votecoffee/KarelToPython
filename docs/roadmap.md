@@ -75,8 +75,8 @@ document and reports changed, omitted and unresolved inputs.
    control flow, synchronization between tasks, and handler rearming where
    order and targets can be determined. Track effects between motion
    callbacks and keep dynamic selections and external effects visible. Extend
-   robot discovery to model-backed PATH conversions and ordinary named
-   data transfers, including their transfer statuses and receiver layouts.
+   robot discovery to model-backed position register conversions and more
+   joint-valued geometry operands.
 2. **Export linked sources from the desktop.** Reuse linked-project validation
    and cooperative Python export so the desktop workflow can begin with KAREL
    source files. Keep the existing output and source-file protections.
