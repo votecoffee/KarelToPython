@@ -8,6 +8,7 @@ from .teach import TPE_NAMES
 
 
 SHARED_TEACH_CALLS = TPE_NAMES | {'GET_ATTR_PRG', 'SET_ATTR_PRG', 'LOAD_STATUS'}
+STRUCTURED_LOOPS = frozenset(('for', 'while', 'repeat'))
 
 
 @dataclass
@@ -82,12 +83,15 @@ def _branches(node):
         return (node['body'], node['alternate'])
     if node['kind'] == 'select':
         return (*(body for _, _, body in node['args'][1]), node['alternate'])
+    if node['kind'] in STRUCTURED_LOOPS:
+        return (node['body'],)
     return ()
 
 
 def structured_child(plan, linked_plans, tick):
-    """Identify isolated children with a pause reached through IF or SELECT."""
+    """Find an isolated child with a pause within or alongside structured flow."""
     pending = [(iter(plan['body']), False)]
+    found_loop = found_pause = False
     while pending:
         statements, nested = pending[-1]
         node = next(statements, None)
@@ -95,7 +99,10 @@ def structured_child(plan, linked_plans, tick):
             pending.pop()
             continue
         tick()
-        if nested and explicit_pause(node):
+        pause = explicit_pause(node)
+        found_pause = found_pause or pause
+        found_loop = found_loop or node['kind'] in STRUCTURED_LOOPS
+        if (nested and pause) or (found_loop and found_pause):
             return _SegmentRules(plan, tick) if _isolated(plan, linked_plans, tick) else None
         pending.extend((iter(body), True) for body in _branches(node) if body)
     return None
@@ -126,7 +133,7 @@ class _SegmentRules:
             return self.call(node)
         if kind in ('field', 'index'):
             self.uses_pose = True
-        return kind in ('group', 'unary', 'binary', 'write_item', 'field', 'index') and all(
+        return kind in ('group', 'unary', 'binary', 'write_item', 'field', 'index', 'repeat_eval') and all(
             self.operand(arg) for arg in node['args'])
 
     def call(self, node):
@@ -137,7 +144,7 @@ class _SegmentRules:
             self.uses_teach = True
         elif routine in POSE_CONSTRUCTORS or routine == 'CNV_STR_CONF':
             self.uses_pose = True
-        else:
+        elif routine != 'UNINIT':
             return False
         return all(self.operand(arg) for arg in node['args'])
 
@@ -146,6 +153,16 @@ class _SegmentRules:
         return self.operand(args[0]) and (
             node['kind'] == 'if'
             or all(self.operand(label) for _, labels, _ in args[1] for label in labels))
+
+    def loop(self, node):
+        args = node['args']
+        if node['kind'] == 'repeat':
+            return True
+        if node['kind'] == 'while':
+            return self.operand(args[0])
+        target, initial, final, _ = args
+        schema = self.plan['types'].get(target['value']) if target['kind'] == 'name' else None
+        return bool(schema and schema[0] == 'INTEGER' and self.operand(initial) and self.operand(final))
 
     def statement(self, node):
         self.tick()

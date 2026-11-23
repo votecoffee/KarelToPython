@@ -282,6 +282,173 @@ END CHILD
         self.assertIn('Scheduler cycle budget exceeded',result['error']['message'])
         self.assertEqual(result['text_output'],'')
 
+    def test_downward_for_keeps_captured_bounds_and_clears_counter_after_two_pauses(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER text:STRING[8]
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  text='prior'
+  GET_TPE_STR_REG(1,text,s)
+  WRITE(s,':',text,CR)
+  CONTINUE PROGRAM[2]
+  WAIT FOR PAUSE PROGRAM[2]
+  GET_TPE_STR_REG(1,text,s)
+  WRITE(s,':',text,CR)
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR h,s,i,last,unused:INTEGER
+BEGIN
+  last=2
+  FOR i=3 DOWNTO last DO
+    IF i=3 THEN
+      OPEN_TPE('Shared',TPE_RDACC,TPE_ALLREJ,h,s)
+      last=1
+    ELSE
+      CLOSE_TPE(h,s)
+    ENDIF
+    PAUSE
+    WRITE(i,CR)
+  ENDFOR
+  IF UNINIT(i) THEN WRITE('clear') ELSE WRITE(unused) ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assert_inputs(report,[('teach_string_register','SHARED','1','required')])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation',
+                                     'task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed')
+        blocked,first,opened,second,cleanup=result['text_output'].splitlines()
+        first_status,previous=blocked.split(':')
+        next_status,current=opened.split(':')
+        self.assertEqual((int(first_status),previous,int(first),int(next_status),current,int(second),cleanup),
+                         (4,'prior',3,0,'ready',2,'clear'))
+
+    def test_while_retests_and_repeat_reuses_eval_sample_after_pauses(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        cases=(
+            ('WHILE n<2 DO n=n+1 PAUSE ENDWHILE',2),
+            ('REPEAT n=n+1 IF n<3 THEN PAUSE ENDIF UNTIL (n=3) OR (EVAL(n)=2)',3),
+        )
+        for loop,final in cases:
+            with self.subTest(loop=loop):
+                child=f"""PROGRAM CHILD
+VAR n,unused:INTEGER
+BEGIN
+  n=0
+  {loop}
+  IF n={final} THEN WRITE(n) ELSE WRITE(unused) ENDIF
+END CHILD
+"""
+                report,result=self.prepare([('MAIN',main),('CHILD',child)])
+                self.assert_inputs(report,[])
+                self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation',
+                                             'task-wait','task-continuation'])
+                self.assertEqual(result['status'],'completed')
+                self.assertEqual(int(result['text_output']),final)
+
+    def test_empty_loops_skip_unreached_pauses_and_reads(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER text:STRING[8]
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  GET_TPE_STR_REG(1,text,s)
+  WRITE(text)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR i,unused,late:INTEGER
+BEGIN
+  FOR i=3 TO 2 DO
+    WRITE(unused)
+    PAUSE
+  ENDFOR
+  WHILE FALSE DO
+    WRITE(unused)
+    PAUSE
+  ENDWHILE
+  PAUSE
+  WRITE(late)
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assert_inputs(report,[('teach_string_register','SHARED','1','required')])
+        self.assert_task_gaps(report,['task-scheduling','task-wait'])
+        self.assertEqual(result['status'],'paused')
+        self.assertEqual(result['text_output'],'ready')
+
+    def test_paused_loop_prefix_does_not_require_all_iterations_or_later_repeat_test(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER text:STRING[8]
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  text='prior'
+  GET_TPE_STR_REG(1,text,s)
+  WRITE(s,':',text)
+END MAIN
+"""
+        body="OPEN_TPE('Shared',TPE_RDACC,TPE_ALLREJ,h,s) PAUSE WRITE(late)"
+        loops=(f'FOR i=1 TO 1000000 DO {body} ENDFOR', f'REPEAT {body} UNTIL later()')
+        for loop in loops:
+            with self.subTest(loop=loop):
+                child=f"""PROGRAM CHILD
+VAR i,h,s,late:INTEGER
+ROUTINE later:BOOLEAN
+BEGIN
+  RETURN late=0
+END later
+BEGIN
+  {loop}
+END CHILD
+"""
+                report,result=self.prepare([('MAIN',main),('CHILD',child)])
+                self.assert_inputs(report,[])
+                self.assert_task_gaps(report,['task-scheduling','task-wait'])
+                self.assertEqual(result['status'],'paused')
+                blocked,text=result['text_output'].split(':')
+                self.assertEqual((int(blocked),text),(4,'prior'))
+
+    def test_dynamic_and_over_budget_loop_keep_reads_and_wait_unresolved(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+END MAIN
+"""
+        for bound, has_input in (('limit',True),('33',False)):
+            with self.subTest(bound=bound):
+                child=f"""PROGRAM CHILD
+VAR i,limit,payload:INTEGER
+BEGIN
+  FOR i=1 TO {bound} DO
+    IF i=33 THEN
+      WRITE(payload)
+      PAUSE
+    ENDIF
+  ENDFOR
+END CHILD
+"""
+                report,_=self.prepare([('MAIN',main),('CHILD',child)],replay=False)
+                required=[('variable','CHILD','PAYLOAD','conditional')]
+                if has_input:
+                    required.append(('variable','CHILD','LIMIT','conditional'))
+                self.assert_inputs(report,required)
+                self.assertIn('condition-source',[row['code'] for row in report['unresolved']])
+
     def test_request_status_is_not_reused_as_prelaunch_task_number(self):
         main="""PROGRAM MAIN
 VAR task_no,s:INTEGER text:STRING[8]

@@ -23,7 +23,9 @@ from .input_position_values import (
     POSITION_CLEARED, POSITION_GETTERS, POSITION_MODIFIED, POSITION_SERVICES, POSITION_SETTERS,
     checked_position_facts, merge_positions, position_register_result,
 )
-from .input_task_segments import bounded_child, explicit_pause, structured_child, task_handoff_window
+from .input_task_segments import (
+    STRUCTURED_LOOPS, bounded_child, explicit_pause, structured_child, task_handoff_window,
+)
 from .input_teach_catalog import TEACH_CATALOG_SERVICES, TEACH_EDIT_SERVICES
 from .input_teach_discovery import (
     TEACH_HANDLE_SERVICES, TEACH_POSITION_GETTERS, TEACH_POSITION_SECTIONS, TEACH_POSITION_SERVICES,
@@ -61,6 +63,7 @@ INITIAL_BINDING = object()
 MAYBE_ATTRIBUTE = object()
 MISSING_PATH_RECORD = object()
 MAX_STEPS = 100000
+MAX_LOOP_ITERATIONS = 32
 MAX_INPUTS = 2048
 MAX_CALL_DEPTH = 32
 MAX_FACTS = 32767
@@ -153,9 +156,18 @@ class _Handler:
     captures: dict
 
 
+@dataclass(frozen=True)
+class _TaskLoop:
+    node: dict
+    iterations: int = 0
+    counter: _Location | None = None
+    values: range | None = None
+    repeat_predicate: dict | None = None
+
+
 @dataclass(eq=False, frozen=True)
 class _Suspension:
-    blocks: tuple[tuple[list, int], ...]
+    blocks: tuple[tuple[list, int] | _TaskLoop, ...]
     flow: '_Flow'
 
 
@@ -4786,7 +4798,8 @@ class _Analyzer(TeachDiscovery):
         if segment and handoff is not None:
             target = self.synchronized_task_segment(plan, suspension, handoff, flow)
             synchronized = target is not None and self.bounded_task_segment(plan, target) is not None
-            if not synchronized and (handoff.waiter is not None or nested and self.terminal_task_handoff(flow)):
+            if not synchronized and (handoff.waiter is not None
+                                     or suspension is not None and self.terminal_task_handoff(flow)):
                 rules = structured_child(plan, self.linked_plans, self.tick)
                 synchronized = rules is not None
         if synchronized or segment and not nested and self.bounded_task_segment(plan) == 'scalar':
@@ -4840,7 +4853,16 @@ class _Analyzer(TeachDiscovery):
 
     def scheduled_segment(self, blocks, child, rules):
         while blocks and not (child.stopped and not child.opaque):
-            body, index = blocks[-1]
+            frame = blocks[-1]
+            if isinstance(frame, _TaskLoop):
+                loop = self.next_task_iteration(frame, child, rules)
+                if loop is None:
+                    blocks.pop()
+                else:
+                    blocks[-1] = loop
+                    blocks.append((frame.node['body'], 0))
+                continue
+            body, index = frame
             if index == len(body):
                 blocks.pop()
                 continue
@@ -4852,10 +4874,15 @@ class _Analyzer(TeachDiscovery):
             if rules is None or rules.statement(node):
                 self.statement(node, child, True)
                 continue
-            if node['kind'] not in ('if', 'select') or not rules.branch(node):
+            kind = node['kind']
+            if kind in STRUCTURED_LOOPS and rules.loop(node):
+                self.tick()
+                blocks.append(self.start_task_loop(node, child))
+                continue
+            if kind not in ('if', 'select') or not rules.branch(node):
                 raise _TaskOrderUnknown()
             self.tick()
-            if node['kind'] == 'if':
+            if kind == 'if':
                 condition = self.expr(node['args'][0], child, True).constant
                 if type(condition) is not bool:
                     raise _TaskOrderUnknown()
@@ -4869,6 +4896,45 @@ class _Analyzer(TeachDiscovery):
                     continue
             blocks.append((branch, 0))
         return None
+
+    def start_task_loop(self, node, flow):
+        if node['kind'] != 'for':
+            return _TaskLoop(node)
+        counter, start, step, count = self.for_bounds(node, flow, True)
+        if count is None:
+            raise _TaskOrderUnknown()
+        return _TaskLoop(node, counter=counter, values=range(start, start + step * count, step))
+
+    def next_task_iteration(self, loop, flow, rules):
+        self.tick()
+        node, iterations = loop.node, loop.iterations
+        kind = node['kind']
+        captured = loop.repeat_predicate
+        if kind == 'for':
+            try:
+                value = loop.values[iterations]
+            except IndexError:
+                cleared = _Value(complete=False, spec=loop.counter.spec, uninitialized=True)
+                self.write(loop.counter, cleared, flow, node)
+                return None
+        elif kind == 'while' or iterations:
+            predicate = node['args'][0]
+            if kind == 'repeat':
+                if captured is None:
+                    if not rules.operand(predicate):
+                        raise _TaskOrderUnknown()
+                    captured = self.sample_condition_inputs(predicate, flow, True, ('repeat_eval',))
+                predicate = captured
+            condition = self.expr(predicate, flow, True).constant
+            if type(condition) is not bool:
+                raise _TaskOrderUnknown()
+            if condition == (kind == 'repeat'):
+                return None
+        if iterations == MAX_LOOP_ITERATIONS:
+            raise _TaskOrderUnknown()
+        if kind == 'for':
+            self.write(loop.counter, _Value(value), flow, node)
+        return replace(loop, iterations=iterations + 1, repeat_predicate=captured)
 
     def routine_target(self, name, interface):
         owner = interface['external']
@@ -5388,6 +5454,25 @@ class _Analyzer(TeachDiscovery):
         default = node['alternate'] if node['has_else'] else None
         return next((body for values, body in cases if selected in values), default), ()
 
+    def for_bounds(self, node, flow, conditional):
+        counter, first, last, direction = node['args']
+        loc = self.locate(counter, flow, conditional)
+        initial = self.expr(first, flow, conditional)
+        self.write(loc, initial, flow, node)
+        final = self.expr(last, flow, conditional).constant
+        # The emitted iterator reads the captured counter after final-bound effects.
+        start = UNKNOWN
+        if loc and not flow.stopped:
+            if loc.key in flow.defined:
+                start = flow.constants.get(loc.key, UNKNOWN)
+            else:
+                self.unresolved_at('for-start',
+                                   'Captured counter is not proven initialized after final-bound evaluation: '+loc.path,
+                                   node)
+        step = -1 if direction == 'DOWNTO' else 1
+        count = max(0, (final - start) * step + 1) if type(start) is int and type(final) is int else None
+        return loc, start, step, count
+
     def statement(self, node, flow, conditional):
         self.tick();kind=node['kind'];args=node['args']
         if flow.task_order_unknown and flow.paused_tasks:
@@ -5516,18 +5601,8 @@ class _Analyzer(TeachDiscovery):
             return
         if kind=='for':
             exit_start=len(self.exits)
-            loc=self.locate(args[0],flow,conditional);initial=self.expr(args[1],flow,conditional)
-            self.write(loc,initial,flow,node);final=self.expr(args[2],flow,conditional)
-            # The emitted iterator reads the captured counter after final-bound effects.
-            start=UNKNOWN
-            if loc and not flow.stopped:
-                if loc.key in flow.defined:start=flow.constants.get(loc.key,UNKNOWN)
-                else:self.unresolved_at('for-start','Captured counter is not proven initialized after final-bound evaluation: '+loc.path,node)
-            step=-1 if args[3]=='DOWNTO' else 1
-            if type(start) is int and type(final.constant) is int:
-                count=max(0,(final.constant-start)*step+1)
-            else:count=None
-            if count is not None and count<=32:
+            loc, start, step, count = self.for_bounds(node, flow, conditional)
+            if count is not None and count <= MAX_LOOP_ITERATIONS:
                 for index in range(count):
                     if flow.stopped:break
                     self.write(loc,_Value(start+step*index),flow,node)

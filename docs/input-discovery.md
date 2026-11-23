@@ -67,15 +67,21 @@ to parent-owned scalar storage may precede the wait, and the task number can
 come from a constant or a known scalar. The wait can follow a pause inside
 a statically chosen `IF` or `SELECT` branch. A continuation resumes within
 the same arm without reevaluating its condition or selector and rejoins the
-surrounding body when that arm ends. Discovery checks the reached segment
-through the pause, leaving unselected arms and the later tail dormant.
+surrounding body when that arm ends. The wait can also follow pauses in
+`FOR`, `WHILE`, and `REPEAT` loops. A simple `INTEGER` counter keeps its
+captured `FOR` bounds across continuations and clears when the loop ends.
+`WHILE` reevaluates its predicate before the next iteration. `REPEAT`
+evaluates its predicate after the body and keeps its first `EVAL` sample
+until that loop exits. Discovery follows up to 32 iterations per loop
+activation and examines only the reached segment through each pause.
 
 The analysis carries TP handles and bank effects across that wait and uses
 the current shared bank when the child resumes. An eligible final launch or
 continuation can also reach natural completion when cleanup of the entry task's
 handles cannot race with the child. Shared operations between the request
-and wait, unresolved branches, pauses inside loops and child routines,
-and ambiguous suspended positions still use conservative analysis.
+and wait, unresolved branches and loop tests, composite or narrow `FOR`
+counters, pauses inside child routines, and ambiguous suspended positions
+still use conservative analysis.
 
 Discovery evaluates signal and wait selectors and can track known pauses
 across a delay or simple event wait. A signal or delay alone does not
@@ -676,7 +682,8 @@ Python coverage, complete host callback dependencies or native controller
 equivalence. READ requires an explicit input provider and remains a reported gap.
 
 Limits are 16 MiB of Python, 100000 analysis steps, 32767 storage facts, 2048
-catalog entries, 32 routine frames and 32 iterations for constant FOR expansion.
+catalog entries, 32 routine frames and 32 iterations for constant `FOR`
+expansion or a checked linked loop activation.
 Contract construction has a separate 50000-node/100-depth budget; an oversized
 contract is marked unavailable without rejecting an otherwise valid translation.
 Limit exhaustion returns an explicit partial report.
