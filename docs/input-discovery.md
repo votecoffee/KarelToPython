@@ -184,8 +184,11 @@ and node selections use the captured records even when the live PATH changes
 while a later operand pauses. Queue snapshots retain initialization state,
 entry IDs, and sequence numbers. Queue ARRAY shape and cell initialization
 queries use the capture, and a pinned value call can bind a new backing ARRAY
-to its own copy. A fresh loop activation takes fresh samples.
-Re-translate earlier modules to add collection capture schemas. Calls can nest within the
+to its own copy. FILE captures retain the selected descriptor, bank, or row,
+and discovery follows open, close, and cursor changes for checked memory FILEs.
+FILE `UNINIT`, `GET_FILE_POS`, `FILE_SIZE`, `BYTES_LEFT`, and ARRAY shape
+queries can use those captures. A fresh loop activation takes fresh samples.
+Re-translate earlier modules to add the capture schemas. Calls can nest within the
 ordinary routine-depth limit.
 
 The analysis carries TP handles and bank effects across that wait and uses
@@ -196,8 +199,7 @@ and wait, unresolved branches and loop tests, unsupported or unresolved
 `FOR` targets or bounds, and ambiguous suspended positions still use
 conservative analysis. Checked handoffs also leave recursive calls,
 other resource arguments and selectors, model-backed or unproven
-data conversions, other FILE transports and selectors, and pausing FILE
-`EVAL` captures unresolved.
+data conversions, and additional FILE transports and selectors unresolved.
 Unproven PATH topology or descriptor history, and untracked queue
 contents, use conservative analysis. Shared globals in called
 library modules and retained `USING` aliases in deferred callbacks still

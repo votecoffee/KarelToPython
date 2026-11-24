@@ -120,6 +120,9 @@ selectors, shape queries, and bounded output across pauses.
 Scalar, ordinary aggregate, PATH, and queue `REPEAT UNTIL` captures run
 once before the live test and carry their values across pauses and iterations.
 PATH and queue ARRAY captures retain their shape and cell contents.
+FILE descriptors and selected FILE ARRAY rows retain their identities across
+pauses. Discovery tracks their live memory FILE state when it can verify the
+operations.
 Discovery tracks numbered handler activation within
 each invocation and follows emitted motion capture order.
 Refreshing a module set carries compatible owner-qualified values into a new
@@ -131,7 +134,7 @@ document and reports changed, omitted and unresolved inputs.
 1. **Expand linked discovery.** Extend child pause tracking to additional
    resource arguments and selectors, model-backed or unproven aggregate
    conversions, FILE reads of untracked data and specialized
-   PATH fields, additional FILE transports, and `EVAL` captures for FILEs.
+   PATH fields, additional FILE transports, and unresolved FILE capture selectors.
    Model shared storage in called library
    modules, track retained `USING` aliases in deferred callbacks, and model
    additional synchronization and handler rearming where order and targets

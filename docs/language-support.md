@@ -404,7 +404,10 @@ A source routine named EVAL keeps its declared call semantics inside WAIT.
 A port transition predicate remains a live sampled condition.
 Pythonic queue captures preserve entry order, IDs, and sequence numbers in
 independent storage. PATH and queue ARRAY captures retain the concrete shape
-and the captured contents of each cell.
+and the captured contents of each cell. FILE captures borrow the selected
+descriptor, bank, or row. A selector inside `EVAL` runs at capture time.
+A later poll can see an open, close, or cursor change through that
+descriptor. Wrapping the query itself in `EVAL` samples its numeric result.
 
 The reference describes EVAL in section A.5.6 and the WAIT condition syntax
 in MARRC75KR07091E Rev N Appendix E figures (t) and (u).
@@ -435,6 +438,8 @@ Boolean test, including operands behind short-circuit operators.
 Pythonic PATH and queue ARRAYs and scalar queues use checked logical copies.
 Each captured queue can bind its own backing ARRAY when passed by value to a
 routine. PATH copies preserve the records and their initialization state.
+FILE operands keep the borrowed descriptor or view selected at the first
+test. Later tests see changes to that descriptor's open state and cursor.
 
 A new loop execution takes a fresh capture. A jump within the same loop keeps
 its capture. A jump out releases it, and later entry through a body label

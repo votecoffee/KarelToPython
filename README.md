@@ -3,7 +3,7 @@
 ![KarelToPython icon](karel2py/assets/icons/karel_to_python_icon_64x64.png)
 
 KarelToPython translates a supported subset of FANUC KAREL into Python for
-offline inspection and execution. The current build is **26.1124.190417**.
+offline inspection and execution. The current build is **26.1124.191513**.
 
 ## Table of Contents
 
@@ -104,9 +104,10 @@ header and node fields can serve as counters across pauses. `USING` retains
 borrowed and private data records, including PATH headers and nodes. A direct
 PATH selector binds the record, and a forwarded whole-record formal keeps its
 slot. Scalar `UNINIT` follows pausing field selectors without reading a missing
-value. Pythonic `EVAL` captures queues and PATH and queue banks in `WAIT FOR`
-and `REPEAT UNTIL`. Linked discovery follows those `REPEAT` captures across
-pauses and iterations.
+value. Pythonic `EVAL` snapshots PATH and queue contents in `WAIT FOR` and
+`REPEAT UNTIL`. It also captures live FILE descriptors, banks, and selected
+rows. Linked discovery follows these `REPEAT` captures across pauses and
+iterations when it can track the FILE state in memory.
 Linked discovery also follows edits and copies of queues initialized in the
 source or restored from the saved run context. PATH and queue arguments
 keep their borrowed cells or private values across pauses in pinned routines.

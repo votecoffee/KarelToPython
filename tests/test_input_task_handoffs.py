@@ -2559,6 +2559,126 @@ END CHILD
                 self.assertEqual(first_record['AMOUNT'],{'uninitialized':True})
                 self.assertEqual(second_record['AMOUNT'],79)
 
+    def test_repeat_file_capture_keeps_selected_descriptor_across_close_reopen_and_seek(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR streams:ARRAY[2] OF FILE chosen,n,s,unused:INTEGER
+ROUTINE pick:INTEGER
+BEGIN
+  PAUSE
+  RETURN chosen
+END pick
+ROUTINE gate:BOOLEAN
+BEGIN
+  chosen=2
+  CLOSE FILE streams[1]
+  OPEN FILE streams[1]('UD','new')
+  SET_FILE_POS(streams[1],2,s)
+  PAUSE
+  RETURN TRUE
+END gate
+BEGIN
+  chosen=1
+  n=0
+  OPEN FILE streams[1]('UD','old')
+  REPEAT
+    n=n+1
+  UNTIL gate() AND (n>=EVAL(GET_FILE_POS(streams[1])+2)) AND (GET_FILE_POS(EVAL(streams[pick()]))=2) AND (IO_STATUS(EVAL(streams[1]))=0)
+  CLOSE FILE streams[1]
+  IF n=2 THEN WRITE(n) ELSE WRITE(unused) ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],files={'old':'xy','new':'abcd'})
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling']+['task-wait','task-continuation']*3)
+        self.assertEqual(result['status'],'completed',result['error'])
+        self.assertEqual(result['text_output'],' 2')
+
+    def test_repeat_file_bank_and_nested_row_captures_query_live_cells_across_pauses(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR streams:ARRAY[2,2] OF FILE chosen,n,unused:INTEGER
+ROUTINE pick:INTEGER
+BEGIN
+  PAUSE
+  RETURN chosen
+END pick
+ROUTINE gate:BOOLEAN
+BEGIN
+  chosen=1
+  OPEN FILE streams[2,2]('RO','data')
+  PAUSE
+  RETURN TRUE
+END gate
+BEGIN
+  chosen=2
+  n=0
+  REPEAT
+    n=n+1
+  UNTIL gate() AND (ARRAY_LEN(EVAL(streams),2)=2) AND (ARRAY_LEN(EVAL(streams)[2])=2) AND NOT UNINIT(EVAL(EVAL(streams[pick()]))[2]) AND UNINIT(EVAL(streams)[1,1]) AND (BYTES_LEFT(EVAL(streams)[2,2])=4)
+  CLOSE FILE streams[2,2]
+  IF n=1 THEN WRITE(n) ELSE WRITE(unused) ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],files={'data':'abcd'})
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling']+['task-wait','task-continuation']*2)
+        self.assertEqual(result['status'],'completed',result['error'])
+        self.assertEqual(result['text_output'],' 1')
+
+    def test_repeat_predefined_file_capture_sees_live_output_position_after_pause(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR n,unused:INTEGER
+ROUTINE gate:BOOLEAN
+BEGIN
+  WRITE OUTPUT('abc')
+  PAUSE
+  RETURN TRUE
+END gate
+BEGIN
+  n=0
+  REPEAT
+    n=n+1
+  UNTIL gate() AND (GET_FILE_POS(EVAL(OUTPUT))=3)
+  CLOSE FILE OUTPUT
+  IF n=1 THEN WRITE(n) ELSE WRITE(unused) ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],files={},
+                                   predefined_files={'OUTPUT':{'name':'out','mode':'WO'}})
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed',result['error'])
+        self.assertEqual(result['text_output'],' 1')
+
     def test_repeat_captures_path_bank_and_nested_path_before_live_edits(self):
         main="""PROGRAM MAIN
 VAR s:INTEGER

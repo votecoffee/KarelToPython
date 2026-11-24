@@ -191,10 +191,12 @@ def build(program, emitter):
                     if id(value) in emitter.write_collection_types:
                         row['write_collection'] = encode(emitter.write_collection_types[id(value)], depth + 1)
                 if value.kind == 'repeat_eval' and id(value) in emitter.repeat_capture_types:
-                    capture_type, collection = emitter.repeat_capture_types[id(value)]
+                    capture_type, collection, file_reference = emitter.repeat_capture_types[id(value)]
                     row['capture_type'] = capture_type
                     if collection is not None:
                         row['capture_collection'] = encode(collection, depth + 1)
+                    if file_reference is not None:
+                        row['capture_file'] = encode(file_reference, depth + 1)
                 geometry_type = emitter.geometry_expression_types.get(id(value))
                 if geometry_type is not None:
                     row['geometry_result_type'] = encode(geometry_type, depth + 1)

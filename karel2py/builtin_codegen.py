@@ -36,7 +36,8 @@ class BuiltinFunctionLowering:
         if self.mode == 'pythonic':
             while argument.kind == 'group':
                 argument = argument.args[0]
-        if argument.kind not in ('name', 'index', 'field'):
+        captured_file = self.mode == 'pythonic' and argument.kind == 'captured' and argument.value[1] == ('FILE',)
+        if argument.kind not in ('name', 'index', 'field') and not captured_file:
             self.error('E_ARGUMENTS', 'UNINIT requires variable, field or array-element storage', expr.token)
         code, spec = self.expression(argument, raw=True)
         if spec[0] == 'BYTE':
@@ -74,15 +75,7 @@ class BuiltinFunctionLowering:
             message = ('ARRAY_LEN requires an ARRAY and optional dimension' if self.mode == 'pythonic'
                        else 'ARRAY_LEN requires exactly one argument')
             self.error('E_ARGUMENTS', message, expr.token)
-        array = expr.args[0]
-        while array.kind == 'group':
-            array = array.args[0]
-        spec = self.file_prefix_spec(array)
-        if spec is None:
-            code, spec = self.expression(expr.args[0])
-        else:
-            reference, _ = self.file_prefix_reference_code(array)
-            code = reference + '.raw()'
+        code, spec = self.expression(expr.args[0], borrow_file_prefix=True)
         if spec[0] != 'ARRAY':
             self.error('E_TYPE', 'ARRAY_LEN requires ARRAY', expr.token)
         if self.mode == 'strict' and len(rt.array_dimensions(spec)) != 1:

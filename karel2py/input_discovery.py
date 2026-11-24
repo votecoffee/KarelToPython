@@ -195,7 +195,7 @@ class _TaskUsing:
 class _TaskRepeatCapture:
     terms: tuple[dict, ...]
     predicate: dict
-    samples: 'tuple[_Value | _TaskQueueValue, ...]' = ()
+    samples: 'tuple[_Value | _TaskQueueValue | _Location, ...]' = ()
 
 
 @dataclass(frozen=True)
@@ -263,14 +263,14 @@ class _TaskSelection:
 class _TaskResultSelection:
     node: dict
     consumer: '_TaskValueConsumer'
-    values: 'tuple[_Value | _TaskQueueValue, ...]' = ()
+    values: 'tuple[_Value | _TaskQueueValue | _Location, ...]' = ()
 
 
 @dataclass(frozen=True)
 class _TaskArrayLength:
     node: dict
     consumer: '_TaskValueConsumer'
-    values: 'tuple[_Value | _TaskQueueValue, ...]' = ()
+    values: 'tuple[_Value | _TaskQueueValue | _Location, ...]' = ()
 
 
 @dataclass(frozen=True)
@@ -1704,7 +1704,7 @@ class _Analyzer(TeachDiscovery):
         kind = receiver['kind']
         if kind == 'wait_sample':
             sample = receiver['value']
-            return (isinstance(sample, _TaskQueueValue)
+            return (isinstance(sample, (_TaskQueueValue, _Location))
                     or isinstance(sample, _Value) and sample.spec
                     and (sample.spec[0] in TASK_DATA_AGGREGATES or sample.path_records is not None))
         if kind == 'binary' and receiver['value'] == ':':
@@ -5376,10 +5376,27 @@ class _Analyzer(TeachDiscovery):
             flow.task_file_outputs = self.capture_task_file(flow, alias, node)
             blocks.append(replace(file, key=alias))
             return
+        if consumer is not None and self.selects_routine_result(selector):
+            blocks.append(file)
+            self.start_task_file_operand(blocks, flow, scope, selector, file)
+            return
         if scope.reference_schema(selector, staged=True) != ['FILE']:
             raise _TaskOrderUnknown()
         blocks.append(file)
         self.start_task_selection(blocks, flow, selector, file)
+
+    def start_task_file_operand(self, blocks, flow, scope, operand, consumer):
+        if self.selects_routine_result(operand):
+            value = self.task_data_operand(operand, flow, scope, blocks, consumer)
+            if value is not None:
+                self.consume_task_value(blocks, flow, consumer, value)
+            return
+        alias = scope.predefined_file_alias(operand)
+        if alias is not None:
+            self.consume_task_value(blocks, flow, consumer,
+                                    _Location('predefined-file', '', alias, spec=['FILE'], root_spec=['FILE']))
+            return
+        self.start_task_selection(blocks, flow, operand, consumer)
 
     def next_task_file(self, blocks, flow, scope, pending):
         self.tick()
@@ -6237,6 +6254,9 @@ class _Analyzer(TeachDiscovery):
                 receiver = args[0]
                 while receiver['kind'] in ('group', 'index'):
                     receiver = receiver['args'][0]
+                if receiver['kind'] == 'wait_sample' and isinstance(receiver['value'], _Location):
+                    self.start_task_file(blocks, flow, scope, node, consumer)
+                    return None
                 sampled_queue = receiver['kind'] == 'wait_sample' and isinstance(receiver['value'], _TaskQueueValue)
                 if sampled_queue or scope.queue_routine_call(receiver) is not None:
                     self.start_task_collection_value(blocks, flow, scope, args[0], _TaskQueueUninit(consumer))
@@ -6289,7 +6309,7 @@ class _Analyzer(TeachDiscovery):
     def task_data_operand(self, node, flow, scope, blocks, consumer):
         while node['kind'] == 'group':
             node = node['args'][0]
-        if node['kind'] == 'wait_sample' and isinstance(node['value'], _TaskQueueValue):
+        if node['kind'] == 'wait_sample' and isinstance(node['value'], (_TaskQueueValue, _Location)):
             return node['value']
         call = scope.path_routine_call(node) or scope.queue_routine_call(node) or scope.data_routine_call(node)
         if call is not None:
@@ -6424,6 +6444,8 @@ class _Analyzer(TeachDiscovery):
             else:
                 value = self.read_task_scalar(loc, selection.node, flow)
             self.consume_task_value(blocks, flow, consumer, value)
+        elif isinstance(consumer, _TaskRepeatCapture):
+            self.consume_task_value(blocks, flow, consumer, loc)
         elif isinstance(consumer, _TaskUsing):
             loc = self.capture_task_using_reference(loc, selection.node, flow)
             blocks[-1] = replace(consumer, bindings=(*consumer.bindings, loc))
@@ -6475,8 +6497,7 @@ class _Analyzer(TeachDiscovery):
             self.consume_task_value(blocks, flow, consumer.consumer, _Value(missing, spec=['BOOLEAN']))
         elif isinstance(consumer, _TaskFile):
             if consumer.key is None and loc.spec == ['FILE']:
-                key = loc.root if loc.kind == 'predefined-file' else loc.key
-                blocks[-1] = replace(consumer, key=key)
+                self.consume_task_value(blocks, flow, consumer, loc)
             elif consumer.key is not None and loc.spec == ['INTEGER']:
                 blocks[-1] = replace(consumer, values=(*consumer.values, loc))
             else:
@@ -6567,6 +6588,10 @@ class _Analyzer(TeachDiscovery):
             self.consume_task_value(blocks, flow, selection, value)
 
     def checked_task_result_member(self, value, kind, selector, node):
+        if isinstance(value, _Location):
+            if kind != 'index' or value.spec[0] != 'ARRAY' or not rt.file_storage_type(tuple_spec(value.spec)):
+                raise _TaskOrderUnknown()
+            return self.checked_task_selection(self.child(value, kind, selector, node))
         if isinstance(value, _TaskQueueValue):
             if kind != 'index' or value.spec[0] != 'ARRAY':
                 raise _TaskOrderUnknown()
@@ -6820,9 +6845,17 @@ class _Analyzer(TeachDiscovery):
             self.write(loc, value, flow, consumer.node, shaped_record=True)
             blocks[-1] = replace(consumer, bindings=(*consumer.bindings, loc))
         elif isinstance(consumer, _TaskRepeatCapture):
-            collection = consumer.terms[len(consumer.samples)].get('capture_collection')
-            if collection is not None:
-                self.check_task_collection_capture(collection, value)
+            term = consumer.terms[len(consumer.samples)]
+            if isinstance(value, _Location):
+                expected = tuple_spec(term.get('capture_file', ['FILE']))
+                actual = tuple_spec(value.spec)
+                if not rt.file_storage_type(actual) or not rt.parameter_accepts(expected, actual):
+                    raise _TaskOrderUnknown()
+                self.checked_task_resource_schema(value.spec)
+                if value.kind == 'predefined-file':
+                    flow.task_file_outputs = self.capture_task_file(flow, value.root, term)
+            elif term.get('capture_collection') is not None:
+                self.check_task_collection_capture(term['capture_collection'], value)
             elif not isinstance(value, _Value):
                 raise _TaskOrderUnknown()
             elif value.spec and value.spec[0] == 'PATH':
@@ -6839,6 +6872,10 @@ class _Analyzer(TeachDiscovery):
             if not consumer.values:
                 if isinstance(value, _TaskQueueValue):
                     self.checked_task_queue_value(value.spec, value)
+                elif isinstance(value, _Location):
+                    if not rt.file_storage_type(tuple_spec(value.spec)):
+                        raise _TaskOrderUnknown()
+                    self.checked_task_resource_schema(value.spec)
                 elif path_task_storage(value.spec):
                     self.checked_task_path_value(value.spec, value)
                 else:
@@ -6853,6 +6890,11 @@ class _Analyzer(TeachDiscovery):
                 blocks[-1] = replace(consumer, snapshot=snapshot)
             else:
                 blocks[-1] = replace(consumer, values=(*consumer.values, value.constant))
+        elif isinstance(consumer, _TaskFile) and consumer.key is None:
+            if not isinstance(value, _Location) or value.spec != ['FILE']:
+                raise _TaskOrderUnknown()
+            key = value.root if value.kind == 'predefined-file' else value.key
+            blocks[-1] = replace(consumer, key=key)
         elif isinstance(consumer, (_TaskPathRead, _TaskFile)):
             blocks[-1] = replace(consumer, values=(*consumer.values, value.constant))
         elif isinstance(consumer, _TaskRead):
@@ -7074,6 +7116,9 @@ class _Analyzer(TeachDiscovery):
         operand, = term['args']
         operand = bind_repeat_samples(operand, capture.samples, self.tick)
         capture_type = term.get('capture_type')
+        if capture_type == 'FILE' or term.get('capture_file'):
+            self.start_task_file_operand(blocks, flow, scope, operand, capture)
+            return
         if capture_type == 'PATH' or term.get('capture_collection'):
             self.start_task_collection_value(blocks, flow, scope, operand, capture)
             return

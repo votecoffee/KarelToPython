@@ -6,7 +6,8 @@ from . import runtime as rt
 class ExpressionLowering:
     """Lower expressions against the current checked program and emitter scope."""
 
-    def expression(self, expr, raw=False, *, allow_array_result=False, collection_io=False):
+    def expression(self, expr, raw=False, *, allow_array_result=False, collection_io=False,
+                   borrow_file_prefix=False):
         if expr.kind == 'system_selection':
             return self.lower_system_selection(expr)
         pose = expr if expr.kind == 'system_pose' else self.system_axis_root(expr)
@@ -39,7 +40,8 @@ class ExpressionLowering:
             return f'_rt.lifecycle_condition(self._state,{expr.value!r},{(expr.token.line,expr.token.column)!r})',('BOOLEAN',)
         line = expr.token.line
         if expr.kind == 'group':
-            return self.expression(expr.args[0], raw=raw, collection_io=collection_io)
+            return self.expression(expr.args[0], raw=raw, collection_io=collection_io,
+                                   borrow_file_prefix=borrow_file_prefix)
         if expr.kind == 'real_literal':
             try: rt.real_literal(expr.value, line)
             except rt.KarelRuntimeError as exc: self.error('E_REAL_LITERAL', str(exc), expr.token)
@@ -60,7 +62,8 @@ class ExpressionLowering:
                 code = f'_rt.integer({code}, {line})'
             return code, spec
         if expr.kind in ('name', 'field', 'index', 'using_ref'):
-            return self.lower_storage_read(expr, raw=raw, collection_io=collection_io)
+            return self.lower_storage_read(expr, raw=raw, collection_io=collection_io,
+                                           borrow_file_prefix=borrow_file_prefix)
         if expr.kind == 'unary':
             return self.lower_unary(expr)
         if expr.kind == 'binary':
@@ -81,7 +84,7 @@ class ExpressionLowering:
             term.kind, term.value, term.args = kind, value, args
 
     def emit_condition_capture(self, term, originals):
-        code, spec = self.expression(term.args[0])
+        code, spec = self.expression(term.args[0], borrow_file_prefix=True)
         line = term.token.line
         helper = None
         if self.mode == 'pythonic':
@@ -89,12 +92,15 @@ class ExpressionLowering:
                 helper = 'collection_array_source_value'
             elif spec == ('QUEUE_TYPE',):
                 helper = 'collection_source_value'
+        file_reference = self.mode == 'pythonic' and rt.file_storage_type(spec)
         if helper:
             capture = f'_rt.{helper}({spec!r}, {code}, {line}, source_spec={spec!r})'
+        elif file_reference:
+            capture = code
         else:
             capture = f'_rt.assignment_value({code}, {line})'
         if term.kind == 'repeat_eval':
-            self.repeat_capture_types[id(term)] = spec[0], spec if helper else None
+            self.repeat_capture_types[id(term)] = spec[0], spec if helper else None, spec if file_reference else None
         temporary = self.fresh()
         self.line(f'{temporary} = {capture}', term.token)
         self.bind_condition_temporary(term, temporary, spec, originals)

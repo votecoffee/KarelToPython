@@ -258,6 +258,23 @@ class WaitEvalTests(unittest.TestCase):
                 self.assertTrue(state['QUEUES'][1]['initialized'])
                 self.assertEqual(sleeps, [])
 
+    def test_wait_eval_file_bank_row_and_scalar_see_open_from_live_poll(self):
+        body = (
+            "WAIT FOR gate() AND NOT UNINIT(EVAL(streams[2,1])) "
+            "AND (GET_FILE_POS(EVAL(streams[2])[1])=0) "
+            "AND (ARRAY_LEN(EVAL(streams),2)=2); CLOSE FILE streams[2,1] done=TRUE"
+        )
+        routine = "ROUTINE gate:BOOLEAN BEGIN OPEN FILE streams[2,1]('RO','data') RETURN TRUE END gate"
+        for cooperative in (False, True):
+            with self.subTest(cooperative=cooperative):
+                program, _, sleeps = compile_program(
+                    body, declarations='streams:ARRAY[2,2] OF FILE done:BOOLEAN',
+                    routines=routine, translator=partial(translate, cooperative=cooperative),
+                    context=rt.ExecutionContext(files=rt.MemoryFiles({'data':'abcd'})),
+                )
+                self.assertTrue(program.run(max_steps=60)['DONE'])
+                self.assertEqual(sleeps, [])
+
     def test_wait_eval_recaptures_on_loop_entry(self):
         body = 'after=0 FOR i=1 TO 2 DO n=0 WAIT FOR next_count() >= EVAL(i); after=after+n ENDFOR'
         routines = 'ROUTINE next_count:INTEGER BEGIN n=n+1 RETURN n END next_count'

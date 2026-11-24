@@ -114,10 +114,13 @@ class ReferenceLowering:
 
     def file_prefix_reference_code(self, argument):
         base, container = self.expression(argument.args[0], raw=True)
-        codes = [self.require_type(index, 'INTEGER') for index in argument.args[1:]]
-        return f'_rt.resource_array_prefix_reference({base},({", ".join(codes)},),{container!r},{argument.token.line})', container
+        return self._file_prefix_reference(argument, base, container), container
 
-    def lower_storage_read(self, expr, *, raw=False, collection_io=False):
+    def _file_prefix_reference(self, argument, base, container):
+        codes = [self.require_type(index, 'INTEGER') for index in argument.args[1:]]
+        return f'_rt.resource_array_prefix_reference({base},({", ".join(codes)},),{container!r},{argument.token.line})'
+
+    def lower_storage_read(self, expr, *, raw=False, collection_io=False, borrow_file_prefix=False):
         line = expr.token.line
         if expr.kind == 'using_ref':
             code = f'{expr.value[0]}.raw()'
@@ -137,9 +140,10 @@ class ReferenceLowering:
             member = self.member_type(spec, expr)
             method = 'raw_field' if raw else 'load_field'
             return f'_rt.{method}({base}, {expr.value!r}, {line})', member
-        return self._lower_index_read(expr, raw=raw, collection_io=collection_io)
+        return self._lower_index_read(expr, raw=raw, collection_io=collection_io,
+                                      borrow_file_prefix=borrow_file_prefix)
 
-    def _lower_index_read(self, expr, *, raw, collection_io):
+    def _lower_index_read(self, expr, *, raw, collection_io, borrow_file_prefix):
         line = expr.token.line
         receiver = expr.args[0]
         pythonic = self.mode == 'pythonic'
@@ -149,7 +153,7 @@ class ReferenceLowering:
             index = self.require_type(expr.args[1], 'INTEGER')
             self.features.add('ports')
             return f'self._state.port_read({receiver.value!r},{index},{line})', (ex.PORT_TYPES[receiver.value],)
-        base, spec = self.expression(receiver, raw=True)
+        base, spec = self.expression(receiver, raw=True, borrow_file_prefix=borrow_file_prefix)
         if spec[0] == 'PATH':
             index, selected = self._path_node_index(expr, spec)
             if self.path_header_index(expr.args[1]):
@@ -157,14 +161,17 @@ class ReferenceLowering:
                 return (value if raw else f'_rt.require({value},{line})'), selected
             return f'{base}.node({index},{line})', selected
         self._check_indexable_schema(expr, spec)
+        count = len(expr.args) - 1
+        prefix = rt.array_prefix_type(spec, count) if pythonic else None
+        if prefix is not None and borrow_file_prefix and rt.file_storage_type(spec):
+            return self._file_prefix_reference(expr, base, spec) + '.raw()', prefix
         resource = pythonic and rt.collection_array_type(spec)
         index, selected = self.index_code(expr, spec, allow_prefix=True, collection_prefix=resource)
-        count = len(expr.args) - 1
         if pythonic and rt.collection_array_node_type(spec, count) is not None:
             header = ',allow_header=True' if self.path_header_index(expr.args[-1]) else ''
             reference = f'_rt.collection_path_reference({base},{index},{spec!r},{line}{header})'
             return (reference + '.raw()' if raw else f'_rt.require({reference}.raw(),{line})'), selected
-        if pythonic and rt.array_prefix_type(spec, count) is not None:
+        if prefix is not None:
             if collection_io and resource:
                 return f'_rt.resource_array_prefix_reference({base},{index},{spec!r},{line},check=self._state.tick).raw()', selected
             helper = 'collection_array_prefix_value' if resource else 'array_prefix_value'
