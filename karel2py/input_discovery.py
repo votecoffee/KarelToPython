@@ -1027,10 +1027,17 @@ class _Analyzer(TeachDiscovery):
         for frame in self.task_blocks:
             self.tick()
             if isinstance(frame, _TaskUsing):
-                for ref in frame.bindings:
-                    self.tick()
-                    if ref.retains_path_record and len(ref.parts) > depth and self.path_contains_reference(path, ref):
-                        yield ref
+                captures = frame.bindings
+            elif isinstance(frame, _TaskArguments):
+                captures = frame.actuals
+            elif isinstance(frame, _TaskSelection) and frame.location.retains_path_record:
+                captures = (frame.location,)
+            else:
+                continue
+            for ref in captures:
+                self.tick()
+                if isinstance(ref, _Location) and len(ref.parts) > depth and self.path_contains_reference(path, ref):
+                    yield ref
         if self.frames and path.kind == 'local' and path.owner == self.frames[-1]['owner']:
             return
         for frame in self.frames:
@@ -5555,6 +5562,8 @@ class _Analyzer(TeachDiscovery):
             raise _TaskOrderUnknown()
 
     def capture_task_using_reference(self, loc, node, flow):
+        if loc.path_slot is not None:
+            raise _TaskOrderUnknown()
         if loc.spec[0] == 'PATH':
             if loc.spec[2] is None:
                 raise _TaskOrderUnknown()
@@ -5563,19 +5572,25 @@ class _Analyzer(TeachDiscovery):
         if loc.spec[0] not in rt.RECORD_TYPES:
             raise _TaskOrderUnknown()
         self.task_data_schema(loc.spec)
+        if path_task_storage(loc.root_spec):
+            return self.retain_task_path_record(loc, node, flow)
+        return loc
+
+    def remember_task_path_record(self, loc, node, flow):
         dimensions, path_spec = _array_dimensions(loc.root_spec)
-        if path_spec[0] != 'PATH':
-            return loc
         depth = len(dimensions)
         path = replace(loc, parts=loc.parts[:depth], spec=path_spec)
         record = self.checked_task_selection(self.child(path, *loc.parts[depth], node))
         if self.variable_path_storage(record, flow, False) is not True:
             raise _TaskOrderUnknown()
-        # Keep the shape proof when COPY_PATH replaces the header or a node leaves the list.
+        # Keep the shape proof after replacement or removal from the list.
         flow.record_storage[record.key] = True
         if len(flow.record_storage) > MAX_FACTS:
             raise _Limit('Analysis storage limit reached')
-        return replace(loc, retains_path_record=True)
+
+    def retain_task_path_record(self, loc, node, flow):
+        self.remember_task_path_record(loc, node, flow)
+        return replace(loc, path_slot=None, retains_path_record=True)
 
     def next_task_path_copy(self, blocks, flow, scope, pending):
         self.tick()
@@ -6289,10 +6304,14 @@ class _Analyzer(TeachDiscovery):
             if root['kind'] != 'group':
                 selectors.append(root)
             root = root['args'][0]
-        loc = self.locate(root, flow, True)
+        forwarding = isinstance(consumer, _TaskArguments) and not reading and not selectors
+        loc = self.locate(root, flow, True, capture_node=forwarding)
         if (loc is None or loc.kind not in ('variable', 'local', 'predefined-file') or loc.named_data
-                or loc.path_slot is not None or flow.stopped or flow.opaque):
+                or flow.stopped or flow.opaque):
             raise _TaskOrderUnknown()
+        if loc.path_slot is not None and selectors:
+            # A descendant selection loads the record from the slot first.
+            loc = self.retain_task_path_record(loc, root, flow)
         _, root_type = _array_dimensions(loc.root_spec)
         capturing_counter = isinstance(consumer, dict) and consumer['kind'] == 'for'
         if (root_type and root_type[0] == 'PATH' and not reading and assignment is None and not capturing_counter
@@ -6334,20 +6353,29 @@ class _Analyzer(TeachDiscovery):
                     and selection.path_generation != self.path_descriptor_generation(location, flow)):
                 raise _TaskOrderUnknown()
             # A flat subscript list evaluates all indices before checking any bounds.
-            for index in selection.indices:
+            for position, index in enumerate(selection.indices, 1):
                 if type(index) is not int:
                     raise _TaskOrderUnknown()
-                if location.spec[0] == 'PATH':
-                    count = self.known_path_count(location, flow, False)
-                    minimum = 0 if node.get('static_zero_subscript') and location.spec[2] is not None else 1
+                receiver = location
+                if receiver.spec[0] == 'PATH':
+                    count = self.known_path_count(receiver, flow, False)
+                    minimum = 0 if node.get('static_zero_subscript') and receiver.spec[2] is not None else 1
                     if count is None or not minimum <= index <= count:
                         raise _TaskOrderUnknown()
-                location = self.checked_task_selection(self.index_child(location, index, node, flow))
+                location = self.checked_task_selection(self.index_child(receiver, index, node, flow))
+                if (receiver.spec[0] == 'PATH' and isinstance(selection.consumer, _TaskArguments)
+                        and not selection.reading and position == len(selection.indices) and not tail):
+                    self.remember_task_path_record(location, node, flow)
+                    location = self.borrow_path_record(receiver, index, location, flow)
+        if (tail and isinstance(selection.consumer, _TaskArguments) and not location.retains_path_record
+                and path_task_storage(location.root_spec) and not path_task_storage(location.spec)):
+            location = self.retain_task_path_record(location, node, flow)
         blocks[-1] = replace(selection, location=location, selectors=tuple(tail), indices=(), path_generation=None)
 
     def finish_task_selection(self, blocks, flow, selection):
         loc, consumer = selection.location, selection.consumer
-        if self.variable_path_storage(loc, flow, False) is not True:
+        passing_slot = isinstance(consumer, _TaskArguments) and not selection.reading and loc.path_slot is not None
+        if not passing_slot and self.variable_path_storage(loc, flow, False) is not True:
             raise _TaskOrderUnknown()
         if selection.reading:
             if isinstance(consumer, _TaskArrayLength):
@@ -6366,11 +6394,14 @@ class _Analyzer(TeachDiscovery):
             blocks[-1] = replace(consumer, bindings=(*consumer.bindings, loc))
         elif isinstance(consumer, (_TaskArguments, _TaskQueueCall)):
             if isinstance(consumer, _TaskArguments):
-                index = len(consumer.actuals)
-                _, expected = self.plan['routines'][consumer.call['value']]['parameters'][index]
-                if (path_task_storage(loc.root_spec) and not loc.retains_path_record
-                        and not (path_task_storage(loc.spec) and path_task_storage(expected))):
-                    raise _TaskOrderUnknown()
+                if path_task_storage(loc.root_spec):
+                    if path_task_storage(loc.spec):
+                        index = len(consumer.actuals)
+                        _, expected = self.plan['routines'][consumer.call['value']]['parameters'][index]
+                        if not path_task_storage(expected):
+                            raise _TaskOrderUnknown()
+                    elif not (loc.retains_path_record or passing_slot):
+                        loc = self.retain_task_path_record(loc, selection.node, flow)
                 if task_resource_storage(loc.spec):
                     self.checked_task_resource_schema(loc.spec)
             blocks[-1] = replace(consumer, actuals=(*consumer.actuals, loc))

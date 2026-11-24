@@ -1809,6 +1809,215 @@ END LIB
         self.assertEqual(result['status'],'completed',result['error'])
         self.assertEqual(result['text_output'],' 7')
 
+    def test_path_slot_and_field_arguments_survive_a_later_pausing_path_edit(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE
+     route_t=PATH NODEDATA=row_t
+VAR routes:ARRAY[2] OF route_t s,result,unused:INTEGER
+ROUTINE edit(slot:row_t; cell,delta:INTEGER):INTEGER FROM LIB
+ROUTINE pick:INTEGER
+BEGIN
+  PAUSE
+  RETURN 2
+END pick
+ROUTINE discard:INTEGER
+BEGIN
+  PAUSE
+  DELETE_NODE(routes[2],1,s)
+  RETURN 3
+END discard
+BEGIN
+  APPEND_NODE(routes[2],s)
+  APPEND_NODE(routes[2],s)
+  routes[2,1].amount=11
+  routes[2,2].amount=22
+  result=edit(routes[pick(),1],routes[2][1].amount,discard())
+  IF (result=37) AND (PATH_LEN(routes[2])=1) AND (routes[2,1].amount=25) THEN WRITE(result) ELSE WRITE(unused) ENDIF
+END CHILD
+"""
+        library="""PROGRAM LIB
+TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE
+ROUTINE inspect(sample:row_t):INTEGER
+BEGIN
+  sample.amount=sample.amount+1
+  RETURN sample.amount-1
+END inspect
+ROUTINE edit(slot:row_t; cell,delta:INTEGER):INTEGER
+BEGIN
+  PAUSE
+  slot.amount=slot.amount+delta
+  cell=cell+1
+  RETURN inspect((slot))+cell
+END edit
+BEGIN
+END LIB
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child),('LIB',library)])
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling']+['task-wait','task-continuation']*3)
+        self.assertEqual(result['status'],'completed',result['error'])
+        self.assertEqual(result['text_output'],' 37')
+        self.assertEqual(result['programs']['CHILD']['values']['ROUTES'][1]['nodes'],[{'AMOUNT':25}])
+
+    def test_path_slot_arguments_keep_old_header_and_shifted_node_when_pinned_call_replaces_path(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        types="""TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE
+     route_t=PATH NODEDATA=row_t PATHHEADER=row_t
+"""
+        child=f"""PROGRAM CHILD
+{types}VAR route,replacement:route_t s,result,unused:INTEGER
+ROUTINE edit(live,source:route_t; node,header:row_t; cell:INTEGER):INTEGER FROM LIB
+BEGIN
+  route.amount=7
+  APPEND_NODE(route,s)
+  APPEND_NODE(route,s)
+  route[1].amount=11
+  route[2].amount=22
+  replacement.amount=30
+  APPEND_NODE(replacement,s)
+  replacement[1].amount=40
+  result=edit(route,replacement,route[1],route[0],route.amount)
+  IF (result=32) AND (route.amount=30) AND (route[1].amount=40) THEN WRITE(result) ELSE WRITE(unused) ENDIF
+END CHILD
+"""
+        library=f"""PROGRAM LIB
+{types}ROUTINE edit(live,source:route_t; node,header:row_t; cell:INTEGER):INTEGER
+VAR s:INTEGER
+BEGIN
+  DELETE_NODE(live,1,s)
+  PAUSE
+  COPY_PATH(source,0,0,live,s)
+  header.amount=header.amount+1
+  node.amount=node.amount+2
+  RETURN node.amount+cell
+END edit
+BEGIN
+END LIB
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child),('LIB',library)])
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed',result['error'])
+        self.assertEqual(result['text_output'],' 32')
+        self.assertEqual(result['programs']['CHILD']['values']['ROUTE'],
+                         {'data':{'AMOUNT':30},'nodes':[{'AMOUNT':40}]})
+
+    def test_vacant_path_slot_forwards_through_pause_and_recovers_only_in_its_own_list(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        types="""TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE
+     route_t=PATH NODEDATA=row_t
+"""
+        child=f"""PROGRAM CHILD
+{types}VAR route:route_t s,unused:INTEGER
+ROUTINE fill(item:route_t; slot:row_t) FROM LIB
+ROUTINE drop_first(slot:row_t)
+BEGIN
+  DELETE_NODE(route,1,s)
+  fill(route,slot)
+END drop_first
+BEGIN
+  APPEND_NODE(route,s)
+  route[1].amount=17
+  drop_first(route[1])
+  IF route[1].amount=29 THEN WRITE(route[1].amount) ELSE WRITE(unused) ENDIF
+END CHILD
+"""
+        for replace_list in (False, True):
+            with self.subTest(replace_list=replace_list):
+                before_append='COPY_PATH(item,0,0,item,s)' if replace_list else ''
+                library=f"""PROGRAM LIB
+{types}ROUTINE fill(item:route_t; slot:row_t)
+VAR s:INTEGER
+BEGIN
+  PAUSE
+  {before_append}
+  APPEND_NODE(item,s)
+  slot.amount=29
+END fill
+BEGIN
+END LIB
+"""
+                report,result=self.prepare([('MAIN',main),('CHILD',child),('LIB',library)])
+                if replace_list:
+                    codes=[row['code'] for row in report['unresolved']]
+                    self.assertIn('condition-source',codes)
+                    self.assertEqual(result['status'],'failed')
+                    self.assertEqual(result['text_output'],'')
+                else:
+                    self.assert_inputs(report,[])
+                    self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation'])
+                    self.assertEqual(result['status'],'completed',result['error'])
+                    self.assertEqual(result['text_output'],' 29')
+
+    def test_argument_subscript_pause_keeps_descendant_of_loaded_path_slot(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+TYPE row_t=STRUCTURE samples:ARRAY[2] OF INTEGER ENDSTRUCTURE
+     route_t=PATH NODEDATA=row_t
+VAR route:route_t s,result,unused:INTEGER
+ROUTINE select_sample:INTEGER
+BEGIN
+  PAUSE
+  DELETE_NODE(route,1,s)
+  RETURN 2
+END select_sample
+ROUTINE update(cell:INTEGER)
+BEGIN
+  cell=cell+1
+  result=cell
+END update
+ROUTINE forward(slot:row_t)
+BEGIN
+  update(slot.samples[select_sample()])
+END forward
+BEGIN
+  APPEND_NODE(route,s)
+  APPEND_NODE(route,s)
+  route[1].samples[2]=11
+  route[2].samples[2]=22
+  forward(route[1])
+  IF (result=12) AND (route[1].samples[2]=22) THEN WRITE(result) ELSE WRITE(unused) ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed',result['error'])
+        self.assertEqual(result['text_output'],' 12')
+
     def test_using_path_bank_node_survives_deletion_during_later_selector_and_pinned_call(self):
         main="""PROGRAM MAIN
 VAR s:INTEGER

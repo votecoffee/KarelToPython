@@ -1080,6 +1080,11 @@ follows the contents of its captured list slot through a proved insertion or
 deletion. A field or nested element borrow stays with its record when that
 record moves or is deleted. Discovery uses the original or source-created
 record identity to find saved inputs and keep writes with the correct record.
+These borrows also survive checked child pauses in earlier or later
+arguments and across pinned calls. They include indexed headers and nodes,
+flat or chained PATH ARRAY selections, and nested fields whose indexes can
+pause. A grouped value argument loads the record currently in the slot and
+takes a private copy.
 A captured slot can be forwarded even while it is out of bounds. If the same
 list grows to that slot again, discovery can follow later reads and writes.
 An access while the slot is out of bounds reports the unavailable position.
@@ -1098,10 +1103,11 @@ of the service call. A field from a previously deleted or replaced record can
 provide this storage. A known rejection of a node edit or COPY_PATH updates
 the status and preserves the shape and live references.
 
-A routine invoked to evaluate another operand can run while the caller
-still holds earlier captured references, so its borrowed structural edits
-remain unresolved. Discovery reports the lost origin before reading or
-writing an affected captured record.
+Outside checked task slices, some structural edits in operand routines
+remain unresolved while the caller holds earlier captured references.
+Discovery reports the lost origin before reading or writing an affected
+captured record. `USING` applied to a forwarded whole-record formal also
+requires further analysis when the binding follows a PATH slot.
 
 ### Boolean and INTEGER operators
 

@@ -92,8 +92,11 @@ aggregate destinations and update the cursor across pauses. Bounded file
 images track published bytes through overwrites, truncation, and reopen.
 PATH reads cover whole PATHs, headers, nodes, ordered ranges, and bank
 selections with known ordinary data fields.
-Pinned calls preserve borrowed PATHs and bank components. Grouped storage
-and flat slices keep private snapshots for matching schemas. PATH count and
+Pinned calls preserve borrowed PATHs and bank components. Whole node and
+header arguments retain their slots through pausing calls and later operands,
+and field arguments retain the selected records. A forwarded vacant node
+slot can be used again when its original list grows. Grouped storage and
+flat slices keep private snapshots for matching schemas. PATH count and
 bank shape queries use the selected storage.
 PATH assignment and same-schema `COPY_PATH` retain their respective
 snapshots and descriptors across pauses. Bounded PATH `WRITE` follows
