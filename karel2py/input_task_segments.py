@@ -11,7 +11,8 @@ from .teach import TPE_NAMES
 SHARED_TEACH_CALLS = TPE_NAMES | {'GET_ATTR_PRG', 'SET_ATTR_PRG', 'LOAD_STATUS'}
 STRUCTURED_LOOPS = frozenset(('for', 'while', 'repeat'))
 SCALAR_BINARY_OPERATORS = frozenset(('+', '-', '*', '/', 'DIV', 'MOD', '=', '<>', '<', '<=', '>', '>=', 'AND', 'OR'))
-TASK_WRITE_AGGREGATES = frozenset(('ARRAY', 'JOINTPOS', *RECORD_TYPES))
+TASK_DATA_AGGREGATES = frozenset(('ARRAY', 'JOINTPOS', *RECORD_TYPES))
+TASK_ROUTINE_VALUES = frozenset(SCALARS) | TASK_DATA_AGGREGATES
 _REPEAT_SAMPLE = object()
 
 
@@ -101,13 +102,13 @@ def resolve_routine(plan, linked_plans, name, interface):
     return target, routine
 
 
-def _direct_routine_call(plan, operand, *, procedure=False):
+def _direct_routine_call(plan, operand, *, procedure=False, results=TASK_ROUTINE_VALUES):
     call = _ungroup(operand)
     routine = plan['routines'].get(call['value']) if call is not None and call['kind'] == 'call' else None
     if routine is None:
         return None
     result = routine['result']
-    valid = result is None if procedure else result and result[0] in SCALARS
+    valid = result is None if procedure else result and result[0] in results
     return call if valid else None
 
 
@@ -125,7 +126,7 @@ def select_case_labels(node):
 
 def aggregate_task_write(node):
     return node['kind'] == 'write_items' and any(
-        item.get('write_type') in TASK_WRITE_AGGREGATES for item in node['args'])
+        item.get('write_type') in TASK_DATA_AGGREGATES for item in node['args'])
 
 
 def repeat_capture_parts(predicate, tick):
@@ -324,7 +325,10 @@ class _SegmentRules:
         return self.checked_routine_call(_direct_routine_call(self.plan, node, procedure=True))
 
     def scalar_routine_call(self, operand):
-        return self.checked_routine_call(_direct_routine_call(self.plan, operand))
+        return self.checked_routine_call(_direct_routine_call(self.plan, operand, results=SCALARS))
+
+    def data_routine_call(self, operand):
+        return self.checked_routine_call(_direct_routine_call(self.plan, operand, results=TASK_DATA_AGGREGATES))
 
     def checked_routine_call(self, call):
         if call is None:
@@ -334,7 +338,7 @@ class _SegmentRules:
         formals = self.plan['routines'][call['value']]['parameters']
         if len(actuals) != len(modes) or len(modes) != len(formals):
             return None
-        return call if all(mode in ('value', 'reference') and spec[0] in SCALARS
+        return call if all(mode in ('value', 'reference') and spec[0] in TASK_ROUTINE_VALUES
                            for mode, (_, spec) in zip(modes, formals)) else None
 
     def branch(self, node):

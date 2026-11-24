@@ -3,7 +3,7 @@
 ![KarelToPython icon](karel2py/assets/icons/karel_to_python_icon_64x64.png)
 
 KarelToPython translates a supported subset of FANUC KAREL into Python for
-offline inspection and execution. The current build is **26.1124.142206**.
+offline inspection and execution. The current build is **26.1124.143006**.
 
 ## Table of Contents
 
@@ -94,10 +94,11 @@ positions, position comments and writable TP headers. Discovery follows bounded
 choices for TP programs, handles and bank addresses, including reads across
 child pause handoffs in entry programs and synchronous routines. Known
 branches, bounded loops, and routine calls can pause and resume across a
-pinned task wait. Discovery preserves evaluation order in scalar routine and
-built-in arguments, ARRAY subscripts, assignments, returns, branch selectors,
-loop bounds and tests, `REPEAT UNTIL` captures, and console `WRITE` items and
-formats for scalars, ordinary arrays, and data records.
+pinned task wait. Discovery keeps scalar and ordinary aggregate routine
+arguments across pauses, including private copies, references, and direct
+aggregate results passed into a call or console `WRITE`. It also preserves
+evaluation order in built-in arguments, ARRAY subscripts, assignments, returns,
+branch selectors, loop bounds and tests, and `REPEAT UNTIL` captures.
 Input discovery also tracks the status and handle for each possible TP open
 outcome. Inputs and results share one JSON file.
 Use `runner refresh` to carry compatible inputs to a new translation.

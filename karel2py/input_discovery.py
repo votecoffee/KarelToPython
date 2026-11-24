@@ -24,7 +24,7 @@ from .input_position_values import (
     checked_position_facts, merge_positions, position_register_result,
 )
 from .input_task_segments import (
-    STRUCTURED_LOOPS, TASK_WRITE_AGGREGATES, bind_repeat_samples, bounded_child, explicit_pause,
+    STRUCTURED_LOOPS, TASK_DATA_AGGREGATES, TASK_ROUTINE_VALUES, bind_repeat_samples, bounded_child, explicit_pause,
     repeat_capture_parts, resolve_routine, scalar_task_operator, select_case_labels, structured_child,
     task_handoff_window,
 )
@@ -5049,7 +5049,13 @@ class _Analyzer(TeachDiscovery):
                 return
         else:
             raise _TaskOrderUnknown()
-        value = self.task_operand(operand, flow, scope, blocks, consumer)
+        result = self.frames[-1]['result'] if kind == 'return' else None
+        if result and result[0] in TASK_DATA_AGGREGATES:
+            if node.get('geometry_return'):
+                raise _TaskOrderUnknown()
+            value = self.task_data_operand(operand, flow, scope, blocks, consumer)
+        else:
+            value = self.task_operand(operand, flow, scope, blocks, consumer)
         if value is not None:
             self.consume_task_value(blocks, flow, consumer, value)
 
@@ -5067,21 +5073,14 @@ class _Analyzer(TeachDiscovery):
             count = length = 1
         else:
             kind = item.get('write_type')
-            aggregate = kind in TASK_WRITE_AGGREGATES
+            aggregate = kind in TASK_DATA_AGGREGATES
             if not aggregate and kind not in ('INTEGER', 'REAL', 'BYTE', 'SHORT', 'BOOLEAN', 'STRING'):
                 raise _TaskOrderUnknown()
             operands = item['args']
             if aggregate and write.aggregate is None:
-                operand = operands[0]
-                schema = scope.reference_schema(operand, staged=True)
-                if schema and schema[0] == kind:
-                    self.start_task_selection(blocks, flow, operand, write, reading=True)
-                elif scope.operand(operand):
-                    value = self.expr(operand, flow, True)
-                    spec = self.task_write_aggregate_schema(value.spec)
-                    self.capture_task_write_aggregate(blocks, write, spec, value)
-                else:
-                    raise _TaskOrderUnknown()
+                value = self.task_data_operand(operands[0], flow, scope, blocks, write)
+                if value is not None:
+                    self.consume_task_value(blocks, flow, write, value)
                 return
             index = len(write.values) + int(aggregate)
             if index < len(operands):
@@ -5095,19 +5094,20 @@ class _Analyzer(TeachDiscovery):
         blocks[-1] = replace(write, index=write.index + 1, values=(), aggregate=None,
                              rendered_pieces=write.rendered_pieces + count, rendered_length=write.rendered_length + length)
 
-    def task_write_aggregate_schema(self, schema):
-        if not schema or schema[0] not in TASK_WRITE_AGGREGATES:
+    def task_data_schema(self, schema, *, max_leaves=MAX_FACTS):
+        if not schema or schema[0] not in TASK_DATA_AGGREGATES:
             raise _TaskOrderUnknown()
         spec = tuple_spec(schema)
         try:
-            if rt._validate_data_schema(spec) > 1024:
+            if rt._validate_data_schema(spec) > max_leaves:
                 raise _TaskOrderUnknown()
         except rt.KarelRuntimeError:
             raise _TaskOrderUnknown() from None
         return spec
 
-    def capture_task_write_aggregate(self, blocks, write, spec, value):
+    def capture_task_write_aggregate(self, blocks, write, value):
         item = write.node['args'][write.index]
+        spec = self.task_data_schema(value.spec, max_leaves=1024)
         if spec[0] != item['write_type']:
             raise _TaskOrderUnknown()
         try:
@@ -5209,6 +5209,19 @@ class _Analyzer(TeachDiscovery):
                 return self.read_task_scalar(loc, node, flow)
         return self.expr(node, flow, True)
 
+    def task_data_operand(self, node, flow, scope, blocks, consumer):
+        call = scope.data_routine_call(node)
+        if call is not None:
+            blocks.append(_TaskArguments(call, consumer))
+            return None
+        schema = scope.reference_schema(node, staged=True)
+        if schema and schema[0] in TASK_DATA_AGGREGATES:
+            self.start_task_selection(blocks, flow, node, consumer, reading=True)
+            return None
+        if scope.operand(node):
+            return self.expr(node, flow, True, partial=not isinstance(consumer, _TaskWrite))
+        raise _TaskOrderUnknown()
+
     def read_task_scalar(self, loc, node, flow):
         if self.leaf_uninitialized(loc, flow):
             raise _TaskOrderUnknown()
@@ -5256,12 +5269,13 @@ class _Analyzer(TeachDiscovery):
     def finish_task_selection(self, blocks, flow, selection):
         loc, consumer = selection.location, selection.consumer
         if selection.reading:
-            if isinstance(consumer, _TaskWrite) and loc.spec[0] in TASK_WRITE_AGGREGATES:
-                spec = self.task_write_aggregate_schema(loc.spec)
-                value = self.read(loc, selection.node, flow, True)
-                self.capture_task_write_aggregate(blocks, consumer, spec, value)
+            if loc.spec[0] in TASK_DATA_AGGREGATES:
+                writing = isinstance(consumer, _TaskWrite)
+                self.task_data_schema(loc.spec, max_leaves=1024 if writing else MAX_FACTS)
+                value = self.read(loc, selection.node, flow, True, partial=not writing)
             else:
-                self.consume_task_value(blocks, flow, consumer, self.read_task_scalar(loc, selection.node, flow))
+                value = self.read_task_scalar(loc, selection.node, flow)
+            self.consume_task_value(blocks, flow, consumer, value)
         elif isinstance(consumer, _TaskArguments):
             blocks[-1] = replace(consumer, actuals=(*consumer.actuals, loc))
         elif isinstance(consumer, _TaskAssignment):
@@ -5347,7 +5361,7 @@ class _Analyzer(TeachDiscovery):
             blocks.pop()
             references = [item for item in actuals if isinstance(item, _Location)]
             prepared = self.bind_routine(call['value'], call, actuals, references, flow,
-                                         statement_call=arguments.consumer is None)
+                                         statement_call=arguments.consumer is None, staged=True)
             if prepared is None:
                 raise _TaskOrderUnknown()
             self.plan, routine, frame = prepared
@@ -5356,13 +5370,19 @@ class _Analyzer(TeachDiscovery):
             return
 
         operand = call['args'][index]
+        _, expected = self.plan['routines'][call['value']]['parameters'][index]
+        if str(index) in call.get('geometry_arguments', {}):
+            raise _TaskOrderUnknown()
         if call['passing'][index] == 'reference':
             schema = scope.reference_schema(operand, staged=True)
-            if not schema or schema[0] not in SCALARS:
+            if not schema or schema[0] not in TASK_ROUTINE_VALUES:
                 raise _TaskOrderUnknown()
             self.start_task_selection(blocks, flow, operand, arguments)
             return
-        value = self.task_operand(operand, flow, scope, blocks, arguments)
+        if expected[0] in TASK_DATA_AGGREGATES:
+            value = self.task_data_operand(operand, flow, scope, blocks, arguments)
+        else:
+            value = self.task_operand(operand, flow, scope, blocks, arguments)
         if value is not None:
             self.consume_task_value(blocks, flow, arguments, value)
 
@@ -5370,12 +5390,15 @@ class _Analyzer(TeachDiscovery):
         index = len(arguments.actuals)
         call = arguments.call
         _, spec = self.plan['routines'][call['value']]['parameters'][index]
-        if spec[0] == 'STRING':
-            if type(value.constant) is str and len(value.constant) > 254:
-                raise _TaskOrderUnknown()
-            if spec[1] is None:
-                spec = ['STRING', 254]
-        checked = self.checked_task_scalar(spec, value, call['args'][index])
+        if spec[0] in TASK_DATA_AGGREGATES:
+            checked = self.checked_task_data_value(spec, value)
+        else:
+            if spec[0] == 'STRING':
+                if type(value.constant) is str and len(value.constant) > 254:
+                    raise _TaskOrderUnknown()
+                if spec[1] is None:
+                    spec = ['STRING', 254]
+            checked = self.checked_task_scalar(spec, value, call['args'][index])
         blocks[-1] = replace(arguments, actuals=(*arguments.actuals, checked))
 
     def return_from_task_routine(self, blocks, flow, node, value):
@@ -5384,7 +5407,10 @@ class _Analyzer(TeachDiscovery):
             raise _TaskOrderUnknown()
         # The return expression is evaluated and checked before loop cleanup.
         if spec is not None:
-            value = self.checked_task_scalar(spec, value, node, result=True)
+            if spec[0] in TASK_DATA_AGGREGATES:
+                value = self.checked_task_data_value(spec, value, result=True)
+            else:
+                value = self.checked_task_scalar(spec, value, node, result=True)
         while not isinstance(blocks[-1], _TaskRoutine):
             self.tick()
             frame = blocks.pop()
@@ -5408,7 +5434,11 @@ class _Analyzer(TeachDiscovery):
         if flow.stopped or flow.opaque:
             raise _TaskOrderUnknown()
         if isinstance(consumer, _TaskWrite):
-            blocks[-1] = replace(consumer, values=(*consumer.values, value))
+            kind = consumer.node['args'][consumer.index].get('write_type')
+            if kind in TASK_DATA_AGGREGATES and consumer.aggregate is None:
+                self.capture_task_write_aggregate(blocks, consumer, value)
+            else:
+                blocks[-1] = replace(consumer, values=(*consumer.values, value))
         elif isinstance(consumer, _TaskRepeatCapture):
             if (not value.complete or value.uninitialized or value.spec and value.spec[0] not in SCALARS
                     or value.constant is not UNKNOWN and type(value.constant) not in (bool, int, float, str)):
@@ -5442,6 +5472,18 @@ class _Analyzer(TeachDiscovery):
             self.return_from_task_routine(blocks, flow, consumer, value)
         else:
             self.start_task_branch(blocks, flow, consumer, value)
+
+    def checked_task_data_value(self, spec, value, *, result=False):
+        source = self.task_data_schema(value.spec)
+        expected = tuple_spec(spec)
+        if value.facts is None or value.whole_record_missing or not rt.parameter_accepts(expected, source):
+            raise _TaskOrderUnknown()
+        if result and expected[0] == 'ARRAY':
+            # ARRAY results require matching nominal outer storage and exact elements.
+            if (rt.array_identity(expected) != rt.array_identity(source)
+                    or expected[2] not in (source[2], ('STRING', None))):
+                raise _TaskOrderUnknown()
+        return value
 
     def checked_task_scalar(self, spec, value, node, *, result=False):
         if value.uninitialized:
@@ -5643,7 +5685,8 @@ class _Analyzer(TeachDiscovery):
         return self.bind_routine(name, node, actual, references, flow, statement_call=statement_call,
                                  argument_path_edits=argument_path_edits)
 
-    def bind_routine(self, name, node, actual, references, flow, *, statement_call=False, argument_path_edits=False):
+    def bind_routine(self, name, node, actual, references, flow, *, statement_call=False,
+                     argument_path_edits=False, staged=False):
         if flow.stopped and not flow.opaque:
             return None
         routine = self.plan['routines'][name]
@@ -5668,7 +5711,13 @@ class _Analyzer(TeachDiscovery):
                     and spec[1] is not None and source[1] is not None and spec[1]!=source[1]):
                 self.unresolved_at('parameter-capacity','Concrete STRING capacity conflicts with routine constraint: '+name+'.'+formal,node)
                 self.opaque(flow);return None
-            resolved=_array_value_schema(spec,source) if spec[0]=='ARRAY' else spec
+            if staged and spec[0] in TASK_DATA_AGGREGATES:
+                # Reference constraints are checked on frame entry, after all operands finish.
+                if not rt.parameter_accepts(tuple_spec(spec), self.task_data_schema(source)):
+                    raise _TaskOrderUnknown()
+                resolved = source
+            else:
+                resolved=_array_value_schema(spec,source) if spec[0]=='ARRAY' else spec
             if resolved is None:
                 self.unresolved_at('parameter-shape','Concrete ARRAY shape conflicts with routine constraint: '+name+'.'+formal,node)
                 self.opaque(flow);return None

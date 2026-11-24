@@ -1812,6 +1812,197 @@ END LIB
         self.assertEqual((int(first_status),previous,int(next_status),current),(4,'prior',0,'ready'))
         self.assertEqual(tuple(map(int,output.split(':'))),(64,99,65))
 
+    def test_linked_aggregate_arguments_keep_private_data_and_the_original_reference(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER text:STRING[8]
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  text='prior'
+  GET_TPE_STR_REG(1,text,s)
+  WRITE(s,':',text,CR)
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  GET_TPE_STR_REG(1,text,s)
+  WRITE(s,':',text,CR)
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+TYPE row_t=STRUCTURE amount:INTEGER done:INTEGER ENDSTRUCTURE
+VAR source:ARRAY[2] OF INTEGER rows:ARRAY[2] OF row_t
+    slot,h,s,unused:INTEGER
+ROUTINE work(snapshot:ARRAY OF INTEGER; target:row_t; increment:INTEGER) FROM LIBA
+ROUTINE advance:INTEGER
+BEGIN
+  OPEN_TPE('Shared',TPE_RDACC,TPE_ALLREJ,h,s)
+  source[1]=99
+  slot=2
+  PAUSE
+  CLOSE_TPE(h,s)
+  RETURN 5
+END advance
+BEGIN
+  source[1]=7
+  rows[2].amount=22
+  slot=1
+  work((source),rows[slot],advance())
+  IF (rows[1].amount=12) AND (rows[1].done=5) AND (rows[2].amount=22) THEN
+    WRITE(rows[1].amount,':',rows[1].done,':',source[1],CR)
+  ELSE
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        library="""PROGRAM LIBA
+TYPE row_t=STRUCTURE amount:INTEGER done:INTEGER ENDSTRUCTURE
+ROUTINE work(snapshot:ARRAY OF INTEGER; target:row_t; increment:INTEGER)
+BEGIN
+  target.amount=snapshot[1]+increment
+  snapshot[2]=increment
+  PAUSE
+  target.done=snapshot[2]
+END work
+BEGIN
+END LIBA
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child),('LIBA',library)])
+        self.assert_inputs(report,[('variable','CHILD','SOURCE','conditional'),
+                                   ('teach_string_register','SHARED','1','required')])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation',
+                                     'task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed')
+        blocked,ready,output=result['text_output'].splitlines()
+        first_status,previous=blocked.split(':')
+        next_status,current=ready.split(':')
+        self.assertEqual((int(first_status),previous,int(next_status),current),(4,'prior',0,'ready'))
+        self.assertEqual(tuple(map(int,output.split(':'))),(12,5,99))
+        self.assertEqual(result['programs']['CHILD']['values']['SOURCE'],[99,{'uninitialized':True}])
+
+    def test_pausing_array_prefix_is_a_private_argument_with_concrete_shape(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR grid:ARRAY[2,2] OF STRING[4] unused:INTEGER
+ROUTINE choose_row:INTEGER
+BEGIN
+  PAUSE
+  RETURN 2
+END choose_row
+ROUTINE use(row:ARRAY OF STRING)
+BEGIN
+  row[1]='private'
+  PAUSE
+  IF row[2]='read' THEN WRITE(row[1],row[2]) ELSE WRITE(unused) ENDIF
+END use
+BEGIN
+  grid[2,1]='keep'
+  grid[2,2]='read'
+  use(grid[choose_row()])
+  WRITE(grid[2,1])
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation',
+                                     'task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed')
+        self.assertEqual(result['text_output'],'privreadkeep')
+
+    def test_pausing_array_result_flows_into_a_private_argument_and_write(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+ROUTINE make:ARRAY OF INTEGER
+VAR values:ARRAY[2] OF INTEGER
+BEGIN
+  values[1]=7
+  PAUSE
+  RETURN values
+END make
+ROUTINE complete(snapshot:ARRAY OF INTEGER):ARRAY OF INTEGER
+BEGIN
+  snapshot[2]=9
+  PAUSE
+  RETURN snapshot
+END complete
+ROUTINE width_value:INTEGER
+BEGIN
+  PAUSE
+  RETURN 3
+END width_value
+BEGIN
+  WRITE(complete(make())::width_value())
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation',
+                                     'task-wait','task-continuation','task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed')
+        self.assertEqual(result['text_output'],'  7  9')
+
+    def test_bad_forwarded_array_shape_rejects_entry_after_later_argument_pause(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  WRITE('waiting')
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR data:ARRAY[3] OF INTEGER entered:INTEGER
+ROUTINE gate:INTEGER
+BEGIN
+  PAUSE
+  RETURN 1
+END gate
+ROUTINE take(values:ARRAY[2] OF INTEGER; step:INTEGER)
+BEGIN
+  entered=step
+  PAUSE
+END take
+ROUTINE forward(values:ARRAY OF INTEGER)
+BEGIN
+  take(values,gate())
+END forward
+BEGIN
+  entered=0
+  forward(data)
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait'])
+        self.assertEqual(result['status'],'paused')
+        self.assertEqual(result['text_output'],'waiting')
+        main=main.replace("  WRITE('waiting')", """  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]""")
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assertIn('condition-source',[row['code'] for row in report['unresolved']])
+        self.assertEqual(result['status'],'failed')
+        self.assertIn('Parameter binding type mismatch',result['error']['message'])
+        self.assertEqual(result['programs']['CHILD']['values']['ENTERED'],0)
+
     def test_nested_value_argument_resumes_before_entering_its_callee_and_procedure(self):
         main="""PROGRAM MAIN
 VAR s:INTEGER

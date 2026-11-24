@@ -66,9 +66,10 @@ conditional. Linked discovery follows known paused entries and explicit
 child pauses at the top level, in known `IF` and `SELECT` arms, and in
 bounded `FOR`, `WHILE`, and `REPEAT` iterations. A child can retain an
 integral `FOR` counter in an owned variable, ordinary ARRAY cell, or
-STRUCTURE field. Procedure calls and scalar expressions in arguments,
-assignments, returns, branch selectors, loop bounds, and loop tests can
-retain nested frames across pauses, including calls to pinned linked modules.
+STRUCTURE field. Procedure calls, scalar expressions, and ordinary aggregate
+arguments can retain nested frames across pauses, including calls to pinned
+linked modules. Direct ordinary aggregate results can feed another call or
+console `WRITE`.
 Ordinary ARRAY subscripts, pure scalar built-ins, and console `WRITE` for
 scalars and ordinary data aggregates keep evaluated operands across a pause.
 Scalar `REPEAT UNTIL` captures run once before the live test and carry their
@@ -81,10 +82,10 @@ document and reports changed, omitted and unresolved inputs.
 
 ### Remaining linked-run work
 
-1. **Expand linked discovery.** Extend child pause tracking to calls in
-   aggregate or resource arguments, selectors for resources or computed
-   results, PATH and QUEUE `WRITE` operands, FILE output, and non-scalar
-   `EVAL` captures.
+1. **Expand linked discovery.** Extend child pause tracking to resource
+   arguments, aggregate schema conversions and result assignments, selectors
+   for resources or computed results, PATH and QUEUE `WRITE` operands, FILE
+   output, and non-scalar `EVAL` captures.
    Model shared storage in called library modules, extend resumable
    `FOR` capture to PATH and USING storage, and model
    additional synchronization and handler rearming where order and targets

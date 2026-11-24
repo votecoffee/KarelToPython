@@ -85,15 +85,18 @@ assignments, `RETURN`, `IF` conditions, `SELECT` selectors, `CASE` labels,
 scalar expressions keep evaluated operands across a pause and evaluate the
 rest left to right. A known Boolean `AND` or `OR` can skip its right-hand
 operand. Integer `AND` and `OR` evaluate both operands.
-For checked scalar value and reference arguments, discovery follows calls
-inside value arguments and evaluates arguments once, left to right. It
-retains earlier value copies and selected references across a later
-argument's pause. The callee starts after all arguments finish. Discovery
-then preserves each live invocation and its locals, uses the callee's
-source scope, and keeps TP ownership with the child task. Return values are
-checked before loop cleanup. Pure scalar math and string built-ins also keep
-earlier arguments while later arguments pause. Discovery checks a supported
-built-in after its arguments finish. Calls in ordinary ARRAY subscripts can
+For checked scalar and ordinary aggregate arguments, discovery evaluates
+arguments once, left to right. Grouped data values and ARRAY prefixes keep
+private copies, including their concrete shape, STRING capacities, and
+missing fields. Bare references keep the originally selected storage.
+The callee starts after all arguments finish, and reference shape constraints
+are checked on entry. The tracker preserves each live invocation, including
+its locals, the defining module's source scope, and the child task's TP
+ownership. Ordinary aggregate returns preserve their fields before frame
+cleanup when passed directly to a supported routine or console `WRITE`. Pure
+scalar math and string built-ins also keep earlier arguments while later
+arguments pause. Discovery checks a supported built-in after its arguments
+finish. Calls in ordinary ARRAY subscripts can
 pause during scalar reads, assignments, reference arguments, and `FOR` counter
 selection. Discovery saves the receiver and earlier subscripts while later
 ones evaluate. A flat subscript list checks bounds after all its indices
@@ -126,11 +129,12 @@ handles cannot race with the child. Shared operations between the request
 and wait, unresolved branches and loop tests, unsupported or unresolved
 `FOR` targets or bounds, and ambiguous suspended positions still use
 conservative analysis. Checked handoffs also leave recursive calls,
-pausing calls inside aggregate or resource arguments, selectors for resources
-or computed results, FILE and PATH or QUEUE `WRITE` operands, and pausing
-non-scalar captures unresolved. Unknown rendered items and unresolved linked
-signatures use the same conservative analysis. Shared globals in called library
-modules and PATH or USING counter captures also require review.
+resource arguments, aggregate schema conversions, selected members of
+computed results, aggregate result assignments, FILE and PATH or QUEUE
+`WRITE` operands, and pausing non-scalar captures unresolved. Unknown
+rendered items and unresolved linked signatures use the same conservative
+analysis. Shared globals in called library modules and PATH or USING counter
+captures also require review.
 
 Discovery evaluates signal and wait selectors and can track known pauses
 across a delay or simple event wait. A signal or delay alone does not
