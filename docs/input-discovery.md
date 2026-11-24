@@ -958,11 +958,16 @@ entry order, IDs, and the sequence counter and releases the receiver's backing
 ARRAY binding. An uninitialized result clears the receiver's queue state,
 including any entries it started with in the saved context.
 
-Discovery retains up to 64 KiB of modified file images per tracked flow.
-Larger writes can still establish size and cursor facts. Reads whose image
-was omitted, PATH reads with unresolved shapes or specialized fields, queues
-without proven initialization, other backends, and FILE arguments
-obtained through `BYNAME` still use conservative analysis.
+Discovery retains up to 64 KiB of modified bytes across 256 tracked ranges
+per flow. Untouched offsets can use the saved file, and an oversized write
+still establishes size and cursor facts. A later overwrite can make part of
+an otherwise untracked file readable again. Binary reads need the requested
+byte range. Text reads need the remaining suffix because the runtime decodes
+it as a unit. Values from a file seeded by the run context remain editable,
+including when a read overlaps a program overwrite.
+Reads that reach an untracked range, unresolved PATH shapes, queues without
+proven initialization, other backends, and FILE arguments obtained through
+`BYNAME` still use conservative analysis.
 Configure the endpoint and supply any PATH storage and input stream data
 through the run context.
 

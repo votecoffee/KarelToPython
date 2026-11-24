@@ -11,6 +11,7 @@ from .serial_io import serial_address
 
 FileKey = str | tuple
 _MAX_IMAGE_BYTES = 64 * 1024
+_MAX_IMAGE_SPANS = 256
 _FILE_ATTRIBUTES = ('eol', 'xml', 'field', 'passall', 'noecho', 'interactive',
                     'pipe_wait', 'pipe_overflow', 'read_timeout_ms')
 
@@ -46,9 +47,97 @@ _FRESH_HANDLE = _MemoryOutput('', '', False, False, 0, closed=True)
 
 
 @dataclass(frozen=True)
-class _MemoryImage:
+class _ByteSpan:
+    start: int
+    end: int
     data: bytes | None
-    depends_on_saved: bool
+
+    def clip(self, start, end, *, tick):
+        if self.start == start and self.end == end:
+            return self
+        data = self.data
+        if data is not None:
+            tick((end - start + 255) // 256)
+            data = data[start - self.start:end - self.start]
+        return _ByteSpan(start, end, data)
+
+    def join(self, following, *, tick):
+        if self.end != following.start or (self.data is None) != (following.data is None):
+            return None
+        data = None
+        if self.data is not None:
+            tick((following.end - self.start + 255) // 256)
+            data = self.data + following.data
+        return _ByteSpan(self.start, following.end, data)
+
+
+@dataclass(frozen=True)
+class _MemoryImage:
+    saved_size: int | None = None
+    spans: tuple[_ByteSpan, ...] = ()
+    saved_available: bool = True
+
+    @property
+    def retained_bytes(self):
+        return sum(len(span.data) for span in self.spans if span.data is not None)
+
+    def overwrite(self, start, payload, handle, byte_budget, span_budget, *, tick):
+        end = start + payload.size
+        before, after = [], []
+        for span in self.spans:
+            if span.start < start:
+                before.append(span.clip(span.start, min(span.end, start), tick=tick))
+            if span.end > end:
+                after.append(span.clip(max(span.start, end), span.end, tick=tick))
+        retained = sum(len(span.data) for span in (*before, *after) if span.data is not None)
+        data = None
+        if retained + payload.size <= byte_budget and span_budget:
+            tick((payload.size + 255) // 256)
+            data = payload.to_bytes(handle)
+        current = _ByteSpan(start, end, data)
+        if before and (joined := before[-1].join(current, tick=tick)) is not None:
+            before.pop()
+            current = joined
+        if after and (joined := current.join(after[0], tick=tick)) is not None:
+            after.pop(0)
+            current = joined
+        spans = (*before, current, *after)
+        if len(spans) > span_budget:
+            # A discarded range can have overwritten saved bytes. Drop the saved
+            # fallback for this file so those original bytes cannot resurface.
+            recent = (_ByteSpan(start, end, data),) if data is not None and span_budget else ()
+            return replace(self, spans=recent, saved_available=False)
+        return replace(self, spans=spans)
+
+    def read_range(self, saved, start, end, *, tick):
+        if start == end:
+            return b""
+        length = end - start
+        if not self.saved_available or saved is None or len(saved) != self.saved_size:
+            saved = None
+        tick(len(self.spans))
+        chunks = []
+        for span in self.spans:
+            if span.end <= start:
+                continue
+            if span.start >= end:
+                break
+            if span.start > start:
+                if saved is None or span.start > len(saved):
+                    return None
+                chunks.append(memoryview(saved)[start:span.start])
+                start = span.start
+            if span.data is None:
+                return None
+            stop = min(end, span.end)
+            chunks.append(memoryview(span.data)[start - span.start:stop - span.start])
+            start = stop
+        if start < end:
+            if saved is None or end > len(saved):
+                return None
+            chunks.append(memoryview(saved)[start:end])
+        tick(length)
+        return b"".join(chunks)
 
 
 @dataclass(frozen=True)
@@ -57,8 +146,8 @@ class MemoryOutputs:
 
     handles: dict[FileKey, _MemoryOutput] = field(default_factory=dict)
     sizes: dict[str, int] = field(default_factory=dict)
-    # An absent image uses the original saved bytes. A recorded image with
-    # absent data has a proven size but exceeded the byte retention limit.
+    # Unchanged offsets can use the saved bytes. An explicit span with no
+    # payload shadows those bytes when a write exceeds the retention budget.
     images: dict[str, _MemoryImage] = field(default_factory=dict)
 
     def capture(self, alias, backend, binding, line):
@@ -90,7 +179,9 @@ class MemoryOutputs:
         images = self.images
         if mode == 'W' or created:
             size = 0
-            images = images | {name: _MemoryImage(b'', False)}
+            images = images | {name: _MemoryImage()}
+        elif name not in images:
+            images = images | {name: _MemoryImage(saved_size=size)}
         position = size if mode in ('A', 'AP') else 0
         output = replace(prior, name=name, mode=mode, position=position, closed=False,
                          append_ready=False).with_attributes(handle)
@@ -117,19 +208,14 @@ class MemoryOutputs:
         size = max(prior_size, end)
         images = self.images
         if payload.size:
-            image = images.get(name)
-            retained = sum(len(other.data) for path, other in images.items() if path != name and other.data is not None)
-            before = backend.files.get(name) if image is None else image.data
-            depends_on_saved = image is None or image.depends_on_saved
-            data = None
-            if retained + size <= _MAX_IMAGE_BYTES and before is not None and len(before) == prior_size:
-                # Charge copies in chunks so larger output-only writes still
-                # work when discovery retains only the byte count and cursor.
-                tick((size + 255) // 256)
-                buffer = bytearray(before)
-                backend._store_bytes(buffer, start, payload.to_bytes(output.format_handle()))
-                data = bytes(buffer)
-            images = images | {name: _MemoryImage(data, depends_on_saved)}
+            image = images[name]
+            others = [other for path, other in images.items() if path != name]
+            other_spans = sum(len(other.spans) for other in others)
+            tick(other_spans + len(image.spans))
+            byte_budget = _MAX_IMAGE_BYTES - sum(other.retained_bytes for other in others)
+            span_budget = _MAX_IMAGE_SPANS - other_spans
+            modified = image.overwrite(start, payload, output.format_handle(), byte_budget, span_budget, tick=tick)
+            images = images | {name: modified}
         handle = replace(output, position=end, append_ready=output.append_ready or (output.mode == 'AP' and payload.size > 0))
         return MemoryOutputs(self.handles | {key: handle}, self.sizes | {name: size}, images)
 
@@ -139,10 +225,9 @@ class MemoryOutputs:
         if (type(backend) is not MemoryFiles or output.closed or output.mode in ('W', 'A')
                 or output.mode == 'AP' and not output.append_ready or dict(output.attributes).get('xml')):
             return None
-        image = self.images.get(output.name)
-        data = backend.files.get(output.name) if image is None else image.data
-        if data is None or len(data) != self.sizes[output.name]:
-            return None
+        image = self.images[output.name]
+        saved = backend.files.get(output.name)
+        size = self.sizes[output.name]
         rt._read_line_breaks(len(targets), breaks, line)
         start = output.position
         if output.binary:
@@ -150,11 +235,13 @@ class MemoryOutputs:
                 return None
             fields = binary_read_fields(targets, formats, line)
             end = start + sum(width for width, _ in fields)
-            if end > len(data):
+            if end > size:
                 return None
-            tick(end - start)
+            data = image.read_range(saved, start, end, tick=tick)
+            if data is None:
+                return None
             values = []
-            offset = start
+            offset = 0
             for width, code in fields:
                 raw = data[offset:offset + width]
                 offset += width
@@ -162,9 +249,11 @@ class MemoryOutputs:
                     code = '>' + code[1:]
                 values.append(raw.decode('ascii') if code is None else struct.unpack(code, raw)[0])
         else:
-            tick(len(data) - start)
+            data = image.read_range(saved, start, size, tick=tick)
+            if data is None:
+                return None
             attributes = dict(output.attributes)
-            reader = rt.TextInput(data[start:].decode('ascii'), terminator=attributes.get('eol'),
+            reader = rt.TextInput(data.decode('ascii'), terminator=attributes.get('eol'),
                                   field_mode=attributes.get('field', False))
             fields = [dict(type=target.spec[0], type_spec=target.spec, format_specifiers=controls)
                       for target, controls in zip(targets, formats)]
@@ -175,7 +264,9 @@ class MemoryOutputs:
         values = rt._prepare_read_values(targets, values, line)
         checked = tuple(rt.checked(target.spec, value, line) for target, value in zip(targets, values))
         updated = replace(self, handles=self.handles | {key: replace(output, position=end)})
-        return updated, checked, image is None or image.depends_on_saved
+        # A saved file can also determine where an append or an end-relative
+        # seek lands. Keep values from those seeded files editable.
+        return updated, checked, image.saved_size is not None
 
     def set_attribute(self, key, attribute, value, line):
         output = self.descriptor(key)

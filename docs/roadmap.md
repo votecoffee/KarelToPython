@@ -90,8 +90,10 @@ the selected descriptor and completed operands across pauses. Direct scalar
 FILE and FILE ARRAY parameters keep their original cells through pinned
 routine calls and forwarding, including borrowed rows and planes.
 Text and binary reads from memory files can capture scalar and ordinary
-aggregate destinations and update the cursor across pauses. Bounded file
-images track published bytes through overwrites, truncation, and reopen.
+aggregate destinations and update the cursor across pauses. Bounded byte
+ranges track published bytes through overwrites, truncation, and reopen.
+Reads can use a known range in a large file or recover a range after a later
+overwrite.
 PATH reads cover whole PATHs, headers, nodes, ordered ranges, and bank
 selections with scalar, vector, joint, configuration, and pose fields.
 Checked memory FILE reads share execution's CONFIG and POSITION validation,

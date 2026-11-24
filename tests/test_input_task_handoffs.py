@@ -6435,6 +6435,145 @@ END CHILD
         self.assertEqual(result['status'],'paused',result['error'])
         self.assertEqual(result['context']['files']['out']['hex'],(b'B'+b'A'*65536).hex())
 
+    def test_large_seeded_binary_file_reads_overlay_and_saved_neighbors_across_pause(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR stream:FILE before,value,after,s,unused:INTEGER
+ROUTINE width:INTEGER
+BEGIN
+  PAUSE
+  RETURN 2
+END width
+BEGIN
+  OPEN FILE stream('UDB','data')
+  SET_FILE_POS(stream,70000,s)
+  WRITE stream(258::2)
+  SET_FILE_POS(stream,70001,s)
+  WRITE stream(3::1)
+  SET_FILE_POS(stream,69999,s)
+  READ stream(before::1,value::width(),after::1)
+  IF (GET_FILE_POS(stream)=70003) AND NOT UNINIT(value) AND NOT UNINIT(after) THEN
+    CLOSE FILE stream
+  ELSE
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],files={'data':'A'*70010})
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation'])
+        self.assertIn({'service':'files','address':'data'},report['context_requirements'])
+        self.assertEqual(result['status'],'completed',result['error'])
+        values=result['programs']['CHILD']['values']
+        self.assertEqual((values['BEFORE'],values['VALUE'],values['AFTER']),(65,770,65))
+
+    def test_binary_overwrite_recovers_known_window_in_large_source_file_after_reopen(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        payload=','.join(['chunk']*260)
+        child=f"""PROGRAM CHILD
+VAR stream:FILE chunk:STRING[254] first,second,s,unused:INTEGER
+BEGIN
+  chunk='{'A'*254}'
+  OPEN FILE stream('RWB','data')
+  WRITE stream({payload})
+  SET_FILE_POS(stream,64000,s)
+  WRITE stream(258::2,-19::2)
+  SET_FILE_POS(stream,64001,s)
+  WRITE stream(3::1)
+  CLOSE FILE stream
+  PAUSE
+  OPEN FILE stream('RB','data')
+  SET_FILE_POS(stream,64000,s)
+  READ stream(first::2,second::2)
+  IF (first=770) AND (second=-19) AND (GET_FILE_POS(stream)=64004) THEN
+    CLOSE FILE stream
+  ELSE
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],files={})
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation'])
+        self.assertNotIn({'service':'files','address':'data'},report['context_requirements'])
+        self.assertEqual(result['status'],'completed',result['error'])
+        values=result['programs']['CHILD']['values']
+        self.assertEqual((values['FIRST'],values['SECOND']),(770,-19))
+
+    def test_large_unretained_write_shadows_original_saved_bytes(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+END MAIN
+"""
+        payload=','.join(['chunk']*260)
+        child=f"""PROGRAM CHILD
+VAR stream:FILE chunk:STRING[254] value,s:INTEGER
+BEGIN
+  chunk='{'B'*254}'
+  OPEN FILE stream('UDB','data')
+  WRITE stream({payload})
+  SET_FILE_POS(stream,0,s)
+  READ stream(value::1)
+  CLOSE FILE stream
+  PAUSE
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],files={'data':'A'*66041})
+        self.assertIn('condition-source',[row['code'] for row in report['unresolved']])
+        self.assertEqual(result['status'],'paused',result['error'])
+        self.assertEqual(result['programs']['CHILD']['values']['VALUE'],66)
+
+    def test_large_text_file_read_can_use_known_suffix_after_unretained_prefix(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        payload=','.join(['chunk']*260)
+        child=f"""PROGRAM CHILD
+VAR stream:FILE chunk:STRING[254] first,second,s,unused:INTEGER
+BEGIN
+  chunk='{'A'*254}'
+  OPEN FILE stream('RW','data')
+  WRITE stream({payload})
+  WRITE stream('17 29')
+  SET_FILE_POS(stream,66040,s)
+  PAUSE
+  READ stream(first,second)
+  IF (first=17) AND (second=29) AND (BYTES_LEFT(stream)=0) THEN
+    CLOSE FILE stream
+  ELSE
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],files={})
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed',result['error'])
+        values=result['programs']['CHILD']['values']
+        self.assertEqual((values['FIRST'],values['SECOND']),(17,29))
+
     def test_queue_file_read_keeps_ids_and_allows_rebinding_after_pause(self):
         main="""PROGRAM MAIN
 VAR s:INTEGER

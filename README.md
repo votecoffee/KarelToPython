@@ -3,7 +3,7 @@
 ![KarelToPython icon](karel2py/assets/icons/karel_to_python_icon_64x64.png)
 
 KarelToPython translates a supported subset of FANUC KAREL into Python for
-offline inspection and execution. The current build is **26.1124.192934**.
+offline inspection and execution. The current build is **26.1124.193721**.
 
 ## Table of Contents
 
@@ -127,8 +127,8 @@ routines. Reads retain selected destinations across pauses, including PATH
 headers, nodes, ranges, and bank selections. Discovery checks CONFIG turn
 limits and whole POSITION orientation before publishing any field or cursor
 facts. Reads also cover existing entries in initialized queues and queue banks.
-Program-written bytes can provide known values for discovery, and saved inputs
-remain editable.
+Discovery retains modified byte ranges so bounded reads can use known
+bytes in large files. Saved-file values remain editable.
 Input discovery also tracks the status and handle for each possible TP open
 outcome. Inputs and results share one JSON file.
 Use `runner refresh` to carry compatible inputs to a new translation.
