@@ -55,7 +55,7 @@ from .input_value_conversions import (
     materialized_value, merge_scalar_choices, operand_cases, scalar_options, stored_value as _stored_value,
     variable_array_prefix_size, variable_transfer_policy,
 )
-from .schema_conversion import MODEL_CONVERSIONS
+from .schema_conversion import DATA_AGGREGATE_CONVERTERS, MODEL_CONVERSIONS, pythonic_schema_conversion
 from .storage import collection_array_cost, list_spec, tuple_spec
 from . import runtime as rt
 
@@ -5064,7 +5064,7 @@ class _Analyzer(TeachDiscovery):
         else:
             raise _TaskOrderUnknown()
         if spec and spec[0] in TASK_DATA_AGGREGATES:
-            if node.get('geometry_return'):
+            if node.get('geometry_return') and not node.get('data_return'):
                 raise _TaskOrderUnknown()
             value = self.task_data_operand(operand, flow, scope, blocks, consumer)
         else:
@@ -5302,6 +5302,9 @@ class _Analyzer(TeachDiscovery):
         elif isinstance(consumer, _TaskAssignment):
             value = selection.assignment
             if consumer.spec[0] in TASK_DATA_AGGREGATES:
+                conversion = consumer.node.get('data_assignment_conversion')
+                if conversion and conversion[0] == 'receiver':
+                    value = self.convert_task_data(conversion[0], loc.spec, value, consumer.node, conversion[2])
                 if self.task_data_schema(loc.spec) != tuple_spec(value.spec):
                     raise _TaskOrderUnknown()
             else:
@@ -5431,7 +5434,8 @@ class _Analyzer(TeachDiscovery):
 
         operand = call['args'][index]
         _, expected = self.plan['routines'][call['value']]['parameters'][index]
-        if str(index) in call.get('geometry_arguments', {}):
+        if (str(index) in call.get('geometry_arguments', {})
+                and str(index) not in call.get('data_arguments', {})):
             raise _TaskOrderUnknown()
         if call['passing'][index] == 'reference':
             schema = scope.reference_schema(operand, staged=True)
@@ -5451,6 +5455,9 @@ class _Analyzer(TeachDiscovery):
         call = arguments.call
         _, spec = self.plan['routines'][call['value']]['parameters'][index]
         if spec[0] in TASK_DATA_AGGREGATES:
+            conversion = call.get('data_arguments', {}).get(str(index))
+            if conversion is not None:
+                value = self.convert_task_data(conversion[0], spec, value, call['args'][index], conversion[1])
             checked = self.checked_task_data_value(spec, value)
         else:
             if spec[0] == 'STRING':
@@ -5468,6 +5475,9 @@ class _Analyzer(TeachDiscovery):
         # The return expression is evaluated and checked before loop cleanup.
         if spec is not None:
             if spec[0] in TASK_DATA_AGGREGATES:
+                conversion = node.get('data_return')
+                if conversion is not None:
+                    value = self.convert_task_data(conversion[0], spec, value, node, conversion[1])
                 value = self.checked_task_data_value(spec, value, result=True)
             else:
                 value = self.checked_task_scalar(spec, value, node, result=True)
@@ -5523,7 +5533,11 @@ class _Analyzer(TeachDiscovery):
         elif isinstance(consumer, _TaskAssignment):
             node, spec = consumer.node, consumer.spec
             if spec[0] in TASK_DATA_AGGREGATES:
-                self.checked_task_data_capture(value)
+                conversion = node.get('data_assignment_conversion')
+                if conversion and conversion[0] != 'receiver':
+                    value = self.convert_task_data(conversion[0], conversion[1], value, node, conversion[2])
+                else:
+                    self.checked_task_data_capture(value)
             elif value.uninitialized:
                 raise _TaskOrderUnknown()
             elif type(value.constant) is float and rt.real_integral_kind(tuple(spec), ('REAL',)):
@@ -5544,6 +5558,37 @@ class _Analyzer(TeachDiscovery):
         if value.facts is None or value.whole_record_missing:
             raise _TaskOrderUnknown()
         return source
+
+    def convert_task_data(self, conversion, target, value, node, declared_source):
+        source = self.checked_task_data_capture(value)
+        expected = tuple_spec(target)
+        try:
+            with rt._numeric_scope('pythonic'):
+                declaration = tuple_spec(declared_source) if declared_source is not None else None
+                if declaration is not None and not rt.parameter_accepts(declaration, source):
+                    raise _TaskOrderUnknown()
+                if conversion == 'receiver':
+                    if expected == source:
+                        return value
+                    conversion = pythonic_schema_conversion(expected, source, array_conversion=rt.array_schema_compatible)
+                converter = DATA_AGGREGATE_CONVERTERS.get(conversion)
+                if converter is None:
+                    raise _TaskOrderUnknown()
+                if (conversion == 'array_schema' and rt.array_schema_compatible(expected, source)
+                        and rt._array_conversion_spec(expected, source) == source):
+                    return value
+                self.tick(len(value.facts))
+                captured = materialized_value(value, allow_missing=True)
+                if captured is UNKNOWN:
+                    raise _TaskOrderUnknown()
+                line = node.get('line')
+                if conversion == 'record_schema':
+                    converted = converter(expected, captured, line, source_spec=declaration)
+                else:
+                    converted = converter(expected, captured, line)
+                return detached_facts(converted)
+        except (rt.KarelRuntimeError, ArithmeticError, TypeError, ValueError):
+            raise _TaskOrderUnknown() from None
 
     def checked_task_data_value(self, spec, value, *, result=False):
         source = self.checked_task_data_capture(value)

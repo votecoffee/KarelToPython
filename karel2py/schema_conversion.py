@@ -4,6 +4,14 @@ from . import runtime as rt
 
 CARTESIAN_TYPES = ('POSITION', 'XYZWPR', 'XYZWPREXT')
 MODEL_CONVERSIONS = {'kinematic', 'kinematic_array', 'kinematic_record'}
+DATA_AGGREGATE_CONVERTERS = {
+    'array_schema': rt.convert_array_schema,
+    'numeric_array': rt.convert_numeric_array,
+    'positional_array': rt.convert_positional_array,
+    'record_schema': rt.convert_record_schema,
+    'joint_width': rt.convert_joint_width,
+    'cartesian': rt.convert_position,
+}
 PYTHONIC_CONVERSIONS = (
     ('real_integral', rt.real_integral_kind),
     ('config_word', rt.config_word_kind),

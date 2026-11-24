@@ -205,6 +205,9 @@ def build(program, emitter):
                     conversions = emitter.geometry_argument_conversions.get(id(value))
                     if conversions is not None:
                         row['geometry_arguments'] = encode(conversions, depth + 1)
+                    data = emitter.data_argument_conversions.get(id(value))
+                    if data is not None:
+                        row['data_arguments'] = encode(data, depth + 1)
                 elif value.kind == 'call':
                     from .extended import PROCEDURES, FUNCTIONS, signature_for
                     if value.value in ('GET_POS_REG','GET_EPOS_REG','GET_JPOS_REG','SET_POS_REG','SET_EPOS_REG','SET_JPOS_REG'):
@@ -221,6 +224,9 @@ def build(program, emitter):
                 if value.kind == 'assign':
                     if id(value.args[0]) in emitter.staged_data_assignments:
                         row['data_assignment'] = True
+                        data = emitter.staged_data_assignments[id(value.args[0])]
+                        if data is not None:
+                            row['data_assignment_conversion'] = encode(data, depth + 1)
                     conversion = emitter.geometry_assignment_conversions.get(id(value.args[0]))
                     if conversion is not None:
                         row['geometry_assignment'] = encode(conversion, depth + 1)
@@ -234,6 +240,9 @@ def build(program, emitter):
                     conversion = emitter.geometry_return_conversions.get(id(value.args[0]))
                     if conversion is not None:
                         row['geometry_return'] = conversion
+                    data = emitter.data_return_conversions.get(id(value.args[0]))
+                    if data is not None:
+                        row['data_return'] = encode(data, depth + 1)
                 callback = emitter.callback_input_plans.get(id(value))
                 if callback is not None:
                     row.update(encode(callback, depth + 1))

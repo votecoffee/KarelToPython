@@ -69,7 +69,8 @@ integral `FOR` counter in an owned variable, ordinary ARRAY cell, or
 STRUCTURE field. Procedure calls, scalar expressions, and ordinary aggregate
 arguments can retain nested frames across pauses, including calls to pinned
 linked modules. Ordinary aggregate results can feed another call, console
-`WRITE`, an exact-shape assignment, or a field or array selection.
+`WRITE`, an assignment, or a field or array selection. Checked data conversions
+follow the declared argument, return, or concrete ARRAY receiver schema.
 Ordinary ARRAY subscripts, pure scalar built-ins, and console `WRITE` for
 scalars and ordinary data aggregates keep evaluated operands across a pause.
 Scalar `REPEAT UNTIL` captures run once before the live test and carry their
@@ -83,8 +84,8 @@ document and reports changed, omitted and unresolved inputs.
 ### Remaining linked-run work
 
 1. **Expand linked discovery.** Extend child pause tracking to resource
-   arguments and selectors, aggregate schema conversions, PATH and QUEUE
-   `WRITE` operands, FILE output, and non-scalar `EVAL` captures.
+   arguments and selectors, model-backed or unproven aggregate conversions,
+   PATH and QUEUE `WRITE` operands, FILE output, and non-scalar `EVAL` captures.
    Model shared storage in called library modules, extend resumable
    `FOR` capture to PATH and USING storage, and model
    additional synchronization and handler rearming where order and targets

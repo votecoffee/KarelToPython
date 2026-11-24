@@ -2233,6 +2233,178 @@ END CHILD
         self.assertIn('matching logical dimensions',result['error']['message'])
         self.assertEqual(result['programs']['CHILD']['values']['TARGET'][0],[50,60])
 
+    def test_receiver_conversion_uses_the_array_prefix_selected_after_a_pause(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR grid:ARRAY[2,2] OF STRING[3] source:ARRAY[2] OF STRING[6] unused:INTEGER
+ROUTINE make:ARRAY OF STRING[6]
+BEGIN
+  PAUSE
+  RETURN source
+END make
+ROUTINE pick:INTEGER
+BEGIN
+  source[1]='new'
+  PAUSE
+  RETURN 2
+END pick
+BEGIN
+  source[1]='apple'
+  source[2]='plum'
+  grid[1,1]='old'
+  grid[pick()]=make()
+  IF grid[2,1]='app' THEN WRITE(grid[2,1],grid[2,2]) ELSE WRITE(unused) ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation',
+                                     'task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed')
+        self.assertEqual(result['text_output'],'appplu')
+        self.assertEqual(result['programs']['CHILD']['values']['GRID'][0][0],'old')
+
+    def test_static_array_conversion_precedes_the_pausing_destination_selector(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+END MAIN
+"""
+        child="""PROGRAM CHILD
+TYPE box_t=STRUCTURE cells:ARRAY[2] OF BYTE ENDSTRUCTURE
+VAR boxes:ARRAY[1] OF box_t entered:INTEGER
+ROUTINE make:ARRAY OF INTEGER
+VAR source:ARRAY[2] OF INTEGER
+BEGIN
+  source[1]=7
+  source[2]=256
+  PAUSE
+  RETURN source
+END make
+ROUTINE pick:INTEGER
+BEGIN
+  entered=1
+  PAUSE
+  RETURN 1
+END pick
+BEGIN
+  boxes[1].cells[1]=10
+  boxes[1].cells[2]=20
+  entered=0
+  boxes[pick()].cells=make()
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assert_inputs(report,[])
+        self.assertIn('condition-source',[row['code'] for row in report['unresolved']])
+        self.assertEqual(result['status'],'failed')
+        self.assertIn('BYTE value outside',result['error']['message'])
+        self.assertEqual(result['programs']['CHILD']['values']['ENTERED'],0)
+        self.assertEqual(result['programs']['CHILD']['values']['BOXES'][0]['CELLS'],[10,20])
+
+        good_main=main.replace('END MAIN','  CONT_TASK(\'CHILD\',s)\nEND MAIN')
+        good_child=child.replace('source[2]=256','source[2]=255')
+        report,result=self.prepare([('MAIN',good_main),('CHILD',good_child)])
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation',
+                                     'task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed')
+        self.assertEqual(result['programs']['CHILD']['values']['ENTERED'],1)
+        self.assertEqual(result['programs']['CHILD']['values']['BOXES'][0]['CELLS'],[7,255])
+
+    def test_converted_argument_is_private_before_a_later_argument_pauses(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR source:ARRAY[2] OF INTEGER unused:INTEGER
+ROUTINE advance:INTEGER
+BEGIN
+  source[1]=99
+  PAUSE
+  RETURN 5
+END advance
+ROUTINE take(snapshot:ARRAY OF REAL; step:INTEGER)
+BEGIN
+  snapshot[1]=snapshot[1]+step
+  PAUSE
+  IF snapshot[1]=12.0 THEN WRITE(snapshot[1]::0::1) ELSE WRITE(unused) ENDIF
+END take
+BEGIN
+  source[1]=7
+  source[2]=9
+  take(source,advance())
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation',
+                                     'task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed')
+        self.assertEqual(result['text_output'],' 12.0')
+        self.assertEqual(result['programs']['CHILD']['values']['SOURCE'],[99,9])
+
+    def test_converted_record_return_preserves_a_known_field_and_partial_storage(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+TYPE source_t=STRUCTURE amount:INTEGER note:STRING[8] ENDSTRUCTURE
+     target_t=STRUCTURE amount:REAL note:STRING[4] ENDSTRUCTURE
+VAR result:target_t unused:INTEGER
+ROUTINE make:target_t
+VAR local:source_t
+BEGIN
+  local.amount=7
+  PAUSE
+  RETURN local
+END make
+ROUTINE width_value:INTEGER
+BEGIN
+  PAUSE
+  RETURN 0
+END width_value
+BEGIN
+  result=make()
+  IF result.amount=7.0 THEN WRITE(result.amount::width_value()::1) ELSE WRITE(unused) ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation',
+                                     'task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed')
+        self.assertEqual(result['text_output'],' 7.0')
+        self.assertEqual(result['programs']['CHILD']['values']['RESULT'],
+                         {'AMOUNT':7.0,'NOTE':{'uninitialized':True}})
+
     def test_nested_value_argument_resumes_before_entering_its_callee_and_procedure(self):
         main="""PROGRAM MAIN
 VAR s:INTEGER

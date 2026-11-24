@@ -9,7 +9,7 @@ from .assignment_analysis import (
 )
 from .compiler_language import DATA_RECORD_TYPES
 from .conversion_codegen import direct_schema_value
-from .schema_conversion import MODEL_CONVERSIONS
+from .schema_conversion import DATA_AGGREGATE_CONVERTERS, MODEL_CONVERSIONS
 
 
 class AssignmentLowering:
@@ -57,9 +57,17 @@ class AssignmentLowering:
         formal_receiver = target_type[0] == 'ARRAY' and self.is_routine_formal(target)
         plan = check_assignment(target_type, value_type, token, mode=self.mode,
                                 formal_receiver=formal_receiver, compatible=self.compatible, error=self.error)
-        if (self.mode == 'pythonic' and target_type[0] in ('ARRAY', 'JOINTPOS', *rt.RECORD_TYPES)
-                and plan.conversion is None and (plan.array_receiver is None or not plan.array_receiver.needs_geometry)):
-            self.staged_data_assignments.add(id(target))
+        if self.mode == 'pythonic' and target_type[0] in ('ARRAY', 'JOINTPOS', *rt.RECORD_TYPES):
+            receiver = plan.array_receiver
+            if receiver is not None:
+                if not receiver.needs_geometry:
+                    source_schema = value_type if receiver.needs_source_schema else None
+                    self.staged_data_assignments[id(target)] = ('receiver', None, source_schema)
+            elif plan.conversion in DATA_AGGREGATE_CONVERTERS:
+                source_schema = value_type if plan.conversion == 'record_schema' else None
+                self.staged_data_assignments[id(target)] = (plan.conversion, target_type, source_schema)
+            elif plan.conversion is None:
+                self.staged_data_assignments[id(target)] = None
         value = self._lower_assignment_conversion(plan, target, reference, value, token)
         result_routine = array_result_routine(expr, value_type, mode=self.mode)
         if result_routine is not None:
@@ -208,7 +216,8 @@ class AssignmentLowering:
         value,actual=self.expression(expression,allow_array_result=True)
         receiver = check_prefix_assignment(expected, actual, token, compatible=self.compatible, error=self.error)
         if not receiver.needs_geometry:
-            self.staged_data_assignments.add(id(target))
+            source_schema = actual if receiver.needs_source_schema else None
+            self.staged_data_assignments[id(target)] = ('receiver', None, source_schema)
         self._note_geometry_receiver(target, expected, receiver)
         source=self.fresh();captured=self.fresh();line=token.line
         self.line(f'{source} = _rt.assignment_value({value},{line})',token)

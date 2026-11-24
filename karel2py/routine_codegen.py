@@ -18,7 +18,7 @@ from .call_reporting import (
     record_value_subfield,
 )
 from .compiler_language import INTEGRAL_TYPES, NARROW_TYPES, POSITIONAL_VALUE_TYPES
-from .schema_conversion import MODEL_CONVERSIONS
+from .schema_conversion import DATA_AGGREGATE_CONVERTERS, MODEL_CONVERSIONS
 
 
 class RoutineLowering:
@@ -140,6 +140,9 @@ class RoutineLowering:
                 self.current_routine.may_services = True
             if conversion in MODEL_CONVERSIONS or conversion == 'cartesian':
                 self.geometry_argument_conversions.setdefault(id(expr), {})[index] = conversion
+            if conversion in DATA_AGGREGATE_CONVERTERS:
+                declared = source_schema if conversion == 'record_schema' else None
+                self.data_argument_conversions.setdefault(id(expr), {})[index] = (conversion, declared)
             record_routine_conversion(self, routine, formal, argument, plan, source_schema)
             active_counter = plan.by_reference and self.protection_root(argument) in self.active_counters
             validate_routine_argument(plan, expr.value, argument.token, mode=self.mode, active_counter=active_counter,
@@ -179,6 +182,9 @@ class RoutineLowering:
             self.current_routine.may_services = True
         if plan.conversion in MODEL_CONVERSIONS or plan.conversion == 'cartesian':
             self.geometry_return_conversions[id(operand)] = plan.conversion
+        if plan.conversion in DATA_AGGREGATE_CONVERTERS:
+            declared = source if plan.conversion == 'record_schema' else None
+            self.data_return_conversions[id(operand)] = (plan.conversion, declared)
         record_result_conversion(self, token, plan)
         record_routine_result(self, token, operand, plan)
         self.line(f'return {self._checked_result_value(spec, value, token.line)}', token)
