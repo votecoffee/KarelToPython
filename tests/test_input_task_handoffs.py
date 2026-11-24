@@ -5602,6 +5602,221 @@ END CHILD
         self.assertEqual(values['COUNT'],2)
         self.assertEqual(result['text_output'],' 2')
 
+    def test_path_assignment_snapshots_source_before_pausing_destination_selector(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+TYPE node_t=STRUCTURE amount:INTEGER ENDSTRUCTURE
+     head_t=STRUCTURE total:INTEGER ENDSTRUCTURE
+     route_t=PATH NODEDATA=node_t PATHHEADER=head_t
+VAR source:route_t dest:ARRAY[2] OF route_t seed:node_t s,unused:INTEGER valid:BOOLEAN
+ROUTINE choose_dest:INTEGER
+BEGIN
+  source.total=77
+  source[1].amount=88
+  PAUSE
+  RETURN 2
+END choose_dest
+BEGIN
+  source.total=3
+  seed.amount=17
+  APPEND_NODE(source,seed,s)
+  dest[choose_dest()]=source
+  valid=(PATH_LEN(dest[1])=0) AND (PATH_LEN(dest[2])=1) AND (dest[2].total=3)
+  IF valid AND (dest[2,1].amount=17) AND (source[1].amount=88) THEN
+    WRITE(dest[2,1].amount)
+  ELSE
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed',result['error'])
+        values=result['programs']['CHILD']['values']
+        self.assertEqual(values['DEST'][1],{'data':{'TOTAL':3},'nodes':[{'AMOUNT':17}]})
+        self.assertEqual(values['SOURCE'],{'data':{'TOTAL':77},'nodes':[{'AMOUNT':88}]})
+
+    def test_path_array_assignment_keeps_private_row_across_pause(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+TYPE node_t=STRUCTURE amount:INTEGER ENDSTRUCTURE
+     route_t=PATH NODEDATA=node_t
+VAR bank:ARRAY[2,2] OF route_t seed:node_t s,unused:INTEGER
+ROUTINE choose_row:INTEGER
+BEGIN
+  seed.amount=94
+  APPEND_NODE(bank[2,1],seed,s)
+  PAUSE
+  RETURN 1
+END choose_row
+BEGIN
+  seed.amount=43
+  APPEND_NODE(bank[2,1],seed,s)
+  bank[choose_row()]=bank[2]
+  IF (PATH_LEN(bank[1,1])=1) AND (PATH_LEN(bank[2,1])=2) AND (bank[1,1,1].amount=43) THEN
+    WRITE(bank[1,1,1].amount)
+  ELSE
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed',result['error'])
+        values=result['programs']['CHILD']['values']
+        self.assertEqual(values['BANK'][0][0]['nodes'],[{'AMOUNT':43}])
+        self.assertEqual(values['BANK'][1][0]['nodes'],[{'AMOUNT':43},{'AMOUNT':94}])
+
+    def test_copy_path_keeps_replaced_descriptor_and_reverse_bounds_across_pauses(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+TYPE node_t=STRUCTURE amount:INTEGER ENDSTRUCTURE
+     head_t=STRUCTURE total:INTEGER ENDSTRUCTURE
+     route_t=PATH NODEDATA=node_t PATHHEADER=head_t
+VAR source,replacement,dest:route_t seed:node_t
+    codes:ARRAY[2] OF INTEGER s,unused:INTEGER valid:BOOLEAN
+ROUTINE first_bound:INTEGER
+BEGIN
+  COPY_PATH(replacement,0,0,source,s)
+  PAUSE
+  RETURN 2
+END first_bound
+ROUTINE pick_status:INTEGER
+BEGIN
+  PAUSE
+  RETURN 2
+END pick_status
+BEGIN
+  source.total=3
+  replacement.total=9
+  seed.amount=17
+  APPEND_NODE(source,seed,s)
+  seed.amount=19
+  APPEND_NODE(source,seed,s)
+  seed.amount=88
+  APPEND_NODE(replacement,seed,s)
+  COPY_PATH(source,first_bound(),1,dest,codes[pick_status()],FALSE)
+  COPY_PATH(source,99,1,dest,codes[1])
+  valid=(codes[1]=2) AND (codes[2]=0) AND (PATH_LEN(source)=1) AND (PATH_LEN(dest)=2)
+  IF valid AND (dest.total=3) AND (dest[1].amount=19) AND (dest[2].amount=17) THEN
+    WRITE(dest[1].amount)
+  ELSE
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling']+['task-wait','task-continuation']*2)
+        self.assertEqual(result['status'],'completed',result['error'])
+        values=result['programs']['CHILD']['values']
+        self.assertEqual(values['DEST'],{'data':{'TOTAL':3},'nodes':[{'AMOUNT':19},{'AMOUNT':17}]})
+        self.assertEqual(values['SOURCE'],{'data':{'TOTAL':9},'nodes':[{'AMOUNT':88}]})
+        self.assertEqual(values['CODES'],[2,0])
+
+    def test_path_range_write_keeps_descriptor_replaced_by_pausing_bound(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+TYPE node_t=STRUCTURE amount:INTEGER ENDSTRUCTURE
+     head_t=STRUCTURE total:INTEGER ENDSTRUCTURE
+     route_t=PATH NODEDATA=node_t PATHHEADER=head_t
+VAR source,replacement:route_t seed:node_t s,unused:INTEGER
+ROUTINE first_bound:INTEGER
+BEGIN
+  COPY_PATH(replacement,0,0,source,s)
+  PAUSE
+  RETURN 2
+END first_bound
+BEGIN
+  source.total=3
+  replacement.total=9
+  seed.amount=17
+  APPEND_NODE(source,seed,s)
+  seed.amount=19
+  APPEND_NODE(source,seed,s)
+  seed.amount=88
+  APPEND_NODE(replacement,seed,s)
+  WRITE(source[first_bound()..0])
+  IF (source.total<>9) OR (PATH_LEN(source)<>1) THEN
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed',result['error'])
+        self.assertEqual(result['text_output'],' 19 17 3')
+        self.assertEqual(result['programs']['CHILD']['values']['SOURCE'],
+                         {'data':{'TOTAL':9},'nodes':[{'AMOUNT':88}]})
+
+    def test_scalar_path_selector_stays_conservative_when_descriptor_is_replaced(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+END MAIN
+"""
+        child="""PROGRAM CHILD
+TYPE node_t=STRUCTURE amount:INTEGER ENDSTRUCTURE
+     route_t=PATH NODEDATA=node_t
+VAR source,replacement:route_t seed:node_t s:INTEGER
+ROUTINE replace_source:INTEGER
+BEGIN
+  COPY_PATH(replacement,0,0,source,s)
+  PAUSE
+  RETURN 1
+END replace_source
+BEGIN
+  seed.amount=17
+  APPEND_NODE(source,seed,s)
+  seed.amount=88
+  APPEND_NODE(replacement,seed,s)
+  WRITE(source[replace_source()].amount)
+  PAUSE
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assertIn('condition-source',[row['code'] for row in report['unresolved']])
+        self.assertEqual(result['status'],'paused',result['error'])
+        self.assertEqual(result['text_output'],' 17')
+        self.assertEqual(result['programs']['CHILD']['values']['SOURCE']['nodes'],[{'AMOUNT':88}])
+
     def test_request_status_is_not_reused_as_prelaunch_task_number(self):
         main="""PROGRAM MAIN
 VAR task_no,s:INTEGER text:STRING[8]

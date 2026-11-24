@@ -91,6 +91,9 @@ selections with known ordinary data fields.
 Pinned calls preserve borrowed PATHs and bank components. Grouped storage
 and flat slices keep private snapshots for matching schemas. PATH count and
 bank shape queries use the selected storage.
+PATH assignment and same-schema `COPY_PATH` retain their respective
+snapshots and descriptors across pauses. Bounded PATH `WRITE` follows
+descriptors replaced while its bounds run.
 Queue reads cover existing entries in initialized queues and bank selections,
 preserving IDs and releasing the previous backing ARRAY. Discovery follows
 saved queue topology through edits and copies and retains the saved root

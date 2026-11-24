@@ -850,6 +850,14 @@ with uninitialized scalar fields so later reads can fill them. `PATH_LEN`
 uses the selected PATH's current node count after its selectors finish.
 `ARRAY_LEN` uses the bound bank's concrete dimensions.
 
+For matching schemas, assignment snapshots a PATH, bank, or bank slice before
+the destination selectors run. `COPY_PATH` retains the selected source
+descriptor while bounds, destination and status selectors, and the optional
+flag are evaluated. It follows whole copies and inclusive ranges in either
+direction, including a known out-of-range status. A bounded PATH `WRITE` also
+keeps the source descriptor selected before its bounds ran. These transfers
+can follow a descriptor replaced by another checked `COPY_PATH`.
+
 Memory FILE `READ` can also replace values in initialized queues and selected
 queue banks. Banks are visited in row-major order, and initialized
 queues with no entries consume no fields. A batch needs at least one existing

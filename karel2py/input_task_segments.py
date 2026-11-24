@@ -211,6 +211,11 @@ def queue_task_call(plan, node):
     return len(signature) == len(node['args']) and all(spec[0] in ('i', 'r', 'o') for spec in signature)
 
 
+def path_copy_task_call(plan, node):
+    return (node['kind'] == 'call' and node['value'] == 'COPY_PATH'
+            and 'COPY_PATH' not in plan['routines'] and len(node['args']) in (5, 6))
+
+
 def file_task_procedure(plan, node):
     if node['kind'] != 'call' or node['value'] not in FILE_TASK_PROCEDURES or node['value'] in plan['routines']:
         return False
@@ -223,7 +228,7 @@ def _routine_calls(plan, node, tick):
     kind, args = node['kind'], node['args']
     if kind == 'call':
         call = args[0]
-        if queue_task_call(plan, call) or file_task_procedure(plan, call):
+        if queue_task_call(plan, call) or file_task_procedure(plan, call) or path_copy_task_call(plan, call):
             for operand in call['args']:
                 yield from _expression_routines(plan, operand, tick)
         else:
@@ -264,6 +269,12 @@ def _branches(node):
     return ()
 
 
+def _path_storage(types, node):
+    while node['kind'] in ('group', 'field', 'index'):
+        node = node['args'][0]
+    return node['kind'] == 'name' and path_task_storage(types.get(node['value']))
+
+
 def structured_child(plan, linked_plans, tick, *, predefined_files=()):
     """Find an isolated child with a pause within or alongside structured flow."""
     pending = [(plan, iter(plan['body']), False)]
@@ -280,8 +291,10 @@ def structured_child(plan, linked_plans, tick, *, predefined_files=()):
         found_pause = found_pause or pause
         found_control = (found_control or node['kind'] in STRUCTURED_LOOPS
                          or aggregate_task_write(node) or node.get('data_assignment') is True
+                         or node['kind'] == 'assign' and _path_storage(owner['types'], node['args'][0])
                          or node['kind'] == 'call' and (
-                             queue_task_call(owner, node['args'][0]) or file_task_procedure(owner, node['args'][0]))
+                             queue_task_call(owner, node['args'][0]) or file_task_procedure(owner, node['args'][0])
+                             or path_copy_task_call(owner, node['args'][0]))
                          or node['kind'] in ('file_open', 'file_read', 'file_write', 'file_close', 'read')
                          or node['kind'] == 'write_items' and owner.get('default_write_file') in predefined_files)
         pending.extend((owner, iter(body), True) for body in _branches(node) if body)
@@ -416,12 +429,7 @@ class _SegmentRules:
                 and all(self.operand(arg) for arg in args[1:]))
 
     def path_storage(self, node):
-        while node['kind'] in ('group', 'field', 'index'):
-            node = node['args'][0]
-        if node['kind'] != 'name':
-            return False
-        _, terminal = array_dimensions(self.types.get(node['value']))
-        return bool(terminal and terminal[0] == 'PATH')
+        return _path_storage(self.types, node)
 
     def path_edit_call(self, node):
         name = node['value']
