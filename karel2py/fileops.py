@@ -226,6 +226,27 @@ def _wildcard_tree(files,root,check):
     return result
 
 
+def _directory_namespace_entries(names, folder, check):
+    if len(names) > WILDCARD_FILE_LIMIT:
+        raise ValueError('Wildcard FILE scan exceeds 32767 entries')
+    candidates = set()
+    for name in names:
+        check()
+        if _wildcard_relative(name, folder) is not None:
+            candidates.add(name)
+    return candidates
+
+
+def _matching_directory_entries(candidates, folder, matcher, check):
+    if len(candidates) > WILDCARD_FILE_LIMIT:
+        raise ValueError('Wildcard FILE batch exceeds 32767 entries')
+    for name in sorted(candidates):
+        relative = _wildcard_relative(name, folder)
+        if relative is not None and _wildcard_path_match(relative, matcher, check=check):
+            _wildcard_parts(name, pattern=False)
+            yield name
+
+
 def _directory_listing(files,pattern,check):
     """Explicit directory patterns opt into bounded component matching."""
     from .storage import DirectoryFiles
@@ -241,17 +262,9 @@ def _directory_listing(files,pattern,check):
     else:
         folder=prefix
         if type(files) is DeviceFiles and ':' in prefix:files.require_volume(prefix.split(':',1)[0])
-        if len(files.files)>WILDCARD_FILE_LIMIT:raise ValueError('Wildcard FILE scan exceeds 32767 entries')
-        candidates=set()
-        for name in tuple(files.files):
-            check()
-            if _wildcard_relative(name,folder) is not None:candidates.add(name)
-    if len(candidates)>WILDCARD_FILE_LIMIT:raise ValueError('Wildcard FILE batch exceeds 32767 entries')
+        candidates = _directory_namespace_entries(tuple(files.files), folder, check)
     selected=[]
-    for name in sorted(candidates):
-        relative=_wildcard_relative(name,folder)
-        if relative is None or not _wildcard_path_match(relative,matcher,check=check):continue
-        _wildcard_parts(name,pattern=False)
+    for name in _matching_directory_entries(candidates, folder, matcher, check):
         if type(files) is DirectoryFiles:
             if not files._busy(name) and not files._path(name).is_file():continue
         elif type(files) is DeviceFiles:files._check(name,b'')
@@ -871,6 +884,51 @@ def manage_file(state,operation,args,line=None):
         raise rt().KarelRuntimeError('FILE operation failed: '+str(exc),line) from exc
 
 
+def _file_list_page(matches, skip, form, capacity, member, metadata, *, check, line):
+    """Prepare and capacity-check an entire FILE_LIST page."""
+    runtime = rt()
+    prepared = []
+    for name in matches[skip:skip + capacity]:
+        check()
+        if form == 0:
+            text = name
+        else:
+            base = name.replace('\\','/').rsplit('/',1)[-1].rsplit(':',1)[-1]
+            if not base or base in ('.','..') or any(ord(char)<=32 or ord(char)==127 for char in base):
+                return 2, ()
+            stem, separator, extension = base.rpartition('.')
+            if not separator or not stem:
+                stem, extension = base, ''
+            text = stem if form == 1 else extension if form == 2 else base
+            if form == 4:
+                status, size, timestamp = metadata(name)
+                if status:
+                    return status, ()
+                if len(stem)>8 or len(extension)>3 or size>99999:
+                    return 3, ()
+                dot = '.' if extension else ' '
+                text = f'{stem:<8}{dot}{extension:<11}{size:<5}' + timestamp
+        if len(text) > member[1]:
+            return 3, ()
+        prepared.append(runtime.checked(member, text, line))
+    return 0, tuple(prepared)
+
+
+def memory_file_list_page(namespace, pattern, skip, form, capacity, member, *, check, line):
+    """Prepare a page using the modeled memory FILE names and sizes."""
+    if skip < 0 or form not in (0, 1, 2, 3, 4):
+        return 2, ()
+    normalized = _file_name_separators(pattern)
+    if any(c in normalized.rpartition('/')[0] for c in '*?'):
+        folder, matcher = _wildcard_source(normalized)
+        candidates = _directory_namespace_entries(namespace, folder, check)
+        matches = list(_matching_directory_entries(candidates, folder, matcher, check))
+    else:
+        matches = sorted(name for name in _listing_entries(namespace, check) if fnmatch.fnmatchcase(name, pattern))
+    return _file_list_page(matches, skip, form, capacity, member, lambda name: (0, namespace[name], ' '*15),
+                           check=check, line=line)
+
+
 def list_files(state,files,args,line=None):
     """Prepare a complete FILE_LIST page before changing any output storage."""
     from .communications import FilePipes
@@ -884,43 +942,36 @@ def list_files(state,files,args,line=None):
     ordinary=type(files) in (runtime.MemoryFiles,DirectoryFiles,DeviceFiles)
     normalized=_file_name_separators(pattern) if ordinary else pattern
     parent=normalized.rpartition('/')[0]
+    check = lambda: state.tick(line)
     if any(c in parent for c in '*?'):
-        matches=_directory_listing(files,normalized,lambda:state.tick(line))
+        matches=_directory_listing(files,normalized,check)
     elif ordinary or type(files) is FilePipes:
-        matches=files.list_names(pattern,check=lambda:state.tick(line))
+        matches=files.list_names(pattern,check=check)
     else:
         matches=files.list_names(pattern)
-    selected=matches[skip:skip+capacity];prepared=[]
-    for name in selected:
-        state.tick(line)
-        if form==0: text=name
-        else:
-            base=name.replace('\\','/').rsplit('/',1)[-1].rsplit(':',1)[-1]
-            if not base or base in ('.','..') or any(ord(char)<=32 or ord(char)==127 for char in base): return 2
-            stem,separator,extension=base.rpartition('.')
-            if not separator or not stem: stem,extension=base,''
-            text=stem if form==1 else extension if form==2 else base
-            if form==4:
-                timestamp=' '*15
-                if isinstance(files,DirectoryFiles) and not files._busy(name):
-                    try:metadata=files._path(name).stat()
-                    except FileNotFoundError:return 1
-                    if not stat.S_ISREG(metadata.st_mode):return 1
-                    size=metadata.st_size
-                    if files.listing_timestamps:
-                        try:modified=datetime.fromtimestamp(metadata.st_mtime,timezone.utc)
-                        except (OSError,OverflowError,ValueError):return 3
-                        timestamp=modified.date().isoformat()+modified.time().isoformat(timespec='minutes')
-                else:size=len(files.files[name])
-                if len(stem)>8 or len(extension)>3 or size>99999: return 3
-                dot='.' if extension else ' '
-                text=f'{stem:<8}{dot}{extension:<11}{size:<5}'+timestamp
-        if len(text)>array.spec[2][1]: return 3
-        prepared.append(runtime.checked(array.spec[2],text,line))
+
+    def metadata(name):
+        timestamp=' '*15
+        if not isinstance(files,DirectoryFiles) or files._busy(name):
+            return 0, len(files.files[name]), timestamp
+        try: row=files._path(name).stat()
+        except FileNotFoundError: return 1, None, None
+        if not stat.S_ISREG(row.st_mode):
+            return 1, None, None
+        if files.listing_timestamps:
+            try: modified=datetime.fromtimestamp(row.st_mtime,timezone.utc)
+            except (OSError,OverflowError,ValueError): return 3, None, None
+            timestamp=modified.date().isoformat()+modified.time().isoformat(timespec='minutes')
+        return 0, row.st_size, timestamp
+
+    status, prepared = _file_list_page(matches, skip, form, capacity, array.spec[2], metadata,
+                                       check=check, line=line)
+    if status:
+        return status
     staged=array.clone()
     for index,value in enumerate(prepared,1): staged.set(index,value,line)
     # Preserve untouched slots, including their uninitialized values.
-    names.set(staged,line);count.set(len(selected),line)
+    names.set(staged,line);count.set(len(prepared),line)
     return 0
 
 

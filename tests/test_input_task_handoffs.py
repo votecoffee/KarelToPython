@@ -6758,6 +6758,151 @@ END CHILD
         self.assertIn('file_pipes',result['error']['message'])
         self.assertEqual(result['context']['files'],{'one.kl':{'hex':'41'}})
 
+
+    def test_file_list_keeps_selected_row_while_status_selector_changes_namespace(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR names:ARRAY[2,3] OF STRING[20] states:ARRAY[2] OF INTEGER slot,n,s,unused:INTEGER valid:BOOLEAN
+ROUTINE row:INTEGER
+BEGIN
+  PAUSE
+  RETURN slot
+END row
+ROUTINE status_cell:INTEGER
+BEGIN
+  slot=1
+  names[2,3]='tail'
+  RENAME_FILE('draft/c.kl','jobs/Cell00/c.kl',FALSE,s)
+  PAUSE
+  RETURN 2
+END status_cell
+BEGIN
+  slot=2
+  names[1,1]='original'
+  states[1]=77
+  FILE_LIST('jobs/*/*.kl',1,3,names[row()],n,states[status_cell()])
+  valid=(n=2) AND (states[1]=77) AND (states[2]=0) AND (s=0)
+  valid=valid AND (names[2,1]='a.kl') AND (names[2,2]='b.kl') AND (names[2,3]='tail')
+  IF valid AND (names[1,1]='original') THEN
+    WRITE(n)
+  ELSE
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        files={'jobs/Cell01/a.kl':'17','jobs/Cell02/b.kl':'29','draft/c.kl':'3'}
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],files=files)
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling']+['task-wait','task-continuation']*2)
+        self.assertIn({'service':'files','address':None},report['context_requirements'])
+        self.assertEqual(result['status'],'completed',result['error'])
+        values=result['programs']['CHILD']['values']
+        self.assertEqual((values['NAMES'][1],values['STATES']),(['a.kl','b.kl','tail'],[77,0]))
+        self.assertEqual(result['text_output'],' 2')
+
+    def test_file_list_format_four_tracks_size_and_deleted_names_across_pause(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        row='new     .dat        2                   '
+        child=f"""PROGRAM CHILD
+VAR names:ARRAY[2] OF STRING[40] stream:FILE n,s,unused:INTEGER
+BEGIN
+  names[2]='keep'
+  DELETE_FILE('drop.dat',FALSE,s)
+  OPEN FILE stream('WB','new.dat')
+  WRITE stream(19::1,23::1)
+  PAUSE
+  FILE_LIST('*.dat',0,4,names,n,s)
+  IF (n=1) AND (s=0) AND (names[1]='{row}') AND (names[2]='keep') THEN
+    CLOSE FILE stream
+  ELSE
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],files={'drop.dat':'old'})
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed',result['error'])
+        values=result['programs']['CHILD']['values']
+        self.assertEqual(values['NAMES'],[row,'keep'])
+        self.assertEqual(result['context']['files'],{'new.dat':{'hex':'1317'}})
+
+    def test_file_list_bad_page_keeps_count_and_names_then_accepts_empty_page(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR names:ARRAY[3] OF STRING[3] n,s,unused:INTEGER valid:BOOLEAN
+BEGIN
+  names[1]='old'
+  names[2]='end'
+  n=77
+  FILE_LIST('*',0,3,names,n,s)
+  valid=(s=3) AND (n=77) AND (names[1]='old') AND (names[2]='end')
+  FILE_LIST('*',-1,0,names,n,s)
+  valid=valid AND (s=2) AND (n=77)
+  PAUSE
+  FILE_LIST('missing*',0,0,names,n,s)
+  IF valid AND (s=0) AND (n=0) AND (names[1]='old') AND (names[2]='end') THEN
+    WRITE(n)
+  ELSE
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],files={'a.b':'1','long.dat':'2'})
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed',result['error'])
+        values=result['programs']['CHILD']['values']
+        self.assertEqual(values['NAMES'],['old','end',{'uninitialized':True}])
+        self.assertEqual(result['text_output'],' 0')
+
+    def test_file_list_overlapping_outputs_keep_following_pause_unresolved(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR names:ARRAY[2] OF STRING[20] s:INTEGER
+BEGIN
+  names[1]='old'
+  s=77
+  FILE_LIST('*',0,0,names,s,s)
+  PAUSE
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],files={'one.kl':'1'})
+        self.assertIn('condition-source',[row['code'] for row in report['unresolved']])
+        self.assertEqual(result['status'],'failed')
+        self.assertIn('overlap',result['error']['message'])
+        values=result['programs']['CHILD']['values']
+        self.assertEqual((values['NAMES'][0],values['S']),('old',77))
+
     def test_large_seeded_binary_file_reads_overlay_and_saved_neighbors_across_pause(self):
         main="""PROGRAM MAIN
 VAR s:INTEGER

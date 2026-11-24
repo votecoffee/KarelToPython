@@ -5490,13 +5490,13 @@ class _Analyzer(TeachDiscovery):
         node, values = pending.node, pending.values
         args = node['args']
         index = len(values)
-        if index < len(args) - 1:
-            value = self.task_operand(args[index], flow, scope, blocks, pending)
-            if value is not None:
-                self.consume_task_value(blocks, flow, pending, value)
-            return
-        if index == len(args) - 1:
-            self.start_task_selection(blocks, flow, args[-1], pending)
+        if index < len(args):
+            if node['signature'][index][0] in ('r', 'o'):
+                self.start_task_selection(blocks, flow, args[index], pending)
+            else:
+                value = self.task_operand(args[index], flow, scope, blocks, pending)
+                if value is not None:
+                    self.consume_task_value(blocks, flow, pending, value)
             return
 
         *operands, status = values
@@ -5510,17 +5510,36 @@ class _Analyzer(TeachDiscovery):
                 if outputs is None:
                     raise _TaskOrderUnknown()
                 backend = getattr(self.saved_bindings, 'memory_files', None)
-                self.tick(len(outputs.handles) + len(outputs.sizes))
-                result = outputs.manage(backend, node['value'], operands, tick=self.tick)
-                if result is None:
-                    raise _TaskOrderUnknown()
-                flow.task_file_outputs, code, dependencies = result
-                for address in dependencies:
-                    self.context('files', address)
-        except rt.KarelRuntimeError:
+                if node['value'] == 'FILE_LIST':
+                    code = self.apply_task_file_list(node, operands, status, flow, backend, outputs)
+                else:
+                    self.tick(len(outputs.handles) + len(outputs.sizes))
+                    result = outputs.manage(backend, node['value'], operands, tick=self.tick)
+                    if result is None:
+                        raise _TaskOrderUnknown()
+                    flow.task_file_outputs, code, dependencies = result
+                    for address in dependencies:
+                        self.context('files', address)
+        except (rt.KarelRuntimeError, ValueError):
             raise _TaskOrderUnknown() from None
         self.write(status, _Value(code, spec=['INTEGER']), flow, node)
         blocks.pop()
+
+    def apply_task_file_list(self, node, operands, status, flow, backend, outputs):
+        pattern, skip, form, names, count = operands
+        if count.key == status.key:
+            raise _TaskOrderUnknown()
+        capacity, width = self.catalog_buffer(names)
+        result = outputs.list_page(backend, pattern, skip, form, capacity, ('STRING', width),
+                                   tick=self.tick, line=node.get('line'))
+        if result is None:
+            raise _TaskOrderUnknown()
+        code, values = result
+        self.context('files', None)
+        if code == 0:
+            self.write_task_array_prefix(names, values, flow, node)
+            self.write(count, _Value(len(values), spec=['INTEGER']), flow, node)
+        return code
 
     def apply_task_file_procedure(self, flow, pending, outputs):
         node, key, values = pending.node, pending.key, pending.values
@@ -5900,7 +5919,7 @@ class _Analyzer(TeachDiscovery):
             raise _TaskOrderUnknown()
         return shape[0]
 
-    def write_task_queue_array(self, loc, values, flow, node):
+    def write_task_array_prefix(self, loc, values, flow, node):
         self.tick(len(values))
         for index, value in enumerate(values, 1):
             cell = self.child(loc, 'index', index, node)
@@ -5952,9 +5971,9 @@ class _Analyzer(TeachDiscovery):
         except rt.KarelRuntimeError:
             raise _TaskOrderUnknown() from None
 
-        self.write_task_queue_array(buffer, values + [0] * (capacity - len(values)), flow, node)
+        self.write_task_array_prefix(buffer, values + [0] * (capacity - len(values)), flow, node)
         if name == 'COPY_QUEUE':
-            self.write_task_queue_array(target, copied, flow, node)
+            self.write_task_array_prefix(target, copied, flow, node)
         for loc, value in prepared:
             self.write(loc, _Value(value, spec=loc.spec), flow, node)
         flow.task_queues[queue.key] = replace(previous, entries=entries, sequence=sequence, buffer=buffer.key)
@@ -6604,7 +6623,9 @@ class _Analyzer(TeachDiscovery):
             else:
                 raise _TaskOrderUnknown()
         elif isinstance(consumer, _TaskNamedFile):
-            if loc.spec != ['INTEGER']:
+            position = len(consumer.values)
+            expects_array = tuple(consumer.node['signature'][position]) == ('r', 'STRING_ARRAY')
+            if (expects_array and self.catalog_buffer(loc) is None) or (not expects_array and loc.spec != ['INTEGER']):
                 raise _TaskOrderUnknown()
             blocks[-1] = replace(consumer, values=(*consumer.values, loc))
         elif isinstance(consumer, _TaskRead):

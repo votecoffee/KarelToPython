@@ -6,6 +6,7 @@ from . import runtime as rt
 from .communications import message_address
 from .extended import MemoryFiles
 from .file_io import FileHandle, binary_read_fields, set_file_attribute
+from .fileops import memory_file_list_page
 from .input_file_patterns import memory_wildcard_plan
 from .serial_io import serial_address
 
@@ -234,11 +235,21 @@ class MemoryOutputs:
         updated = self.apply_file_changes(backend, changes, copying=copying, tick=tick)
         return updated, 0, dependencies
 
-    def manage_wildcard(self, backend, operation, operands, *, tick):
-        tick(len(backend.files) + len(self.sizes) + len(self.handles))
+    def namespace(self, backend, *, tick):
+        tick(len(backend.files) + len(self.sizes))
         namespace = {name: len(data) for name, data in backend.files.items()}
         namespace.update(self.sizes)
-        namespace = {name: size for name, size in namespace.items() if size is not None}
+        return {name: size for name, size in namespace.items() if size is not None}
+
+    def list_page(self, backend, pattern, skip, form, capacity, member, *, tick, line):
+        if type(backend) is not MemoryFiles or not _memory_name(pattern) or type(skip) is not int or type(form) is not int:
+            return None
+        return memory_file_list_page(self.namespace(backend, tick=tick), pattern, skip, form, capacity, member,
+                                     check=tick, line=line)
+
+    def manage_wildcard(self, backend, operation, operands, *, tick):
+        tick(len(self.handles))
+        namespace = self.namespace(backend, tick=tick)
         busy = {handle.name.casefold() for handle in self.handles.values() if not handle.closed}
         plan = memory_wildcard_plan(operation, operands, namespace, busy, tick=tick)
         if plan is None:

@@ -867,6 +867,15 @@ original input address and keep the saved values editable. `CHECK_NAME`
 uses the runtime's portable name validation. Wildcard operations on other
 backends still require conservative discovery.
 
+`FILE_LIST` uses the live in-memory namespace after the last selector
+finishes. It supports formats 0 through 4 and applies the page offset to
+sorted full names before formatting. Memory metadata rows use the current
+byte count and a blank timestamp. The chosen STRING ARRAY or row stays
+bound while later count and status selectors run. A short page fills only
+the returned cells. An empty page sets count to zero, and a rejected page
+preserves the count and the array. Overlapping count and status outputs
+leave the handoff unresolved.
+
 A checked routine can borrow a scalar FILE, a whole FILE bank, or a selected
 row or plane, including through pinned source linkage. Argument selection
 captures the original descriptor or cells before later arguments run.

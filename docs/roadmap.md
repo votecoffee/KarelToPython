@@ -95,7 +95,9 @@ ranges track published bytes through overwrites, truncation, and reopen.
 Reads can use a known range in a large file or recover a range after a later
 overwrite. Memory file copies, renames and deletions track status and update
 the names visible to later opens, including checked wildcard batches. Copies
-and renames retain the original saved byte dependency.
+and renames retain the original saved byte dependency. Memory `FILE_LIST`
+uses the live namespace for pages in formats 0 through 4, preserving
+unused output cells and captured ARRAY rows across pauses.
 PATH reads cover whole PATHs, headers, nodes, ordered ranges, and bank
 selections with scalar, vector, joint, configuration, and pose fields.
 Checked memory FILE reads share execution's CONFIG and POSITION validation,
