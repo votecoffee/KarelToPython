@@ -109,7 +109,7 @@ def resolve_routine(plan, linked_plans, name, interface):
     return target, routine
 
 
-def _direct_routine_call(plan, operand, *, procedure=False, results=TASK_ROUTINE_VALUES | {'PATH'}):
+def _direct_routine_call(plan, operand, *, procedure=False, results=TASK_ROUTINE_VALUES | {'PATH', 'QUEUE_TYPE'}):
     call = _ungroup(operand)
     routine = plan['routines'].get(call['value']) if call is not None and call['kind'] == 'call' else None
     if routine is None:
@@ -269,10 +269,10 @@ def _branches(node):
     return ()
 
 
-def _path_storage(types, node):
+def _storage_schema(types, node):
     while node['kind'] in ('group', 'field', 'index'):
         node = node['args'][0]
-    return node['kind'] == 'name' and path_task_storage(types.get(node['value']))
+    return types.get(node['value']) if node['kind'] == 'name' else None
 
 
 def structured_child(plan, linked_plans, tick, *, predefined_files=()):
@@ -291,7 +291,8 @@ def structured_child(plan, linked_plans, tick, *, predefined_files=()):
         found_pause = found_pause or pause
         found_control = (found_control or node['kind'] in STRUCTURED_LOOPS
                          or aggregate_task_write(node) or node.get('data_assignment') is True
-                         or node['kind'] == 'assign' and _path_storage(owner['types'], node['args'][0])
+                         or node['kind'] == 'assign'
+                         and task_resource_storage(_storage_schema(owner['types'], node['args'][0]))
                          or node['kind'] == 'call' and (
                              queue_task_call(owner, node['args'][0]) or file_task_procedure(owner, node['args'][0])
                              or path_copy_task_call(owner, node['args'][0]))
@@ -429,7 +430,7 @@ class _SegmentRules:
                 and all(self.operand(arg) for arg in args[1:]))
 
     def path_storage(self, node):
-        return _path_storage(self.types, node)
+        return path_task_storage(_storage_schema(self.types, node))
 
     def path_edit_call(self, node):
         name = node['value']
@@ -450,6 +451,12 @@ class _SegmentRules:
     def path_routine_call(self, operand):
         call = _direct_routine_call(self.plan, operand, results={'ARRAY', 'PATH'})
         if call is not None and path_task_storage(self.plan['routines'][call['value']]['result']):
+            return self.checked_routine_call(call)
+        return None
+
+    def queue_routine_call(self, operand):
+        call = _direct_routine_call(self.plan, operand, results={'ARRAY', 'QUEUE_TYPE'})
+        if call is not None and queue_task_storage(self.plan['routines'][call['value']]['result']):
             return self.checked_routine_call(call)
         return None
 

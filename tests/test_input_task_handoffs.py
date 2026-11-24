@@ -6035,6 +6035,240 @@ END CHILD
         self.assertEqual(result['text_output'],' 19 17 3| 8 9 42')
         self.assertEqual(result['programs']['CHILD']['values']['VISITS'],1)
 
+    def test_pinned_queue_result_releases_buffer_and_keeps_entry_sequence(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR target:QUEUE_TYPE old_buf,new_buf:ARRAY[3] OF INTEGER
+    entry,copied,next_id,s,unused:INTEGER valid:BOOLEAN
+ROUTINE make_queue:QUEUE_TYPE FROM LIB
+BEGIN
+  INIT_QUEUE(target)
+  APPEND_QUEUE(7,target,old_buf,entry,s)
+  target=make_queue()
+  GET_QUEUE(target,new_buf,copied,entry,s)
+  valid=(copied=17) AND (entry=1) AND (s=0)
+  APPEND_QUEUE(29,target,new_buf,next_id,s)
+  IF valid AND (next_id=3) AND (old_buf[1]=7) AND (new_buf[1]=19) THEN
+    WRITE(copied)
+  ELSE
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        library="""PROGRAM LIB
+ROUTINE make_queue:QUEUE_TYPE
+VAR local_queue:QUEUE_TYPE backing:ARRAY[2] OF INTEGER entry,s:INTEGER
+BEGIN
+  INIT_QUEUE(local_queue)
+  APPEND_QUEUE(17,local_queue,backing,entry,s)
+  PAUSE
+  APPEND_QUEUE(19,local_queue,backing,entry,s)
+  RETURN local_queue
+END make_queue
+BEGIN
+END LIB
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child),('LIB',library)])
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed',result['error'])
+        values=result['programs']['CHILD']['values']
+        self.assertEqual(values['TARGET']['entries'],[[2,19],[3,29]])
+        self.assertEqual((values['OLD_BUF'],values['NEW_BUF']),([7,0,0],[19,29,0]))
+        self.assertEqual(result['text_output'],' 17')
+
+    def test_returned_queue_bank_flows_through_value_call_row_assignment_and_query(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR target:ARRAY[2,2] OF QUEUE_TYPE backing:ARRAY[3] OF INTEGER
+    entry,item,s,unused:INTEGER valid:BOOLEAN
+ROUTINE make_bank:ARRAY OF QUEUE_TYPE
+VAR bank:ARRAY[2] OF QUEUE_TYPE scratch:ARRAY[2] OF INTEGER entry,s:INTEGER
+BEGIN
+  INIT_QUEUE(bank[1])
+  APPEND_QUEUE(23,bank[1],scratch,entry,s)
+  PAUSE
+  RETURN bank
+END make_bank
+ROUTINE forward(bank:ARRAY OF QUEUE_TYPE):ARRAY OF QUEUE_TYPE
+BEGIN
+  RETURN bank
+END forward
+ROUTINE pick:INTEGER
+BEGIN
+  PAUSE
+  RETURN 2
+END pick
+BEGIN
+  target[pick()]=forward(make_bank())
+  valid=UNINIT(make_bank()[pick()])
+  valid=valid AND (ARRAY_LEN(forward(target[2]))=2) AND UNINIT(target[2,2])
+  GET_QUEUE(target[2,1],backing,item,entry,s)
+  IF valid AND (item=23) AND (entry=1) AND (s=0) THEN
+    WRITE(item)
+  ELSE
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling']+['task-wait','task-continuation']*4)
+        self.assertEqual(result['status'],'completed',result['error'])
+        values=result['programs']['CHILD']['values']
+        self.assertTrue(values['VALID'])
+        self.assertEqual(values['TARGET'][1][0],{'initialized':True,'entries':[]})
+        self.assertFalse(values['TARGET'][1][1]['initialized'])
+        self.assertEqual(result['text_output'],' 23')
+
+    def test_returned_queue_and_bank_write_binary_after_pausing_format(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR stream:FILE unused:INTEGER
+ROUTINE make_queue:QUEUE_TYPE
+VAR q:QUEUE_TYPE backing:ARRAY[2] OF INTEGER entry,s:INTEGER
+BEGIN
+  INIT_QUEUE(q)
+  APPEND_QUEUE(23,q,backing,entry,s)
+  PAUSE
+  RETURN q
+END make_queue
+ROUTINE make_bank:ARRAY OF QUEUE_TYPE
+VAR bank:ARRAY[2] OF QUEUE_TYPE backing:ARRAY[2] OF INTEGER entry,s:INTEGER
+BEGIN
+  INIT_QUEUE(bank[1])
+  INIT_QUEUE(bank[2])
+  APPEND_QUEUE(42,bank[2],backing,entry,s)
+  PAUSE
+  RETURN bank
+END make_bank
+ROUTINE byte_width:INTEGER
+BEGIN
+  PAUSE
+  RETURN 2
+END byte_width
+BEGIN
+  OPEN FILE stream('WB','out')
+  WRITE stream(make_queue()::byte_width(),make_bank())
+  IF GET_FILE_POS(stream)=6 THEN
+    CLOSE FILE stream
+  ELSE
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],files={})
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling']+['task-wait','task-continuation']*3)
+        self.assertEqual(result['status'],'completed',result['error'])
+        self.assertEqual(result['context']['files'],{'out':{'hex':'17002a000000'}})
+
+    def test_uninitialized_queue_result_overrides_saved_entries(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR target:QUEUE_TYPE backing:ARRAY[2] OF INTEGER entry,s,unused:INTEGER
+ROUTINE empty_queue:QUEUE_TYPE
+VAR local_queue:QUEUE_TYPE
+BEGIN
+  PAUSE
+  RETURN local_queue
+END empty_queue
+BEGIN
+  target=empty_queue()
+  IF UNINIT(target) THEN
+    INIT_QUEUE(target)
+    APPEND_QUEUE(31,target,backing,entry,s)
+    WRITE(entry)
+  ELSE
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        seed=dict(program='CHILD',path='TARGET',type=['QUEUE_TYPE'],
+                  value=dict(initialized=True,sequence=7,entries=[[7,42]]))
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],variables=[seed])
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed',result['error'])
+        self.assertEqual(result['programs']['CHILD']['values']['TARGET']['entries'],[[1,31]])
+        self.assertEqual(result['text_output'],' 1')
+
+    def test_queue_assignment_replaces_entry_storage_held_by_pending_read(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR target,replacement:QUEUE_TYPE old_buf,new_buf:ARRAY[2] OF INTEGER
+    stream:FILE first,entry,s:INTEGER
+ROUTINE width:INTEGER
+BEGIN
+  target=replacement
+  PAUSE
+  RETURN 4
+END width
+BEGIN
+  first=77
+  INIT_QUEUE(target)
+  APPEND_QUEUE(7,target,old_buf,entry,s)
+  INIT_QUEUE(replacement)
+  APPEND_QUEUE(7,replacement,new_buf,entry,s)
+  OPEN FILE stream('RB','in')
+  READ stream(first,target::width())
+  PAUSE
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],files={'in':{'hex':'090000002a000000'}})
+        self.assertIn('condition-source',[row['code'] for row in report['unresolved']])
+        self.assertEqual(result['status'],'failed')
+        self.assertIn('Queue READ capture changed',result['error']['message'])
+        values=result['programs']['CHILD']['values']
+        self.assertEqual((values['FIRST'],values['STREAM']['position']),(77,0))
+        self.assertEqual(values['TARGET']['entries'],[[1,7]])
+
     def test_request_status_is_not_reused_as_prelaunch_task_number(self):
         main="""PROGRAM MAIN
 VAR task_no,s:INTEGER text:STRING[8]

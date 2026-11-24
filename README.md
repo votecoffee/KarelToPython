@@ -3,7 +3,7 @@
 ![KarelToPython icon](karel2py/assets/icons/karel_to_python_icon_64x64.png)
 
 KarelToPython translates a supported subset of FANUC KAREL into Python for
-offline inspection and execution. The current build is **26.1124.175016**.
+offline inspection and execution. The current build is **26.1124.175828**.
 
 ## Table of Contents
 
@@ -105,8 +105,8 @@ Linked discovery also follows edits and copies of queues initialized in the
 source or restored from the saved run context. PATH and queue arguments
 keep their borrowed cells or private values across pauses in pinned routines.
 PATH assignment and same-schema `COPY_PATH` retain their operands across
-pauses. PATH and PATH ARRAY results can feed assignments, routine calls,
-selectors, and output.
+pauses. PATH and queue results, including banks, can feed assignments,
+routine calls, selectors, and output.
 Console `WRITE` follows pausing PATH and queue selectors and PATH range bounds.
 It preserves the captured records and entries while format routines run.
 Linked discovery also follows text and binary `READ` and `WRITE` on memory files. It

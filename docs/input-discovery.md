@@ -888,6 +888,13 @@ later operands run. Those copies keep initialization, entry IDs, and
 sequence, with their own backing ARRAY binding. `UNINIT` inspects the selected
 queue and `ARRAY_LEN` uses the bound bank's concrete shape.
 
+Checked routines can return detached queues and queue banks with matching
+schemas. These values can feed assignments, value arguments, selectors,
+`UNINIT`, `ARRAY_LEN`, and bounded `WRITE`. A queue assignment preserves
+entry order, IDs, and the sequence counter and releases the receiver's backing
+ARRAY binding. An uninitialized result clears the receiver's queue state,
+including any entries it started with in the saved context.
+
 Discovery retains up to 64 KiB of modified file images per tracked flow.
 Larger writes can still establish size and cursor facts. Reads whose image
 was omitted, PATH reads with unresolved shapes or specialized fields, queues

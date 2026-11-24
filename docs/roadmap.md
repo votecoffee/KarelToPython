@@ -103,6 +103,8 @@ through project refresh.
 Pinned routine calls preserve borrowed queues and named bank components.
 Grouped queue arguments and flat bank slices keep private snapshots across
 pauses. Queue initialization and bank shape queries use the bound storage.
+Detached queue and queue-bank results feed assignments, value arguments,
+selectors, shape queries, and bounded output across pauses.
 Scalar and ordinary aggregate `REPEAT UNTIL` captures run once before the
 live test and carry their values across pauses and iterations.
 Discovery tracks numbered handler activation within
