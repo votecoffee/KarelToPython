@@ -125,7 +125,7 @@ def _expression_routines(plan, expression, tick, *, procedure=False):
     if expression is None:
         return
     tick()
-    if scalar_task_operator(expression):
+    if scalar_task_operator(expression) or expression['kind'] in ('field', 'index'):
         for operand in expression['args']:
             yield from _expression_routines(plan, operand, tick, procedure=procedure)
     else:
@@ -133,7 +133,7 @@ def _expression_routines(plan, expression, tick, *, procedure=False):
         if call is not None:
             yield call
             for mode, operand in zip(call.get('passing', ()), call['args']):
-                if mode == 'value':
+                if mode in ('value', 'reference'):
                     yield from _expression_routines(plan, operand, tick)
 
 
@@ -145,11 +145,9 @@ def _routine_calls(plan, node, tick):
         yield from _expression_routines(plan, args[0], tick)
         for _, label in select_case_labels(node):
             yield from _expression_routines(plan, label, tick)
-    elif kind == 'for':
-        for bound in args[1:3]:
-            yield from _expression_routines(plan, bound, tick)
-    elif kind == 'assign':
-        yield from _expression_routines(plan, args[1], tick)
+    elif kind in ('assign', 'for'):
+        for operand in args[:3] if kind == 'for' else args:
+            yield from _expression_routines(plan, operand, tick)
     elif kind in ('if', 'return', 'while', 'repeat') and args:
         yield from _expression_routines(plan, args[0], tick)
 
@@ -212,15 +210,17 @@ class _SegmentRules:
                                                      routine=plan['routines'][name])
         return self.routine_scopes[key]
 
-    def reference_schema(self, node):
+    def reference_schema(self, node, *, staged=False):
         self.tick()
         kind = node['kind']
         if kind == 'name':
             return self.types.get(node['value'])
+        if staged and kind == 'group':
+            return self.reference_schema(node['args'][0], staged=True)
         if not self.structured or kind not in ('field', 'index'):
             return None
         receiver, *indices = node['args']
-        schema = self.reference_schema(receiver)
+        schema = self.reference_schema(receiver, staged=staged)
         if schema is None:
             return None
         if kind == 'field':
@@ -228,7 +228,9 @@ class _SegmentRules:
         if schema[0] != 'ARRAY':
             return None
         dimensions, element = array_dimensions(schema)
-        if not 0 < len(indices) <= len(dimensions) or not all(self.operand(index) for index in indices):
+        if not 0 < len(indices) <= len(dimensions):
+            return None
+        if not staged and not all(self.operand(index) for index in indices):
             return None
         remaining = dimensions[len(indices):]
         return ['ARRAY', remaining, element] if remaining else element
@@ -294,7 +296,7 @@ class _SegmentRules:
     def loop(self, node):
         if node['kind'] != 'for':
             return True
-        schema = self.reference_schema(node['args'][0])
+        schema = self.reference_schema(node['args'][0], staged=True)
         return bool(schema and schema[0] in INTEGRAL_TYPES)
 
     def statement(self, node):

@@ -68,8 +68,9 @@ bounded `FOR`, `WHILE`, and `REPEAT` iterations. A child can retain an
 integral `FOR` counter in an owned variable, ordinary ARRAY cell, or
 STRUCTURE field. Procedure calls and scalar expressions in arguments,
 assignments, returns, branch selectors, loop bounds, and loop tests can
-retain nested frames across pauses, including calls to pinned linked modules. Discovery
-tracks numbered handler activation within each invocation and follows emitted
+retain nested frames across pauses, including calls to pinned linked modules.
+Ordinary ARRAY subscripts keep their receiver and earlier indices across
+a pause. Discovery tracks numbered handler activation within each invocation and follows emitted
 motion capture order.
 Refreshing a module set carries compatible owner-qualified values into a new
 document and reports changed, omitted and unresolved inputs.
@@ -78,9 +79,10 @@ document and reports changed, omitted and unresolved inputs.
 ### Remaining linked-run work
 
 1. **Expand linked discovery.** Extend child pause tracking to calls in
-   aggregate or resource arguments, storage selectors, `WRITE` operands, and
-   `REPEAT` tests with `EVAL`. Model shared storage in called library modules, extend resumable
-   `FOR` capture to PATH and USING storage, and model
+   aggregate or resource arguments, selectors for resources or computed
+   results, `WRITE` operands, and `REPEAT` tests with `EVAL`. Model shared
+   storage in called library modules, extend resumable `FOR` capture to PATH
+   and USING storage, and model
    additional synchronization and handler rearming where order and targets
    can be determined. Track effects between motion
    callbacks and keep dynamic selections and external effects visible. Extend

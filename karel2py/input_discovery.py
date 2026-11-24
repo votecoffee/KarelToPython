@@ -203,7 +203,25 @@ class _TaskArguments:
     actuals: tuple[_Location | _Value, ...] = ()
 
 
-_TaskValueConsumer = dict | _TaskSelect | _TaskForHeader | _TaskLoop | _TaskExpression | _TaskArguments
+@dataclass(frozen=True)
+class _TaskAssignment:
+    node: dict
+    spec: list
+
+
+@dataclass(frozen=True)
+class _TaskSelection:
+    node: dict
+    location: _Location
+    selectors: tuple[dict, ...]
+    consumer: '_TaskValueConsumer'
+    reading: bool = False
+    assignment: _Value | None = None
+    indices: tuple[object, ...] = ()
+
+
+_TaskValueConsumer = (dict | _TaskSelect | _TaskForHeader | _TaskLoop | _TaskExpression |
+                      _TaskArguments | _TaskAssignment | _TaskSelection)
 
 
 @dataclass(frozen=True)
@@ -218,7 +236,7 @@ class _TaskRoutine:
 @dataclass(eq=False, frozen=True)
 class _Suspension:
     blocks: tuple[tuple[list, int] | _TaskLoop | _TaskRoutine | _TaskSelect |
-                  _TaskForHeader | _TaskExpression | _TaskArguments, ...]
+                  _TaskForHeader | _TaskExpression | _TaskArguments | _TaskSelection, ...]
     flow: '_Flow'
 
 
@@ -4930,6 +4948,9 @@ class _Analyzer(TeachDiscovery):
                 self.finish_task_routine(blocks, child)
                 continue
             scope = rules.routine_scope(self.plan, self.frames[-1]['name']) if rules and self.frames else rules
+            if isinstance(frame, _TaskSelection):
+                self.next_task_selection(blocks, child, scope, frame)
+                continue
             if isinstance(frame, _TaskArguments):
                 self.next_task_argument(blocks, child, scope, frame)
                 continue
@@ -4973,12 +4994,17 @@ class _Analyzer(TeachDiscovery):
             blocks.append(_TaskArguments(call, None))
             return
         if kind in STRUCTURED_LOOPS and scope.loop(node):
-            blocks.append(self.start_task_loop(node, flow))
+            if kind == 'for':
+                self.start_task_selection(blocks, flow, args[0], node)
+            else:
+                blocks.append(_TaskLoop(node))
             return
+        consumer = node
         if kind == 'assign':
-            target = scope.reference_schema(args[0])
+            target = scope.reference_schema(args[0], staged=True)
             if not target or target[0] not in SCALARS:
                 raise _TaskOrderUnknown()
+            consumer = _TaskAssignment(node, target)
             operand = args[1]
         elif kind in ('if', 'select'):
             operand = args[0]
@@ -4989,9 +5015,9 @@ class _Analyzer(TeachDiscovery):
                 return
         else:
             raise _TaskOrderUnknown()
-        value = self.task_operand(operand, flow, scope, blocks, node)
+        value = self.task_operand(operand, flow, scope, blocks, consumer)
         if value is not None:
-            self.consume_task_value(blocks, flow, node, value)
+            self.consume_task_value(blocks, flow, consumer, value)
 
     def start_task_branch(self, blocks, flow, node, value):
         selected = value.constant
@@ -5049,9 +5075,69 @@ class _Analyzer(TeachDiscovery):
         if scalar_task_operator(node):
             blocks.append(_TaskExpression(node, consumer))
             return None
+        if node['kind'] in ('index', 'field'):
+            spec = scope.reference_schema(node, staged=True)
+            if spec and spec[0] in SCALARS:
+                self.start_task_selection(blocks, flow, node, consumer, reading=True)
+                return None
         if node['kind'] == 'repeat_eval' or not scope.operand(node):
             raise _TaskOrderUnknown()
         return self.expr(node, flow, True)
+
+    def start_task_selection(self, blocks, flow, node, consumer, *, reading=False, assignment=None):
+        root, selectors = node, []
+        while root['kind'] in ('field', 'index', 'group'):
+            if root['kind'] != 'group':
+                selectors.append(root)
+            root = root['args'][0]
+        loc = self.locate(root, flow, True)
+        if (loc is None or loc.kind not in ('variable', 'local') or loc.named_data
+                or loc.path_slot is not None or flow.stopped or flow.opaque):
+            raise _TaskOrderUnknown()
+        blocks.append(_TaskSelection(node, loc, tuple(reversed(selectors)), consumer,
+                                     reading=reading, assignment=assignment))
+
+    def next_task_selection(self, blocks, flow, scope, selection):
+        self.tick()
+        if not selection.selectors:
+            blocks.pop()
+            self.finish_task_selection(blocks, flow, selection)
+            return
+
+        node, *tail = selection.selectors
+        location = selection.location
+        if node['kind'] == 'field':
+            location = self.checked_task_selection(self.field_child(location, node['value'], node, flow))
+        else:
+            operands = node['args'][1:]
+            if len(selection.indices) < len(operands):
+                operand = operands[len(selection.indices)]
+                value = self.task_operand(operand, flow, scope, blocks, selection)
+                if value is not None:
+                    self.consume_task_value(blocks, flow, selection, value)
+                return
+            # A flat subscript list evaluates all indices before checking any bounds.
+            for index in selection.indices:
+                if type(index) is not int:
+                    raise _TaskOrderUnknown()
+                location = self.checked_task_selection(self.index_child(location, index, node, flow))
+        blocks[-1] = replace(selection, location=location, selectors=tuple(tail), indices=())
+
+    def finish_task_selection(self, blocks, flow, selection):
+        loc, consumer = selection.location, selection.consumer
+        if selection.reading:
+            self.consume_task_value(blocks, flow, consumer, self.read(loc, selection.node, flow, True))
+        elif isinstance(consumer, _TaskArguments):
+            blocks[-1] = replace(consumer, actuals=(*consumer.actuals, loc))
+        elif isinstance(consumer, _TaskAssignment):
+            value = self.checked_task_scalar(loc.spec, selection.assignment, consumer.node)
+            self.write(loc, value, flow, consumer.node)
+        else:
+            local_owner = self.frames[-1]['owner'] if self.frames else None
+            owned = (('variable', self.program), ('local', local_owner))
+            if (loc.kind, loc.owner) not in owned or loc.spec[0] not in INTEGRAL_TYPES:
+                raise _TaskOrderUnknown()
+            blocks.append(_TaskForHeader(consumer, loc))
 
     def next_task_expression(self, blocks, flow, scope, expression):
         self.tick()
@@ -5114,13 +5200,10 @@ class _Analyzer(TeachDiscovery):
 
         operand = call['args'][index]
         if call['passing'][index] == 'reference':
-            schema = scope.reference_schema(operand)
+            schema = scope.reference_schema(operand, staged=True)
             if not schema or schema[0] not in SCALARS:
                 raise _TaskOrderUnknown()
-            captured = self.locate(operand, flow, True, capture_node=True)
-            if captured is None or captured.path_slot is not None or flow.stopped or flow.opaque:
-                raise _TaskOrderUnknown()
-            blocks[-1] = replace(arguments, actuals=(*actuals, captured))
+            self.start_task_selection(blocks, flow, operand, arguments)
             return
         value = self.task_operand(operand, flow, scope, blocks, arguments)
         if value is not None:
@@ -5167,7 +5250,9 @@ class _Analyzer(TeachDiscovery):
     def consume_task_value(self, blocks, flow, consumer, value):
         if flow.stopped or flow.opaque:
             raise _TaskOrderUnknown()
-        if isinstance(consumer, _TaskArguments):
+        if isinstance(consumer, _TaskSelection):
+            blocks[-1] = replace(consumer, indices=(*consumer.indices, value.constant))
+        elif isinstance(consumer, _TaskArguments):
             self.capture_task_argument(blocks, consumer, value)
         elif isinstance(consumer, _TaskExpression):
             blocks[-1] = replace(consumer, values=(*consumer.values, value))
@@ -5177,17 +5262,22 @@ class _Analyzer(TeachDiscovery):
             self.capture_task_for_bound(blocks, flow, consumer, value)
         elif isinstance(consumer, _TaskLoop):
             self.finish_task_loop_test(blocks, flow, consumer, value)
+        elif isinstance(consumer, _TaskAssignment):
+            node, spec = consumer.node, consumer.spec
+            if value.uninitialized:
+                raise _TaskOrderUnknown()
+            if type(value.constant) is float and rt.real_integral_kind(tuple(spec), ('REAL',)):
+                try:
+                    with rt._numeric_scope('pythonic'):
+                        raw = rt.real_integral_value(tuple(spec), value.constant, node.get('line'))
+                except rt.KarelRuntimeError:
+                    raise _TaskOrderUnknown() from None
+                value = _Value(raw, spec=['INTEGER'])
+            self.start_task_selection(blocks, flow, node['args'][0], consumer, assignment=value)
         elif consumer['kind'] == 'return':
             self.return_from_task_routine(blocks, flow, consumer, value)
-        elif consumer['kind'] in ('if', 'select'):
-            self.start_task_branch(blocks, flow, consumer, value)
         else:
-            # The function can change an index used by the assignment target.
-            target = self.locate(consumer['args'][0], flow, True)
-            if target is None or flow.stopped or flow.opaque:
-                raise _TaskOrderUnknown()
-            value = self.checked_task_scalar(target.spec, value, consumer)
-            self.write(target, value, flow, consumer)
+            self.start_task_branch(blocks, flow, consumer, value)
 
     def checked_task_scalar(self, spec, value, node, *, result=False):
         if value.uninitialized:
@@ -5207,16 +5297,6 @@ class _Analyzer(TeachDiscovery):
         if raw is rt.UNINITIALIZED:
             return _Value(complete=False, spec=spec, uninitialized=True)
         return _Value(raw, spec=spec)
-
-    def start_task_loop(self, node, flow):
-        if node['kind'] != 'for':
-            return _TaskLoop(node)
-        counter = self.locate(node['args'][0], flow, True)
-        local_owner = self.frames[-1]['owner'] if self.frames else None
-        owned = (('variable', self.program), ('local', local_owner))
-        if counter is None or (counter.kind, counter.owner) not in owned or counter.spec[0] not in INTEGRAL_TYPES:
-            raise _TaskOrderUnknown()
-        return _TaskForHeader(node, counter)
 
     def capture_task_for_bound(self, blocks, flow, header, value):
         if flow.stopped or flow.opaque:

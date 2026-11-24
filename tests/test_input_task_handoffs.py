@@ -1735,6 +1735,179 @@ END CHILD
                 self.assertIn(message,result['error']['message'])
                 self.assertEqual(result['text_output'],'')
 
+    def test_multidimensional_read_retains_the_first_subscript_across_the_second(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER text:STRING[8]
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  text='prior'
+  GET_TPE_STR_REG(1,text,s)
+  WRITE(s,':',text,CR)
+  CONTINUE PROGRAM[2]
+  WAIT FOR PAUSE PROGRAM[2]
+  GET_TPE_STR_REG(1,text,s)
+  WRITE(s,':',text,CR)
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+TYPE row_type=STRUCTURE amount:INTEGER ENDSTRUCTURE
+VAR items:ARRAY[2,2] OF row_type row,answer,unused:INTEGER
+ROUTINE select_column(changed:INTEGER):INTEGER
+VAR h,s:INTEGER
+BEGIN
+  OPEN_TPE('Shared',TPE_RDACC,TPE_ALLREJ,h,s)
+  changed=2
+  PAUSE
+  CLOSE_TPE(h,s)
+  RETURN 2
+END select_column
+BEGIN
+  row=1
+  items[1,2].amount=42
+  items[2,2].amount=99
+  answer=items[row,select_column(row)].amount
+  PAUSE
+  IF (answer=42) AND (row=2) THEN WRITE(answer) ELSE WRITE(unused) ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assert_inputs(report,[('teach_string_register','SHARED','1','required')])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation',
+                                     'task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed')
+        blocked,ready,answer=result['text_output'].splitlines()
+        first_status,previous=blocked.split(':')
+        next_status,current=ready.split(':')
+        self.assertEqual((int(first_status),previous,int(next_status),current),(4,'prior',0,'ready'))
+        self.assertEqual(int(answer),42)
+
+    def test_assignment_captures_rhs_before_pausing_in_the_target_subscript(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR cells:ARRAY[2] OF SHORT source_value:REAL unused:INTEGER
+ROUTINE select_target:INTEGER
+BEGIN
+  source_value=90.5
+  PAUSE
+  RETURN 2
+END select_target
+BEGIN
+  source_value=7.75
+  cells[1]=99
+  cells[select_target()]=source_value
+  IF (cells[2]=7) AND (cells[1]=99) THEN WRITE(cells[2]) ELSE WRITE(unused) ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed')
+        self.assertEqual(int(result['text_output']),7)
+        self.assertEqual(result['programs']['CHILD']['values']['CELLS'],[99,7])
+
+    def test_pausing_subscripts_capture_for_and_reference_argument_cells(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR counters,cells:ARRAY[2] OF INTEGER slot,trace,unused:INTEGER
+ROUTINE select_cell(selected:INTEGER):INTEGER
+VAR captured:INTEGER
+BEGIN
+  captured=selected
+  selected=2
+  PAUSE
+  RETURN captured
+END select_cell
+ROUTINE assign_cell(output:INTEGER; value:INTEGER)
+BEGIN
+  output=value
+END assign_cell
+BEGIN
+  slot=1
+  trace=0
+  counters[2]=99
+  cells[2]=88
+  FOR counters[select_cell(slot)]=1 TO 2 DO
+    trace=trace*10+counters[1]
+  ENDFOR
+  slot=1
+  assign_cell(cells[select_cell(slot)],trace)
+  IF UNINIT(counters[1]) AND (counters[2]=99) AND (cells[1]=12) AND (cells[2]=88) THEN
+    WRITE(cells[1])
+  ELSE
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation',
+                                     'task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed')
+        self.assertEqual(int(result['text_output']),12)
+
+    def test_flat_subscripts_pause_before_bounds_check_and_keep_unknown_addresses_unresolved(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER text:STRING[8]
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  text='prior'
+  GET_TPE_STR_REG(1,text,s)
+  WRITE(s,':',text)
+END MAIN
+"""
+        child_template="""PROGRAM CHILD
+VAR cells:ARRAY[2,2] OF INTEGER n,unknown_index:INTEGER
+ROUTINE select_column:INTEGER
+VAR h,s:INTEGER
+BEGIN
+  OPEN_TPE('Shared',TPE_RDACC,TPE_ALLREJ,h,s)
+  PAUSE
+  RETURN {column}
+END select_column
+BEGIN
+  n=cells[{row},select_column()]
+  PAUSE
+END CHILD
+"""
+        first=child_template.format(row=3,column=1)
+        report,result=self.prepare([('MAIN',main),('CHILD',first)])
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait'])
+        self.assertEqual(result['status'],'paused')
+        blocked,text=result['text_output'].split(':')
+        self.assertEqual((int(blocked),text),(4,'prior'))
+
+        main=main.replace("  text='prior'", """  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  text='prior'""")
+        unknown=child_template.format(row=1,column='unknown_index')
+        report,_=self.prepare([('MAIN',main),('CHILD',unknown)],replay=False)
+        candidates=[row for row in report['inputs'] if row['program']=='CHILD']
+        self.assertEqual([(row['path'],row['certainty']) for row in candidates],
+                         [('UNKNOWN_INDEX','conditional')])
+        codes=[row['code'] for row in report['unresolved']]
+        self.assertIn('condition-source',codes)
+        self.assertIn('dynamic-address',codes)
+
     def test_request_status_is_not_reused_as_prelaunch_task_number(self):
         main="""PROGRAM MAIN
 VAR task_no,s:INTEGER text:STRING[8]
