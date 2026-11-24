@@ -1562,6 +1562,179 @@ END CHILD
         self.assert_inputs(report,[('variable','CHILD','SAMPLED','conditional')])
         self.assertIn('condition-source',[row['code'] for row in report['unresolved']])
 
+    def test_pausing_arguments_keep_the_original_reference_and_earlier_scalar_value(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER text:STRING[8]
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  text='prior'
+  GET_TPE_STR_REG(1,text,s)
+  WRITE(s,':',text,CR)
+  CONTINUE PROGRAM[2]
+  WAIT FOR PAUSE PROGRAM[2]
+  GET_TPE_STR_REG(1,text,s)
+  WRITE(s,':',text,CR)
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR cells:ARRAY[2] OF INTEGER slot,seed,h,s,answer,unused:INTEGER
+ROUTINE finish(result_cell:INTEGER; baseline:INTEGER; extra:INTEGER; last:INTEGER):INTEGER FROM LIB
+ROUTINE mutate(index_cell:INTEGER; seed_cell:INTEGER):INTEGER
+BEGIN
+  OPEN_TPE('Shared',TPE_RDACC,TPE_ALLREJ,h,s)
+  index_cell=2
+  seed_cell=55
+  PAUSE
+  RETURN 3
+END mutate
+ROUTINE tail_value:INTEGER
+BEGIN
+  CLOSE_TPE(h,s)
+  PAUSE
+  RETURN seed
+END tail_value
+BEGIN
+  slot=1
+  seed=4
+  cells[1]=1
+  cells[2]=99
+  answer=finish(cells[slot],(seed),2+mutate(slot,seed),tail_value())
+  IF (cells[1]=64) AND (cells[2]=99) AND (answer=65) THEN
+    WRITE(cells[1],':',cells[2],':',answer)
+  ELSE
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        library="""PROGRAM LIB
+ROUTINE finish(result_cell:INTEGER; baseline:INTEGER; extra:INTEGER; last:INTEGER):INTEGER
+BEGIN
+  result_cell=baseline+extra+last
+  RETURN result_cell+1
+END finish
+BEGIN
+END LIB
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child),('LIB',library)])
+        self.assert_inputs(report,[('teach_string_register','SHARED','1','required')])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation',
+                                     'task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed')
+        blocked,ready,output=result['text_output'].splitlines()
+        first_status,previous=blocked.split(':')
+        next_status,current=ready.split(':')
+        self.assertEqual((int(first_status),previous,int(next_status),current),(4,'prior',0,'ready'))
+        self.assertEqual(tuple(map(int,output.split(':'))),(64,99,65))
+
+    def test_nested_value_argument_resumes_before_entering_its_callee_and_procedure(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR answer,trace,unused:INTEGER
+ROUTINE inner:INTEGER
+BEGIN
+  trace=trace*10+1
+  PAUSE
+  RETURN 3
+END inner
+ROUTINE middle(value:INTEGER):INTEGER
+BEGIN
+  trace=trace*10+2
+  RETURN value+1
+END middle
+ROUTINE finish(output:INTEGER; value:INTEGER)
+BEGIN
+  trace=trace*10+3
+  output=value
+END finish
+BEGIN
+  trace=0
+  finish(answer,middle(inner()))
+  IF (trace=123) AND (answer=4) THEN WRITE(answer) ELSE WRITE(unused) ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed')
+        self.assertEqual(int(result['text_output']),4)
+
+    def test_paused_argument_leaves_an_unsupported_later_argument_dormant(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER text:STRING[8]
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  text='prior'
+  GET_TPE_STR_REG(1,text,s)
+  WRITE(s,':',text)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR late:INTEGER
+ROUTINE park:INTEGER
+VAR h,s:INTEGER
+BEGIN
+  OPEN_TPE('Shared',TPE_RDACC,TPE_ALLREJ,h,s)
+  PAUSE
+  RETURN 1
+END park
+ROUTINE finish(first_value:INTEGER; last_value:INTEGER)
+BEGIN
+  WRITE(first_value,last_value)
+END finish
+BEGIN
+  finish(park(),ABS(late))
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait'])
+        self.assertEqual(result['status'],'paused')
+        blocked,text=result['text_output'].split(':')
+        self.assertEqual((int(blocked),text),(4,'prior'))
+
+    def test_failed_argument_does_not_establish_a_pause_in_a_later_argument(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+END MAIN
+"""
+        cases=(('seed+2','INTEGER overflow'),('MAXINT','INTEGER storage excludes MAXINT'))
+        for argument,message in cases:
+            with self.subTest(argument=argument):
+                child=f"""PROGRAM CHILD
+VAR seed:INTEGER
+ROUTINE park:INTEGER
+BEGIN
+  PAUSE
+  RETURN 1
+END park
+ROUTINE finish(first_value:INTEGER; last_value:INTEGER)
+BEGIN
+  WRITE(first_value,last_value)
+END finish
+BEGIN
+  seed=2147483646
+  finish({argument},park())
+END CHILD
+"""
+                report,result=self.prepare([('MAIN',main),('CHILD',child)])
+                self.assertIn('condition-source',[row['code'] for row in report['unresolved']])
+                self.assertEqual(result['status'],'failed')
+                self.assertIn(message,result['error']['message'])
+                self.assertEqual(result['text_output'],'')
+
     def test_request_status_is_not_reused_as_prelaunch_task_number(self):
         main="""PROGRAM MAIN
 VAR task_no,s:INTEGER text:STRING[8]

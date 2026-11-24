@@ -190,8 +190,20 @@ class _TaskSelect:
 @dataclass(frozen=True)
 class _TaskExpression:
     node: dict
-    consumer: 'dict | _TaskSelect | _TaskForHeader | _TaskLoop | _TaskExpression'
+    consumer: '_TaskValueConsumer'
     values: tuple[_Value, ...] = ()
+
+
+@dataclass(frozen=True)
+class _TaskArguments:
+    """Keep already evaluated arguments while a later argument suspends."""
+
+    call: dict
+    consumer: '_TaskValueConsumer | None'
+    actuals: tuple[_Location | _Value, ...] = ()
+
+
+_TaskValueConsumer = dict | _TaskSelect | _TaskForHeader | _TaskLoop | _TaskExpression | _TaskArguments
 
 
 @dataclass(frozen=True)
@@ -199,13 +211,14 @@ class _TaskRoutine:
     """Keep bindings alive until the invocation's blocks finish unwinding."""
 
     frame: dict
-    consumer: dict | _TaskSelect | _TaskForHeader | _TaskLoop | _TaskExpression | None = None
+    consumer: _TaskValueConsumer | None = None
     result: _Value | None = None
 
 
 @dataclass(eq=False, frozen=True)
 class _Suspension:
-    blocks: tuple[tuple[list, int] | _TaskLoop | _TaskRoutine | _TaskSelect | _TaskForHeader | _TaskExpression, ...]
+    blocks: tuple[tuple[list, int] | _TaskLoop | _TaskRoutine | _TaskSelect |
+                  _TaskForHeader | _TaskExpression | _TaskArguments, ...]
     flow: '_Flow'
 
 
@@ -4917,6 +4930,9 @@ class _Analyzer(TeachDiscovery):
                 self.finish_task_routine(blocks, child)
                 continue
             scope = rules.routine_scope(self.plan, self.frames[-1]['name']) if rules and self.frames else rules
+            if isinstance(frame, _TaskArguments):
+                self.next_task_argument(blocks, child, scope, frame)
+                continue
             if isinstance(frame, _TaskExpression):
                 self.next_task_expression(blocks, child, scope, frame)
                 continue
@@ -4954,7 +4970,7 @@ class _Analyzer(TeachDiscovery):
             call = scope.procedure_call(args[0])
             if call is None:
                 raise _TaskOrderUnknown()
-            self.start_task_routine(call, flow, blocks, consumer=None)
+            blocks.append(_TaskArguments(call, None))
             return
         if kind in STRUCTURED_LOOPS and scope.loop(node):
             blocks.append(self.start_task_loop(node, flow))
@@ -5028,7 +5044,7 @@ class _Analyzer(TeachDiscovery):
     def task_operand(self, node, flow, scope, blocks, consumer):
         call = scope.scalar_routine_call(node)
         if call is not None:
-            self.start_task_routine(call, flow, blocks, consumer=consumer)
+            blocks.append(_TaskArguments(call, consumer))
             return None
         if scalar_task_operator(node):
             blocks.append(_TaskExpression(node, consumer))
@@ -5080,14 +5096,47 @@ class _Analyzer(TeachDiscovery):
             raise _TaskOrderUnknown()
         return _Value(result)
 
-    def start_task_routine(self, call, flow, blocks, *, consumer):
-        prepared = self.prepare_routine(call['value'], call['args'], call, flow, True,
-                                        statement_call=consumer is None)
-        if prepared is None:
-            raise _TaskOrderUnknown()
-        self.plan, routine, frame = prepared
-        self.frames.append(frame)
-        blocks.extend((_TaskRoutine(frame, consumer), (routine['body'], 0)))
+    def next_task_argument(self, blocks, flow, scope, arguments):
+        self.tick()
+        call, actuals = arguments.call, arguments.actuals
+        index = len(actuals)
+        if index == len(call['args']):
+            blocks.pop()
+            references = [item for item in actuals if isinstance(item, _Location)]
+            prepared = self.bind_routine(call['value'], call, actuals, references, flow,
+                                         statement_call=arguments.consumer is None)
+            if prepared is None:
+                raise _TaskOrderUnknown()
+            self.plan, routine, frame = prepared
+            self.frames.append(frame)
+            blocks.extend((_TaskRoutine(frame, arguments.consumer), (routine['body'], 0)))
+            return
+
+        operand = call['args'][index]
+        if call['passing'][index] == 'reference':
+            schema = scope.reference_schema(operand)
+            if not schema or schema[0] not in SCALARS:
+                raise _TaskOrderUnknown()
+            captured = self.locate(operand, flow, True, capture_node=True)
+            if captured is None or captured.path_slot is not None or flow.stopped or flow.opaque:
+                raise _TaskOrderUnknown()
+            blocks[-1] = replace(arguments, actuals=(*actuals, captured))
+            return
+        value = self.task_operand(operand, flow, scope, blocks, arguments)
+        if value is not None:
+            self.consume_task_value(blocks, flow, arguments, value)
+
+    def capture_task_argument(self, blocks, arguments, value):
+        index = len(arguments.actuals)
+        call = arguments.call
+        _, spec = self.plan['routines'][call['value']]['parameters'][index]
+        if spec[0] == 'STRING':
+            if type(value.constant) is str and len(value.constant) > 254:
+                raise _TaskOrderUnknown()
+            if spec[1] is None:
+                spec = ['STRING', 254]
+        checked = self.checked_task_scalar(spec, value, call['args'][index])
+        blocks[-1] = replace(arguments, actuals=(*arguments.actuals, checked))
 
     def return_from_task_routine(self, blocks, flow, node, value):
         spec = self.frames[-1]['result']
@@ -5118,7 +5167,9 @@ class _Analyzer(TeachDiscovery):
     def consume_task_value(self, blocks, flow, consumer, value):
         if flow.stopped or flow.opaque:
             raise _TaskOrderUnknown()
-        if isinstance(consumer, _TaskExpression):
+        if isinstance(consumer, _TaskArguments):
+            self.capture_task_argument(blocks, consumer, value)
+        elif isinstance(consumer, _TaskExpression):
             blocks[-1] = replace(consumer, values=(*consumer.values, value))
         elif isinstance(consumer, _TaskSelect):
             self.capture_task_case(blocks, flow, consumer, value)
@@ -5328,8 +5379,13 @@ class _Analyzer(TeachDiscovery):
                     self.unresolved_at('argument','Routine passing mode is unresolved: '+name,node)
                     references.append(None)
                     actual.append(self.expr(item,flow,conditional))
+        return self.bind_routine(name, node, actual, references, flow, statement_call=statement_call,
+                                 argument_path_edits=argument_path_edits)
+
+    def bind_routine(self, name, node, actual, references, flow, *, statement_call=False, argument_path_edits=False):
         if flow.stopped and not flow.opaque:
             return None
+        routine = self.plan['routines'][name]
         target_plan, target_routine = resolve_routine(self.plan, self.linked_plans, name, routine)
         routine_key = (target_plan['program'], name) if target_plan else None
         if (target_routine is None or any(frame['key'] == routine_key for frame in self.frames)

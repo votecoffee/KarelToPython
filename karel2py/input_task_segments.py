@@ -121,25 +121,26 @@ def select_case_labels(node):
             yield index, label
 
 
-def _expression_routines(plan, expression, tick):
+def _expression_routines(plan, expression, tick, *, procedure=False):
     if expression is None:
         return
     tick()
     if scalar_task_operator(expression):
         for operand in expression['args']:
-            yield from _expression_routines(plan, operand, tick)
+            yield from _expression_routines(plan, operand, tick, procedure=procedure)
     else:
-        call = _direct_routine_call(plan, expression)
+        call = _direct_routine_call(plan, expression, procedure=procedure)
         if call is not None:
             yield call
+            for mode, operand in zip(call.get('passing', ()), call['args']):
+                if mode == 'value':
+                    yield from _expression_routines(plan, operand, tick)
 
 
 def _routine_calls(plan, node, tick):
     kind, args = node['kind'], node['args']
     if kind == 'call':
-        call = _direct_routine_call(plan, args[0], procedure=True)
-        if call is not None:
-            yield call
+        yield from _expression_routines(plan, args[0], tick, procedure=True)
     elif kind == 'select':
         yield from _expression_routines(plan, args[0], tick)
         for _, label in select_case_labels(node):
@@ -282,16 +283,8 @@ class _SegmentRules:
         formals = self.plan['routines'][call['value']]['parameters']
         if len(actuals) != len(modes) or len(modes) != len(formals):
             return None
-        for actual, mode, (_, spec) in zip(actuals, modes, formals):
-            if spec[0] not in SCALARS:
-                return None
-            if mode == 'reference':
-                schema = self.reference_schema(actual)
-                if not schema or schema[0] not in SCALARS:
-                    return None
-            elif mode != 'value' or not self.operand(actual):
-                return None
-        return call
+        return call if all(mode in ('value', 'reference') and spec[0] in SCALARS
+                           for mode, (_, spec) in zip(modes, formals)) else None
 
     def branch(self, node):
         args = node['args']

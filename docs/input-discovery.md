@@ -85,10 +85,12 @@ assignments, `RETURN`, `IF` conditions, `SELECT` selectors, `CASE` labels,
 scalar expressions keep evaluated operands across a pause and evaluate the
 rest left to right. A known Boolean `AND` or `OR` can skip its right-hand
 operand. Integer `AND` and `OR` evaluate both operands.
-For checked scalar value and reference arguments, discovery evaluates
-arguments once and preserves each live invocation and its locals across
-continuations. It uses the callee's source scope and keeps TP ownership with
-the child task. Return values are checked before loop cleanup. An assignment
+For checked scalar value and reference arguments, discovery follows calls
+inside value arguments and evaluates arguments once, left to right. It
+retains earlier value copies and selected references across a later
+argument's pause. The callee starts after all arguments finish. Discovery
+then preserves each live invocation and its locals, uses the callee's
+source scope, and keeps TP ownership with the child task. Return values are checked before loop cleanup. An assignment
 selects its target after the function returns. A `SELECT` keeps its captured
 selector across pauses and evaluates every label once, left to right. The
 first matching arm begins only after the last label finishes. A `FOR` captures
@@ -104,8 +106,8 @@ handles cannot race with the child. Shared operations between the request
 and wait, unresolved branches and loop tests, unsupported or unresolved
 `FOR` targets or bounds, and ambiguous suspended positions still use
 conservative analysis. Checked handoffs also leave recursive calls,
-pausing calls inside routine arguments, storage selectors or `WRITE`
-operands, and unresolved linked signatures unresolved. `REPEAT` tests
+pausing calls inside aggregate or resource arguments, storage selectors or
+`WRITE` operands, and unresolved linked signatures unresolved. `REPEAT` tests
 that combine a pausing call with `EVAL` use conservative analysis because
 capture precedes the test. Shared globals in called library modules and PATH
 or USING counter captures also require review.
