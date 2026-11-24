@@ -4909,6 +4909,206 @@ END CHILD
         self.assertEqual(result['status'],'paused',result['error'])
         self.assertEqual(result['context']['files']['out']['hex'],(b'B'+b'A'*65536).hex())
 
+    def test_queue_file_read_keeps_ids_and_allows_rebinding_after_pause(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR q:QUEUE_TYPE original,rebound:ARRAY[3] OF INTEGER
+    stream:FILE first,last,entry,item,tail,next_id,s,unused:INTEGER valid:BOOLEAN
+ROUTINE field_width:INTEGER
+BEGIN
+  PAUSE
+  RETURN 3
+END field_width
+BEGIN
+  INIT_QUEUE(q)
+  APPEND_QUEUE(7,q,original,first,s)
+  APPEND_QUEUE(9,q,original,last,s)
+  OPEN FILE stream('RW','out')
+  WRITE stream(' 42 43',CR,'99')
+  SET_FILE_POS(stream,0,s)
+  READ stream(q::field_width(),CR,tail)
+  GET_QUEUE(q,rebound,item,entry,s)
+  valid=(item=42) AND (entry=first) AND (tail=99) AND (s=0)
+  APPEND_QUEUE(51,q,rebound,next_id,s)
+  IF valid AND (next_id=last+1) AND (original[2]=9) AND (rebound[1]=43) AND (BYTES_LEFT(stream)=0) THEN
+    CLOSE FILE stream
+  ELSE
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],files={})
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed',result['error'])
+        values=result['programs']['CHILD']['values']
+        self.assertEqual((values['ITEM'],values['ENTRY'],values['TAIL']),(42,1,99))
+        self.assertEqual((values['ORIGINAL'],values['REBOUND']),([7,9,0],[43,51,0]))
+        self.assertEqual(values['Q'],{'initialized':True,'entries':[[2,43],[3,51]]})
+
+    def test_queue_bank_binary_read_keeps_order_and_explicit_backing_write(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR bank:ARRAY[2,3] OF QUEUE_TYPE left_buf,right_buf:ARRAY[2] OF INTEGER
+    stream:FILE entry,s,unused:INTEGER
+ROUTINE pick_row:INTEGER
+BEGIN
+  PAUSE
+  RETURN 2
+END pick_row
+BEGIN
+  INIT_QUEUE(bank[2,1])
+  INIT_QUEUE(bank[2,2])
+  INIT_QUEUE(bank[2,3])
+  APPEND_QUEUE(7,bank[2,1],left_buf,entry,s)
+  APPEND_QUEUE(8,bank[2,3],right_buf,entry,s)
+  OPEN FILE stream('RWB','out')
+  WRITE stream(17,19,23)
+  SET_FILE_POS(stream,0,s)
+  READ stream(bank[pick_row()],left_buf[1])
+  IF (left_buf[1]=23) AND (right_buf[1]=8) AND (GET_FILE_POS(stream)=12) THEN
+    CLOSE FILE stream
+    WRITE(bank[2])
+  ELSE
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],files={})
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed',result['error'])
+        values=result['programs']['CHILD']['values']
+        self.assertEqual([queue['entries'] for queue in values['BANK'][1]],[[[1,17]],[],[[1,19]]])
+        self.assertEqual((values['LEFT_BUF'],values['RIGHT_BUF']),([23,0],[8,0]))
+        self.assertEqual(result['text_output'],' 17 19')
+
+    def test_queue_format_reinitialization_invalidates_batch_even_with_equal_entries(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR q:QUEUE_TYPE backing:ARRAY[2] OF INTEGER stream:FILE entry,s,value,entered:INTEGER
+ROUTINE changing_width:INTEGER
+BEGIN
+  PAUSE
+  INIT_QUEUE(q)
+  APPEND_QUEUE(7,q,backing,entry,s)
+  RETURN 4
+END changing_width
+BEGIN
+  entered=0
+  value=77
+  INIT_QUEUE(q)
+  APPEND_QUEUE(7,q,backing,entry,s)
+  OPEN FILE stream('RB','in')
+  READ stream(value,q::changing_width())
+  entered=1
+  PAUSE
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],files={'in':{'hex':'090000002a000000'}})
+        self.assertIn('condition-source',[row['code'] for row in report['unresolved']])
+        self.assertEqual(result['status'],'failed')
+        self.assertIn('Queue READ capture changed',result['error']['message'])
+        values=result['programs']['CHILD']['values']
+        self.assertEqual((values['VALUE'],values['ENTERED'],values['STREAM']['position']),(77,0,0))
+        self.assertEqual(values['Q']['entries'],[[1,7]])
+
+    def test_saved_file_queue_values_stay_editable_through_copy_and_get(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR q:QUEUE_TYPE original,rebound,copy_buf:ARRAY[2] OF INTEGER
+    stream:FILE first,last,entry,item,copied,count,s,unused:INTEGER valid:BOOLEAN
+BEGIN
+  INIT_QUEUE(q)
+  APPEND_QUEUE(7,q,original,first,s)
+  APPEND_QUEUE(9,q,original,last,s)
+  OPEN FILE stream('RO','in')
+  READ stream(q)
+  CLOSE FILE stream
+  PAUSE
+  COPY_QUEUE(q,rebound,first,1,copy_buf,count,s)
+  copied=copy_buf[1]
+  GET_QUEUE(q,rebound,item,entry,s)
+  valid=(entry=first) AND (count=1) AND (s=0)
+  IF NOT valid THEN
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],files={'in':'42 43'})
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation'])
+        self.assertIn({'service':'files','address':'in'},report['context_requirements'])
+        self.assertEqual(result['status'],'completed',result['error'])
+        values=result['programs']['CHILD']['values']
+        self.assertEqual((values['ITEM'],values['COPIED'],values['ENTRY']),(42,43,1))
+        self.assertEqual((values['ORIGINAL'],values['REBOUND']),([7,9],[43,0]))
+
+        child=child.replace('s,unused:INTEGER','s,unused,other:INTEGER').replace(
+            'IF NOT valid THEN\n    WRITE(unused)\n  ENDIF',
+            'IF item=42 THEN\n    WRITE(unused)\n  ELSE\n    WRITE(other)\n  ENDIF')
+        report,_=self.prepare([('MAIN',main),('CHILD',child)],files={'in':'42 43'},replay=False)
+        self.assert_inputs(report,[('variable','CHILD','UNUSED','conditional'),
+                                   ('variable','CHILD','OTHER','conditional')])
+
+    def test_queue_read_rejects_duplicate_and_truncated_destinations_atomically(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+END MAIN
+"""
+        for operands, message in (('value,q,q','must be disjoint'),('value,q','End of memory file')):
+            with self.subTest(operands=operands):
+                child=f"""PROGRAM CHILD
+VAR q:QUEUE_TYPE backing:ARRAY[2] OF INTEGER stream:FILE entry,s,value:INTEGER
+BEGIN
+  value=77
+  INIT_QUEUE(q)
+  APPEND_QUEUE(7,q,backing,entry,s)
+  OPEN FILE stream('RB','in')
+  READ stream({operands})
+  PAUSE
+END CHILD
+"""
+                report,result=self.prepare([('MAIN',main),('CHILD',child)],files={'in':{'hex':'09000000'}})
+                self.assertIn('condition-source',[row['code'] for row in report['unresolved']])
+                self.assertEqual(result['status'],'failed')
+                self.assertIn(message,result['error']['message'])
+                values=result['programs']['CHILD']['values']
+                self.assertEqual((values['VALUE'],values['STREAM']['position']),(77,0))
+                self.assertEqual((values['Q']['entries'],values['BACKING']),([[1,7]],[7,0]))
+
     def test_request_status_is_not_reused_as_prelaunch_task_number(self):
         main="""PROGRAM MAIN
 VAR task_no,s:INTEGER text:STRING[8]

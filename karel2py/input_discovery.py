@@ -272,13 +272,29 @@ class _TaskWrite:
 
 
 @dataclass(frozen=True)
+class _TaskQueue:
+    generation: int
+    entries: tuple[tuple[int, object], ...] = ()
+    sequence: int = 0
+    buffer: tuple | None = None
+
+
+@dataclass(frozen=True)
+class _TaskQueueField:
+    location: _Location
+    snapshot: _TaskQueue
+    index: int
+    spec = ('INTEGER',)
+
+
+@dataclass(frozen=True)
 class _TaskRead:
     node: dict
     file_key: FileKey
     index: int = 0
-    leaves: tuple[_Location, ...] = ()
+    leaves: tuple[_Location | _TaskQueueField, ...] = ()
     formats: tuple[object, ...] = ()
-    fields: tuple[tuple[_Location, tuple[int, ...]], ...] = ()
+    fields: tuple[tuple[_Location | _TaskQueueField, tuple[int, ...]], ...] = ()
     line_breaks: tuple[int, ...] = ()
 
 
@@ -298,13 +314,6 @@ class _TaskCollectionWrite:
     location: _Location | None = None
     generation: int | None = None
     values: tuple[object, ...] = ()
-
-
-@dataclass(frozen=True)
-class _TaskQueue:
-    entries: tuple[tuple[int, int], ...] = ()
-    sequence: int = 0
-    buffer: tuple | None = None
 
 
 _TaskValueConsumer = (dict | _TaskSelect | _TaskForHeader | _TaskLoop | _TaskExpression |
@@ -5140,8 +5149,8 @@ class _Analyzer(TeachDiscovery):
                     for frame in blocks:
                         if isinstance(frame, _TaskRead):
                             self.tick(len(frame.fields) + len(frame.leaves))
-                            pending.extend(loc for loc, _ in frame.fields)
-                            pending.extend(frame.leaves)
+                            pending.extend(loc for loc, _ in frame.fields if isinstance(loc, _Location))
+                            pending.extend(loc for loc in frame.leaves if isinstance(loc, _Location))
                     self.path_edit(builtin, flow, True, task_segment=True)
                 if flow.opaque or flow.stopped:
                     raise _TaskOrderUnknown()
@@ -5410,8 +5419,9 @@ class _Analyzer(TeachDiscovery):
 
     def finish_task_read(self, read, flow):
         outputs = flow.task_file_outputs
-        if outputs is None or any(self.variable_path_storage(loc, flow, False) is not True for loc, _ in read.fields):
+        if outputs is None:
             raise _TaskOrderUnknown()
+        queue_groups = self.validate_task_read_fields(read, flow)
         backend = getattr(self.saved_bindings, 'memory_files', None)
         specs = [tuple_spec(loc.spec) for loc, _ in read.fields]
         formats = [controls for _, controls in read.fields]
@@ -5426,12 +5436,39 @@ class _Analyzer(TeachDiscovery):
         flow.task_file_outputs, values, depends_on_saved = prepared
         if depends_on_saved:
             self.context('files', outputs.descriptor(read.file_key).name)
+        for key, (snapshot, offset) in queue_groups.items():
+            entries = tuple(
+                (entry_id, UNKNOWN if depends_on_saved else values[offset + index])
+                for index, (entry_id, _) in enumerate(snapshot.entries)
+            )
+            # READ updates the logical entries and releases the buffer binding.
+            flow.task_queues[key] = replace(snapshot, entries=entries, buffer=None)
         # Bytes derived from saved input remain editable even after an overwrite.
         for (loc, _), value in zip(read.fields, values):
+            if isinstance(loc, _TaskQueueField):
+                continue
             uninitialized = value is rt.UNINITIALIZED
             constant = UNKNOWN if depends_on_saved or uninitialized else value
             fact = _Value(constant, complete=not uninitialized, spec=loc.spec, uninitialized=uninitialized)
             self.write(loc, fact, flow, read.node)
+
+    def validate_task_read_fields(self, read, flow):
+        groups = {}
+        for offset, (field, _) in enumerate(read.fields):
+            if isinstance(field, _Location):
+                if self.variable_path_storage(field, flow, False) is not True:
+                    raise _TaskOrderUnknown()
+            elif field.index == 0:
+                key, snapshot = field.location.key, field.snapshot
+                live = flow.task_queues.get(key)
+                self.tick(len(snapshot.entries))
+                # Equality of unknown values cannot prove that an intervening
+                # operation preserved the runtime capture.
+                if (key in groups or live != snapshot
+                        or live is not snapshot and any(value is UNKNOWN for _, value in snapshot.entries)):
+                    raise _TaskOrderUnknown()
+                groups[key] = snapshot, offset
+        return groups
 
     def next_task_write_item(self, blocks, flow, scope, write):
         self.tick()
@@ -5532,7 +5569,8 @@ class _Analyzer(TeachDiscovery):
         if flow.opaque or flow.stopped or queue.spec != ['QUEUE_TYPE']:
             raise _TaskOrderUnknown()
         if name == 'INIT_QUEUE':
-            flow.task_queues[queue.key] = _TaskQueue()
+            self.serial += 1
+            flow.task_queues[queue.key] = _TaskQueue(self.serial)
             return
 
         locations = [loc for loc in actuals if isinstance(loc, _Location)]
@@ -5563,8 +5601,10 @@ class _Analyzer(TeachDiscovery):
                 if any(loc.spec != ['INTEGER'] for loc in outputs):
                     raise _TaskOrderUnknown()
                 self.tick(len(entries))
-                values = [rt.checked(('INTEGER',), value, line) for _, value in entries]
-                prepared = [(outputs[index], rt.checked(('INTEGER',), value, line)) for index, value in writes]
+                values = [value if value is UNKNOWN else rt.checked(('INTEGER',), value, line)
+                          for _, value in entries]
+                prepared = [(outputs[index], value if value is UNKNOWN else rt.checked(('INTEGER',), value, line))
+                            for index, value in writes]
         except rt.KarelRuntimeError:
             raise _TaskOrderUnknown() from None
 
@@ -5573,7 +5613,7 @@ class _Analyzer(TeachDiscovery):
             self.write_task_queue_array(target, copied, flow, node)
         for loc, value in prepared:
             self.write(loc, _Value(value, spec=loc.spec), flow, node)
-        flow.task_queues[queue.key] = _TaskQueue(entries, sequence, buffer.key)
+        flow.task_queues[queue.key] = replace(previous, entries=entries, sequence=sequence, buffer=buffer.key)
 
     def task_path_transfer_operands(self, scope, operand, *, indexed):
         while operand['kind'] == 'group':
@@ -5653,7 +5693,7 @@ class _Analyzer(TeachDiscovery):
             raise _TaskOrderUnknown()
         return [self.index_child(location, index, node, flow) for index in indexes]
 
-    def collect_task_queue_fields(self, loc, node, flow, fields):
+    def task_queue_cells(self, loc, node, flow):
         self.tick()
         if loc is None:
             raise _TaskOrderUnknown()
@@ -5662,13 +5702,29 @@ class _Analyzer(TeachDiscovery):
             if type(size) is not int or not 1 <= size <= MAX_FACTS:
                 raise _TaskOrderUnknown()
             for index in range(1, size + 1):
-                self.collect_task_queue_fields(self.child(loc, 'index', index, node), node, flow, fields)
+                yield from self.task_queue_cells(self.child(loc, 'index', index, node), node, flow)
         else:
             queue = flow.task_queues.get(loc.key) if loc.spec == ['QUEUE_TYPE'] else None
-            if queue is None or len(fields) + len(queue.entries) > 1024:
+            if queue is None:
                 raise _TaskOrderUnknown()
             self.tick(len(queue.entries))
+            yield loc, queue
+
+    def collect_task_queue_fields(self, loc, node, flow, fields):
+        for _, queue in self.task_queue_cells(loc, node, flow):
+            if len(fields) + len(queue.entries) > 1024 or any(value is UNKNOWN for _, value in queue.entries):
+                raise _TaskOrderUnknown()
             fields.extend((('INTEGER',), value) for _, value in queue.entries)
+
+    def capture_task_queue_read(self, loc, node, flow):
+        fields = []
+        for cell, queue in self.task_queue_cells(loc, node, flow):
+            if len(fields) + len(queue.entries) > 1024:
+                raise _TaskOrderUnknown()
+            fields.extend(_TaskQueueField(cell, queue, index) for index in range(len(queue.entries)))
+        if not fields:
+            raise _TaskOrderUnknown()
+        return tuple(fields)
 
     def task_data_schema(self, schema, *, max_leaves=MAX_FACTS):
         if not schema or schema[0] not in TASK_DATA_AGGREGATES:
@@ -5906,6 +5962,10 @@ class _Analyzer(TeachDiscovery):
         elif isinstance(consumer, _TaskRead):
             _, root = _array_dimensions(loc.root_spec)
             _, terminal = _array_dimensions(loc.spec)
+            if terminal and terminal[0] == 'QUEUE_TYPE':
+                leaves = self.capture_task_queue_read(loc, selection.node, flow)
+                blocks[-1] = replace(consumer, leaves=leaves)
+                return
             if root and root[0] == 'PATH':
                 records = self.path_transfer_records(loc, selection.node, flow, False) if terminal[0] == 'PATH' else [loc]
             elif self.plain_task_read_storage(loc.root_spec):
