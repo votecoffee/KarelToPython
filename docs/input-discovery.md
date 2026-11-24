@@ -118,8 +118,12 @@ subscripts finish and before evaluating formats. This also covers checked
 values from pure constructors such as `VEC`. Items format left to right. The
 expanded piece count and combined length are checked after the last item.
 Console `WRITE` also captures known PATH and queue contents before formats
-run. Whole PATHs and checked ranges follow record order, including the declared
-header when selected. Discovery follows supported `APPEND_NODE`,
+run. PATH and queue ARRAY selectors can pause while choosing a cell or subarray.
+A PATH range keeps its selected receiver while the two bounds run left to right.
+Discovery validates the bounds after both have finished and captures the records
+from the receiver's current topology. A dynamic single index can select the
+header by returning zero. Whole PATHs follow record order, and ranges follow
+their requested direction. Discovery follows supported `APPEND_NODE`,
 `INSERT_NODE`, and `DELETE_NODE` operations and reads the captured records
 before any later edit. Queue writes preserve entry order for queues and queue
 arrays initialized in the child source with `INIT_QUEUE`. Discovery follows
@@ -156,10 +160,10 @@ handles cannot race with the child. Shared operations between the request
 and wait, unresolved branches and loop tests, unsupported or unresolved
 `FOR` targets or bounds, and ambiguous suspended positions still use
 conservative analysis. Checked handoffs also leave recursive calls,
-resource arguments or pausing resource selectors, model-backed or unproven
+other resource arguments and selectors, model-backed or unproven
 data conversions, FILE output, and pausing resource captures unresolved.
-Unproven PATH topology, saved queue contents, and other queue mutations also
-use conservative analysis. Shared globals in called library modules and
+Unproven PATH topology, PATH replacement while evaluating bounds, and saved
+queue contents also use conservative analysis. Shared globals in called library modules and
 PATH or USING counter captures still require review.
 
 Discovery evaluates signal and wait selectors and can track known pauses

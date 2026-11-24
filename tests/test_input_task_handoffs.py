@@ -3189,6 +3189,190 @@ END CHILD
         route=result['programs']['CHILD']['values']['ROUTE']
         self.assertEqual(route,{'data':{'TOTAL':2},'nodes':[{'AMOUNT':44}]})
 
+    def test_path_range_retains_selected_bank_cell_across_pausing_bounds(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+TYPE node_t=STRUCTURE amount:INTEGER ENDSTRUCTURE
+     header_t=STRUCTURE total:INTEGER ENDSTRUCTURE
+VAR routes:ARRAY[2] OF PATH NODEDATA=node_t PATHHEADER=header_t
+    seed:node_t bank,upper,s,unused:INTEGER
+ROUTINE first_bound:INTEGER
+BEGIN
+  bank=2
+  seed.amount=9
+  APPEND_NODE(routes[1],seed,s)
+  PAUSE
+  RETURN upper
+END first_bound
+ROUTINE last_bound:INTEGER
+BEGIN
+  upper=1
+  routes[1,1].amount=8
+  PAUSE
+  RETURN 0
+END last_bound
+ROUTINE width_value:INTEGER
+BEGIN
+  DELETE_NODE(routes[1],2,s)
+  PAUSE
+  RETURN 3
+END width_value
+BEGIN
+  bank=1
+  upper=2
+  routes[1].total=4
+  routes[2].total=88
+  seed.amount=7
+  APPEND_NODE(routes[1],seed,s)
+  WRITE(routes[bank,first_bound()..last_bound()]::width_value(),'|',routes[bank])
+  IF s<>0 THEN
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation',
+                                      'task-wait','task-continuation','task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed')
+        self.assertEqual(result['text_output'],'  9  8  4| 88')
+        self.assertEqual(result['programs']['CHILD']['values']['ROUTES'][0],
+                         {'data':{'TOTAL':4},'nodes':[{'AMOUNT':8}]})
+
+    def test_dynamic_path_header_index_can_pause_after_bank_selection(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+TYPE header_t=STRUCTURE total:INTEGER ENDSTRUCTURE
+VAR routes:ARRAY[2] OF PATH PATHHEADER=header_t selected:INTEGER
+ROUTINE pick_bank:INTEGER
+BEGIN
+  PAUSE
+  RETURN selected
+END pick_bank
+ROUTINE pick_record:INTEGER
+BEGIN
+  selected=2
+  routes[1].total=13
+  PAUSE
+  RETURN 0
+END pick_record
+BEGIN
+  selected=1
+  routes[1].total=11
+  routes[2].total=22
+  WRITE(routes[pick_bank(),pick_record()]::3,'|',routes[selected])
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation',
+                                      'task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed')
+        self.assertEqual(result['text_output'],' 13| 22')
+
+    def test_path_range_checks_bounds_after_the_second_bound_resumes(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  WRITE('waiting')
+END MAIN
+"""
+        child="""PROGRAM CHILD
+TYPE header_t=STRUCTURE total:INTEGER ENDSTRUCTURE
+VAR route:PATH PATHHEADER=header_t
+ROUTINE invalid_first:INTEGER
+BEGIN
+  RETURN -1
+END invalid_first
+ROUTINE last_bound:INTEGER
+BEGIN
+  PAUSE
+  RETURN 0
+END last_bound
+BEGIN
+  route.total=4
+  WRITE(route[invalid_first()..last_bound()])
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait'])
+        self.assertEqual(result['status'],'paused')
+        self.assertEqual(result['text_output'],'waiting')
+
+        main=main.replace("WRITE('waiting')", "CONT_TASK('CHILD',s) WAIT FOR PAUSE PROGRAM[2]")
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assertIn('condition-source',[row['code'] for row in report['unresolved']])
+        self.assertEqual(result['status'],'failed')
+        self.assertIn('PATH I/O range',result['error']['message'])
+        self.assertEqual(result['text_output'],'')
+
+    def test_pausing_queue_row_selector_captures_current_values_before_formats(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR queues:ARRAY[2,2] OF QUEUE_TYPE backing:ARRAY[2] OF INTEGER
+    first,last,s,unused:INTEGER
+ROUTINE bank_row:INTEGER
+BEGIN
+  APPEND_QUEUE(9,queues[2,1],backing,last,s)
+  PAUSE
+  RETURN 2
+END bank_row
+ROUTINE width_value:INTEGER
+BEGIN
+  MODIFY_QUEUE(77,first,queues[2,1],backing,s)
+  PAUSE
+  RETURN 3
+END width_value
+BEGIN
+  INIT_QUEUE(queues[2,1])
+  INIT_QUEUE(queues[2,2])
+  APPEND_QUEUE(7,queues[2,1],backing,first,s)
+  WRITE(queues[bank_row()]::width_value(),'|',queues[2,1])
+  IF s<>0 THEN
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation',
+                                      'task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed')
+        self.assertEqual(result['text_output'],'  7  9| 77 9')
+        self.assertEqual(result['programs']['CHILD']['values']['BACKING'],[77,9])
+
     def test_missing_path_leaf_prevents_the_format_pause(self):
         main="""PROGRAM MAIN
 VAR s:INTEGER

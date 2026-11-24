@@ -174,7 +174,7 @@ def _expression_routines(plan, expression, tick, *, procedure=False):
     kind = expression['kind']
     builtin = (not procedure and kind == 'call'
                and (expression['value'] == 'ARRAY_LEN' or expression['value'] in CONSTANT_BUILTINS))
-    if builtin or scalar_task_operator(expression) or kind in ('field', 'index', 'repeat_eval'):
+    if builtin or scalar_task_operator(expression) or kind in ('field', 'index', 'path_io_range', 'repeat_eval'):
         for operand in expression['args']:
             yield from _expression_routines(plan, operand, tick, procedure=procedure)
     else:
@@ -301,9 +301,11 @@ class _SegmentRules:
         if schema[0] != 'ARRAY':
             return None
         dimensions, element = array_dimensions(schema)
-        if not 0 < len(indices) <= len(dimensions):
+        if not indices or not staged and not all(self.operand(index) for index in indices):
             return None
-        if not staged and not all(self.operand(index) for index in indices):
+        if len(indices) > len(dimensions):
+            if element[0] == 'PATH' and len(indices) == len(dimensions) + 1:
+                return element[2] if node.get('static_zero_subscript') else element[1] or self.plan.get('default_path_node')
             return None
         remaining = dimensions[len(indices):]
         return ['ARRAY', remaining, element] if remaining else element
