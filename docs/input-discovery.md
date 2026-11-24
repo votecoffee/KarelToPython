@@ -850,15 +850,21 @@ outside the file returns status `2` and preserves the cursor.
 the available byte count and status. FILE selection, scalar arguments, and
 output selectors can pause. Each completed operand is retained for the call.
 
-Exact-name `COPY_FILE`, `RENAME_FILE`, and `DELETE_FILE` also run in checked
-child slices with a configured memory bank. The analyzer evaluates all
-inputs and the status selector before applying the operation. It follows
-success, missing source, destination conflict, and open-file status codes.
+`COPY_FILE`, `RENAME_FILE`, and `DELETE_FILE` also run in checked child
+slices with a configured memory bank. The analyzer evaluates all inputs
+and the status selector before applying the operation. It follows success,
+missing source, destination conflict, and open-file status codes.
+Wildcard batches use the supplied file namespace, including names added
+or removed earlier in the run. Matching is case-insensitive and supports
+the runtime's directory and filename substitutions. The analyzer checks
+every match and destination before updating any names. An open file or
+ambiguous match can reject the entire batch.
+
 Later opens see the updated names, and copies keep the bytes from the time
 of the copy. If retaining a copy would exceed the analysis budget, its size
 remains known. Reads through a copied or renamed saved file retain the
 original input address and keep the saved values editable. `CHECK_NAME`
-uses the runtime's portable name validation. Wildcard operations and other
+uses the runtime's portable name validation. Wildcard operations on other
 backends still require conservative discovery.
 
 A checked routine can borrow a scalar FILE, a whole FILE bank, or a selected

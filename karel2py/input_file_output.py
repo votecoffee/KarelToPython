@@ -6,6 +6,7 @@ from . import runtime as rt
 from .communications import message_address
 from .extended import MemoryFiles
 from .file_io import FileHandle, binary_read_fields, set_file_attribute
+from .input_file_patterns import memory_wildcard_plan
 from .serial_io import serial_address
 
 
@@ -210,9 +211,10 @@ class MemoryOutputs:
         copying = operation == 'COPY_FILE'
         names = operands[:1] if deleting else operands[:2]
         flags = operands[len(names):]
-        if (any(not _memory_name(name) or '*' in name or '?' in name for name in names)
-                or any(type(flag) is not bool for flag in flags)):
+        if any(not _memory_name(name) for name in names) or any(type(flag) is not bool for flag in flags):
             return None
+        if any('*' in name or '?' in name for name in names):
+            return self.manage_wildcard(backend, operation, operands, tick=tick)
         source = names[0]
         if not deleting:
             target = names[1]
@@ -225,7 +227,33 @@ class MemoryOutputs:
         if source_size is None:
             return self, 1, ()
 
-        # The saved name remains the input address even if a file was copied or renamed.
+        dependencies = self.saved_dependencies(backend, names)
+        if not deleting and self.size_of(backend, target) is not None and not (copying and flags[0]):
+            return self, 2, dependencies
+        changes = ((source, None if deleting else target),)
+        updated = self.apply_file_changes(backend, changes, copying=copying, tick=tick)
+        return updated, 0, dependencies
+
+    def manage_wildcard(self, backend, operation, operands, *, tick):
+        tick(len(backend.files) + len(self.sizes) + len(self.handles))
+        namespace = {name: len(data) for name, data in backend.files.items()}
+        namespace.update(self.sizes)
+        namespace = {name: size for name, size in namespace.items() if size is not None}
+        busy = {handle.name.casefold() for handle in self.handles.values() if not handle.closed}
+        plan = memory_wildcard_plan(operation, operands, namespace, busy, tick=tick)
+        if plan is None:
+            return None
+        status, changes = plan
+        # A wildcard status depends on the entire namespace, even with no matches.
+        if status:
+            return self, status, (None,)
+        names = (name for change in changes for name in change if name is not None)
+        dependencies = (None, *self.saved_dependencies(backend, names))
+        updated = self.apply_file_changes(backend, changes, copying=operation == 'COPY_FILE', tick=tick)
+        return updated, 0, dependencies
+
+    def saved_dependencies(self, backend, names):
+        # A copy or rename keeps the original saved input address.
         dependencies = set()
         for name in names:
             image = self.images.get(name)
@@ -235,26 +263,37 @@ class MemoryOutputs:
                 origin = name if name not in self.sizes and name in backend.files else None
             if origin is not None:
                 dependencies.add(origin)
-        dependencies = tuple(sorted(dependencies))
-        if not deleting and self.size_of(backend, target) is not None and not (copying and flags[0]):
-            return self, 2, dependencies
+        return tuple(sorted(dependencies))
 
+    def apply_file_changes(self, backend, changes, *, copying, tick):
         sizes, images = self.sizes.copy(), self.images.copy()
-        if not deleting:
-            image = images.get(source)
-            if image is None:
-                image = _MemoryImage(saved_name=source, saved_size=source_size)
-            if copying:
-                byte_budget, span_budget = self.image_budget(target, tick=tick)
-                tick(len(image.spans))
-                if image.retained_bytes > byte_budget or len(image.spans) > span_budget:
-                    image = replace(image, spans=(), saved_available=False)
-            images[target] = image
-            sizes[target] = source_size
-        if not copying:
-            sizes[source] = None
-            images.pop(source, None)
-        return replace(self, sizes=sizes, images=images), 0, dependencies
+        if copying:
+            byte_budget, span_budget = self.image_budget(None, tick=tick)
+        for source, target in changes:
+            tick()
+            if target is not None:
+                source_size = self.size_of(backend, source)
+                image = self.images.get(source)
+                if image is None:
+                    image = _MemoryImage(saved_name=source, saved_size=source_size)
+                if copying:
+                    previous = images.get(target)
+                    if previous is not None:
+                        byte_budget += previous.retained_bytes
+                        span_budget += len(previous.spans)
+                    tick(len(image.spans))
+                    retained_bytes = image.retained_bytes
+                    if retained_bytes <= byte_budget and len(image.spans) <= span_budget:
+                        byte_budget -= retained_bytes
+                        span_budget -= len(image.spans)
+                    else:
+                        image = replace(image, spans=(), saved_available=False)
+                images[target] = image
+                sizes[target] = source_size
+            if not copying:
+                sizes[source] = None
+                images.pop(source, None)
+        return replace(self, sizes=sizes, images=images)
 
     def descriptor(self, key):
         return self.handles.get(key, _FRESH_HANDLE)

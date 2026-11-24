@@ -93,9 +93,9 @@ Text and binary reads from memory files can capture scalar and ordinary
 aggregate destinations and update the cursor across pauses. Bounded byte
 ranges track published bytes through overwrites, truncation, and reopen.
 Reads can use a known range in a large file or recover a range after a later
-overwrite. Exact-name memory file copies, renames and deletions track the
-status and update the names visible to later opens. Copied or renamed files
-can still depend on the original saved bytes.
+overwrite. Memory file copies, renames and deletions track status and update
+the names visible to later opens, including checked wildcard batches. Copies
+and renames retain the original saved byte dependency.
 PATH reads cover whole PATHs, headers, nodes, ordered ranges, and bank
 selections with scalar, vector, joint, configuration, and pose fields.
 Checked memory FILE reads share execution's CONFIG and POSITION validation,
@@ -140,8 +140,9 @@ document and reports changed, omitted and unresolved inputs.
 
 1. **Expand linked discovery.** Extend child pause tracking to additional
    resource arguments and selectors, model-backed or unproven aggregate
-   conversions, FILE reads of untracked data, wildcard file management,
-   additional FILE transports, and unresolved FILE capture selectors.
+   conversions, FILE reads of untracked data, wildcard file management on
+   additional backends, additional FILE transports, and unresolved FILE capture
+   selectors.
    Model shared storage in called library
    modules, track retained `USING` aliases in deferred callbacks, and model
    additional synchronization and handler rearming where order and targets

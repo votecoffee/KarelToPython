@@ -6620,7 +6620,124 @@ END CHILD
         values=result['programs']['CHILD']['values']
         self.assertEqual((values['ORIGINAL'],values['VALUE']),(65,65))
 
-    def test_wildcard_file_copy_leaves_following_pause_unresolved(self):
+    def test_wildcard_copy_retains_saved_origin_and_resumes_into_a_read(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR stream:FILE s,value,unused:INTEGER valid:BOOLEAN
+BEGIN
+  COPY_FILE('*.KL','*.saved',FALSE,FALSE,s)
+  valid=(s=0)
+  PAUSE
+  OPEN FILE stream('RO','one.saved')
+  READ stream(value)
+  IF valid AND NOT UNINIT(value) AND (GET_FILE_POS(stream)=2) THEN
+    CLOSE FILE stream
+  ELSE
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],files={'one.kl':'17'})
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation'])
+        self.assertIn({'service':'files','address':'one.kl'},report['context_requirements'])
+        self.assertIn({'service':'files','address':None},report['context_requirements'])
+        self.assertEqual(result['status'],'completed',result['error'])
+        self.assertEqual(result['programs']['CHILD']['values']['VALUE'],17)
+        self.assertEqual(result['context']['files'],{'one.kl':{'hex':'3137'},'one.saved':{'hex':'3137'}})
+
+    def test_wildcard_directory_captures_copy_rename_and_delete_live_namespace(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR stream:FILE s,value,unused:INTEGER valid:BOOLEAN
+ROUTINE source_mask:STRING
+BEGIN
+  PAUSE
+  RETURN 'src/Cell??/*.kl'
+END source_mask
+BEGIN
+  OPEN FILE stream('WO','src/Cell01/a.KL')
+  WRITE stream('17')
+  CLOSE FILE stream
+  OPEN FILE stream('WO','src/Cell02/b.kl')
+  WRITE stream('29')
+  CLOSE FILE stream
+  COPY_FILE(source_mask(),'dst/line_??/*.bin',FALSE,FALSE,s)
+  valid=(s=0)
+  RENAME_FILE('dst/*/*.BIN','rotated/*/*-done.dat',FALSE,s)
+  valid=valid AND (s=0)
+  DELETE_FILE('SRC/*/*.KL',FALSE,s)
+  valid=valid AND (s=0)
+  OPEN FILE stream('RO','rotated/line_02/b-done.dat')
+  READ stream(value)
+  IF valid AND (value=29) THEN
+    CLOSE FILE stream
+  ELSE
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],files={})
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed',result['error'])
+        self.assertEqual(result['context']['files'],{
+            'rotated/line_01/a-done.dat':{'hex':'3137'},
+            'rotated/line_02/b-done.dat':{'hex':'3239'},
+        })
+
+    def test_wildcard_conflict_and_busy_statuses_keep_batch_unpublished(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR stream:FILE busy,collision,missing,ambiguous,value,unused:INTEGER
+BEGIN
+  OPEN FILE stream('RO','dst/B.NEW')
+  COPY_FILE('src/*.kl','dst/*.new',TRUE,FALSE,busy)
+  CLOSE FILE stream
+  RENAME_FILE('src/*.kl','dst/*.new',FALSE,collision)
+  COPY_FILE('missing/*.kl','dst/*.new',TRUE,FALSE,missing)
+  DELETE_FILE('dupes/*.kl',FALSE,ambiguous)
+  PAUSE
+  OPEN FILE stream('RO','src/a.kl')
+  READ stream(value)
+  IF (busy=3) AND (collision=2) AND (missing=1) AND (ambiguous=2) AND NOT UNINIT(value) THEN
+    CLOSE FILE stream
+  ELSE
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        seed={'src/a.kl':'17','src/b.kl':'29','dst/B.NEW':'old','dupes/a.kl':'a','dupes/A.KL':'A'}
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],files=seed)
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed',result['error'])
+        values=result['programs']['CHILD']['values']
+        self.assertEqual((values['BUSY'],values['COLLISION'],values['MISSING'],values['AMBIGUOUS']),(3,2,1,2))
+        self.assertEqual(result['context']['files'],{key:{'hex':data.encode('ascii').hex()} for key,data in seed.items()})
+
+    def test_wildcard_pipe_operand_keeps_following_pause_unresolved(self):
         main="""PROGRAM MAIN
 VAR s:INTEGER
 BEGIN
@@ -6631,14 +6748,15 @@ END MAIN
         child="""PROGRAM CHILD
 VAR s:INTEGER
 BEGIN
-  COPY_FILE('*.kl','*.saved',FALSE,FALSE,s)
+  COPY_FILE('PIP:*.kl','*.saved',FALSE,FALSE,s)
   PAUSE
 END CHILD
 """
         report,result=self.prepare([('MAIN',main),('CHILD',child)],files={'one.kl':'A'})
         self.assertIn('condition-source',[row['code'] for row in report['unresolved']])
-        self.assertEqual(result['status'],'paused',result['error'])
-        self.assertEqual(result['context']['files'],{'one.kl':{'hex':'41'},'one.saved':{'hex':'41'}})
+        self.assertEqual(result['status'],'failed')
+        self.assertIn('file_pipes',result['error']['message'])
+        self.assertEqual(result['context']['files'],{'one.kl':{'hex':'41'}})
 
     def test_large_seeded_binary_file_reads_overlay_and_saved_neighbors_across_pause(self):
         main="""PROGRAM MAIN
