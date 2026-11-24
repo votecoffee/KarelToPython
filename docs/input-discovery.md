@@ -172,16 +172,20 @@ the subscript ran and checks initialization without loading the field's
 value. An unresolved initialization state keeps the test conservative.
 
 A pausing test runs before each `WHILE` body or after each `REPEAT` body.
-At the first `REPEAT` test, scalar, ordinary aggregate, and scalar PATH `EVAL`
+At the first `REPEAT` test, scalar, ordinary aggregate, PATH, and queue `EVAL`
 operands run in source order, with nested captures evaluated before their
-enclosing capture. They finish before the live test, including captures on a
+enclosing capture. Captures include PATH and queue banks, selected rows,
+and checked routine results. They finish before the live test, including captures on a
 side of a Boolean expression the live test later skips. Captured records and
 arrays retain their fields, shape, and missing values across pauses and
 subsequent iterations. Field, subscript, and shape queries see the captured
 value. A PATH can come from storage or a pinned routine. Its `PATH_LEN`, header,
 and node selections use the captured records even when the live PATH changes
-while a later operand pauses. A fresh loop activation takes fresh samples.
-Re-translate earlier modules to add capture types. Calls can nest within the
+while a later operand pauses. Queue snapshots retain initialization state,
+entry IDs, and sequence numbers. Queue ARRAY shape and cell initialization
+queries use the capture, and a pinned value call can bind a new backing ARRAY
+to its own copy. A fresh loop activation takes fresh samples.
+Re-translate earlier modules to add collection capture schemas. Calls can nest within the
 ordinary routine-depth limit.
 
 The analysis carries TP handles and bank effects across that wait and uses
@@ -192,8 +196,8 @@ and wait, unresolved branches and loop tests, unsupported or unresolved
 `FOR` targets or bounds, and ambiguous suspended positions still use
 conservative analysis. Checked handoffs also leave recursive calls,
 other resource arguments and selectors, model-backed or unproven
-data conversions, other FILE transports and selectors, and pausing `EVAL`
-captures for resource banks, queues, and FILEs unresolved.
+data conversions, other FILE transports and selectors, and pausing FILE
+`EVAL` captures unresolved.
 Unproven PATH topology or descriptor history, and untracked queue
 contents, use conservative analysis. Shared globals in called
 library modules and retained `USING` aliases in deferred callbacks still

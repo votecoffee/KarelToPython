@@ -2559,6 +2559,181 @@ END CHILD
                 self.assertEqual(first_record['AMOUNT'],{'uninitialized':True})
                 self.assertEqual(second_record['AMOUNT'],79)
 
+    def test_repeat_captures_path_bank_and_nested_path_before_live_edits(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+TYPE node_t=STRUCTURE amount:INTEGER ENDSTRUCTURE
+     head_t=STRUCTURE limit:INTEGER ENDSTRUCTURE
+     route_t=PATH NODEDATA=node_t PATHHEADER=head_t
+VAR routes:ARRAY[2] OF route_t iterations,s,unused:INTEGER
+ROUTINE gate:BOOLEAN
+BEGIN
+  routes[2].limit=99
+  APPEND_NODE(routes[2],s)
+  PAUSE
+  RETURN TRUE
+END gate
+BEGIN
+  routes[1].limit=7
+  routes[2].limit=2
+  APPEND_NODE(routes[2],s)
+  routes[2,1].amount=17
+  iterations=0
+  REPEAT
+    iterations=iterations+1
+  UNTIL gate() AND (PATH_LEN(EVAL(routes)[2])=1) AND (iterations>=EVAL(EVAL(routes)[2]).limit)
+  IF iterations=2 THEN WRITE(iterations) ELSE WRITE(unused) ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling']+['task-wait','task-continuation']*2)
+        self.assertEqual(result['status'],'completed',result['error'])
+        self.assertEqual(result['text_output'],' 2')
+        live=result['programs']['CHILD']['values']['ROUTES'][1]
+        self.assertEqual((live['data']['LIMIT'],len(live['nodes'])),(99,3))
+
+    def test_repeat_queue_bank_capture_keeps_rows_shape_and_initialization_across_pauses(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR queues:ARRAY[2,2] OF QUEUE_TYPE iterations,unused:INTEGER
+ROUTINE choose_row:INTEGER
+BEGIN
+  PAUSE
+  RETURN 2
+END choose_row
+ROUTINE gate:BOOLEAN
+BEGIN
+  INIT_QUEUE(queues[2,2])
+  PAUSE
+  RETURN TRUE
+END gate
+BEGIN
+  INIT_QUEUE(queues[2,1])
+  iterations=0
+  REPEAT
+    iterations=iterations+1
+  UNTIL gate() AND (ARRAY_LEN(EVAL(EVAL(queues)[2]))=2) AND NOT UNINIT(EVAL(queues)[2,1]) AND UNINIT(EVAL(queues[choose_row()])[2])
+  IF iterations=1 THEN WRITE(iterations) ELSE WRITE(unused) ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling']+['task-wait','task-continuation']*2)
+        self.assertEqual(result['status'],'completed',result['error'])
+        self.assertEqual(result['text_output'],' 1')
+        self.assertTrue(result['programs']['CHILD']['values']['QUEUES'][1][1]['initialized'])
+
+    def test_repeat_captures_queue_banks_returned_from_a_pausing_pinned_routine(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+TYPE bank_t=ARRAY[2] OF QUEUE_TYPE
+VAR n,unused:INTEGER
+ROUTINE make_bank:bank_t FROM LIB
+BEGIN
+  n=0
+  REPEAT
+    n=n+1
+  UNTIL (ARRAY_LEN(EVAL(make_bank()))=2) AND UNINIT(EVAL(make_bank())[2])
+  IF n=1 THEN WRITE(n) ELSE WRITE(unused) ENDIF
+END CHILD
+"""
+        library="""PROGRAM LIB
+TYPE bank_t=ARRAY[2] OF QUEUE_TYPE
+ROUTINE make_bank:bank_t
+VAR slots:bank_t
+BEGIN
+  INIT_QUEUE(slots[1])
+  PAUSE
+  RETURN slots
+END make_bank
+BEGIN
+END LIB
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child),('LIB',library)])
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling']+['task-wait','task-continuation']*2)
+        self.assertEqual(result['status'],'completed',result['error'])
+        self.assertEqual(result['text_output'],' 1')
+
+    def test_repeat_captures_queue_entries_and_sequence_for_a_pinned_value_call(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR item:QUEUE_TYPE live_buffer:ARRAY[2] OF INTEGER
+    entry,s,n,unused:INTEGER
+ROUTINE peek(sample:QUEUE_TYPE):INTEGER FROM LIB
+ROUTINE replace_live:BOOLEAN
+BEGIN
+  INIT_QUEUE(item)
+  APPEND_QUEUE(99,item,live_buffer,entry,s)
+  PAUSE
+  RETURN TRUE
+END replace_live
+BEGIN
+  INIT_QUEUE(item)
+  APPEND_QUEUE(7,item,live_buffer,entry,s)
+  APPEND_QUEUE(13,item,live_buffer,entry,s)
+  n=0
+  REPEAT
+    n=n+1
+  UNTIL replace_live() AND (peek(EVAL(item))=37) AND (n=2)
+  IF live_buffer[1]=99 THEN WRITE(n) ELSE WRITE(unused) ENDIF
+END CHILD
+"""
+        library="""PROGRAM LIB
+ROUTINE peek(sample:QUEUE_TYPE):INTEGER
+VAR private_buffer:ARRAY[2] OF INTEGER number,entry,s,next_id:INTEGER
+BEGIN
+  GET_QUEUE(sample,private_buffer,number,entry,s)
+  APPEND_QUEUE(21,sample,private_buffer,next_id,s)
+  RETURN 10*next_id+number
+END peek
+BEGIN
+END LIB
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child),('LIB',library)])
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling']+['task-wait','task-continuation']*2)
+        self.assertEqual(result['status'],'completed',result['error'])
+        self.assertEqual(result['text_output'],' 2')
+        self.assertEqual(result['programs']['CHILD']['values']['ITEM']['entries'],[[1,99]])
+
     def test_repeat_keeps_record_capture_across_live_test_pauses_and_iterations(self):
         main="""PROGRAM MAIN
 VAR s:INTEGER

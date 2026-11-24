@@ -244,6 +244,20 @@ class WaitEvalTests(unittest.TestCase):
                 self.assertEqual(sleeps, [0., 0.])
                 self.assertEqual(result.report['waits'][0]['entry_captures'], 1)
 
+    def test_wait_eval_queue_bank_keeps_original_cells_during_live_test(self):
+        body = 'INIT_QUEUE(queues[1]) WAIT FOR change_live() AND UNINIT(EVAL(queues)[2]); done=TRUE'
+        routine = 'ROUTINE change_live:BOOLEAN BEGIN INIT_QUEUE(queues[2]) RETURN TRUE END change_live'
+        for cooperative in (False, True):
+            with self.subTest(cooperative=cooperative):
+                program, _, sleeps = compile_program(
+                    body, declarations='queues:ARRAY[2] OF QUEUE_TYPE done:BOOLEAN',
+                    routines=routine, translator=partial(translate, cooperative=cooperative),
+                )
+                state = program.run(max_steps=40)
+                self.assertTrue(state['DONE'])
+                self.assertTrue(state['QUEUES'][1]['initialized'])
+                self.assertEqual(sleeps, [])
+
     def test_wait_eval_recaptures_on_loop_entry(self):
         body = 'after=0 FOR i=1 TO 2 DO n=0 WAIT FOR next_count() >= EVAL(i); after=after+n ENDFOR'
         routines = 'ROUTINE next_count:INTEGER BEGIN n=n+1 RETURN n END next_count'

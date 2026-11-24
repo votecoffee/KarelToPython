@@ -195,7 +195,7 @@ class _TaskUsing:
 class _TaskRepeatCapture:
     terms: tuple[dict, ...]
     predicate: dict
-    samples: tuple[_Value, ...] = ()
+    samples: 'tuple[_Value | _TaskQueueValue, ...]' = ()
 
 
 @dataclass(frozen=True)
@@ -1704,7 +1704,8 @@ class _Analyzer(TeachDiscovery):
         kind = receiver['kind']
         if kind == 'wait_sample':
             sample = receiver['value']
-            return (isinstance(sample, _Value) and sample.spec
+            return (isinstance(sample, _TaskQueueValue)
+                    or isinstance(sample, _Value) and sample.spec
                     and (sample.spec[0] in TASK_DATA_AGGREGATES or sample.path_records is not None))
         if kind == 'binary' and receiver['value'] == ':':
             return True
@@ -6236,7 +6237,8 @@ class _Analyzer(TeachDiscovery):
                 receiver = args[0]
                 while receiver['kind'] in ('group', 'index'):
                     receiver = receiver['args'][0]
-                if scope.queue_routine_call(receiver) is not None:
+                sampled_queue = receiver['kind'] == 'wait_sample' and isinstance(receiver['value'], _TaskQueueValue)
+                if sampled_queue or scope.queue_routine_call(receiver) is not None:
                     self.start_task_collection_value(blocks, flow, scope, args[0], _TaskQueueUninit(consumer))
                     return None
             if name in FILE_TASK_QUERIES or uninit_schema == ['FILE']:
@@ -6287,6 +6289,8 @@ class _Analyzer(TeachDiscovery):
     def task_data_operand(self, node, flow, scope, blocks, consumer):
         while node['kind'] == 'group':
             node = node['args'][0]
+        if node['kind'] == 'wait_sample' and isinstance(node['value'], _TaskQueueValue):
+            return node['value']
         call = scope.path_routine_call(node) or scope.queue_routine_call(node) or scope.data_routine_call(node)
         if call is not None:
             blocks.append(_TaskArguments(call, consumer))
@@ -6816,9 +6820,12 @@ class _Analyzer(TeachDiscovery):
             self.write(loc, value, flow, consumer.node, shaped_record=True)
             blocks[-1] = replace(consumer, bindings=(*consumer.bindings, loc))
         elif isinstance(consumer, _TaskRepeatCapture):
-            if not isinstance(value, _Value):
+            collection = consumer.terms[len(consumer.samples)].get('capture_collection')
+            if collection is not None:
+                self.check_task_collection_capture(collection, value)
+            elif not isinstance(value, _Value):
                 raise _TaskOrderUnknown()
-            if value.spec and value.spec[0] == 'PATH':
+            elif value.spec and value.spec[0] == 'PATH':
                 self.checked_task_path_value(value.spec, value)
             elif value.spec and value.spec[0] in TASK_DATA_AGGREGATES:
                 self.checked_task_data_capture(value)
@@ -6909,6 +6916,17 @@ class _Analyzer(TeachDiscovery):
             self.return_from_task_routine(blocks, flow, consumer, value)
         else:
             self.start_task_branch(blocks, flow, consumer, value)
+
+    def check_task_collection_capture(self, expected, value):
+        if queue_task_storage(expected):
+            self.checked_task_queue_value(expected, value)
+        elif path_task_storage(expected) and isinstance(value, _Value):
+            self.checked_task_path_value(expected, value)
+        else:
+            raise _TaskOrderUnknown()
+        declared = tuple_spec(expected)
+        if None not in rt.array_dimensions(declared) and tuple_spec(value.spec) != declared:
+            raise _TaskOrderUnknown()
 
     def checked_task_data_capture(self, value):
         source = self.task_data_schema(value.spec)
@@ -7056,7 +7074,7 @@ class _Analyzer(TeachDiscovery):
         operand, = term['args']
         operand = bind_repeat_samples(operand, capture.samples, self.tick)
         capture_type = term.get('capture_type')
-        if capture_type == 'PATH':
+        if capture_type == 'PATH' or term.get('capture_collection'):
             self.start_task_collection_value(blocks, flow, scope, operand, capture)
             return
         if capture_type in TASK_DATA_AGGREGATES:

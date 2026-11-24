@@ -3,7 +3,7 @@
 ![KarelToPython icon](karel2py/assets/icons/karel_to_python_icon_64x64.png)
 
 KarelToPython translates a supported subset of FANUC KAREL into Python for
-offline inspection and execution. The current build is **26.1124.185558**.
+offline inspection and execution. The current build is **26.1124.190417**.
 
 ## Table of Contents
 
@@ -104,7 +104,8 @@ header and node fields can serve as counters across pauses. `USING` retains
 borrowed and private data records, including PATH headers and nodes. A direct
 PATH selector binds the record, and a forwarded whole-record formal keeps its
 slot. Scalar `UNINIT` follows pausing field selectors without reading a missing
-value. Scalar, ordinary aggregate, and PATH `REPEAT UNTIL` captures survive
+value. Pythonic `EVAL` captures queues and PATH and queue banks in `WAIT FOR`
+and `REPEAT UNTIL`. Linked discovery follows those `REPEAT` captures across
 pauses and iterations.
 Linked discovery also follows edits and copies of queues initialized in the
 source or restored from the saved run context. PATH and queue arguments

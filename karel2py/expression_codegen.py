@@ -82,10 +82,21 @@ class ExpressionLowering:
 
     def emit_condition_capture(self, term, originals):
         code, spec = self.expression(term.args[0])
+        line = term.token.line
+        helper = None
+        if self.mode == 'pythonic':
+            if rt.collection_array_type(spec):
+                helper = 'collection_array_source_value'
+            elif spec == ('QUEUE_TYPE',):
+                helper = 'collection_source_value'
+        if helper:
+            capture = f'_rt.{helper}({spec!r}, {code}, {line}, source_spec={spec!r})'
+        else:
+            capture = f'_rt.assignment_value({code}, {line})'
         if term.kind == 'repeat_eval':
-            self.repeat_capture_types[id(term)] = spec[0]
+            self.repeat_capture_types[id(term)] = spec[0], spec if helper else None
         temporary = self.fresh()
-        self.line(f'{temporary} = _rt.assignment_value({code}, {term.token.line})', term.token)
+        self.line(f'{temporary} = {capture}', term.token)
         self.bind_condition_temporary(term, temporary, spec, originals)
         return temporary
 

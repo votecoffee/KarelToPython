@@ -402,6 +402,9 @@ Captures run before the first poll, in source order, including operands of
 short-circuited branches. They may contain ordinary Pythonic routine calls.
 A source routine named EVAL keeps its declared call semantics inside WAIT.
 A port transition predicate remains a live sampled condition.
+Pythonic queue captures preserve entry order, IDs, and sequence numbers in
+independent storage. PATH and queue ARRAY captures retain the concrete shape
+and the captured contents of each cell.
 
 The reference describes EVAL in section A.5.6 and the WAIT condition syntax
 in MARRC75KR07091E Rev N Appendix E figures (t) and (u).
@@ -429,6 +432,9 @@ syntax, see MARRC75KR07091E Rev N, section A.23.1 and Appendix E figures (t) and
 UNTIL test, after the body runs. Later tests read the same captured value
 and re-evaluate `measured`. Captures run once in source order before the first
 Boolean test, including operands behind short-circuit operators.
+Pythonic PATH and queue ARRAYs and scalar queues use checked logical copies.
+Each captured queue can bind its own backing ARRAY when passed by value to a
+routine. PATH copies preserve the records and their initialization state.
 
 A new loop execution takes a fresh capture. A jump within the same loop keeps
 its capture. A jump out releases it, and later entry through a body label
