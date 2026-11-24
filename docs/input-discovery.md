@@ -143,16 +143,21 @@ label once, left to right. The
 first matching arm begins only after the last label finishes. A `FOR` captures
 its counter before the initial-bound call, initializes that cell before the
 final-bound call, and reads the start from the same cell after that call
-returns. A pausing test runs before each `WHILE` body or after each `REPEAT`
-body. At the first `REPEAT` test, scalar and ordinary data aggregate `EVAL`
+returns. The captured counter can be an integral field in a known PATH
+header or node, including one selected through a PATH ARRAY. Normal loop
+cleanup clears the originally selected field.
+A pausing test runs before each `WHILE` body or after each `REPEAT` body.
+At the first `REPEAT` test, scalar, ordinary aggregate, and scalar PATH `EVAL`
 operands run in source order, with nested captures evaluated before their
 enclosing capture. They finish before the live test, including captures on a
 side of a Boolean expression the live test later skips. Captured records and
 arrays retain their fields, shape, and missing values across pauses and
 subsequent iterations. Field, subscript, and shape queries see the captured
-value. A fresh loop activation takes fresh samples. Re-translate earlier
-modules to add aggregate capture types. Calls can nest within the ordinary
-routine-depth limit.
+value. A PATH can come from storage or a pinned routine. Its `PATH_LEN`, header,
+and node selections use the captured records even when the live PATH changes
+while a later operand pauses. A fresh loop activation takes fresh samples.
+Re-translate earlier modules to add capture types. Calls can nest within the
+ordinary routine-depth limit.
 
 The analysis carries TP handles and bank effects across that wait and uses
 the current shared bank when the child resumes. An eligible final launch or
@@ -162,11 +167,11 @@ and wait, unresolved branches and loop tests, unsupported or unresolved
 `FOR` targets or bounds, and ambiguous suspended positions still use
 conservative analysis. Checked handoffs also leave recursive calls,
 other resource arguments and selectors, model-backed or unproven
-data conversions, other FILE transports and selectors, and pausing resource
-captures unresolved.
-Unproven PATH topology, PATH replacement while evaluating bounds, and saved
-queue contents also use conservative analysis. Shared globals in called library modules and
-PATH or USING counter captures still require review.
+data conversions, other FILE transports and selectors, and pausing `EVAL`
+captures for resource banks, queues, and FILEs unresolved.
+Unproven PATH topology, ambiguous PATH descriptor changes, and saved
+queue contents also use conservative analysis. Shared globals in called
+library modules and USING counter captures still require review.
 
 Discovery evaluates signal and wait selectors and can track known pauses
 across a delay or simple event wait. A signal or delay alone does not

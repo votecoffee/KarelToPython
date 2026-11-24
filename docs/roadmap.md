@@ -65,8 +65,8 @@ global and motion-local condition callbacks. Child and scan-time reads are
 conditional. Linked discovery follows known paused entries and explicit
 child pauses at the top level, in known `IF` and `SELECT` arms, and in
 bounded `FOR`, `WHILE`, and `REPEAT` iterations. A child can retain an
-integral `FOR` counter in an owned variable, ordinary ARRAY cell, or
-STRUCTURE field. Procedure calls, scalar expressions, and ordinary aggregate
+integral `FOR` counter in an owned variable, ordinary ARRAY cell, STRUCTURE
+field, or known PATH header or node field. Procedure calls, scalar expressions, and ordinary aggregate
 arguments can retain nested frames across pauses, including calls to pinned
 linked modules. Ordinary aggregate results can feed another call, console
 `WRITE`, an assignment, or a field or array selection. Checked data conversions
@@ -105,8 +105,8 @@ Grouped queue arguments and flat bank slices keep private snapshots across
 pauses. Queue initialization and bank shape queries use the bound storage.
 Detached queue and queue-bank results feed assignments, value arguments,
 selectors, shape queries, and bounded output across pauses.
-Scalar and ordinary aggregate `REPEAT UNTIL` captures run once before the
-live test and carry their values across pauses and iterations.
+Scalar, ordinary aggregate, and scalar PATH `REPEAT UNTIL` captures run
+once before the live test and carry their values across pauses and iterations.
 Discovery tracks numbered handler activation within
 each invocation and follows emitted motion capture order.
 Refreshing a module set carries compatible owner-qualified values into a new
@@ -118,9 +118,9 @@ document and reports changed, omitted and unresolved inputs.
 1. **Expand linked discovery.** Extend child pause tracking to additional
    resource arguments and selectors, model-backed or unproven aggregate
    conversions, FILE reads of untracked data and specialized
-   PATH fields, additional FILE transports, and resource `EVAL` captures.
-   Model shared storage in called library modules, extend resumable
-   `FOR` capture to PATH and USING storage, and model
+   PATH fields, additional FILE transports, and `EVAL` captures for
+   resource banks, queues, and FILEs. Model shared storage in called library
+   modules, extend resumable `FOR` capture to USING storage, and model
    additional synchronization and handler rearming where order and targets
    can be determined. Track effects between motion
    callbacks and keep dynamic selections and external effects visible. Extend

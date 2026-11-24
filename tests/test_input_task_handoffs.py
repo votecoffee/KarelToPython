@@ -1682,7 +1682,9 @@ BEGIN
 END MAIN
 """
         child="""PROGRAM CHILD
-VAR zero,reached:INTEGER
+TYPE node_t=STRUCTURE amount:INTEGER ENDSTRUCTURE
+     route_t=PATH NODEDATA=node_t
+VAR zero,reached:INTEGER routes:ARRAY[1] OF route_t
 ROUTINE later_sample:REAL
 BEGIN
   reached=1
@@ -1699,6 +1701,7 @@ END CHILD
         cases=(
             ('zero=0','SQRT(zero-1)','SQRT argument must not be negative'),
             ('FOR zero=1 TO 1 DO reached=0 ENDFOR','SQRT(zero)','uninitialized'),
+            ('reached=0','PATH_LEN(EVAL(routes[2]))','Array index 2 outside 1..1'),
         )
         for body,sample,error in cases:
             with self.subTest(sample=sample):
@@ -1709,6 +1712,165 @@ END CHILD
                 self.assertEqual(result['status'],'failed')
                 self.assertIn(error,result['error']['message'])
                 self.assertEqual(result['programs']['CHILD']['values']['REACHED'],0)
+
+    def test_repeat_captures_selected_path_before_live_edits_and_reuses_it(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+TYPE node_t=STRUCTURE amount:INTEGER unused_field:INTEGER ENDSTRUCTURE
+     head_t=STRUCTURE limit:INTEGER ENDSTRUCTURE
+     route_t=PATH NODEDATA=node_t PATHHEADER=head_t
+VAR routes:ARRAY[2] OF route_t iterations,s,unused:INTEGER
+ROUTINE choose_route:INTEGER
+BEGIN
+  PAUSE
+  RETURN 1
+END choose_route
+ROUTINE gate:BOOLEAN
+BEGIN
+  routes[1].limit=99
+  APPEND_NODE(routes[1],s)
+  PAUSE
+  RETURN TRUE
+END gate
+BEGIN
+  routes[1].limit=2
+  APPEND_NODE(routes[1],s)
+  routes[1,1].amount=7
+  iterations=0
+  REPEAT
+    iterations=iterations+1
+  UNTIL gate() AND (PATH_LEN(EVAL(routes[choose_route()]))=1) AND (iterations>=EVAL(EVAL(routes[1]).limit)) AND (EVAL(routes[1])[1].amount=7)
+  IF iterations=2 THEN WRITE(iterations) ELSE WRITE(unused) ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling']+['task-wait','task-continuation']*3)
+        self.assertEqual(result['status'],'completed',result['error'])
+        self.assertEqual(result['text_output'],' 2')
+        route=result['programs']['CHILD']['values']['ROUTES'][0]
+        self.assertEqual((route['data']['LIMIT'],len(route['nodes'])),(99,3))
+
+    def test_repeat_captures_path_result_from_pinned_routine_for_pausing_live_selector(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        path_types="""TYPE node_t=STRUCTURE amount:INTEGER ENDSTRUCTURE
+     route_t=PATH NODEDATA=node_t
+"""
+        child=f"""PROGRAM CHILD
+{path_types}VAR n,unused:INTEGER
+ROUTINE route:route_t FROM LIB
+ROUTINE choose_node:INTEGER
+BEGIN
+  PAUSE
+  RETURN 1
+END choose_node
+BEGIN
+  REPEAT
+    n=7
+  UNTIL EVAL(route())[choose_node()].amount=n
+  IF n=7 THEN WRITE(n) ELSE WRITE(unused) ENDIF
+END CHILD
+"""
+        library=f"""PROGRAM LIB
+{path_types}ROUTINE route:route_t
+VAR local_path:route_t s:INTEGER
+BEGIN
+  APPEND_NODE(local_path,s)
+  local_path[1].amount=7
+  PAUSE
+  RETURN local_path
+END route
+BEGIN
+END LIB
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child),('LIB',library)])
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling']+['task-wait','task-continuation']*2)
+        self.assertEqual(result['status'],'completed',result['error'])
+        self.assertEqual(result['text_output'],' 7')
+
+    def test_for_path_counter_keeps_selected_storage_across_selector_bounds_and_body_pauses(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        for selector, first, second, storage in (
+                ('routes[pick(),1].amount', 'routes[1,1].amount', 'routes[2,1].amount', 'nodes'),
+                ('routes[pick()].amount', 'routes[1].amount', 'routes[2].amount', 'data')):
+            with self.subTest(selector=selector):
+                child=f"""PROGRAM CHILD
+TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE
+     route_t=PATH NODEDATA=row_t PATHHEADER=row_t
+VAR routes:ARRAY[2] OF route_t selected,total,s,unused:INTEGER
+ROUTINE pick:INTEGER
+BEGIN
+  PAUSE
+  RETURN selected
+END pick
+ROUTINE initial_bound:INTEGER
+BEGIN
+  selected=2
+  PAUSE
+  RETURN 1
+END initial_bound
+ROUTINE final_bound:INTEGER
+BEGIN
+  PAUSE
+  RETURN {first}+2
+END final_bound
+BEGIN
+  APPEND_NODE(routes[1],s)
+  APPEND_NODE(routes[2],s)
+  {second}=79
+  selected=1
+  total=0
+  FOR {selector}=initial_bound() TO final_bound() DO
+    total=total+{first}
+    IF total=1 THEN PAUSE ENDIF
+  ENDFOR
+  IF (total=6) AND (selected=2) AND ({second}=79) THEN WRITE(total) ELSE WRITE(unused) ENDIF
+END CHILD
+"""
+                report,result=self.prepare([('MAIN',main),('CHILD',child)])
+                self.assert_inputs(report,[])
+                self.assert_task_gaps(report,['task-scheduling']+['task-wait','task-continuation']*4)
+                self.assertEqual(result['status'],'completed',result['error'])
+                self.assertEqual(result['text_output'],' 6')
+                first_route,second_route=result['programs']['CHILD']['values']['ROUTES']
+                first_record=first_route[storage][0] if storage=='nodes' else first_route[storage]
+                second_record=second_route[storage][0] if storage=='nodes' else second_route[storage]
+                self.assertEqual(first_record['AMOUNT'],{'uninitialized':True})
+                self.assertEqual(second_record['AMOUNT'],79)
 
     def test_repeat_keeps_record_capture_across_live_test_pauses_and_iterations(self):
         main="""PROGRAM MAIN

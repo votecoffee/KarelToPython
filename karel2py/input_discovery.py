@@ -1670,7 +1670,8 @@ class _Analyzer(TeachDiscovery):
         kind = receiver['kind']
         if kind == 'wait_sample':
             sample = receiver['value']
-            return isinstance(sample, _Value) and sample.spec and sample.spec[0] in TASK_DATA_AGGREGATES
+            return (isinstance(sample, _Value) and sample.spec
+                    and (sample.spec[0] in TASK_DATA_AGGREGATES or sample.path_records is not None))
         if kind == 'binary' and receiver['value'] == ':':
             return True
         if kind not in ('call', 'name'):
@@ -5959,9 +5960,12 @@ class _Analyzer(TeachDiscovery):
         elif self.selects_routine_result(node):
             while node['kind'] == 'group':
                 node = node['args'][0]
-            if node['kind'] not in ('field', 'index'):
+            if node['kind'] == 'wait_sample':
+                self.consume_task_value(blocks, flow, consumer, node['value'])
+            elif node['kind'] in ('field', 'index'):
+                blocks.append(_TaskResultSelection(node, consumer))
+            else:
                 raise _TaskOrderUnknown()
-            blocks.append(_TaskResultSelection(node, consumer))
         else:
             self.start_task_selection(blocks, flow, node, _TaskCollectionValue(consumer))
 
@@ -6187,7 +6191,8 @@ class _Analyzer(TeachDiscovery):
                 or loc.path_slot is not None or flow.stopped or flow.opaque):
             raise _TaskOrderUnknown()
         _, root_type = _array_dimensions(loc.root_spec)
-        if (root_type and root_type[0] == 'PATH' and not reading and assignment is None
+        capturing_counter = isinstance(consumer, dict) and consumer['kind'] == 'for'
+        if (root_type and root_type[0] == 'PATH' and not reading and assignment is None and not capturing_counter
                 and not isinstance(consumer, (_TaskArguments, _TaskCollectionWrite, _TaskRead, _TaskPathRead,
                                               _TaskPathLength, _TaskPathAssignment, _TaskPathCopy, _TaskCollectionValue))):
             raise _TaskOrderUnknown()
@@ -6616,7 +6621,11 @@ class _Analyzer(TeachDiscovery):
             else:
                 blocks[-1] = replace(consumer, values=(*consumer.values, value))
         elif isinstance(consumer, _TaskRepeatCapture):
-            if value.spec and value.spec[0] in TASK_DATA_AGGREGATES:
+            if not isinstance(value, _Value):
+                raise _TaskOrderUnknown()
+            if value.spec and value.spec[0] == 'PATH':
+                self.checked_task_path_value(value.spec, value)
+            elif value.spec and value.spec[0] in TASK_DATA_AGGREGATES:
                 self.checked_task_data_capture(value)
             elif (not value.complete or value.uninitialized or value.spec and value.spec[0] not in SCALARS
                   or value.constant is not UNKNOWN and type(value.constant) not in (bool, int, float, str)):
@@ -6851,7 +6860,11 @@ class _Analyzer(TeachDiscovery):
         term = capture.terms[index]
         operand, = term['args']
         operand = bind_repeat_samples(operand, capture.samples, self.tick)
-        if term.get('capture_type') in TASK_DATA_AGGREGATES:
+        capture_type = term.get('capture_type')
+        if capture_type == 'PATH':
+            self.start_task_collection_value(blocks, flow, scope, operand, capture)
+            return
+        if capture_type in TASK_DATA_AGGREGATES:
             value = self.task_data_operand(operand, flow, scope, blocks, capture)
         else:
             value = self.task_operand(operand, flow, scope, blocks, capture)
