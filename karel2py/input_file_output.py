@@ -1,9 +1,12 @@
-"""Plan checked memory FILE output without opening or writing a backend."""
+"""Plan checked memory FILE transfers without opening or writing a backend."""
 from dataclasses import dataclass, field, replace
+import struct
+from types import SimpleNamespace
 
+from . import runtime as rt
 from .communications import message_address
 from .extended import MemoryFiles
-from .file_io import FileHandle, set_file_attribute
+from .file_io import FileHandle, binary_read_fields, set_file_attribute
 from .serial_io import serial_address
 
 
@@ -47,6 +50,7 @@ class MemoryOutputs:
 
     handles: dict[FileKey, _MemoryOutput] = field(default_factory=dict)
     sizes: dict[str, int] = field(default_factory=dict)
+    changed: frozenset[str] = frozenset()
 
     def capture(self, alias, backend, binding, line):
         if alias in self.handles:
@@ -77,7 +81,8 @@ class MemoryOutputs:
             size = 0
         position = size if mode in ('A', 'AP') else 0
         output = replace(prior, name=name, mode=mode, position=position, closed=False).with_attributes(handle)
-        return MemoryOutputs(self.handles | {key: output}, self.sizes | {name: size})
+        changed = self.changed | {name} if mode == 'W' else self.changed
+        return MemoryOutputs(self.handles | {key: output}, self.sizes | {name: size}, changed)
 
     def descriptor(self, key):
         return self.handles.get(key, _FRESH_HANDLE)
@@ -95,8 +100,50 @@ class MemoryOutputs:
         prior_size = self.sizes[output.name]
         start = backend._write_start(output, prior_size, size, line)
         end = start + size
+        changed = self.changed | {output.name} if size else self.changed
         return MemoryOutputs(self.handles | {key: replace(output, position=end)},
-                             self.sizes | {output.name: max(prior_size, end)})
+                             self.sizes | {output.name: max(prior_size, end)}, changed)
+
+    def read_saved(self, key, backend, specs, formats, breaks, line, *, tick):
+        """Validate a saved batch and retain its cursor and initialization facts."""
+        output = self.descriptor(key)
+        if (type(backend) is not MemoryFiles or output.closed or output.mode in ('W', 'A', 'AP')
+                or output.name in self.changed or dict(output.attributes).get('xml')):
+            return None
+        data = backend.files.get(output.name)
+        if data is None or len(data) != self.sizes[output.name]:
+            return None
+        rt._read_line_breaks(len(specs), breaks, line)
+        start = output.position
+        if output.binary:
+            if breaks:
+                return None
+            fields = binary_read_fields([SimpleNamespace(spec=spec) for spec in specs], formats, line)
+            end = start + sum(width for width, _ in fields)
+            if end > len(data):
+                return None
+            tick(end - start)
+            values = []
+            offset = start
+            for width, code in fields:
+                raw = data[offset:offset + width]
+                offset += width
+                if code and output.reverse:
+                    code = '>' + code[1:]
+                values.append(raw.decode('ascii') if code is None else struct.unpack(code, raw)[0])
+        else:
+            tick(len(data) - start)
+            attributes = dict(output.attributes)
+            reader = rt.TextInput(data[start:].decode('ascii'), terminator=attributes.get('eol'),
+                                  field_mode=attributes.get('field', False))
+            fields = [dict(type=spec[0], type_spec=spec, format_specifiers=controls)
+                      for spec, controls in zip(specs, formats)]
+            values = reader(dict(targets=fields, line_breaks=breaks))
+            end = start + reader.offset
+        missing = tuple(rt.checked(spec, value, line) is rt.UNINITIALIZED
+                        for spec, value in zip(specs, values))
+        updated = replace(self, handles=self.handles | {key: replace(output, position=end)})
+        return updated, missing
 
     def set_attribute(self, key, attribute, value, line):
         output = self.descriptor(key)

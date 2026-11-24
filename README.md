@@ -3,7 +3,7 @@
 ![KarelToPython icon](karel2py/assets/icons/karel_to_python_icon_64x64.png)
 
 KarelToPython translates a supported subset of FANUC KAREL into Python for
-offline inspection and execution. The current build is **26.1124.163148**.
+offline inspection and execution. The current build is **26.1124.164030**.
 
 ## Table of Contents
 
@@ -107,7 +107,9 @@ It preserves the captured records and entries while format routines run.
 Linked discovery also follows text and binary `WRITE` to memory files. It
 tracks predefined routes and source-declared FILE cells through attributes,
 open, write, seek, availability queries, and close. Direct FILE arguments
-retain their original descriptors across calls to pinned routines.
+retain their original descriptors across calls to pinned routines. Text
+and binary `READ` from unchanged memory files retain selected destinations
+across pauses while keeping input values editable.
 Input discovery also tracks the status and handle for each possible TP open
 outcome. Inputs and results share one JSON file.
 Use `runner refresh` to carry compatible inputs to a new translation.

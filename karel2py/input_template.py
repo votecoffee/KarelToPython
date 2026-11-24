@@ -106,6 +106,8 @@ def _service_address(context, service, address):
                            'ports', 'positions', 'robot')
     if service == 'predefined_files':
         return type(address) is str and address in bank
+    if service == 'files':
+        return type(bank) is rt.MemoryFiles and type(address) is str and address in bank.files
     if service in ('numeric', 'strings'):
         return bool(re.fullmatch(r'[1-9][0-9]*', str(address)) and 1 <= int(address) <= bank.count)
     if service == 'ports':

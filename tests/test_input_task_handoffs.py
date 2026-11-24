@@ -4429,6 +4429,180 @@ END CHILD
         self.assertEqual(result['text_output'],' 4')
         self.assertNotIn('files',result['context'])
 
+    def test_binary_file_read_retains_original_destination_through_format_pause(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR stream:FILE cells:ARRAY[2] OF INTEGER selected,last,unused:INTEGER
+ROUTINE pick_cell:INTEGER
+BEGIN
+  PAUSE
+  RETURN selected
+END pick_cell
+ROUTINE byte_width:INTEGER
+BEGIN
+  selected=2
+  PAUSE
+  RETURN 1
+END byte_width
+BEGIN
+  selected=1
+  cells[2]=77
+  OPEN FILE stream('RB','in')
+  READ stream(cells[pick_cell()]::byte_width(),last::2)
+  IF (NOT UNINIT(cells[1])) AND (cells[2]=77) AND (GET_FILE_POS(stream)=3) THEN
+    CLOSE FILE stream
+  ELSE
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],files={'in':{'hex':'070901'}})
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation',
+                                      'task-wait','task-continuation'])
+        self.assertIn({'service':'files','address':'in'},report['context_requirements'])
+        self.assertEqual(result['status'],'completed',result['error'])
+        values=result['programs']['CHILD']['values']
+        self.assertEqual(values['CELLS'],[7,77])
+        self.assertEqual(values['LAST'],265)
+        self.assertEqual(result['context']['files'],{'in':{'hex':'070901'}})
+
+    def test_default_text_file_read_captures_record_and_selects_saved_cursor(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+%CRTDEVICE
+TYPE record_t=STRUCTURE amount:INTEGER tag:STRING[4] ENDSTRUCTURE
+VAR row:record_t last,unused:INTEGER
+ROUTINE field_width:INTEGER
+BEGIN
+  PAUSE
+  RETURN 2
+END field_width
+BEGIN
+  READ(row,CR,last::field_width())
+  IF (NOT UNINIT(row.amount)) AND (NOT UNINIT(row.tag)) AND (GET_FILE_POS(INPUT)=8) THEN
+    CLOSE FILE INPUT
+  ELSE
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],files={'in':'7 tag|42'},
+                                   predefined_files={'INPUT':{'name':'in','mode':'RO','attributes':{'eol':124}}})
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed',result['error'])
+        values=result['programs']['CHILD']['values']
+        self.assertEqual(values['ROW'],{'AMOUNT':7,'TAG':' tag'})
+        self.assertEqual(values['LAST'],42)
+        self.assertEqual(result['context']['files'],{'in':{'hex':b'7 tag|42'.hex()}})
+
+    def test_short_binary_read_batch_does_not_publish_the_first_destination(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR stream:FILE first,last,entered:INTEGER
+ROUTINE word_width:INTEGER
+BEGIN
+  PAUSE
+  RETURN 2
+END word_width
+BEGIN
+  entered=0
+  first=77
+  last=88
+  OPEN FILE stream('RB','in')
+  READ stream(first::1,last::word_width())
+  entered=1
+  PAUSE
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],files={'in':{'hex':'07'}})
+        self.assertIn('condition-source',[row['code'] for row in report['unresolved']])
+        self.assertEqual(result['status'],'failed')
+        self.assertIn('End of memory file',result['error']['message'])
+        values=result['programs']['CHILD']['values']
+        self.assertEqual((values['FIRST'],values['LAST'],values['ENTERED']),(77,88,0))
+        self.assertEqual(values['STREAM']['position'],0)
+
+    def test_saved_file_value_does_not_prove_a_branch_after_read(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR stream:FILE value,chosen,other:INTEGER
+BEGIN
+  OPEN FILE stream('RB','in')
+  READ stream(value::1)
+  IF value=7 THEN
+    WRITE(chosen)
+  ELSE
+    WRITE(other)
+  ENDIF
+  PAUSE
+END CHILD
+"""
+        report,_=self.prepare([('MAIN',main),('CHILD',child)],files={'in':{'hex':'07'}},replay=False)
+        self.assert_task_gaps(report,['task-scheduling','task-wait'])
+        self.assert_inputs(report,[('variable','CHILD','CHOSEN','conditional'),
+                                   ('variable','CHILD','OTHER','conditional')])
+
+    def test_read_of_modified_file_keeps_the_pause_unresolved(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR stream:FILE value,s,entered:INTEGER
+BEGIN
+  entered=0
+  value=77
+  OPEN FILE stream('RW','out')
+  WRITE stream('bad')
+  SET_FILE_POS(stream,0,s)
+  READ stream(value)
+  entered=1
+  PAUSE
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],files={'out':'007'})
+        self.assertIn('condition-source',[row['code'] for row in report['unresolved']])
+        self.assertEqual(result['status'],'failed')
+        self.assertIn('invalid INTEGER',result['error']['message'])
+        values=result['programs']['CHILD']['values']
+        self.assertEqual((values['VALUE'],values['ENTERED']),(77,0))
+        self.assertEqual(result['context']['files'],{'out':{'hex':b'bad'.hex()}})
+
     def test_request_status_is_not_reused_as_prelaunch_task_number(self):
         main="""PROGRAM MAIN
 VAR task_no,s:INTEGER text:STRING[8]

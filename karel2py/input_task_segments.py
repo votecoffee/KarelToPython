@@ -218,7 +218,7 @@ def _routine_calls(plan, node, tick):
                 yield from _expression_routines(plan, operand, tick)
         else:
             yield from _expression_routines(plan, call, tick, procedure=True)
-    elif kind == 'file_write':
+    elif kind in ('file_read', 'file_write'):
         yield from _expression_routines(plan, args[0], tick)
         yield from _routine_calls(plan, args[1], tick)
     elif kind in ('file_open', 'file_close'):
@@ -227,6 +227,11 @@ def _routine_calls(plan, node, tick):
     elif kind == 'write_items':
         for item in args:
             for operand in item['args']:
+                yield from _expression_routines(plan, operand, tick)
+    elif kind == 'read':
+        for item in args:
+            operands = item['args'] if item['kind'] == 'read_item' else (item,)
+            for operand in operands:
                 yield from _expression_routines(plan, operand, tick)
     elif kind == 'select':
         yield from _expression_routines(plan, args[0], tick)
@@ -267,7 +272,7 @@ def structured_child(plan, linked_plans, tick, *, predefined_files=()):
                          or aggregate_task_write(node) or node.get('data_assignment') is True
                          or node['kind'] == 'call' and (
                              queue_task_call(owner, node['args'][0]) or file_task_procedure(owner, node['args'][0]))
-                         or node['kind'] in ('file_open', 'file_write', 'file_close')
+                         or node['kind'] in ('file_open', 'file_read', 'file_write', 'file_close', 'read')
                          or node['kind'] == 'write_items' and owner.get('default_write_file') in predefined_files)
         pending.extend((owner, iter(body), True) for body in _branches(node) if body)
         for call in _routine_calls(owner, node, tick):

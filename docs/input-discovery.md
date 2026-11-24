@@ -822,10 +822,18 @@ cursor. A predefined alias passed directly to a FILE formal retains its
 configured binding. `ARRAY_LEN` can inspect a FILE bank or view without a
 backend, and `UNINIT` tests whether the selected FILE is closed.
 
-Unchecked FILE access can invalidate prior facts. FILE `READ`, FILE
-arguments obtained through `BYNAME`, and other backends still use conservative
-analysis. Configure the endpoint and supply any PATH storage and input stream
-data through the run context.
+A checked `READ` from an unchanged saved memory file can capture scalar,
+ordinary ARRAY, and named STRUCTURE destinations. The FILE selection,
+destination subscripts, and format expressions can pause. Each destination
+is retained before its format expressions run. Discovery validates the
+complete text or binary batch before recording destination initialization
+and the new cursor. The saved bytes remain editable and their decoded
+values do not decide branches during discovery.
+
+Files changed by the program, PATH and queue reads, other backends, and
+FILE arguments obtained through `BYNAME` still use conservative analysis.
+Configure the endpoint and supply any PATH storage and input stream data
+through the run context.
 
 ### PATH records
 
