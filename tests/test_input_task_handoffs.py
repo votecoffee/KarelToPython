@@ -3864,6 +3864,164 @@ END PEER
         self.assertIn('UD FILE WRITE must replace bytes',result['error']['message'])
         self.assertEqual(result['programs']['CHILD']['values']['ENTERED'],0)
 
+    def test_declared_file_array_retains_open_selector_through_pausing_operands(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR streams:ARRAY[2] OF FILE chosen,unused:INTEGER
+ROUTINE select_cell:INTEGER
+BEGIN
+  PAUSE
+  RETURN chosen
+END select_cell
+ROUTINE file_mode:STRING[4]
+BEGIN
+  chosen=2
+  PAUSE
+  RETURN 'WB'
+END file_mode
+ROUTINE file_name:STRING[8]
+BEGIN
+  PAUSE
+  RETURN 'first'
+END file_name
+BEGIN
+  chosen=1
+  OPEN FILE streams[select_cell()](file_mode(),file_name())
+  WRITE streams[1](258::2,CR)
+  IF (GET_FILE_POS(streams[1])=3) AND (BYTES_LEFT(streams[1])=0) THEN
+    chosen=1
+    CLOSE FILE streams[select_cell()]
+  ELSE
+    WRITE(unused)
+  ENDIF
+  OPEN FILE streams[2]('WO','second')
+  WRITE streams[2]('text')
+  CLOSE FILE streams[2]
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],files={})
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation',
+                                      'task-wait','task-continuation','task-wait','task-continuation',
+                                      'task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed')
+        self.assertEqual(result['context']['files'],{'first':{'hex':'02010a'},
+                                                    'second':{'hex':'74657874'}})
+
+    def test_write_captures_declared_handle_before_the_operand_opens_it(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR stream:FILE unused:INTEGER
+ROUTINE open_now:INTEGER
+BEGIN
+  OPEN FILE stream('WB','out')
+  PAUSE
+  RETURN 258
+END open_now
+BEGIN
+  WRITE stream(open_now()::2)
+  CLOSE FILE stream
+  OPEN FILE stream('AP','out')
+  WRITE stream(9)
+  CLOSE FILE stream
+  IF IO_STATUS(stream)<>0 THEN
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],files={})
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed')
+        self.assertEqual(result['text_output'],'')
+        self.assertEqual(result['context']['files']['out']['hex'],'020109000000')
+
+    def test_unclosed_routine_file_stays_busy_after_return(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR other:FILE entered:INTEGER
+ROUTINE open_local
+VAR stream:FILE
+BEGIN
+  OPEN FILE stream('WO','out')
+  PAUSE
+END open_local
+BEGIN
+  entered=0
+  open_local
+  OPEN FILE other('WO','out')
+  entered=1
+  PAUSE
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],files={})
+        self.assertIn('condition-source',[row['code'] for row in report['unresolved']])
+        self.assertEqual(result['status'],'failed')
+        self.assertIn('already open',result['error']['message'])
+        self.assertEqual(result['programs']['CHILD']['values']['ENTERED'],0)
+
+    def test_closed_declared_file_query_respects_a_pausing_selector(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR streams:ARRAY[2] OF FILE unused:INTEGER
+ROUTINE pick_cell:INTEGER
+BEGIN
+  PAUSE
+  RETURN 2
+END pick_cell
+BEGIN
+  OPEN FILE streams[2]('WO','out')
+  CLOSE FILE streams[2]
+  IF IO_STATUS(streams[pick_cell()])=0 THEN
+    OPEN FILE streams[2]('WO','out')
+    WRITE streams[2](17)
+    CLOSE FILE streams[2]
+  ELSE
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],files={})
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed')
+        self.assertEqual(result['context']['files']['out']['hex'],'203137')
+
     def test_request_status_is_not_reused_as_prelaunch_task_number(self):
         main="""PROGRAM MAIN
 VAR task_no,s:INTEGER text:STRING[8]

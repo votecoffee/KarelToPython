@@ -17,6 +17,7 @@ TASK_DATA_AGGREGATES = frozenset(('ARRAY', 'JOINTPOS', *RECORD_TYPES))
 TASK_ROUTINE_VALUES = frozenset(SCALARS) | TASK_DATA_AGGREGATES
 PATH_TASK_EDITS = frozenset(('APPEND_NODE', 'INSERT_NODE', 'DELETE_NODE'))
 QUEUE_TASK_EDITS = frozenset(QUEUE_EDIT_INPUTS) | {'INIT_QUEUE', 'COPY_QUEUE'}
+FILE_TASK_QUERIES = frozenset(('GET_FILE_POS', 'BYTES_LEFT', 'IO_STATUS'))
 _REPEAT_SAMPLE = object()
 
 
@@ -173,7 +174,8 @@ def _expression_routines(plan, expression, tick, *, procedure=False):
     tick()
     kind = expression['kind']
     builtin = (not procedure and kind == 'call'
-               and (expression['value'] == 'ARRAY_LEN' or expression['value'] in CONSTANT_BUILTINS))
+               and (expression['value'] == 'ARRAY_LEN' or expression['value'] in CONSTANT_BUILTINS
+                    or expression['value'] in FILE_TASK_QUERIES and expression['value'] not in plan['routines']))
     if builtin or scalar_task_operator(expression) or kind in ('field', 'index', 'path_io_range', 'repeat_eval'):
         for operand in expression['args']:
             yield from _expression_routines(plan, operand, tick, procedure=procedure)
@@ -203,7 +205,11 @@ def _routine_calls(plan, node, tick):
         else:
             yield from _expression_routines(plan, call, tick, procedure=True)
     elif kind == 'file_write':
+        yield from _expression_routines(plan, args[0], tick)
         yield from _routine_calls(plan, args[1], tick)
+    elif kind in ('file_open', 'file_close'):
+        for operand in args:
+            yield from _expression_routines(plan, operand, tick)
     elif kind == 'write_items':
         for item in args:
             for operand in item['args']:
@@ -246,7 +252,7 @@ def structured_child(plan, linked_plans, tick, *, predefined_files=()):
         found_control = (found_control or node['kind'] in STRUCTURED_LOOPS
                          or aggregate_task_write(node) or node.get('data_assignment') is True
                          or node['kind'] == 'call' and queue_task_call(owner, node['args'][0])
-                         or node['kind'] in ('file_write', 'file_close')
+                         or node['kind'] in ('file_open', 'file_write', 'file_close')
                          or node['kind'] == 'write_items' and owner.get('default_write_file') in predefined_files)
         pending.extend((owner, iter(body), True) for body in _branches(node) if body)
         for call in _routine_calls(owner, node, tick):

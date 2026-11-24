@@ -18,14 +18,14 @@ from .extended import (
 )
 from .file_io import MAX_PATH_IO_FIELDS, path_io_field_count, path_io_indexes
 from .input_contract import extract, InputContractError
-from .input_file_output import MemoryOutputs
+from .input_file_output import FileKey, MemoryOutputs
 from .input_model_transfers import evaluate_model_paths, evaluate_model_variables
 from .input_position_values import (
     POSITION_CLEARED, POSITION_GETTERS, POSITION_MODIFIED, POSITION_SERVICES, POSITION_SETTERS,
     checked_position_facts, merge_positions, position_register_result,
 )
 from .input_task_segments import (
-    STRUCTURED_LOOPS, TASK_DATA_AGGREGATES, TASK_ROUTINE_VALUES, bind_repeat_samples, bounded_child,
+    FILE_TASK_QUERIES, STRUCTURED_LOOPS, TASK_DATA_AGGREGATES, TASK_ROUTINE_VALUES, bind_repeat_samples, bounded_child,
     explicit_pause, queue_task_call, repeat_capture_parts, resolve_routine, scalar_task_operator, select_case_labels,
     structured_child, task_handoff_window,
 )
@@ -250,9 +250,17 @@ class _TaskArrayLength:
 
 
 @dataclass(frozen=True)
+class _TaskFile:
+    node: dict
+    consumer: '_TaskValueConsumer | None' = None
+    key: FileKey | None = None
+    values: tuple[object, ...] = ()
+
+
+@dataclass(frozen=True)
 class _TaskWrite:
     node: dict
-    file_alias: str | None = None
+    file_key: FileKey | None = None
     index: int = 0
     values: tuple[_Value, ...] = ()
     aggregate: rt._AggregateWriteValue | None = None
@@ -279,7 +287,8 @@ class _TaskQueue:
 
 _TaskValueConsumer = (dict | _TaskSelect | _TaskForHeader | _TaskLoop | _TaskExpression |
                       _TaskArguments | _TaskAssignment | _TaskSelection | _TaskResultSelection |
-                      _TaskArrayLength | _TaskWrite | _TaskRepeatCapture | _TaskQueueCall | _TaskCollectionWrite)
+                      _TaskArrayLength | _TaskWrite | _TaskRepeatCapture | _TaskQueueCall | _TaskCollectionWrite |
+                      _TaskFile)
 
 
 @dataclass(frozen=True)
@@ -295,7 +304,7 @@ class _TaskRoutine:
 class _Suspension:
     blocks: tuple[tuple[list, int] | _TaskLoop | _TaskRoutine | _TaskSelect |
                   _TaskForHeader | _TaskExpression | _TaskArguments | _TaskSelection | _TaskWrite |
-                  _TaskQueueCall | _TaskCollectionWrite, ...]
+                  _TaskQueueCall | _TaskCollectionWrite | _TaskFile, ...]
     flow: '_Flow'
 
 
@@ -5037,6 +5046,9 @@ class _Analyzer(TeachDiscovery):
             if isinstance(frame, _TaskWrite):
                 self.next_task_write_item(blocks, child, scope, frame)
                 continue
+            if isinstance(frame, _TaskFile):
+                self.next_task_file(blocks, child, scope, frame)
+                continue
             if isinstance(frame, _TaskCollectionWrite):
                 self.next_task_collection_write(blocks, child, scope, frame)
                 continue
@@ -5106,15 +5118,11 @@ class _Analyzer(TeachDiscovery):
                 raise _TaskOrderUnknown()
             blocks.append(_TaskArguments(call, None))
             return
-        if kind in ('write_items', 'file_write'):
-            self.start_task_write(blocks, flow, scope, node)
+        if kind == 'write_items':
+            self.start_task_write(blocks, flow, node)
             return
-        if kind == 'file_close' and args[0] is not None:
-            alias = self.task_predefined_file_alias(scope, args[0])
-            outputs = self.capture_task_file(flow, alias, node).close(alias)
-            if outputs is None:
-                raise _TaskOrderUnknown()
-            flow.task_file_outputs = outputs
+        if kind in ('file_open', 'file_write', 'file_close') and args[0] is not None:
+            self.start_task_file(blocks, flow, scope, node)
             return
         if kind in STRUCTURED_LOOPS and scope.loop(node):
             if kind == 'for':
@@ -5150,18 +5158,13 @@ class _Analyzer(TeachDiscovery):
         if value is not None:
             self.consume_task_value(blocks, flow, consumer, value)
 
-    def task_predefined_file_alias(self, scope, selector):
-        alias = selector['value']
-        if selector['kind'] != 'name' or alias in scope.types or alias not in PREDEFINED_FILE_NAMES:
-            raise _TaskOrderUnknown()
-        return alias
-
     def capture_task_file(self, flow, alias, node):
         self.context('predefined_files', alias)
         bindings = getattr(self.saved_bindings, 'predefined_files', ())
         outputs = flow.task_file_outputs
         if outputs is None or alias not in bindings:
             raise _TaskOrderUnknown()
+        self.tick(len(outputs.handles))
         try:
             captured = outputs.capture(alias, self.saved_bindings.memory_files, bindings[alias], node.get('line'))
         except rt.KarelRuntimeError:
@@ -5170,36 +5173,87 @@ class _Analyzer(TeachDiscovery):
             raise _TaskOrderUnknown()
         return captured
 
-    def start_task_write(self, blocks, flow, scope, node):
-        if node['kind'] == 'file_write':
-            selector, node = node['args']
-            alias = self.task_predefined_file_alias(scope, selector)
-        else:
-            alias = self.plan.get('default_write_file')
-            bindings = getattr(self.saved_bindings, 'predefined_files', None)
-            if alias is None or bindings is None:
+    def start_task_file(self, blocks, flow, scope, node, consumer=None):
+        selector = node['args'][0]
+        while selector['kind'] == 'group':
+            selector = selector['args'][0]
+        alias = selector['value']
+        file = _TaskFile(node, consumer)
+        if selector['kind'] == 'name' and alias in PREDEFINED_FILE_NAMES and alias not in scope.types:
+            if node['kind'] == 'file_open':
                 raise _TaskOrderUnknown()
-            if alias not in bindings:
-                alias = None
-        if alias is not None:
             flow.task_file_outputs = self.capture_task_file(flow, alias, node)
-        blocks.append(_TaskWrite(node, file_alias=alias))
+            blocks.append(replace(file, key=alias))
+            return
+        if scope.reference_schema(selector, staged=True) != ['FILE']:
+            raise _TaskOrderUnknown()
+        blocks.append(file)
+        self.start_task_selection(blocks, flow, selector, file)
+
+    def next_task_file(self, blocks, flow, scope, pending):
+        self.tick()
+        node, key = pending.node, pending.key
+        kind, args = node['kind'], node['args']
+        if kind == 'file_write':
+            blocks[-1] = _TaskWrite(args[1], file_key=key)
+            return
+        if kind == 'file_open' and len(pending.values) < 2:
+            value = self.task_operand(args[len(pending.values) + 1], flow, scope, blocks, pending)
+            if value is not None:
+                self.consume_task_value(blocks, flow, pending, value)
+            return
+        outputs = flow.task_file_outputs
+        if outputs is None:
+            raise _TaskOrderUnknown()
+        blocks.pop()
+        if kind == 'call':
+            value = outputs.query(key, node['value'])
+            if value is None:
+                raise _TaskOrderUnknown()
+            self.consume_task_value(blocks, flow, pending.consumer, _Value(value, spec=['INTEGER']))
+            return
+
+        self.tick(len(outputs.handles))
+        if kind == 'file_open':
+            mode, name = pending.values
+            backend = getattr(self.saved_bindings, 'memory_files', None)
+            try:
+                outputs = outputs.open(key, backend, name, mode, node.get('line'))
+            except rt.KarelRuntimeError:
+                raise _TaskOrderUnknown() from None
+        else:
+            outputs = outputs.close(key)
+        if outputs is None:
+            raise _TaskOrderUnknown()
+        flow.task_file_outputs = outputs
+
+    def start_task_write(self, blocks, flow, node):
+        alias = self.plan.get('default_write_file')
+        bindings = getattr(self.saved_bindings, 'predefined_files', None)
+        if alias is None or bindings is None:
+            raise _TaskOrderUnknown()
+        if alias in bindings:
+            flow.task_file_outputs = self.capture_task_file(flow, alias, node)
+        else:
+            alias = None
+        blocks.append(_TaskWrite(node, file_key=alias))
 
     def next_task_write_item(self, blocks, flow, scope, write):
         self.tick()
         outputs, output = flow.task_file_outputs, None
-        if write.file_alias is not None:
+        if write.file_key is not None:
             if outputs is None:
                 raise _TaskOrderUnknown()
-            output = outputs.aliases[write.file_alias]
+            output = outputs.descriptor(write.file_key)
         items = write.node['args']
         if write.index == len(items):
             if not 1 <= write.rendered_pieces <= 1024:
                 raise _TaskOrderUnknown()
             if output is not None:
+                self.tick(len(outputs.handles))
+                backend = getattr(self.saved_bindings, 'memory_files', None)
                 try:
-                    updated = outputs.write(write.file_alias, self.saved_bindings.memory_files,
-                                            write.rendered_length, write.node.get('line'))
+                    updated = outputs.write(write.file_key, backend, write.rendered_length, write.node.get('line'))
                 except rt.KarelRuntimeError:
                     raise _TaskOrderUnknown() from None
                 if updated is None:
@@ -5500,6 +5554,11 @@ class _Analyzer(TeachDiscovery):
             raise _TaskOrderUnknown() from None
 
     def task_operand(self, node, flow, scope, blocks, consumer):
+        if node['kind'] == 'call' and node['value'] in FILE_TASK_QUERIES and node['value'] not in self.plan['routines']:
+            if len(node['args']) != 1:
+                raise _TaskOrderUnknown()
+            self.start_task_file(blocks, flow, scope, node, consumer)
+            return None
         if node['kind'] == 'call' and node['value'] == 'ARRAY_LEN':
             if len(node['args']) not in (1, 2):
                 raise _TaskOrderUnknown()
@@ -5622,6 +5681,10 @@ class _Analyzer(TeachDiscovery):
             self.consume_task_value(blocks, flow, consumer, value)
         elif isinstance(consumer, (_TaskArguments, _TaskQueueCall)):
             blocks[-1] = replace(consumer, actuals=(*consumer.actuals, loc))
+        elif isinstance(consumer, _TaskFile):
+            if loc.spec != ['FILE']:
+                raise _TaskOrderUnknown()
+            blocks[-1] = replace(consumer, key=loc.key)
         elif isinstance(consumer, _TaskCollectionWrite):
             expected, terminal = _array_dimensions(consumer.schema)
             actual, member = _array_dimensions(loc.spec)
@@ -5883,7 +5946,7 @@ class _Analyzer(TeachDiscovery):
             blocks[-1] = replace(consumer, values=(*consumer.values, value))
         elif isinstance(consumer, _TaskArrayLength):
             blocks[-1] = replace(consumer, values=(*consumer.values, value))
-        elif isinstance(consumer, _TaskCollectionWrite):
+        elif isinstance(consumer, (_TaskCollectionWrite, _TaskFile)):
             blocks[-1] = replace(consumer, values=(*consumer.values, value.constant))
         elif isinstance(consumer, _TaskQueueCall):
             blocks[-1] = replace(consumer, actuals=(*consumer.actuals, value))

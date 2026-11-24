@@ -796,10 +796,19 @@ The file's byte capacity applies at publication, including the existing
 length restriction for update mode. Close the predefined FILE in the source
 to include its bytes in the saved run results.
 
-Unchecked FILE access can invalidate prior facts. Declared FILE handles,
-other backends, and FILE `READ` still require conservative analysis.
-Configure the endpoint and supply any PATH storage and input stream data
-through the run context.
+A checked child also follows declared FILE variables and FILE ARRAY cells
+through `OPEN FILE`, `WRITE`, and `CLOSE FILE` on the same memory backend.
+OPEN captures the selected cell before its mode and endpoint run. Each of
+those expressions can pause. A WRITE uses the captured cell's current
+format while its items run, so an operand can open that same cell before
+the batch is written. Explicit CLOSE releases the endpoint for another
+handle. `GET_FILE_POS`, `BYTES_LEFT`, and `IO_STATUS` use the modeled
+descriptor and cursor, including when selecting the FILE cell pauses.
+
+Unchecked FILE access can invalidate prior facts. FILE `READ`, FILE
+arguments to routines, attributes and seeks, and other backends still use
+conservative analysis. Configure the endpoint and supply any PATH storage
+and input stream data through the run context.
 
 ### PATH records
 
