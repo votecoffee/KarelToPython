@@ -171,11 +171,17 @@ def bind_repeat_samples(node, samples, tick):
 
 
 def task_resource_storage(spec):
-    return array_dimensions(spec)[1] in (['FILE'], ['QUEUE_TYPE'])
+    _, terminal = array_dimensions(spec)
+    return bool(terminal and terminal[0] in ('FILE', 'QUEUE_TYPE', 'PATH'))
 
 
 def queue_task_storage(spec):
     return array_dimensions(spec)[1] == ['QUEUE_TYPE']
+
+
+def path_task_storage(spec):
+    _, terminal = array_dimensions(spec)
+    return bool(terminal and terminal[0] == 'PATH')
 
 
 def _expression_routines(plan, expression, tick, *, procedure=False):
@@ -184,7 +190,7 @@ def _expression_routines(plan, expression, tick, *, procedure=False):
     tick()
     kind = expression['kind']
     builtin = (not procedure and kind == 'call' and expression['value'] not in plan['routines']
-               and (expression['value'] in ('ARRAY_LEN', 'UNINIT')
+               and (expression['value'] in ('ARRAY_LEN', 'PATH_LEN', 'UNINIT')
                     or expression['value'] in CONSTANT_BUILTINS or expression['value'] in FILE_TASK_QUERIES))
     if builtin or scalar_task_operator(expression) or kind in ('field', 'index', 'path_io_range', 'repeat_eval'):
         for operand in expression['args']:
@@ -441,10 +447,13 @@ class _SegmentRules:
         formals = self.plan['routines'][call['value']]['parameters']
         if len(actuals) != len(modes) or len(modes) != len(formals):
             return None
-        return call if all(mode == 'reference' if task_resource_storage(spec) and not queue_task_storage(spec)
-                           else mode in ('value', 'reference') and (spec[0] in TASK_ROUTINE_VALUES
-                                                                   or queue_task_storage(spec))
-                           for mode, (_, spec) in zip(modes, formals)) else None
+        for mode, (_, spec) in zip(modes, formals):
+            _, terminal = array_dimensions(spec)
+            if (mode not in ('value', 'reference')
+                    or terminal == ['FILE'] and mode != 'reference'
+                    or spec[0] not in TASK_ROUTINE_VALUES and not task_resource_storage(spec)):
+                return None
+        return call
 
     def branch(self, node):
         args = node['args']

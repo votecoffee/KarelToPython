@@ -88,6 +88,9 @@ aggregate destinations and update the cursor across pauses. Bounded file
 images track published bytes through overwrites, truncation, and reopen.
 PATH reads cover whole PATHs, headers, nodes, ordered ranges, and bank
 selections with known ordinary data fields.
+Pinned calls preserve borrowed PATHs and bank components. Grouped storage
+and flat slices keep private snapshots for matching schemas. PATH count and
+bank shape queries use the selected storage.
 Queue reads cover existing entries in initialized queues and bank selections,
 preserving IDs and releasing the previous backing ARRAY. Discovery follows
 saved queue topology through edits and copies and retains the saved root

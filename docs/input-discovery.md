@@ -842,6 +842,14 @@ selected. Discovery keeps those records' captured fields while formats and
 later destinations run. A format routine can remove a node without changing
 which storage receives the previously captured values.
 
+Bare PATHs, whole PATH banks, and named ARRAY components passed by reference
+retain the caller's storage through pauses and pinned routine forwarding.
+Grouped PATHs and flat row or plane arguments with matching schemas capture
+private copies before later operands run. Discovery retains shaped records
+with uninitialized scalar fields so later reads can fill them. `PATH_LEN`
+uses the selected PATH's current node count after its selectors finish.
+`ARRAY_LEN` uses the bound bank's concrete dimensions.
+
 Memory FILE `READ` can also replace values in initialized queues and selected
 queue banks. Banks are visited in row-major order, and initialized
 queues with no entries consume no fields. A batch needs at least one existing
