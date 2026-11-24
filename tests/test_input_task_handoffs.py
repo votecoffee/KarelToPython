@@ -4574,7 +4574,7 @@ END CHILD
         self.assert_inputs(report,[('variable','CHILD','CHOSEN','conditional'),
                                    ('variable','CHILD','OTHER','conditional')])
 
-    def test_read_of_modified_file_keeps_the_pause_unresolved(self):
+    def test_read_of_malformed_written_file_keeps_the_pause_unresolved(self):
         main="""PROGRAM MAIN
 VAR s:INTEGER
 BEGIN
@@ -4602,6 +4602,141 @@ END CHILD
         values=result['programs']['CHILD']['values']
         self.assertEqual((values['VALUE'],values['ENTERED']),(77,0))
         self.assertEqual(result['context']['files'],{'out':{'hex':b'bad'.hex()}})
+
+    def test_text_file_round_trip_keeps_written_value_across_pausing_formats(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR stream:FILE value,s,unused:INTEGER
+ROUTINE field_width(width:INTEGER):INTEGER
+BEGIN
+  PAUSE
+  RETURN width
+END field_width
+BEGIN
+  SET_FILE_ATR(stream,ATR_EOL,124)
+  OPEN FILE stream('RW','out')
+  WRITE stream(17::field_width(2),CR)
+  SET_FILE_POS(stream,0,s)
+  READ stream(value::field_width(3),CR)
+  IF (value=17) AND (s=0) AND (GET_FILE_POS(stream)=4) THEN
+    CLOSE FILE stream
+  ELSE
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],files={})
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation',
+                                      'task-wait','task-continuation'])
+        self.assertNotIn({'service':'files','address':'out'},report['context_requirements'])
+        self.assertEqual(result['status'],'completed',result['error'])
+        self.assertEqual(result['programs']['CHILD']['values']['VALUE'],17)
+        self.assertEqual(result['context']['files'],{'out':{'hex':b' 17|'.hex()}})
+
+    def test_binary_file_round_trip_follows_truncate_reopen_and_append(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR original,appender:FILE first,last,s,unused:INTEGER
+BEGIN
+  SET_FILE_ATR(original,ATR_REVERSE)
+  OPEN FILE original('WB','out')
+  WRITE original(258::2)
+  CLOSE FILE original
+  SET_FILE_ATR(appender,ATR_REVERSE)
+  OPEN FILE appender('APB','out')
+  WRITE appender(-3::2)
+  PAUSE
+  SET_FILE_POS(appender,0,s)
+  READ appender(first::2,last::2)
+  IF (first=258) AND (last=-3) AND (BYTES_LEFT(appender)=0) THEN
+    CLOSE FILE appender
+  ELSE
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],files={'out':'obsolete'})
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation'])
+        self.assertNotIn({'service':'files','address':'out'},report['context_requirements'])
+        self.assertEqual(result['status'],'completed',result['error'])
+        values=result['programs']['CHILD']['values']
+        self.assertEqual((values['FIRST'],values['LAST']),(258,-3))
+        self.assertEqual(result['context']['files'],{'out':{'hex':'0102fffd'}})
+
+    def test_partial_overwrite_preserves_saved_bytes_without_folding_the_value(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR stream:FILE value,s,chosen,other:INTEGER
+BEGIN
+  OPEN FILE stream('RW','out')
+  WRITE stream('09')
+  SET_FILE_POS(stream,0,s)
+  READ stream(value::4)
+  IF value=934 THEN
+    WRITE(chosen)
+  ELSE
+    WRITE(other)
+  ENDIF
+  CLOSE FILE stream
+  PAUSE
+END CHILD
+"""
+        report,_=self.prepare([('MAIN',main),('CHILD',child)],files={'out':'1234'},replay=False)
+        self.assert_inputs(report,[('variable','CHILD','CHOSEN','conditional'),
+                                   ('variable','CHILD','OTHER','conditional')])
+        self.assert_task_gaps(report,['task-scheduling','task-wait'])
+        self.assertIn({'service':'files','address':'out'},report['context_requirements'])
+
+    def test_output_keeps_cursor_facts_when_the_modified_image_is_large(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR stream:FILE unused:INTEGER
+BEGIN
+  OPEN FILE stream('UD','out')
+  WRITE stream('B')
+  IF (GET_FILE_POS(stream)=1) AND (BYTES_LEFT(stream)=65536) THEN
+    CLOSE FILE stream
+    PAUSE
+  ELSE
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],files={'out':'A'*65537})
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait'])
+        self.assertEqual(result['status'],'paused',result['error'])
+        self.assertEqual(result['context']['files']['out']['hex'],(b'B'+b'A'*65536).hex())
 
     def test_request_status_is_not_reused_as_prelaunch_task_number(self):
         main="""PROGRAM MAIN

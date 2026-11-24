@@ -268,6 +268,7 @@ class _TaskWrite:
     aggregate: rt._AggregateWriteValue | None = None
     rendered_pieces: int = 0
     rendered_length: int = 0
+    file_pieces: tuple[str | bytes, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -5360,18 +5361,21 @@ class _Analyzer(TeachDiscovery):
         formats = [controls for _, controls in read.fields]
         try:
             with rt._numeric_scope('pythonic'):
-                prepared = outputs.read_saved(read.file_key, backend, specs, formats, read.line_breaks,
-                                              read.node.get('line'), tick=self.tick)
+                prepared = outputs.read(read.file_key, backend, specs, formats, read.line_breaks,
+                                        read.node.get('line'), tick=self.tick)
         except (rt.KarelRuntimeError, UnicodeError):
             raise _TaskOrderUnknown() from None
         if prepared is None:
             raise _TaskOrderUnknown()
-        flow.task_file_outputs, missing = prepared
-        self.context('files', outputs.descriptor(read.file_key).name)
-        # Keep saved FILE values editable. Only initialization and cursor facts
-        # participate after the complete batch has been validated.
-        for (loc, _), uninitialized in zip(read.fields, missing):
-            self.write(loc, _Value(spec=loc.spec, complete=not uninitialized, uninitialized=uninitialized), flow, read.node)
+        flow.task_file_outputs, values, depends_on_saved = prepared
+        if depends_on_saved:
+            self.context('files', outputs.descriptor(read.file_key).name)
+        # Bytes derived from saved input remain editable even after an overwrite.
+        for (loc, _), value in zip(read.fields, values):
+            uninitialized = value is rt.UNINITIALIZED
+            constant = UNKNOWN if depends_on_saved or uninitialized else value
+            fact = _Value(constant, complete=not uninitialized, spec=loc.spec, uninitialized=uninitialized)
+            self.write(loc, fact, flow, read.node)
 
     def next_task_write_item(self, blocks, flow, scope, write):
         self.tick()
@@ -5388,7 +5392,8 @@ class _Analyzer(TeachDiscovery):
                 self.tick(len(outputs.handles) + len(outputs.sizes))
                 backend = getattr(self.saved_bindings, 'memory_files', None)
                 try:
-                    updated = outputs.write(write.file_key, backend, write.rendered_length, write.node.get('line'))
+                    updated = outputs.write(write.file_key, backend, write.file_pieces, write.node.get('line'),
+                                            tick=self.tick)
                 except rt.KarelRuntimeError:
                     raise _TaskOrderUnknown() from None
                 if updated is None:
@@ -5401,7 +5406,7 @@ class _Analyzer(TeachDiscovery):
 
         item = items[write.index]
         if item['kind'] == 'write_cr':
-            count = length = 1
+            pieces = ('\n',)
         else:
             kind = item.get('write_type')
             collection = item.get('write_collection')
@@ -5424,10 +5429,14 @@ class _Analyzer(TeachDiscovery):
                     self.consume_task_value(blocks, flow, write, value)
                 return
 
-            count, length = self.render_task_write_item(item, write, output)
-        # Runtime checks the expanded batch only after rendering every item.
+            pieces = self.render_task_write_item(item, write, output)
+        count = write.rendered_pieces + len(pieces)
+        length = write.rendered_length + sum(map(len, pieces))
+        # Validate the expanded batch after its last item. An oversized batch
+        # still evaluates every later item without retaining more output bytes.
+        retained = (*write.file_pieces, *pieces) if output is not None and count <= 1024 else ()
         blocks[-1] = replace(write, index=write.index + 1, values=(), aggregate=None,
-                             rendered_pieces=write.rendered_pieces + count, rendered_length=write.rendered_length + length)
+                             rendered_pieces=count, rendered_length=length, file_pieces=retained)
 
     def next_task_queue_call(self, blocks, flow, scope, pending):
         self.tick()
@@ -5631,12 +5640,10 @@ class _Analyzer(TeachDiscovery):
         try:
             with rt._numeric_scope('pythonic'):
                 if write.aggregate is not None:
-                    pieces = rt.format_aggregate_write(write.aggregate, values, line, file=output)
-                    return len(pieces), sum(map(len, pieces))
+                    return rt.format_aggregate_write(write.aggregate, values, line, file=output)
                 value, *formats = values
                 kind = item['write_type']
-                piece = rt.optional_file_piece(output, kind, value, formats, line)
-                return 1, len(piece)
+                return (rt.optional_file_piece(output, kind, value, formats, line),)
         except rt.KarelRuntimeError:
             raise _TaskOrderUnknown() from None
 

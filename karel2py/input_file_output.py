@@ -11,6 +11,7 @@ from .serial_io import serial_address
 
 
 FileKey = str | tuple
+_MAX_IMAGE_BYTES = 64 * 1024
 _FILE_ATTRIBUTES = ('eol', 'xml', 'field', 'passall', 'noecho', 'interactive',
                     'pipe_wait', 'pipe_overflow', 'read_timeout_ms')
 
@@ -23,6 +24,7 @@ class _MemoryOutput:
     reverse: bool
     position: int
     closed: bool = False
+    append_ready: bool = False
     attributes: tuple[tuple[str, int | bool | None], ...] = ()
 
     def format_handle(self):
@@ -45,12 +47,20 @@ _FRESH_HANDLE = _MemoryOutput('', '', False, False, 0, closed=True)
 
 
 @dataclass(frozen=True)
+class _MemoryImage:
+    data: bytes | None
+    depends_on_saved: bool
+
+
+@dataclass(frozen=True)
 class MemoryOutputs:
-    """Keep descriptor lifetimes and byte sizes across synchronized task slices."""
+    """Keep descriptor lifetimes and bounded file images across synchronized slices."""
 
     handles: dict[FileKey, _MemoryOutput] = field(default_factory=dict)
     sizes: dict[str, int] = field(default_factory=dict)
-    changed: frozenset[str] = frozenset()
+    # An absent image uses the original saved bytes. A recorded image with
+    # absent data has a proven size but exceeded the byte retention limit.
+    images: dict[str, _MemoryImage] = field(default_factory=dict)
 
     def capture(self, alias, backend, binding, line):
         if alias in self.handles:
@@ -72,17 +82,20 @@ class MemoryOutputs:
         backend._check(name, b'')
         mode, handle.binary = backend._access_mode(handle, mode, line)
         size = self.sizes.get(name)
+        initial = backend.files.get(name)
+        created = size is None and initial is None
+        if created and mode in ('R', 'UD'):
+            return None
         if size is None:
-            initial = backend.files.get(name)
-            if initial is None and mode in ('R', 'UD'):
-                return None
             size = len(initial) if initial is not None else 0
-        if mode == 'W':
+        images = self.images
+        if mode == 'W' or created:
             size = 0
+            images = images | {name: _MemoryImage(b'', False)}
         position = size if mode in ('A', 'AP') else 0
-        output = replace(prior, name=name, mode=mode, position=position, closed=False).with_attributes(handle)
-        changed = self.changed | {name} if mode == 'W' else self.changed
-        return MemoryOutputs(self.handles | {key: output}, self.sizes | {name: size}, changed)
+        output = replace(prior, name=name, mode=mode, position=position, closed=False,
+                         append_ready=False).with_attributes(handle)
+        return MemoryOutputs(self.handles | {key: output}, self.sizes | {name: size}, images)
 
     def descriptor(self, key):
         return self.handles.get(key, _FRESH_HANDLE)
@@ -93,24 +106,42 @@ class MemoryOutputs:
             return None
         return replace(self, handles=self.handles | {key: replace(output, closed=True)})
 
-    def write(self, key, backend, size, line):
+    def write(self, key, backend, pieces, line, *, tick):
         output = self.descriptor(key)
         if output.closed:
             return None
-        prior_size = self.sizes[output.name]
-        start = backend._write_start(output, prior_size, size, line)
-        end = start + size
-        changed = self.changed | {output.name} if size else self.changed
-        return MemoryOutputs(self.handles | {key: replace(output, position=end)},
-                             self.sizes | {output.name: max(prior_size, end)}, changed)
+        payload = rt._FileWritePayload(pieces, line)
+        name = output.name
+        prior_size = self.sizes[name]
+        start = backend._write_start(output, prior_size, payload.size, line)
+        end = start + payload.size
+        size = max(prior_size, end)
+        images = self.images
+        if payload.size:
+            image = images.get(name)
+            retained = sum(len(other.data) for path, other in images.items() if path != name and other.data is not None)
+            before = backend.files.get(name) if image is None else image.data
+            depends_on_saved = image is None or image.depends_on_saved
+            data = None
+            if retained + size <= _MAX_IMAGE_BYTES and before is not None and len(before) == prior_size:
+                # Charge copies in chunks so larger output-only writes still
+                # work when discovery retains only the byte count and cursor.
+                tick((size + 255) // 256)
+                buffer = bytearray(before)
+                backend._store_bytes(buffer, start, payload.to_bytes(output.format_handle()))
+                data = bytes(buffer)
+            images = images | {name: _MemoryImage(data, depends_on_saved)}
+        handle = replace(output, position=end, append_ready=output.append_ready or (output.mode == 'AP' and payload.size > 0))
+        return MemoryOutputs(self.handles | {key: handle}, self.sizes | {name: size}, images)
 
-    def read_saved(self, key, backend, specs, formats, breaks, line, *, tick):
-        """Validate a saved batch and retain its cursor and initialization facts."""
+    def read(self, key, backend, specs, formats, breaks, line, *, tick):
+        """Validate a batch and retain its values, provenance, and cursor."""
         output = self.descriptor(key)
-        if (type(backend) is not MemoryFiles or output.closed or output.mode in ('W', 'A', 'AP')
-                or output.name in self.changed or dict(output.attributes).get('xml')):
+        if (type(backend) is not MemoryFiles or output.closed or output.mode in ('W', 'A')
+                or output.mode == 'AP' and not output.append_ready or dict(output.attributes).get('xml')):
             return None
-        data = backend.files.get(output.name)
+        image = self.images.get(output.name)
+        data = backend.files.get(output.name) if image is None else image.data
         if data is None or len(data) != self.sizes[output.name]:
             return None
         rt._read_line_breaks(len(specs), breaks, line)
@@ -140,10 +171,9 @@ class MemoryOutputs:
                       for spec, controls in zip(specs, formats)]
             values = reader(dict(targets=fields, line_breaks=breaks))
             end = start + reader.offset
-        missing = tuple(rt.checked(spec, value, line) is rt.UNINITIALIZED
-                        for spec, value in zip(specs, values))
+        checked = tuple(rt.checked(spec, value, line) for spec, value in zip(specs, values))
         updated = replace(self, handles=self.handles | {key: replace(output, position=end)})
-        return updated, missing
+        return updated, checked, image is None or image.depends_on_saved
 
     def set_attribute(self, key, attribute, value, line):
         output = self.descriptor(key)

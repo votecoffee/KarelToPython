@@ -83,8 +83,9 @@ before its mode and name. Attribute, seek, and availability calls retain
 the selected descriptor and completed operands across pauses. Direct scalar
 FILE and FILE ARRAY parameters keep their original cells through pinned
 routine calls and forwarding, including borrowed rows and planes.
-Text and binary reads from unchanged memory files can capture scalar and
-ordinary aggregate destinations and update the cursor across pauses.
+Text and binary reads from memory files can capture scalar and ordinary
+aggregate destinations and update the cursor across pauses. Bounded file
+images track published bytes through overwrites, truncation, and reopen.
 Scalar and ordinary aggregate `REPEAT UNTIL` captures run once before the
 live test and carry their values across pauses and iterations.
 Discovery tracks numbered handler activation within
@@ -97,7 +98,7 @@ document and reports changed, omitted and unresolved inputs.
 
 1. **Expand linked discovery.** Extend child pause tracking to additional
    resource arguments and selectors, model-backed or unproven aggregate
-   conversions, saved queues, FILE reads of changed data and resource
+   conversions, saved queues, FILE reads of untracked data and resource
    destinations, additional FILE transports, and resource `EVAL` captures.
    Model shared storage in called library modules, extend resumable
    `FOR` capture to PATH and USING storage, and model

@@ -790,8 +790,8 @@ In checked linked child segments, `WRITE` resolves an explicit predefined
 alias or the module's default alias through the saved `files` memory backend.
 It resolves the alias before evaluating items and keeps it across pauses in
 item and format routines. Text and binary formatting use the configured
-attributes. Discovery tracks byte lengths, the shared cursor, and explicit
-`CLOSE FILE` for those aliases without opening a file or changing its bytes.
+attributes. Discovery tracks written bytes, the shared cursor, and explicit
+`CLOSE FILE` for those aliases in its analysis state.
 The file's byte capacity applies at publication, including the existing
 length restriction for update mode. Close the predefined FILE in the source
 to include its bytes in the saved run results.
@@ -822,16 +822,22 @@ cursor. A predefined alias passed directly to a FILE formal retains its
 configured binding. `ARRAY_LEN` can inspect a FILE bank or view without a
 backend, and `UNINIT` tests whether the selected FILE is closed.
 
-A checked `READ` from an unchanged saved memory file can capture scalar,
+A checked `READ` from a memory file can capture scalar,
 ordinary ARRAY, and named STRUCTURE destinations. The FILE selection,
 destination subscripts, and format expressions can pause. Each destination
 is retained before its format expressions run. Discovery validates the
 complete text or binary batch before recording destination initialization
-and the new cursor. The saved bytes remain editable and their decoded
-values do not decide branches during discovery.
+and the new cursor. Modified file images follow seeks, overwrites, truncation,
+and close and reopen. In append/read mode (`AP`), reading is available after
+a successful nonempty write. Files created or truncated by the program can
+supply known values to subsequent branches. Saved bytes remain editable,
+so values read from a file that still depends on saved bytes stay unknown
+during discovery.
 
-Files changed by the program, PATH and queue reads, other backends, and
-FILE arguments obtained through `BYNAME` still use conservative analysis.
+Discovery retains up to 64 KiB of modified file images per tracked flow.
+Larger writes can still establish size and cursor facts. Reads whose image
+was omitted, PATH and queue reads, other backends, and FILE arguments
+obtained through `BYNAME` still use conservative analysis.
 Configure the endpoint and supply any PATH storage and input stream data
 through the run context.
 

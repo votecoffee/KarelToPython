@@ -4929,6 +4929,9 @@ class _FileWritePayload:
 
         charge_file_bytes(self.size, charge)
         verify()
+        return self.to_bytes(handle)
+
+    def to_bytes(self, handle):
         data = b''.join(piece.encode('ascii') if type(piece) is str else piece for piece in self.pieces)
         return data if handle.binary else data.replace(b'\n', bytes((handle.eol,)))
 
