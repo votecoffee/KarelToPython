@@ -68,8 +68,10 @@ bounded `FOR`, `WHILE`, and `REPEAT` iterations. A child can retain an
 integral `FOR` counter in an owned variable, ordinary ARRAY cell, STRUCTURE
 field, or known PATH header or node field. `USING` retains borrowed
 and private records across pauses and nested scopes, including fields of
-selected PATH nodes and headers. The binding keeps its record through
-known node edits and `COPY_PATH` replacement.
+selected PATH nodes and headers. Direct PATH selections keep their records
+through known edits and `COPY_PATH` replacement. Bindings from forwarded
+whole-record formals follow the captured slot. Scalar `UNINIT` supports
+pausing selectors on these fields.
 Procedure calls, scalar expressions, and ordinary aggregate
 arguments can retain nested frames across pauses, including calls to pinned
 linked modules. Ordinary aggregate results can feed another call, console

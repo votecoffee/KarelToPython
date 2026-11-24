@@ -1809,6 +1809,155 @@ END LIB
         self.assertEqual(result['status'],'completed',result['error'])
         self.assertEqual(result['text_output'],' 7')
 
+    def test_using_forwarded_path_slot_follows_live_node_while_nested_using_keeps_its_record(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        types="""TYPE detail_t=STRUCTURE mark:INTEGER ENDSTRUCTURE
+     row_t=STRUCTURE amount:INTEGER detail:detail_t ENDSTRUCTURE
+     route_t=PATH NODEDATA=row_t
+"""
+        child=f"""PROGRAM CHILD
+{types}VAR route:route_t s,result,unused:INTEGER
+ROUTINE edit(item:route_t; slot:row_t):INTEGER FROM LIB
+BEGIN
+  APPEND_NODE(route,s)
+  APPEND_NODE(route,s)
+  route[1].amount=11
+  route[1].detail.mark=101
+  route[2].amount=22
+  route[2].detail.mark=202
+  result=edit(route,route[1])
+  IF (result=128) AND (route[1].amount=23) AND (route[1].detail.mark=202) THEN WRITE(result) ELSE WRITE(unused) ENDIF
+END CHILD
+"""
+        library=f"""PROGRAM LIB
+{types}ROUTINE edit(item:route_t; slot:row_t):INTEGER
+VAR s:INTEGER
+BEGIN
+  USING slot DO
+    USING detail DO
+      DELETE_NODE(item,1,s)
+      PAUSE
+      mark=mark+4
+      amount=amount+1
+      RETURN mark+amount
+    ENDUSING
+  ENDUSING
+  RETURN 0
+END edit
+BEGIN
+END LIB
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child),('LIB',library)])
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed',result['error'])
+        self.assertEqual(result['text_output'],' 128')
+        self.assertEqual(result['programs']['CHILD']['values']['ROUTE']['nodes'],
+                         [{'AMOUNT':23,'DETAIL':{'MARK':202}}])
+
+    def test_using_vacant_path_slot_and_pausing_uninit_selector_follow_the_original_list(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        types="""TYPE row_t=STRUCTURE samples:ARRAY[2] OF INTEGER ENDSTRUCTURE
+     route_t=PATH NODEDATA=row_t
+"""
+        child=f"""PROGRAM CHILD
+{types}VAR route:route_t s,result,unused:INTEGER
+ROUTINE fill(item:route_t; slot:row_t):INTEGER FROM LIB
+BEGIN
+  APPEND_NODE(route,s)
+  route[1].samples[2]=77
+  result=fill(route,route[1])
+  IF (result=19) AND (route[1].samples[2]=19) THEN WRITE(result) ELSE WRITE(unused) ENDIF
+END CHILD
+"""
+        for replace_list in (False, True):
+            with self.subTest(replace_list=replace_list):
+                before_append='COPY_PATH(item,0,0,item,s)' if replace_list else ''
+                library=f"""PROGRAM LIB
+{types}ROUTINE pick:INTEGER
+BEGIN
+  PAUSE
+  RETURN 2
+END pick
+ROUTINE fill(item:route_t; slot:row_t):INTEGER
+VAR s:INTEGER
+BEGIN
+  DELETE_NODE(item,1,s)
+  USING slot DO
+    PAUSE
+    {before_append}
+    APPEND_NODE(item,s)
+    IF UNINIT(samples[pick()]) THEN samples[2]=19 ENDIF
+    IF NOT UNINIT(samples[2]) THEN RETURN samples[2] ENDIF
+  ENDUSING
+  RETURN 0
+END fill
+BEGIN
+END LIB
+"""
+                report,result=self.prepare([('MAIN',main),('CHILD',child),('LIB',library)])
+                if replace_list:
+                    self.assertIn('condition-source',[row['code'] for row in report['unresolved']])
+                    self.assertEqual(result['status'],'failed')
+                    self.assertEqual(result['text_output'],'')
+                else:
+                    self.assert_inputs(report,[])
+                    self.assert_task_gaps(report,['task-scheduling']+['task-wait','task-continuation']*2)
+                    self.assertEqual(result['status'],'completed',result['error'])
+                    self.assertEqual(result['text_output'],' 19')
+
+    def test_scalar_uninit_keeps_path_field_receiver_during_pausing_subscript(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+TYPE row_t=STRUCTURE samples:ARRAY[2] OF INTEGER ENDSTRUCTURE
+     route_t=PATH NODEDATA=row_t
+VAR route:route_t s,unused:INTEGER
+ROUTINE choose_sample:INTEGER
+BEGIN
+  PAUSE
+  DELETE_NODE(route,1,s)
+  RETURN 1
+END choose_sample
+BEGIN
+  APPEND_NODE(route,s)
+  APPEND_NODE(route,s)
+  route[2].samples[1]=12
+  IF UNINIT(route[1].samples[choose_sample()]) THEN
+    WRITE(route[1].samples[1])
+  ELSE
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed',result['error'])
+        self.assertEqual(result['text_output'],' 12')
+
     def test_path_slot_and_field_arguments_survive_a_later_pausing_path_edit(self):
         main="""PROGRAM MAIN
 VAR s:INTEGER

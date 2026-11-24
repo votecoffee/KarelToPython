@@ -3,7 +3,7 @@
 ![KarelToPython icon](karel2py/assets/icons/karel_to_python_icon_64x64.png)
 
 KarelToPython translates a supported subset of FANUC KAREL into Python for
-offline inspection and execution. The current build is **26.1124.182830**.
+offline inspection and execution. The current build is **26.1124.183340**.
 
 ## Table of Contents
 
@@ -101,10 +101,11 @@ field or array selection. Discovery follows checked data schema conversions
 across those calls and assignments. It preserves evaluation order in built-in
 arguments, `ARRAY_LEN` selectors, and loop bounds and tests. Integral PATH
 header and node fields can serve as counters across pauses. `USING` retains
-borrowed and private data records, including PATH headers and nodes. An alias
-stays with its captured record through PATH edits and later pauses. Scalar,
-ordinary aggregate, and PATH `REPEAT UNTIL` captures survive pauses and
-iterations.
+borrowed and private data records, including PATH headers and nodes. A direct
+PATH selector binds the record, and a forwarded whole-record formal keeps its
+slot. Scalar `UNINIT` follows pausing field selectors without reading a missing
+value. Scalar, ordinary aggregate, and PATH `REPEAT UNTIL` captures survive
+pauses and iterations.
 Linked discovery also follows edits and copies of queues initialized in the
 source or restored from the saved run context. PATH and queue arguments
 keep their borrowed cells or private values across pauses in pinned routines.

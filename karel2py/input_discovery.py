@@ -274,6 +274,11 @@ class _TaskArrayLength:
 
 
 @dataclass(frozen=True)
+class _TaskScalarUninit:
+    consumer: '_TaskValueConsumer'
+
+
+@dataclass(frozen=True)
 class _TaskPathLength:
     consumer: '_TaskValueConsumer'
 
@@ -371,7 +376,7 @@ _TaskValueConsumer = (dict | _TaskSelect | _TaskForHeader | _TaskLoop | _TaskExp
                       _TaskArguments | _TaskAssignment | _TaskSelection | _TaskResultSelection |
                       _TaskArrayLength | _TaskWrite | _TaskRepeatCapture | _TaskQueueCall | _TaskCollectionWrite |
                       _TaskFile | _TaskRead | _TaskPathRead | _TaskPathCopy | _TaskPathAssignment | _TaskPathLength |
-                      _TaskQueueAssignment | _TaskQueueUninit | _TaskUsing)
+                      _TaskQueueAssignment | _TaskQueueUninit | _TaskScalarUninit | _TaskUsing)
 
 
 @dataclass(frozen=True)
@@ -1345,7 +1350,7 @@ class _Analyzer(TeachDiscovery):
         if 'token' in expr:return self.slot(expr['token'],expr,flow,capture_node=capture_node)
         if kind=='name':return self.slot(expr['value'],expr,flow,capture_node=capture_node)
         if kind == 'using_ref':
-            return self.task_using_location(expr)
+            return self.task_using_location(expr, flow, capture_node=capture_node)
         if kind=='group':
             return self.locate(args[0], flow, conditional, path_io=path_io, capture_node=capture_node,
                                selector_path_edits=selector_path_edits, reading=reading)
@@ -5526,13 +5531,14 @@ class _Analyzer(TeachDiscovery):
             if isinstance(frame, _TaskUsing) and frame.entered:
                 yield frame
 
-    def task_using_location(self, node):
+    def task_using_location(self, node, flow, *, capture_node=False):
         name, spec = node['value'][:2]
         for frame in self.task_using_scopes():
             for (binding, _), loc in zip(frame.node['using_captures'], frame.bindings):
                 self.tick()
-                if binding == name:
-                    return self.checked_task_selection(loc if loc.spec == spec else None)
+                if binding == name and loc.spec == spec:
+                    selected = loc if capture_node else self.resolve_path_slot(loc, node, flow)
+                    return self.checked_task_selection(selected)
         return self.checked_task_selection(None)
 
     def close_task_using(self, flow, using):
@@ -5562,8 +5568,6 @@ class _Analyzer(TeachDiscovery):
             raise _TaskOrderUnknown()
 
     def capture_task_using_reference(self, loc, node, flow):
-        if loc.path_slot is not None:
-            raise _TaskOrderUnknown()
         if loc.spec[0] == 'PATH':
             if loc.spec[2] is None:
                 raise _TaskOrderUnknown()
@@ -5572,7 +5576,7 @@ class _Analyzer(TeachDiscovery):
         if loc.spec[0] not in rt.RECORD_TYPES:
             raise _TaskOrderUnknown()
         self.task_data_schema(loc.spec)
-        if path_task_storage(loc.root_spec):
+        if path_task_storage(loc.root_spec) and loc.path_slot is None:
             return self.retain_task_path_record(loc, node, flow)
         return loc
 
@@ -6223,6 +6227,9 @@ class _Analyzer(TeachDiscovery):
             if uninit_schema == ['QUEUE_TYPE']:
                 self.start_task_selection(blocks, flow, args[0], _TaskQueueUninit(consumer))
                 return None
+            if uninit_schema and uninit_schema[0] in ('INTEGER', 'SHORT', 'BOOLEAN', 'REAL', 'STRING'):
+                self.start_task_selection(blocks, flow, args[0], _TaskScalarUninit(consumer), reading=True)
+                return None
             if name == 'UNINIT' and len(args) == 1:
                 receiver = args[0]
                 while receiver['kind'] in ('group', 'index'):
@@ -6304,7 +6311,7 @@ class _Analyzer(TeachDiscovery):
             if root['kind'] != 'group':
                 selectors.append(root)
             root = root['args'][0]
-        forwarding = isinstance(consumer, _TaskArguments) and not reading and not selectors
+        forwarding = isinstance(consumer, (_TaskArguments, _TaskUsing)) and not reading and not selectors
         loc = self.locate(root, flow, True, capture_node=forwarding)
         if (loc is None or loc.kind not in ('variable', 'local', 'predefined-file') or loc.named_data
                 or flow.stopped or flow.opaque):
@@ -6367,17 +6374,26 @@ class _Analyzer(TeachDiscovery):
                         and not selection.reading and position == len(selection.indices) and not tail):
                     self.remember_task_path_record(location, node, flow)
                     location = self.borrow_path_record(receiver, index, location, flow)
-        if (tail and isinstance(selection.consumer, _TaskArguments) and not location.retains_path_record
-                and path_task_storage(location.root_spec) and not path_task_storage(location.spec)):
+        if (tail and isinstance(selection.consumer, (_TaskArguments, _TaskScalarUninit))
+                and not location.retains_path_record and path_task_storage(location.root_spec)
+                and not path_task_storage(location.spec)):
             location = self.retain_task_path_record(location, node, flow)
         blocks[-1] = replace(selection, location=location, selectors=tuple(tail), indices=(), path_generation=None)
 
     def finish_task_selection(self, blocks, flow, selection):
         loc, consumer = selection.location, selection.consumer
-        passing_slot = isinstance(consumer, _TaskArguments) and not selection.reading and loc.path_slot is not None
+        passing_slot = (isinstance(consumer, (_TaskArguments, _TaskUsing))
+                        and not selection.reading and loc.path_slot is not None)
         if not passing_slot and self.variable_path_storage(loc, flow, False) is not True:
             raise _TaskOrderUnknown()
-        if selection.reading:
+        if isinstance(consumer, _TaskScalarUninit):
+            missing = UNKNOWN
+            if self.leaf_uninitialized(loc, flow):
+                missing = True
+            elif loc.key in flow.defined:
+                missing = False
+            self.consume_task_value(blocks, flow, consumer.consumer, _Value(missing, spec=['BOOLEAN']))
+        elif selection.reading:
             if isinstance(consumer, _TaskArrayLength):
                 if task_resource_storage(loc.spec):
                     self.checked_task_resource_schema(loc.spec)

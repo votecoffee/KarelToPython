@@ -159,8 +159,17 @@ A captured node retains its identity when a later selector, a routine, or the
 body shifts or deletes that node. A PATH assignment updates a captured header
 in place. `COPY_PATH` publishes a replacement header and keeps earlier aliases
 on the original record. A computed PATH from a pinned routine supplies a
-private header. Starting a `FOR` on a borrowed PATH field requires that the
+private header. When `USING` receives a bare whole-record formal, it keeps
+that formal's slot, including a vacant node slot. Each field access uses the
+record then in that slot. A nested `USING` can bind a record field from the
+current node and keep that field's storage when the outer slot moves to
+another record. Starting a `FOR` on a borrowed PATH field requires that the
 selected field still belong to the live owned PATH.
+
+Scalar `UNINIT` can evaluate pausing subscripts on a borrowed record, a
+`USING` field, or ordinary storage. It keeps the receiver selected before
+the subscript ran and checks initialization without loading the field's
+value. An unresolved initialization state keeps the test conservative.
 
 A pausing test runs before each `WHILE` body or after each `REPEAT` body.
 At the first `REPEAT` test, scalar, ordinary aggregate, and scalar PATH `EVAL`
@@ -1106,8 +1115,7 @@ the status and preserves the shape and live references.
 Outside checked task slices, some structural edits in operand routines
 remain unresolved while the caller holds earlier captured references.
 Discovery reports the lost origin before reading or writing an affected
-captured record. `USING` applied to a forwarded whole-record formal also
-requires further analysis when the binding follows a PATH slot.
+captured record.
 
 ### Boolean and INTEGER operators
 
