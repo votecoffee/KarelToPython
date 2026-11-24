@@ -283,6 +283,14 @@ class _TaskRead:
 
 
 @dataclass(frozen=True)
+class _TaskPathRead:
+    operand: dict
+    bounds: tuple[dict, ...]
+    location: _Location | None = None
+    values: tuple[object, ...] = ()
+
+
+@dataclass(frozen=True)
 class _TaskCollectionWrite:
     operand: dict
     schema: list
@@ -302,7 +310,7 @@ class _TaskQueue:
 _TaskValueConsumer = (dict | _TaskSelect | _TaskForHeader | _TaskLoop | _TaskExpression |
                       _TaskArguments | _TaskAssignment | _TaskSelection | _TaskResultSelection |
                       _TaskArrayLength | _TaskWrite | _TaskRepeatCapture | _TaskQueueCall | _TaskCollectionWrite |
-                      _TaskFile | _TaskRead)
+                      _TaskFile | _TaskRead | _TaskPathRead)
 
 
 @dataclass(frozen=True)
@@ -318,7 +326,7 @@ class _TaskRoutine:
 class _Suspension:
     blocks: tuple[tuple[list, int] | _TaskLoop | _TaskRoutine | _TaskSelect |
                   _TaskForHeader | _TaskExpression | _TaskArguments | _TaskSelection | _TaskWrite |
-                  _TaskQueueCall | _TaskCollectionWrite | _TaskFile | _TaskRead, ...]
+                  _TaskQueueCall | _TaskCollectionWrite | _TaskFile | _TaskRead | _TaskPathRead, ...]
     flow: '_Flow'
 
 
@@ -5063,6 +5071,9 @@ class _Analyzer(TeachDiscovery):
             if isinstance(frame, _TaskRead):
                 self.next_task_read_item(blocks, child, scope, frame)
                 continue
+            if isinstance(frame, _TaskPathRead):
+                self.next_task_path_read(blocks, child, scope, frame)
+                continue
             if isinstance(frame, _TaskFile):
                 self.next_task_file(blocks, child, scope, frame)
                 continue
@@ -5123,7 +5134,15 @@ class _Analyzer(TeachDiscovery):
         if kind == 'call':
             builtin = args[0]
             if builtin['kind'] == 'call' and scope.path_edit_call(builtin):
-                self.path_edit(builtin, flow, True, task_segment=True)
+                with self.capture_operands() as pending:
+                    # A format or later destination can run a PATH edit.
+                    # Keep already captured leaf storage alive through it.
+                    for frame in blocks:
+                        if isinstance(frame, _TaskRead):
+                            self.tick(len(frame.fields) + len(frame.leaves))
+                            pending.extend(loc for loc, _ in frame.fields)
+                            pending.extend(frame.leaves)
+                    self.path_edit(builtin, flow, True, task_segment=True)
                 if flow.opaque or flow.stopped:
                     raise _TaskOrderUnknown()
                 return
@@ -5330,7 +5349,13 @@ class _Analyzer(TeachDiscovery):
             return
         target, formats = (item['args'][0], item['args'][1:]) if item['kind'] == 'read_item' else (item, ())
         if not read.leaves:
-            self.start_task_selection(blocks, flow, target, read)
+            receiver, bounds = self.task_path_transfer_operands(scope, target, indexed=True)
+            if bounds:
+                pending = _TaskPathRead(target, bounds)
+                blocks.append(pending)
+                self.start_task_selection(blocks, flow, receiver, pending)
+            else:
+                self.start_task_selection(blocks, flow, receiver, read)
             return
         if len(read.formats) < len(formats):
             value = self.task_operand(formats[len(read.formats)], flow, scope, blocks, read)
@@ -5344,6 +5369,37 @@ class _Analyzer(TeachDiscovery):
             raise _TaskOrderUnknown() from None
         blocks[-1] = replace(read, index=read.index + 1, leaves=(), formats=(), fields=(*read.fields, *fields))
 
+    def next_task_path_read(self, blocks, flow, scope, pending):
+        self.tick()
+        if len(pending.values) < len(pending.bounds):
+            operand = pending.bounds[len(pending.values)]
+            value = self.task_operand(operand, flow, scope, blocks, pending)
+            if value is not None:
+                self.consume_task_value(blocks, flow, pending, value)
+            return
+        # READ captures the receiver reference first, then selects records
+        # from its current descriptor after both bounds have run.
+        records = self.task_path_range_records(pending.location, pending.operand, pending.values, flow)
+        blocks.pop()
+        self.capture_task_read_leaves(blocks, records, flow)
+
+    def capture_task_read_leaves(self, blocks, records, flow):
+        leaves = []
+        for loc in records:
+            if (loc is None or not self.plain_task_read_storage(loc.spec)
+                    or self.variable_path_storage(loc, flow, False) is not True):
+                raise _TaskOrderUnknown()
+            self.retain_selected_path_storage(loc, flow, False)
+            if loc.spec[0] not in SCALARS:
+                self.task_data_schema(loc.spec, max_leaves=MAX_PATH_IO_FIELDS - len(leaves))
+            selected = self.leaves(loc)
+            if not selected or any(self.variable_path_storage(leaf, flow, False) is not True for leaf in selected):
+                raise _TaskOrderUnknown()
+            leaves.extend(selected)
+        if not 1 <= len(leaves) <= MAX_PATH_IO_FIELDS:
+            raise _TaskOrderUnknown()
+        blocks[-1] = replace(blocks[-1], leaves=tuple(leaves))
+
     def plain_task_read_storage(self, spec):
         kind = spec[0]
         if kind == 'ARRAY':
@@ -5354,7 +5410,7 @@ class _Analyzer(TeachDiscovery):
 
     def finish_task_read(self, read, flow):
         outputs = flow.task_file_outputs
-        if outputs is None:
+        if outputs is None or any(self.variable_path_storage(loc, flow, False) is not True for loc, _ in read.fields):
             raise _TaskOrderUnknown()
         backend = getattr(self.saved_bindings, 'memory_files', None)
         specs = [tuple_spec(loc.spec) for loc, _ in read.fields]
@@ -5519,13 +5575,13 @@ class _Analyzer(TeachDiscovery):
             self.write(loc, _Value(value, spec=loc.spec), flow, node)
         flow.task_queues[queue.key] = _TaskQueue(entries, sequence, buffer.key)
 
-    def start_task_collection_write(self, blocks, flow, scope, operand, schema):
+    def task_path_transfer_operands(self, scope, operand, *, indexed):
         while operand['kind'] == 'group':
             operand = operand['args'][0]
         receiver, bounds = operand, ()
         if operand['kind'] == 'path_io_range':
             receiver, *bounds = operand['args']
-        elif schema[0] == 'PATH' and operand['kind'] == 'index':
+        elif indexed and operand['kind'] == 'index':
             root, *indices = operand['args']
             shape, terminal = _array_dimensions(scope.reference_schema(root, staged=True))
             if terminal and terminal[0] == 'PATH' and terminal[2] is not None and len(indices) == len(shape) + 1:
@@ -5533,7 +5589,11 @@ class _Analyzer(TeachDiscovery):
                 # captures the PATH receiver before evaluating that final index.
                 bounds = (indices[-1],)
                 receiver = dict(operand, args=[root, *indices[:-1]]) if shape else root
-        pending = _TaskCollectionWrite(operand, schema, tuple(bounds))
+        return receiver, tuple(bounds)
+
+    def start_task_collection_write(self, blocks, flow, scope, operand, schema):
+        receiver, bounds = self.task_path_transfer_operands(scope, operand, indexed=schema[0] == 'PATH')
+        pending = _TaskCollectionWrite(operand, schema, bounds)
         blocks.append(pending)
         self.start_task_selection(blocks, flow, receiver, pending)
 
@@ -5578,10 +5638,14 @@ class _Analyzer(TeachDiscovery):
             if records is None:
                 raise _TaskOrderUnknown()
             return records
-        if (pending.generation != self.path_descriptor_generation(location, flow)
-                or any(type(value) is not int for value in pending.values)):
+        if pending.generation != self.path_descriptor_generation(location, flow):
             raise _TaskOrderUnknown()
-        first, *tail = pending.values
+        return self.task_path_range_records(location, node, pending.values, flow)
+
+    def task_path_range_records(self, location, node, bounds, flow):
+        if any(type(value) is not int for value in bounds):
+            raise _TaskOrderUnknown()
+        first, *tail = bounds
         last = tail[0] if tail else None
         count = self.known_path_count(location, flow, False)
         indexes = self.path_range_indexes(location.spec, count, first, last, node)
@@ -5773,7 +5837,7 @@ class _Analyzer(TeachDiscovery):
             raise _TaskOrderUnknown()
         _, root_type = _array_dimensions(loc.root_spec)
         if (root_type and root_type[0] == 'PATH' and not reading and assignment is None
-                and not isinstance(consumer, _TaskCollectionWrite)):
+                and not isinstance(consumer, (_TaskCollectionWrite, _TaskRead, _TaskPathRead))):
             raise _TaskOrderUnknown()
         blocks.append(_TaskSelection(node, loc, tuple(reversed(selectors)), consumer,
                                      reading=reading, assignment=assignment))
@@ -5840,14 +5904,21 @@ class _Analyzer(TeachDiscovery):
             else:
                 raise _TaskOrderUnknown()
         elif isinstance(consumer, _TaskRead):
-            if not self.plain_task_read_storage(loc.root_spec):
+            _, root = _array_dimensions(loc.root_spec)
+            _, terminal = _array_dimensions(loc.spec)
+            if root and root[0] == 'PATH':
+                records = self.path_transfer_records(loc, selection.node, flow, False) if terminal[0] == 'PATH' else [loc]
+            elif self.plain_task_read_storage(loc.root_spec):
+                records = [loc]
+            else:
                 raise _TaskOrderUnknown()
-            if loc.spec[0] not in SCALARS:
-                self.task_data_schema(loc.spec, max_leaves=1024)
-            leaves = self.leaves(loc)
-            if not leaves:
+            if not records:
                 raise _TaskOrderUnknown()
-            blocks[-1] = replace(consumer, leaves=tuple(leaves))
+            self.capture_task_read_leaves(blocks, records, flow)
+        elif isinstance(consumer, _TaskPathRead):
+            if loc.spec[0] != 'PATH':
+                raise _TaskOrderUnknown()
+            blocks[-1] = replace(consumer, location=loc)
         elif isinstance(consumer, _TaskCollectionWrite):
             expected, terminal = _array_dimensions(consumer.schema)
             actual, member = _array_dimensions(loc.spec)
@@ -6120,7 +6191,7 @@ class _Analyzer(TeachDiscovery):
             blocks[-1] = replace(consumer, values=(*consumer.values, value))
         elif isinstance(consumer, _TaskArrayLength):
             blocks[-1] = replace(consumer, values=(*consumer.values, value))
-        elif isinstance(consumer, (_TaskCollectionWrite, _TaskFile)):
+        elif isinstance(consumer, (_TaskCollectionWrite, _TaskPathRead, _TaskFile)):
             blocks[-1] = replace(consumer, values=(*consumer.values, value.constant))
         elif isinstance(consumer, _TaskRead):
             blocks[-1] = replace(consumer, formats=(*consumer.formats, value.constant))

@@ -834,9 +834,18 @@ supply known values to subsequent branches. Saved bytes remain editable,
 so values read from a file that still depends on saved bytes stay unknown
 during discovery.
 
+With known PATH storage, memory FILE `READ` also accepts whole PATHs, selected
+headers or nodes, ranges in either direction, and PATH banks or rows. The
+transfer uses ordinary scalar, ARRAY, and STRUCTURE fields in declaration
+order. Range bounds can pause and run before the current PATH records are
+selected. Discovery keeps those records' captured fields while formats and
+later destinations run. A format routine can remove a node without changing
+which storage receives the previously captured values.
+
 Discovery retains up to 64 KiB of modified file images per tracked flow.
 Larger writes can still establish size and cursor facts. Reads whose image
-was omitted, PATH and queue reads, other backends, and FILE arguments
+was omitted, PATH reads with unresolved shapes or specialized fields, queue
+reads, other backends, and FILE arguments
 obtained through `BYNAME` still use conservative analysis.
 Configure the endpoint and supply any PATH storage and input stream data
 through the run context.

@@ -4711,6 +4711,177 @@ END CHILD
         self.assert_task_gaps(report,['task-scheduling','task-wait'])
         self.assertIn({'service':'files','address':'out'},report['context_requirements'])
 
+    def test_path_range_file_read_uses_live_bounds_then_keeps_captured_fields(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+TYPE node_t=STRUCTURE amount:INTEGER ENDSTRUCTURE
+     header_t=STRUCTURE total:INTEGER ENDSTRUCTURE
+VAR routes:ARRAY[2] OF PATH NODEDATA=node_t PATHHEADER=header_t
+    stream:FILE seed:node_t bank,tail,s,unused:INTEGER valid:BOOLEAN
+ROUTINE first_bound:INTEGER
+BEGIN
+  bank=2
+  APPEND_NODE(routes[1],seed,s)
+  PAUSE
+  RETURN 2
+END first_bound
+ROUTINE field_width:INTEGER
+BEGIN
+  DELETE_NODE(routes[1],2,s)
+  PAUSE
+  RETURN 3
+END field_width
+BEGIN
+  bank=1
+  routes[1].total=4
+  routes[2].total=88
+  seed.amount=7
+  APPEND_NODE(routes[1],seed,s)
+  OPEN FILE stream('RW','out')
+  WRITE stream(' 19 17 14',CR,'23')
+  SET_FILE_POS(stream,0,s)
+  READ stream(routes[bank,first_bound()..0]::field_width(),CR,tail)
+  valid=(routes[1,1].amount=17) AND (routes[1].total=14) AND (routes[2].total=88)
+  IF valid AND (tail=23) AND (BYTES_LEFT(stream)=0) THEN
+    CLOSE FILE stream
+  ELSE
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],files={})
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation',
+                                      'task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed',result['error'])
+        values=result['programs']['CHILD']['values']
+        self.assertEqual(values['ROUTES'],[
+            {'data':{'TOTAL':14},'nodes':[{'AMOUNT':17}]},
+            {'data':{'TOTAL':88},'nodes':[]},
+        ])
+        self.assertEqual(values['TAIL'],23)
+
+    def test_path_bank_binary_file_read_keeps_selected_row_and_dynamic_header(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+TYPE node_t=STRUCTURE amount:INTEGER ENDSTRUCTURE
+     header_t=STRUCTURE total:INTEGER ENDSTRUCTURE
+VAR routes:ARRAY[2,2] OF PATH NODEDATA=node_t PATHHEADER=header_t
+    stream:FILE s,which,unused:INTEGER valid:BOOLEAN
+ROUTINE row_index:INTEGER
+BEGIN
+  PAUSE
+  RETURN 2
+END row_index
+BEGIN
+  which=0
+  routes[1,1].total=99
+  APPEND_NODE(routes[2,2],s)
+  OPEN FILE stream('RWB','out')
+  WRITE stream(11,12,13,14)
+  SET_FILE_POS(stream,0,s)
+  READ stream(routes[row_index()],routes[2,1,which])
+  valid=(routes[1,1].total=99) AND (routes[2,1].total=14) AND (routes[2,2].total=12)
+  IF valid AND (routes[2,2,1].amount=13) AND (GET_FILE_POS(stream)=16) THEN
+    CLOSE FILE stream
+  ELSE
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],files={})
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed',result['error'])
+        second=result['programs']['CHILD']['values']['ROUTES'][1]
+        self.assertEqual(second,[{'data':{'TOTAL':14},'nodes':[]},
+                                 {'data':{'TOTAL':12},'nodes':[{'AMOUNT':13}]}])
+
+    def test_incomplete_path_file_read_keeps_batch_unpublished(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+END MAIN
+"""
+        child="""PROGRAM CHILD
+TYPE node_t=STRUCTURE amount:INTEGER ENDSTRUCTURE
+     header_t=STRUCTURE total:INTEGER ENDSTRUCTURE
+VAR route:PATH NODEDATA=node_t PATHHEADER=header_t
+    stream:FILE seed:node_t s,entered:INTEGER
+BEGIN
+  entered=0
+  route.total=4
+  seed.amount=7
+  APPEND_NODE(route,seed,s)
+  OPEN FILE stream('RB','in')
+  READ stream(route)
+  entered=1
+  PAUSE
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],files={'in':{'hex':'09000000'}})
+        self.assertIn('condition-source',[row['code'] for row in report['unresolved']])
+        self.assertEqual(result['status'],'failed')
+        self.assertIn('End of memory file',result['error']['message'])
+        values=result['programs']['CHILD']['values']
+        self.assertEqual(values['ROUTE'],{'data':{'TOTAL':4},'nodes':[{'AMOUNT':7}]})
+        self.assertEqual(values['ENTERED'],0)
+
+    def test_default_file_read_initializes_whole_path_from_saved_text(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+%CRTDEVICE
+TYPE node_t=STRUCTURE amount:INTEGER ENDSTRUCTURE
+     header_t=STRUCTURE total:INTEGER ENDSTRUCTURE
+VAR route:PATH NODEDATA=node_t PATHHEADER=header_t s,total,amount,unused:INTEGER
+BEGIN
+  APPEND_NODE(route,s)
+  READ(route)
+  PAUSE
+  total=route.total
+  amount=route[1].amount
+  IF GET_FILE_POS(INPUT)=5 THEN
+    CLOSE FILE INPUT
+  ELSE
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],files={'in':'17 29'},
+                                   predefined_files={'INPUT':{'name':'in','mode':'RO'}})
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation'])
+        self.assertIn({'service':'files','address':'in'},report['context_requirements'])
+        self.assertEqual(result['status'],'completed',result['error'])
+        values=result['programs']['CHILD']['values']
+        self.assertEqual(values['ROUTE'],{'data':{'TOTAL':17},'nodes':[{'AMOUNT':29}]})
+        self.assertEqual((values['TOTAL'],values['AMOUNT']),(17,29))
+
     def test_output_keeps_cursor_facts_when_the_modified_image_is_large(self):
         main="""PROGRAM MAIN
 VAR s:INTEGER
