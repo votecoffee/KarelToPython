@@ -98,17 +98,36 @@ def resolve_routine(plan, linked_plans, name, interface):
     return target, routine
 
 
-def _direct_routine_call(plan, node):
-    kind, args = node['kind'], node['args']
-    if kind not in ('call', 'assign', 'return') or not args:
-        return None
-    call = _ungroup(args[-1])
+def _direct_routine_call(plan, operand, *, procedure=False):
+    call = _ungroup(operand)
     routine = plan['routines'].get(call['value']) if call is not None and call['kind'] == 'call' else None
     if routine is None:
         return None
     result = routine['result']
-    valid = result is None if kind == 'call' else result and result[0] in SCALARS
+    valid = result is None if procedure else result and result[0] in SCALARS
     return call if valid else None
+
+
+def _statement_routine_call(plan, node):
+    kind, args = node['kind'], node['args']
+    if kind in ('call', 'return', 'if', 'select') and args:
+        return _direct_routine_call(plan, args[0], procedure=kind == 'call')
+    if kind == 'assign':
+        return _direct_routine_call(plan, args[1])
+    return None
+
+
+def select_case_labels(node):
+    for index, (_, labels, _) in enumerate(node['args'][1]):
+        for label in labels:
+            yield index, label
+
+
+def _routine_calls(plan, node):
+    yield _statement_routine_call(plan, node)
+    if node['kind'] == 'select':
+        for _, label in select_case_labels(node):
+            yield _direct_routine_call(plan, label)
 
 
 def _branches(node):
@@ -135,10 +154,11 @@ def structured_child(plan, linked_plans, tick):
         tick()
         pause = explicit_pause(node)
         found_pause = found_pause or pause
-        call = _direct_routine_call(owner, node)
         found_control = found_control or node['kind'] in STRUCTURED_LOOPS
         pending.extend((owner, iter(body), True) for body in _branches(node) if body)
-        if call is not None:
+        for call in _routine_calls(owner, node):
+            if call is None:
+                continue
             name = call['value']
             target, routine = resolve_routine(owner, linked_plans, name, owner['routines'][name])
             if routine is not None:
@@ -228,13 +248,19 @@ class _SegmentRules:
         return all(self.operand(arg) for arg in node['args'])
 
     def routine_call(self, node):
-        call = _direct_routine_call(self.plan, node)
-        if call is None:
-            return None
-        if node['kind'] == 'assign':
+        call = _statement_routine_call(self.plan, node)
+        if call is not None and node['kind'] == 'assign':
             target = self.reference_schema(node['args'][0])
             if not target or target[0] not in SCALARS:
                 return None
+        return self.checked_routine_call(call)
+
+    def case_routine_call(self, label):
+        return self.checked_routine_call(_direct_routine_call(self.plan, label))
+
+    def checked_routine_call(self, call):
+        if call is None:
+            return None
         actuals = call['args']
         modes = call.get('passing', ())
         formals = self.plan['routines'][call['value']]['parameters']
@@ -254,8 +280,7 @@ class _SegmentRules:
     def branch(self, node):
         args = node['args']
         return self.operand(args[0]) and (
-            node['kind'] == 'if'
-            or all(self.operand(label) for _, labels, _ in args[1] for label in labels))
+            node['kind'] == 'if' or all(self.operand(label) for _, label in select_case_labels(node)))
 
     def loop(self, node):
         args = node['args']

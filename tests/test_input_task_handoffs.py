@@ -1039,6 +1039,188 @@ END CHILD
                                    ('variable','CHILD','AFTER_PAUSE','conditional')])
         self.assertIn('condition-source',[row['code'] for row in report['unresolved']])
 
+    def test_if_uses_the_completed_function_value_then_resumes_in_the_selected_arm(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER text:STRING[8]
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  text='prior'
+  GET_TPE_STR_REG(1,text,s)
+  WRITE(s,':',text,CR)
+  CONTINUE PROGRAM[2]
+  WAIT FOR PAUSE PROGRAM[2]
+  GET_TPE_STR_REG(1,text,s)
+  WRITE(s,':',text,CR)
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR h,s,unused:INTEGER chosen:BOOLEAN
+ROUTINE check_handle(opened:INTEGER):BOOLEAN FROM LIB
+BEGIN
+  IF (check_handle(h)) THEN
+    CLOSE_TPE(h,s)
+    chosen=FALSE
+    PAUSE
+    IF NOT chosen THEN WRITE('branch') ELSE WRITE(unused) ENDIF
+  ELSE
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        library="""PROGRAM LIB
+ROUTINE check_handle(opened:INTEGER):BOOLEAN
+VAR s:INTEGER
+BEGIN
+  OPEN_TPE('Shared',TPE_RDACC,TPE_ALLREJ,opened,s)
+  PAUSE
+  RETURN s=0
+END check_handle
+BEGIN
+END LIB
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child),('LIB',library)])
+        self.assert_inputs(report,[('teach_string_register','SHARED','1','required')])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation',
+                                     'task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed')
+        blocked,ready,branch=result['text_output'].splitlines()
+        first_status,previous=blocked.split(':')
+        next_status,current=ready.split(':')
+        self.assertEqual((int(first_status),previous,int(next_status),current,branch),(4,'prior',0,'ready','branch'))
+
+    def test_select_retains_selector_and_first_match_across_later_label_pauses(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER text:STRING[8]
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  text='prior'
+  GET_TPE_STR_REG(1,text,s)
+  WRITE(s,':',text,CR)
+  CONTINUE PROGRAM[2]
+  WAIT FOR PAUSE PROGRAM[2]
+  GET_TPE_STR_REG(1,text,s)
+  WRITE(s,':',text,CR)
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  GET_TPE_STR_REG(1,text,s)
+  WRITE(s,':',text,CR)
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR h,s,choice,trace,unused:INTEGER
+ROUTINE pick:INTEGER
+BEGIN
+  OPEN_TPE('Shared',TPE_RDACC,TPE_ALLREJ,h,s)
+  PAUSE
+  RETURN choice
+END pick
+ROUTINE first_label:INTEGER
+BEGIN
+  trace=trace*10+1
+  choice=99
+  PAUSE
+  RETURN 7
+END first_label
+ROUTINE later_label:INTEGER
+BEGIN
+  trace=trace*10+2
+  CLOSE_TPE(h,s)
+  PAUSE
+  RETURN 7
+END later_label
+BEGIN
+  trace=0
+  choice=7
+  SELECT (pick()) OF
+    CASE((first_label()),choice):
+      IF (trace=12) AND (choice=99) THEN WRITE('first') ELSE WRITE(unused) ENDIF
+    CASE(later_label()): WRITE(unused)
+    ELSE: WRITE(unused)
+  ENDSELECT
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assert_inputs(report,[('teach_string_register','SHARED','1','required')])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation','task-wait',
+                                     'task-continuation','task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed')
+        first,second,third,branch=result['text_output'].splitlines()
+        pairs=[line.split(':') for line in (first,second,third)]
+        self.assertEqual([(int(status),text) for status,text in pairs],[(4,'prior'),(4,'prior'),(0,'ready')])
+        self.assertEqual(branch,'first')
+
+    def test_select_still_pauses_in_later_label_after_earlier_match(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER text:STRING[8]
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  text='prior'
+  GET_TPE_STR_REG(1,text,s)
+  WRITE(s,':',text)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR late,skipped:INTEGER
+ROUTINE hold_label:INTEGER
+VAR h,s:INTEGER
+BEGIN
+  OPEN_TPE('Shared',TPE_RDACC,TPE_ALLREJ,h,s)
+  PAUSE
+  RETURN 2
+END hold_label
+ROUTINE later_label:INTEGER
+BEGIN
+  RETURN late
+END later_label
+BEGIN
+  SELECT 1 OF
+    CASE(1): WRITE(skipped)
+    CASE(hold_label()): WRITE(skipped)
+    CASE(1+later_label()): WRITE(skipped)
+  ENDSELECT
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait'])
+        self.assertEqual(result['status'],'paused')
+        status,text=result['text_output'].split(':')
+        self.assertEqual((int(status),text),(4,'prior'))
+
+    def test_unresolved_case_value_keeps_possible_arm_reads_and_wait_gap(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR supplied,chosen,otherwise:INTEGER
+ROUTINE dynamic_label:INTEGER
+BEGIN
+  PAUSE
+  RETURN supplied
+END dynamic_label
+BEGIN
+  SELECT 7 OF
+    CASE(dynamic_label()): WRITE(chosen) PAUSE
+    ELSE: WRITE(otherwise)
+  ENDSELECT
+END CHILD
+"""
+        report,_=self.prepare([('MAIN',main),('CHILD',child)],replay=False)
+        self.assert_inputs(report,[('variable','CHILD',name,'conditional')
+                                   for name in ('SUPPLIED','CHOSEN','OTHERWISE')])
+        self.assertIn('condition-source',[row['code'] for row in report['unresolved']])
+
     def test_request_status_is_not_reused_as_prelaunch_task_number(self):
         main="""PROGRAM MAIN
 VAR task_no,s:INTEGER text:STRING[8]

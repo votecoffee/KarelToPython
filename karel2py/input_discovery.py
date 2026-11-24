@@ -24,7 +24,8 @@ from .input_position_values import (
     checked_position_facts, merge_positions, position_register_result,
 )
 from .input_task_segments import (
-    STRUCTURED_LOOPS, bounded_child, explicit_pause, resolve_routine, structured_child, task_handoff_window,
+    STRUCTURED_LOOPS, bounded_child, explicit_pause, resolve_routine, select_case_labels, structured_child,
+    task_handoff_window,
 )
 from .input_teach_catalog import TEACH_CATALOG_SERVICES, TEACH_EDIT_SERVICES
 from .input_teach_discovery import (
@@ -166,17 +167,27 @@ class _TaskLoop:
 
 
 @dataclass(frozen=True)
+class _TaskSelect:
+    node: dict
+    selected: object
+    category: str
+    labels: tuple[tuple[int, dict], ...]
+    index: int = 0
+    match: int | None = None
+
+
+@dataclass(frozen=True)
 class _TaskRoutine:
     """Keep bindings alive until the invocation's blocks finish unwinding."""
 
     frame: dict
-    consumer: dict | None = None
+    consumer: dict | _TaskSelect | None = None
     result: _Value | None = None
 
 
 @dataclass(eq=False, frozen=True)
 class _Suspension:
-    blocks: tuple[tuple[list, int] | _TaskLoop | _TaskRoutine, ...]
+    blocks: tuple[tuple[list, int] | _TaskLoop | _TaskRoutine | _TaskSelect, ...]
     flow: '_Flow'
 
 
@@ -4888,6 +4899,9 @@ class _Analyzer(TeachDiscovery):
                 self.finish_task_routine(blocks, child)
                 continue
             scope = rules.routine_scope(self.plan, self.frames[-1]['name']) if rules and self.frames else rules
+            if isinstance(frame, _TaskSelect):
+                self.next_task_case(blocks, child, scope, frame)
+                continue
             if isinstance(frame, _TaskLoop):
                 loop = self.next_task_iteration(frame, child, scope)
                 if loop is None:
@@ -4912,7 +4926,8 @@ class _Analyzer(TeachDiscovery):
             call = scope.routine_call(node)
             if call is not None:
                 self.tick()
-                self.start_task_routine(call, node, child, blocks)
+                consumer = None if kind == 'call' else node
+                self.start_task_routine(call, child, blocks, consumer=consumer)
                 continue
             if kind == 'return' and self.frames:
                 operand = node['args'][0]
@@ -4925,32 +4940,73 @@ class _Analyzer(TeachDiscovery):
                 self.tick()
                 blocks.append(self.start_task_loop(node, child))
                 continue
-            if kind not in ('if', 'select') or not scope.branch(node):
+            if kind not in ('if', 'select') or not scope.operand(node['args'][0]):
                 raise _TaskOrderUnknown()
             self.tick()
-            if kind == 'if':
-                condition = self.expr(node['args'][0], child, True).constant
-                if type(condition) is not bool:
-                    raise _TaskOrderUnknown()
-                branch = node['body'] if condition else node['alternate']
-            else:
-                branch, _ = self.select_branch(node, child, True)
-                if branch is UNKNOWN:
-                    raise _TaskOrderUnknown()
-                if branch is None:
-                    child.stopped = True
-                    continue
-            blocks.append((branch, 0))
+            value = self.expr(node['args'][0], child, True)
+            self.start_task_branch(blocks, child, node, value)
         return None
 
-    def start_task_routine(self, call, node, flow, blocks):
-        procedure = node['kind'] == 'call'
-        prepared = self.prepare_routine(call['value'], call['args'], call, flow, True, statement_call=procedure)
+    def start_task_branch(self, blocks, flow, node, value):
+        selected = value.constant
+        if flow.stopped or flow.opaque or selected is UNKNOWN:
+            raise _TaskOrderUnknown()
+        if node['kind'] == 'if':
+            if type(selected) is not bool:
+                raise _TaskOrderUnknown()
+            blocks.append((node['body'] if selected else node['alternate'], 0))
+            return
+        category = {bool: 'BOOLEAN', str: 'STRING'}.get(type(selected), 'NUMERIC')
+        selected = self.checked_select_value(selected, category, node)
+        blocks.append(_TaskSelect(node, selected, category, tuple(select_case_labels(node))))
+
+    def next_task_case(self, blocks, flow, scope, selection):
+        self.tick()
+        if selection.index == len(selection.labels):
+            node = selection.node
+            blocks.pop()
+            if selection.match is not None:
+                blocks.append((node['args'][1][selection.match][2], 0))
+            elif node['has_else']:
+                blocks.append((node['alternate'], 0))
+            else:
+                raise _TaskOrderUnknown()
+            return
+        _, label = selection.labels[selection.index]
+        call = scope.case_routine_call(label)
+        if call is not None:
+            self.start_task_routine(call, flow, blocks, consumer=selection)
+        elif scope.operand(label):
+            self.capture_task_case(blocks, flow, selection, self.expr(label, flow, True))
+        else:
+            raise _TaskOrderUnknown()
+
+    def capture_task_case(self, blocks, flow, selection, value):
+        if flow.stopped or flow.opaque or value.constant is UNKNOWN:
+            raise _TaskOrderUnknown()
+        index, label = selection.labels[selection.index]
+        label_value = self.checked_select_value(value.constant, selection.category, label)
+        match = selection.match
+        if match is None and selection.selected == label_value:
+            match = index
+        # Later labels still run after a match, before entering the selected arm.
+        blocks[-1] = replace(selection, index=selection.index + 1, match=match)
+
+    def checked_select_value(self, value, category, node):
+        try:
+            with rt._numeric_scope('pythonic'):
+                return rt.select_scalar(value, category, node.get('line'))
+        except rt.KarelRuntimeError:
+            raise _TaskOrderUnknown() from None
+
+    def start_task_routine(self, call, flow, blocks, *, consumer):
+        prepared = self.prepare_routine(call['value'], call['args'], call, flow, True,
+                                        statement_call=consumer is None)
         if prepared is None:
             raise _TaskOrderUnknown()
         self.plan, routine, frame = prepared
         self.frames.append(frame)
-        blocks.extend((_TaskRoutine(frame, None if procedure else node), (routine['body'], 0)))
+        blocks.extend((_TaskRoutine(frame, consumer), (routine['body'], 0)))
 
     def return_from_task_routine(self, blocks, flow, node, value):
         spec = self.frames[-1]['result']
@@ -4970,20 +5026,25 @@ class _Analyzer(TeachDiscovery):
         boundary = blocks.pop()
         self.clear_routine_storage(flow, self.frames.pop()['owner'])
         self.plan = self.task_frame_plan()
-        node = boundary.consumer
-        if node is None:
+        consumer = boundary.consumer
+        if consumer is None:
             return
         value = boundary.result
         if value is None:
             raise _TaskOrderUnknown()
-        if node['kind'] == 'return':
-            self.return_from_task_routine(blocks, flow, node, value)
+        if isinstance(consumer, _TaskSelect):
+            self.capture_task_case(blocks, flow, consumer, value)
+        elif consumer['kind'] == 'return':
+            self.return_from_task_routine(blocks, flow, consumer, value)
+        elif consumer['kind'] in ('if', 'select'):
+            self.start_task_branch(blocks, flow, consumer, value)
         else:
             # The function can change an index used by the assignment target.
-            target = self.locate(node['args'][0], flow, True)
+            target = self.locate(consumer['args'][0], flow, True)
             if target is None or flow.stopped or flow.opaque:
                 raise _TaskOrderUnknown()
-            self.write(target, self.checked_task_scalar(target.spec, value, node), flow, node)
+            value = self.checked_task_scalar(target.spec, value, consumer)
+            self.write(target, value, flow, consumer)
 
     def checked_task_scalar(self, spec, value, node, *, result=False):
         if value.uninitialized:
