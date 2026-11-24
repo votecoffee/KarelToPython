@@ -5959,6 +5959,204 @@ END CHILD
         self.assertEqual(second,[{'data':{'TOTAL':14},'nodes':[]},
                                  {'data':{'TOTAL':12},'nodes':[{'AMOUNT':13}]}])
 
+    def test_path_range_file_read_tracks_vector_and_joint_fields(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+TYPE node_t=STRUCTURE axes:JOINTPOS3 ENDSTRUCTURE
+     header_t=STRUCTURE offset:VECTOR ENDSTRUCTURE
+VAR route:PATH NODEDATA=node_t PATHHEADER=header_t stream:FILE s,unused:INTEGER
+ROUTINE bound:INTEGER
+BEGIN
+  PAUSE
+  RETURN 1
+END bound
+BEGIN
+  APPEND_NODE(route,s)
+  OPEN FILE stream('RW','data')
+  WRITE stream('1.25 2.5 3.75 4.5 5.25 6.75')
+  SET_FILE_POS(stream,0,s)
+  READ stream(route[bound()..0])
+  IF (route[1].axes[2]=2.5) AND (route.offset.Z=6.75) AND (BYTES_LEFT(stream)=0) THEN
+    CLOSE FILE stream
+  ELSE
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],files={})
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed',result['error'])
+        values=result['programs']['CHILD']['values']['ROUTE']
+        self.assertEqual(values['nodes'],[{'AXES':{'axes':[1.25,2.5,3.75]}}])
+        self.assertEqual(values['data'],{'OFFSET':{'X':4.5,'Y':5.25,'Z':6.75}})
+
+    def test_binary_file_read_keeps_vector_row_and_banked_joint_axis_across_pause(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR vectors:ARRAY[2,2] OF VECTOR joints:ARRAY[2] OF JOINTPOS3
+    stream:FILE s,unused:INTEGER
+ROUTINE axis:INTEGER
+BEGIN
+  PAUSE
+  RETURN 2
+END axis
+BEGIN
+  OPEN FILE stream('RWB','data')
+  WRITE stream(1.25,2.5,3.75,4.5,5.25,6.75,7.5)
+  SET_FILE_POS(stream,0,s)
+  READ stream(vectors[2],joints[1,axis()])
+  IF (vectors[2,2].Y=5.25) AND (joints[1,2]=7.5) AND (GET_FILE_POS(stream)=28) THEN
+    CLOSE FILE stream
+  ELSE
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],files={})
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed',result['error'])
+        values=result['programs']['CHILD']['values']
+        self.assertEqual(values['VECTORS'][1],[{'X':1.25,'Y':2.5,'Z':3.75},{'X':4.5,'Y':5.25,'Z':6.75}])
+        missing={'uninitialized':True}
+        self.assertEqual(values['JOINTS'][0]['axes'],[missing,7.5,missing])
+
+    def test_malformed_vector_file_read_keeps_batch_and_cursor_unpublished(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR v:VECTOR stream:FILE n:INTEGER
+BEGIN
+  n=77
+  v=VEC(4.0,5.0,6.0)
+  OPEN FILE stream('RO','data')
+  READ stream(n,v)
+  PAUSE
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],files={'data':'9 1.25 2.5 bad'})
+        self.assertIn('condition-source',[row['code'] for row in report['unresolved']])
+        self.assertEqual(result['status'],'failed')
+        self.assertIn('invalid REAL',result['error']['message'])
+        values=result['programs']['CHILD']['values']
+        self.assertEqual((values['N'],values['V'],values['STREAM']['position']),
+                         (77,{'X':4.0,'Y':5.0,'Z':6.0},0))
+
+    def test_idle_file_cancel_retains_selected_descriptor_through_pinned_pause(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR streams:ARRAY[2] OF FILE n,s,unused:INTEGER
+ROUTINE stop_stream(bank:ARRAY[2] OF FILE) FROM LIB
+BEGIN
+  OPEN FILE streams[2]('RW','data')
+  WRITE streams[2]('17 24')
+  SET_FILE_POS(streams[2],3,s)
+  stop_stream(streams)
+  READ streams[2](n)
+  IF (n=24) AND (GET_FILE_POS(streams[2])=5) AND (IO_STATUS(streams[2])=0) THEN
+    CLOSE FILE streams[2]
+  ELSE
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        library="""PROGRAM LIB
+ROUTINE chosen:INTEGER
+BEGIN
+  PAUSE
+  RETURN 2
+END chosen
+ROUTINE stop_stream(bank:ARRAY[2] OF FILE)
+BEGIN
+  CANCEL FILE bank[chosen()]
+END stop_stream
+BEGIN
+END LIB
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child),('LIB',library)],files={})
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed',result['error'])
+        self.assertEqual(result['programs']['CHILD']['values']['N'],24)
+
+    def test_idle_default_input_cancel_can_reach_pause_and_resume(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+%CRTDEVICE
+VAR n,unused:INTEGER
+BEGIN
+  CANCEL FILE
+  PAUSE
+  READ(n)
+  IF (IO_STATUS(INPUT)=0) AND (GET_FILE_POS(INPUT)=2) THEN
+    CLOSE FILE INPUT
+  ELSE
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],files={'data':'17'},
+                                   predefined_files={'INPUT':{'name':'data','mode':'RO'}})
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation'])
+        self.assertIn({'service':'predefined_files','address':'INPUT'},report['context_requirements'])
+        self.assertEqual(result['status'],'completed',result['error'])
+        self.assertEqual(result['programs']['CHILD']['values']['N'],17)
+
+    def test_closed_file_cancel_keeps_following_pause_unresolved(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR stream:FILE
+BEGIN
+  CANCEL FILE stream
+  PAUSE
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],files={})
+        self.assertIn('condition-source',[row['code'] for row in report['unresolved']])
+        self.assertEqual(result['status'],'failed')
+        self.assertIn('FILE is not open',result['error']['message'])
+
     def test_incomplete_path_file_read_keeps_batch_unpublished(self):
         main="""PROGRAM MAIN
 VAR s:INTEGER

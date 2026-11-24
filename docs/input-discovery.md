@@ -186,7 +186,7 @@ entry IDs, and sequence numbers. Queue ARRAY shape and cell initialization
 queries use the capture, and a pinned value call can bind a new backing ARRAY
 to its own copy. FILE captures retain the selected descriptor, bank, or row,
 and discovery follows open, close, and cursor changes for checked memory FILEs.
-FILE `UNINIT`, `GET_FILE_POS`, `FILE_SIZE`, `BYTES_LEFT`, and ARRAY shape
+FILE `UNINIT`, `GET_FILE_POS`, `IO_STATUS`, `BYTES_LEFT`, and ARRAY shape
 queries can use those captures. A fresh loop activation takes fresh samples.
 Re-translate earlier modules to add the capture schemas. Calls can nest within the
 ordinary routine-depth limit.
@@ -911,6 +911,18 @@ sources, and bounded `WRITE` transfers. Selectors and `PATH_LEN` or
 `ARRAY_LEN` use the returned records and concrete dimensions, including
 after another pause. A returned PATH can carry shaped records whose scalar
 fields are filled later by a FILE read.
+
+Checked memory FILE reads cover VECTOR components and JOINTPOS axes in PATH
+records, as well as standalone values and ARRAY selections. Whole values
+consume components in declaration or axis order. A destination captured
+before a later selector pauses keeps its original cells. If bytes cannot be
+decoded or checked, the batch leaves the cursor and its destinations intact.
+
+In a checked child, `CANCEL FILE` can target an idle, open memory descriptor,
+including a cell selected by a pausing expression or a configured predefined
+input. Discovery keeps the existing cursor and follows subsequent operations
+through the same descriptor. Cancellation of a pending transport operation
+continues to require execution-order evidence.
 
 Memory FILE `READ` can also replace values in initialized queues and selected
 queue banks. Banks are visited in row-major order, and initialized

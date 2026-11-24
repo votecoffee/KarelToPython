@@ -236,7 +236,7 @@ def _routine_calls(plan, node, tick):
     elif kind in ('file_read', 'file_write'):
         yield from _expression_routines(plan, args[0], tick)
         yield from _routine_calls(plan, args[1], tick)
-    elif kind in ('file_open', 'file_close'):
+    elif kind in ('file_open', 'file_close', 'file_cancel'):
         for operand in args:
             yield from _expression_routines(plan, operand, tick)
     elif kind == 'write_items':
@@ -296,7 +296,7 @@ def structured_child(plan, linked_plans, tick, *, predefined_files=()):
                          or node['kind'] == 'call' and (
                              queue_task_call(owner, node['args'][0]) or file_task_procedure(owner, node['args'][0])
                              or path_copy_task_call(owner, node['args'][0]))
-                         or node['kind'] in ('file_open', 'file_read', 'file_write', 'file_close', 'read')
+                         or node['kind'] in ('file_open', 'file_read', 'file_write', 'file_close', 'file_cancel', 'read')
                          or node['kind'] == 'write_items' and owner.get('default_write_file') in predefined_files)
         pending.extend((owner, iter(body), True) for body in _branches(node) if body)
         for call in _routine_calls(owner, node, tick):
@@ -372,9 +372,11 @@ class _SegmentRules:
                 return dict(schema[2]).get(node['value'])
             fields = self.plan.get('record_fields', {}).get(schema[0], {})
             return fields.get(node['value']) if staged else None
+        dimensions, element = array_dimensions(schema)
+        if staged and element[0] == 'JOINTPOS' and len(indices) == len(dimensions) + 1:
+            return ['REAL']
         if schema[0] != 'ARRAY':
             return None
-        dimensions, element = array_dimensions(schema)
         if not indices or not staged and not all(self.operand(index) for index in indices):
             return None
         if len(indices) > len(dimensions):

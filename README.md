@@ -3,7 +3,7 @@
 ![KarelToPython icon](karel2py/assets/icons/karel_to_python_icon_64x64.png)
 
 KarelToPython translates a supported subset of FANUC KAREL into Python for
-offline inspection and execution. The current build is **26.1124.191513**.
+offline inspection and execution. The current build is **26.1124.192344**.
 
 ## Table of Contents
 
@@ -121,10 +121,11 @@ The analyzer also preserves captured records and entries while format
 routines run.
 Linked discovery also follows text and binary `READ` and `WRITE` on memory files. It
 tracks predefined routes and source-declared FILE cells through attributes,
-open, seek, availability queries, close, and reopen. Direct FILE arguments
-retain their original descriptors across calls to pinned routines. Reads
-retain selected destinations across pauses, including PATH headers, nodes,
-ranges, and bank selections with ordinary data fields. Reads also cover
+open, seek, availability queries, idle cancellation, close, and reopen.
+Direct FILE arguments retain their original descriptors across calls to pinned
+routines. Reads retain selected destinations across pauses, including PATH
+headers, nodes, ranges, and bank selections with ordinary data, VECTOR, and
+JOINTPOS fields. Reads also cover
 existing entries in initialized queues and queue banks. Program-written bytes
 can provide known values for discovery, and saved inputs remain editable.
 Input discovery also tracks the status and handle for each possible TP open

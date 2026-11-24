@@ -5285,16 +5285,16 @@ class _Analyzer(TeachDiscovery):
         if kind == 'write_items':
             self.start_task_write(blocks, flow, node)
             return
-        if kind == 'read':
+        if kind == 'read' or (kind == 'file_cancel' and args[0] is None):
             alias = self.plan.get('default_write_file')
             if alias == 'OUTPUT':
                 alias = 'INPUT'
             if alias is None:
                 raise _TaskOrderUnknown()
             flow.task_file_outputs = self.capture_task_file(flow, alias, node)
-            blocks.append(_TaskRead(node, alias))
+            blocks.append(_TaskRead(node, alias) if kind == 'read' else _TaskFile(node, key=alias))
             return
-        if kind in ('file_open', 'file_read', 'file_write', 'file_close') and args[0] is not None:
+        if kind in ('file_open', 'file_read', 'file_write', 'file_close', 'file_cancel') and args[0] is not None:
             self.start_task_file(blocks, flow, scope, node)
             return
         if kind == 'using':
@@ -5435,6 +5435,12 @@ class _Analyzer(TeachDiscovery):
                     raise _TaskOrderUnknown()
                 result = _Value(value, spec=['INTEGER'])
             self.consume_task_value(blocks, flow, pending.consumer, result)
+            return
+        if kind == 'file_cancel':
+            # Checked memory transfers start after selectors and formats and run to completion
+            # within the same slice. An idle cancellation preserves the cursor and leaves status zero.
+            if outputs.descriptor(key).closed:
+                raise _TaskOrderUnknown()
             return
 
         self.tick(len(outputs.handles) + len(outputs.sizes))
@@ -5663,7 +5669,7 @@ class _Analyzer(TeachDiscovery):
             return self.plain_task_read_storage(spec[2])
         if kind == 'STRUCTURE':
             return all(self.plain_task_read_storage(field) for _, field in spec[2])
-        return kind in SCALARS
+        return kind in SCALARS or kind in ('VECTOR', 'JOINTPOS')
 
     def finish_task_read(self, read, flow):
         outputs = flow.task_file_outputs
