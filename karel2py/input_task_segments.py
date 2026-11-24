@@ -4,7 +4,9 @@ from dataclasses import dataclass
 
 from .compiler_language import CONSTANT_BUILTINS, INTEGRAL_TYPES, RECORD_TYPES
 from .input_robot_values import POSE_CONSTRUCTORS
+from .input_teach_discovery import TEACH_POSITION_GETTERS
 from .input_value_conversions import SCALARS, Value, array_dimensions
+from .queue_operations import QUEUE_EDIT_INPUTS
 from .teach import TPE_NAMES
 
 
@@ -14,7 +16,7 @@ SCALAR_BINARY_OPERATORS = frozenset(('+', '-', '*', '/', 'DIV', 'MOD', '=', '<>'
 TASK_DATA_AGGREGATES = frozenset(('ARRAY', 'JOINTPOS', *RECORD_TYPES))
 TASK_ROUTINE_VALUES = frozenset(SCALARS) | TASK_DATA_AGGREGATES
 PATH_TASK_EDITS = frozenset(('APPEND_NODE', 'INSERT_NODE', 'DELETE_NODE'))
-QUEUE_TASK_EDITS = frozenset(('INIT_QUEUE', 'APPEND_QUEUE'))
+QUEUE_TASK_EDITS = frozenset(QUEUE_EDIT_INPUTS) | {'INIT_QUEUE', 'COPY_QUEUE'}
 _REPEAT_SAMPLE = object()
 
 
@@ -184,10 +186,22 @@ def _expression_routines(plan, expression, tick, *, procedure=False):
                     yield from _expression_routines(plan, operand, tick)
 
 
+def queue_task_call(plan, node):
+    if node['kind'] != 'call' or node['value'] not in QUEUE_TASK_EDITS or node['value'] in plan['routines']:
+        return False
+    signature = node.get('signature', ())
+    return len(signature) == len(node['args']) and all(spec[0] in ('i', 'r', 'o') for spec in signature)
+
+
 def _routine_calls(plan, node, tick):
     kind, args = node['kind'], node['args']
     if kind == 'call':
-        yield from _expression_routines(plan, args[0], tick, procedure=True)
+        call = args[0]
+        if queue_task_call(plan, call):
+            for operand in call['args']:
+                yield from _expression_routines(plan, operand, tick)
+        else:
+            yield from _expression_routines(plan, call, tick, procedure=True)
     elif kind == 'write_items':
         for item in args:
             for operand in item['args']:
@@ -228,7 +242,8 @@ def structured_child(plan, linked_plans, tick):
         pause = explicit_pause(node)
         found_pause = found_pause or pause
         found_control = (found_control or node['kind'] in STRUCTURED_LOOPS
-                         or aggregate_task_write(node) or node.get('data_assignment') is True)
+                         or aggregate_task_write(node) or node.get('data_assignment') is True
+                         or node['kind'] == 'call' and queue_task_call(owner, node['args'][0]))
         pending.extend((owner, iter(body), True) for body in _branches(node) if body)
         for call in _routine_calls(owner, node, tick):
             name = call['value']
@@ -351,9 +366,9 @@ class _SegmentRules:
         _, terminal = array_dimensions(self.types.get(node['value']))
         return bool(terminal and terminal[0] == 'PATH')
 
-    def collection_call(self, node):
+    def path_edit_call(self, node):
         name = node['value']
-        if name in self.plan['routines'] or name not in PATH_TASK_EDITS | QUEUE_TASK_EDITS:
+        if name in self.plan['routines'] or name not in PATH_TASK_EDITS:
             return False
         args, signature = node['args'], node.get('signature', ())
         return len(args) == len(signature) and all(
@@ -393,9 +408,14 @@ class _SegmentRules:
         self.tick()
         kind, args = node['kind'], node['args']
         if kind == 'assign':
-            if node.get('data_assignment') is True:
-                return False
             target, value = args
+            if node.get('data_assignment') is True:
+                # A direct TP getter can record its input without materializing the pose.
+                call = _ungroup(value)
+                result = TEACH_POSITION_GETTERS.get(call['value']) if call['kind'] == 'call' else None
+                return (target['kind'] == 'name' and result is not None
+                        and self.types.get(target['value']) == list(result)
+                        and 'data_assignment_conversion' not in node and self.call(call))
             if self.path_storage(target):
                 return False
             if target['kind'] == 'name':

@@ -73,7 +73,9 @@ linked modules. Ordinary aggregate results can feed another call, console
 follow the declared argument, return, or concrete ARRAY receiver schema.
 Ordinary ARRAY subscripts, pure scalar built-ins, `ARRAY_LEN`, and console
 `WRITE` keep evaluated operands across a pause. Console output includes
-bounded PATH transfers and source-initialized queue entries.
+bounded PATH transfers and source-initialized queue entries. Queue calls
+retain evaluated operands through pauses and track edits, removals, and copies,
+including entry IDs and partial output writes.
 Scalar and ordinary aggregate `REPEAT UNTIL` captures run once before the
 live test and carry their values across pauses and iterations.
 Discovery tracks numbered handler activation within
@@ -86,7 +88,7 @@ document and reports changed, omitted and unresolved inputs.
 
 1. **Expand linked discovery.** Extend child pause tracking to resource
    arguments and selectors, model-backed or unproven aggregate conversions,
-   additional queue mutations and saved queues, FILE output, and resource
+   saved queues and queue FILE transfers, FILE output, and resource
    `EVAL` captures.
    Model shared storage in called library modules, extend resumable
    `FOR` capture to PATH and USING storage, and model

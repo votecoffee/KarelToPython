@@ -24,9 +24,9 @@ from .input_position_values import (
     checked_position_facts, merge_positions, position_register_result,
 )
 from .input_task_segments import (
-    PATH_TASK_EDITS, STRUCTURED_LOOPS, TASK_DATA_AGGREGATES, TASK_ROUTINE_VALUES, bind_repeat_samples, bounded_child,
-    explicit_pause, repeat_capture_parts, resolve_routine, scalar_task_operator, select_case_labels, structured_child,
-    task_handoff_window,
+    STRUCTURED_LOOPS, TASK_DATA_AGGREGATES, TASK_ROUTINE_VALUES, bind_repeat_samples, bounded_child,
+    explicit_pause, queue_task_call, repeat_capture_parts, resolve_routine, scalar_task_operator, select_case_labels,
+    structured_child, task_handoff_window,
 )
 from .input_teach_catalog import TEACH_CATALOG_SERVICES, TEACH_EDIT_SERVICES
 from .input_teach_discovery import (
@@ -34,6 +34,7 @@ from .input_teach_discovery import (
     TEACH_SCALAR_GETTERS, TEACH_SCALAR_SECTIONS, TEACH_SCALAR_SETTERS, TeachDiscovery, TeachFacts,
 )
 from .position_register_models import register_description
+from .queue_operations import QUEUE_EDIT_INPUTS, plan_queue_copy, plan_queue_edit
 from .input_robot_tables import RobotTableFacts
 from .input_robot_transfers import inspect_robot_variable, transfer_robot_variable
 from .input_robot_values import (
@@ -211,6 +212,12 @@ class _TaskArguments:
 
 
 @dataclass(frozen=True)
+class _TaskQueueCall:
+    call: dict
+    actuals: tuple[_Location | _Value, ...] = ()
+
+
+@dataclass(frozen=True)
 class _TaskAssignment:
     node: dict
     spec: list
@@ -253,13 +260,14 @@ class _TaskWrite:
 
 @dataclass(frozen=True)
 class _TaskQueue:
-    entries: tuple[int, ...] = ()
+    entries: tuple[tuple[int, int], ...] = ()
+    sequence: int = 0
     buffer: tuple | None = None
 
 
 _TaskValueConsumer = (dict | _TaskSelect | _TaskForHeader | _TaskLoop | _TaskExpression |
                       _TaskArguments | _TaskAssignment | _TaskSelection | _TaskResultSelection |
-                      _TaskArrayLength | _TaskWrite | _TaskRepeatCapture)
+                      _TaskArrayLength | _TaskWrite | _TaskRepeatCapture | _TaskQueueCall)
 
 
 @dataclass(frozen=True)
@@ -274,7 +282,7 @@ class _TaskRoutine:
 @dataclass(eq=False, frozen=True)
 class _Suspension:
     blocks: tuple[tuple[list, int] | _TaskLoop | _TaskRoutine | _TaskSelect |
-                  _TaskForHeader | _TaskExpression | _TaskArguments | _TaskSelection | _TaskWrite, ...]
+                  _TaskForHeader | _TaskExpression | _TaskArguments | _TaskSelection | _TaskWrite | _TaskQueueCall, ...]
     flow: '_Flow'
 
 
@@ -5018,6 +5026,9 @@ class _Analyzer(TeachDiscovery):
             if isinstance(frame, _TaskArguments):
                 self.next_task_argument(blocks, child, scope, frame)
                 continue
+            if isinstance(frame, _TaskQueueCall):
+                self.next_task_queue_call(blocks, child, scope, frame)
+                continue
             if isinstance(frame, _TaskExpression):
                 self.next_task_expression(blocks, child, scope, frame)
                 continue
@@ -5055,10 +5066,16 @@ class _Analyzer(TeachDiscovery):
         self.tick()
         kind, args = node['kind'], node['args']
         if kind == 'call':
-            if args[0]['kind'] == 'call' and scope.collection_call(args[0]):
-                self.task_collection_call(args[0], flow)
+            builtin = args[0]
+            if builtin['kind'] == 'call' and scope.path_edit_call(builtin):
+                self.path_edit(builtin, flow, True, task_segment=True)
+                if flow.opaque or flow.stopped:
+                    raise _TaskOrderUnknown()
                 return
-            call = scope.procedure_call(args[0])
+            if queue_task_call(self.plan, builtin):
+                blocks.append(_TaskQueueCall(builtin))
+                return
+            call = scope.procedure_call(builtin)
             if call is None:
                 raise _TaskOrderUnknown()
             blocks.append(_TaskArguments(call, None))
@@ -5144,56 +5161,86 @@ class _Analyzer(TeachDiscovery):
         blocks[-1] = replace(write, index=write.index + 1, values=(), aggregate=None,
                              rendered_pieces=write.rendered_pieces + count, rendered_length=write.rendered_length + length)
 
-    def task_collection_call(self, node, flow):
-        name, args = node['value'], node['args']
-        if name in PATH_TASK_EDITS:
-            self.path_edit(node, flow, True, task_segment=True)
-            if flow.opaque or flow.stopped:
-                raise _TaskOrderUnknown()
+    def next_task_queue_call(self, blocks, flow, scope, pending):
+        self.tick()
+        call, actuals = pending.call, pending.actuals
+        index = len(actuals)
+        if index == len(call['args']):
+            blocks.pop()
+            self.apply_task_queue_call(call, actuals, flow)
             return
-        if name == 'INIT_QUEUE':
-            queue = self.locate(args[0], flow, True)
-            if queue is None or queue.spec != ['QUEUE_TYPE']:
+        operand = call['args'][index]
+        if call['signature'][index][0] == 'i':
+            value = self.task_operand(operand, flow, scope, blocks, pending)
+            if value is not None:
+                self.consume_task_value(blocks, flow, pending, value)
+        else:
+            schema = scope.reference_schema(operand, staged=True)
+            if not schema or schema[0] not in ('QUEUE_TYPE', 'ARRAY', 'INTEGER'):
                 raise _TaskOrderUnknown()
+            self.start_task_selection(blocks, flow, operand, pending)
+
+    def task_queue_array_capacity(self, loc):
+        shape, member = _array_dimensions(loc.spec)
+        if len(shape) != 1 or type(shape[0]) is not int or not 1 <= shape[0] <= MAX_FACTS or member != ['INTEGER']:
+            raise _TaskOrderUnknown()
+        return shape[0]
+
+    def write_task_queue_array(self, loc, values, flow, node):
+        self.tick(len(values))
+        for index, value in enumerate(values, 1):
+            cell = self.child(loc, 'index', index, node)
+            self.write(cell, _Value(value, spec=cell.spec), flow, node)
+
+    def apply_task_queue_call(self, node, actuals, flow):
+        name = node['value']
+        offset = QUEUE_EDIT_INPUTS.get(name, 0)
+        queue = actuals[offset]
+        if flow.opaque or flow.stopped or queue.spec != ['QUEUE_TYPE']:
+            raise _TaskOrderUnknown()
+        if name == 'INIT_QUEUE':
             flow.task_queues[queue.key] = _TaskQueue()
             return
-        self.append_task_queue(node, flow)
 
-    def append_task_queue(self, node, flow):
-        value_arg, queue_arg, buffer_arg, id_arg, status_arg = node['args']
-        value = self.expr(value_arg, flow, True).constant
-        queue, buffer, entry, status = (self.locate(arg, flow, True)
-                                        for arg in (queue_arg, buffer_arg, id_arg, status_arg))
-        locations = (queue, buffer, entry, status)
-        if (flow.opaque or flow.stopped or any(loc is None or loc.kind not in ('variable', 'local')
-                                              or loc.named_data or loc.path_slot is not None for loc in locations)):
+        locations = [loc for loc in actuals if isinstance(loc, _Location)]
+        if any(self.path_contains_reference(first, second) or self.path_contains_reference(second, first)
+               for index, first in enumerate(locations) for second in locations[index + 1:]):
             raise _TaskOrderUnknown()
+        buffer = actuals[offset + 1]
+        capacity = self.task_queue_array_capacity(buffer)
         previous = flow.task_queues.get(queue.key)
-        shape, member = _array_dimensions(buffer.spec)
-        if (previous is None or previous.buffer not in (None, buffer.key)
-                or len(shape) != 1 or type(shape[0]) is not int or not 1 <= shape[0] <= MAX_FACTS
-                or member != ['INTEGER'] or entry.spec != ['INTEGER'] or status.spec != ['INTEGER']
-                or len(previous.entries) > shape[0]
-                or entry.key == status.key or any(self.path_contains_reference(buffer, output)
-                                                 for output in (entry, status))):
+        if previous is None or previous.buffer not in (None, buffer.key) or len(previous.entries) > capacity:
             raise _TaskOrderUnknown()
+
+        entries, sequence = previous.entries, previous.sequence
+        line = node.get('line')
         try:
             with rt._numeric_scope('pythonic'):
-                value = rt.checked(('INTEGER',), value)
+                if name == 'COPY_QUEUE':
+                    entry_id, skip = (rt.integer(value.constant, line) for value in actuals[2:4])
+                    if entry_id < 0 or skip < 0:
+                        raise _TaskOrderUnknown()
+                    target, *outputs = actuals[4:]
+                    copied, status = plan_queue_copy(entries, entry_id, skip, self.task_queue_array_capacity(target))
+                    writes = [(0, len(copied)), (1, status)]
+                else:
+                    inputs = [rt.integer(value.constant, line) for value in actuals[:offset]]
+                    outputs = actuals[offset + 2:]
+                    entries, sequence, writes = plan_queue_edit(name, entries, sequence, capacity, inputs, line)
+                if any(loc.spec != ['INTEGER'] for loc in outputs):
+                    raise _TaskOrderUnknown()
+                self.tick(len(entries))
+                values = [rt.checked(('INTEGER',), value, line) for _, value in entries]
+                prepared = [(outputs[index], rt.checked(('INTEGER',), value, line)) for index, value in writes]
         except rt.KarelRuntimeError:
             raise _TaskOrderUnknown() from None
-        entries, size = previous.entries, shape[0]
-        full = len(entries) == size
-        if not full:
-            entries = (*entries, value)
-        self.tick(size)
-        for index in range(1, size + 1):
-            cell = self.child(buffer, 'index', index, node)
-            self.write(cell, _Value(entries[index - 1] if index <= len(entries) else 0, spec=['INTEGER']), flow, node)
-        if not full:
-            self.write(entry, _Value(len(entries), spec=['INTEGER']), flow, node)
-        self.write(status, _Value(2 if full else 0, spec=['INTEGER']), flow, node)
-        flow.task_queues[queue.key] = _TaskQueue(entries, buffer.key)
+
+        self.write_task_queue_array(buffer, values + [0] * (capacity - len(values)), flow, node)
+        if name == 'COPY_QUEUE':
+            self.write_task_queue_array(target, copied, flow, node)
+        for loc, value in prepared:
+            self.write(loc, _Value(value, spec=loc.spec), flow, node)
+        flow.task_queues[queue.key] = _TaskQueue(entries, sequence, buffer.key)
 
     def capture_task_collection(self, operand, schema, flow, scope):
         spec = tuple_spec(schema)
@@ -5244,7 +5291,7 @@ class _Analyzer(TeachDiscovery):
             if queue is None or len(fields) + len(queue.entries) > 1024:
                 raise _TaskOrderUnknown()
             self.tick(len(queue.entries))
-            fields.extend((('INTEGER',), value) for value in queue.entries)
+            fields.extend((('INTEGER',), value) for _, value in queue.entries)
 
     def task_data_schema(self, schema, *, max_leaves=MAX_FACTS):
         if not schema or schema[0] not in TASK_DATA_AGGREGATES:
@@ -5455,7 +5502,7 @@ class _Analyzer(TeachDiscovery):
             else:
                 value = self.read_task_scalar(loc, selection.node, flow)
             self.consume_task_value(blocks, flow, consumer, value)
-        elif isinstance(consumer, _TaskArguments):
+        elif isinstance(consumer, (_TaskArguments, _TaskQueueCall)):
             blocks[-1] = replace(consumer, actuals=(*consumer.actuals, loc))
         elif isinstance(consumer, _TaskAssignment):
             value = selection.assignment
@@ -5708,6 +5755,8 @@ class _Analyzer(TeachDiscovery):
             blocks[-1] = replace(consumer, values=(*consumer.values, value))
         elif isinstance(consumer, _TaskArrayLength):
             blocks[-1] = replace(consumer, values=(*consumer.values, value))
+        elif isinstance(consumer, _TaskQueueCall):
+            blocks[-1] = replace(consumer, actuals=(*consumer.actuals, value))
         elif isinstance(consumer, _TaskArguments):
             self.capture_task_argument(blocks, consumer, value)
         elif isinstance(consumer, _TaskExpression):

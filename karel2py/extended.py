@@ -13,6 +13,7 @@ from .file_io import (
     FILE_READ_TIMEOUT_STATUS, FILE_TIMEOUT_ATTRIBUTE, MAX_FILE_TIMEOUT_MS, FileHandle,
     binary_format, binary_read_fields, file_piece, file_read, set_file_attribute,
 )
+from .queue_operations import QUEUE_EDIT_INPUTS, plan_queue_copy, plan_queue_edit
 from .teach import TPE_NAMES
 from .vision import VISION_PROCEDURES,VISION_FUNCTIONS
 from .xmlio import XML_NAMES,XML_CONSTANTS
@@ -3214,38 +3215,12 @@ class ExecutionContext:
         rt=runtime()
         if name=='INIT_QUEUE':
             q=args[0].raw(); q.initialized=True; q.entries=[]; q.sequence=0; q.buffer=None; return
-        offset=0 if name=='GET_QUEUE' else 2 if name in ('INSERT_QUEUE','MODIFY_QUEUE') else 1
+        offset=QUEUE_EDIT_INPUTS[name]
         target,backing=args[offset:offset+2]
         q,buffer,snapshot,check_publication=_queue_operation_snapshot(state,name,target,backing,line)
-        entries=list(snapshot)
-        sequence=q.sequence
-        outputs=[]
-        code=0
-        if name in ('APPEND_QUEUE','INSERT_QUEUE'):
-            if len(entries)>=len(buffer.values):
-                code=2
-            else:
-                at=len(entries) if name=='APPEND_QUEUE' else next((i for i,pair in enumerate(entries) if pair[0]==args[1]),None)
-                if at is None:
-                    code=1
-                else:
-                    sequence=rt.checked(('INTEGER',),sequence+1,line)
-                    entries.insert(at,(sequence,rt.integer(args[0],line)))
-                    if name=='APPEND_QUEUE': outputs.append((args[-2],sequence))
-        elif name=='GET_QUEUE':
-            if not entries: code=61002
-            else:
-                entry_id,value=entries.pop(0)
-                outputs.extend(((args[2],value),(args[3],entry_id)))
-        else:
-            entry_id=args[1] if name=='MODIFY_QUEUE' else args[0]
-            at=next((i for i,pair in enumerate(entries) if pair[0]==entry_id),None)
-            if at is None: code=1
-            elif name=='DELETE_QUEUE': del entries[at]
-            else: entries[at]=(entry_id,rt.integer(args[0],line))
-
-        outputs.append((args[-1],code))
-        prepared=[(reference,rt.checked(reference.spec,value,line)) for reference,value in outputs]
+        entries,sequence,outputs=plan_queue_edit(name,snapshot,q.sequence,len(buffer.values),args[:offset],line)
+        targets=args[offset+2:]
+        prepared=[(targets[index],rt.checked(targets[index].spec,value,line)) for index,value in outputs]
         staged=_staged_queue_buffer(backing,buffer,entries,line)
         check_publication()
         rt.replace_value(buffer,staged)
@@ -3264,9 +3239,8 @@ class ExecutionContext:
             fail('COPY_QUEUE requires ordinary output ARRAY storage',line)
         mapping=rt._queue_buffer_witness(view,line)
         queue,buffer,entries,check_publication=_queue_operation_snapshot(state,'COPY_QUEUE',source,backing,line)
-        first=0 if sequence==0 else next((i for i,pair in enumerate(entries) if pair[0]==sequence),None)
-        start=0 if first is None else first+skip
-        length=0 if first is None else min(max(0,len(entries)-start),len(view.values))
+        values,code=plan_queue_copy(entries,sequence,skip,len(view.values))
+        length=len(values)
         if length:
             for _ in range(len(view.values)):state.tick(line)
         check_publication()
@@ -3275,13 +3249,13 @@ class ExecutionContext:
         staged=_staged_queue_buffer(backing,buffer,entries,line)
         if length:
             staged_view=rt.checked(output.spec,view,line)
-            staged_view.values[:length]=[value for _,value in entries[start:start+length]]
+            staged_view.values[:length]=values
         rt.replace_value(buffer,staged)
         if length:
             rt.replace_value(view,staged_view)
         queue.buffer=buffer
         count.set(length,line)
-        status.set(1 if first is None else 0,line)
+        status.set(code,line)
     def path_source_value(self,state,target,source,source_spec,line=None):
         rt=runtime()
         layout=path_conversion_layout(target,source_spec,model=True)

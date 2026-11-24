@@ -121,10 +121,15 @@ Console `WRITE` also captures known PATH and queue contents before formats
 run. Whole PATHs and checked ranges follow record order, including the declared
 header when selected. Discovery follows supported `APPEND_NODE`,
 `INSERT_NODE`, and `DELETE_NODE` operations and reads the captured records
-before any later edit. Queue writes preserve entry order for source-initialized
-queues and queue arrays whose contents are known from `INIT_QUEUE` and
-`APPEND_QUEUE`. The backing ARRAY, entry number, and status retain their
-modeled effects across a pause.
+before any later edit. Queue writes preserve entry order for queues and queue
+arrays initialized in the child source with `INIT_QUEUE`. Discovery follows
+`APPEND_QUEUE`, `INSERT_QUEUE`, `MODIFY_QUEUE`, `DELETE_QUEUE`, `GET_QUEUE`, and
+`COPY_QUEUE` with known inputs and checked storage. It retains evaluated scalar
+arguments and selected references while later operands pause. Queue entry IDs,
+the backing ARRAY, and status outputs carry across pauses. An empty get
+preserves its value and ID outputs, and a copy writes just the copied prefix
+and its count and status. Saved queue contents and FILE queue transfers still
+use conservative discovery.
 Discovery uses the emitted item types and does not produce output. Re-translate
 older modules to add any missing item types or collection schemas for
 paused `WRITE` discovery.

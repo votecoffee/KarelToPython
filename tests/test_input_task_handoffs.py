@@ -3257,6 +3257,172 @@ END CHILD
         self.assertEqual(result['programs']['CHILD']['values']['LEFT_BUF'],[7,9])
         self.assertEqual(result['programs']['CHILD']['values']['RIGHT_BUF'],[11,0])
 
+    def test_queue_write_captures_entries_before_pausing_edits(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR q:QUEUE_TYPE backing:ARRAY[3] OF INTEGER
+    first,second,last,item,removed,s,unused:INTEGER
+ROUTINE edit_queue:INTEGER
+BEGIN
+  INSERT_QUEUE(11,second,q,backing,s)
+  MODIFY_QUEUE(77,first,q,backing,s)
+  DELETE_QUEUE(second,q,backing,s)
+  GET_QUEUE(q,backing,item,removed,s)
+  PAUSE
+  APPEND_QUEUE(23,q,backing,last,s)
+  RETURN 3
+END edit_queue
+BEGIN
+  INIT_QUEUE(q)
+  APPEND_QUEUE(7,q,backing,first,s)
+  APPEND_QUEUE(9,q,backing,second,s)
+  WRITE(q::edit_queue(),'|',q)
+  IF (item=77) AND (removed=1) AND (last=4) AND (s=0) THEN
+    WRITE('|',backing)
+  ELSE
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed')
+        self.assertEqual(result['text_output'],'  7  9| 11 23| 11 23 0')
+        self.assertEqual(result['programs']['CHILD']['values']['BACKING'],[11,23,0])
+
+    def test_queue_call_retains_scalar_arguments_before_a_pausing_reference(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR queues:ARRAY[2] OF QUEUE_TYPE backing:ARRAY[2] OF INTEGER
+    stored,handle,s,unused:INTEGER
+ROUTINE anchor:INTEGER
+BEGIN
+  stored=99
+  PAUSE
+  RETURN handle
+END anchor
+ROUTINE target_queue:INTEGER
+BEGIN
+  PAUSE
+  RETURN 2
+END target_queue
+BEGIN
+  INIT_QUEUE(queues[2])
+  APPEND_QUEUE(8,queues[2],backing,handle,s)
+  stored=5
+  INSERT_QUEUE(stored,anchor(),queues[target_queue()],backing,s)
+  IF (stored=99) AND (backing[1]=5) AND (backing[2]=8) AND (s=0) THEN
+    WRITE(queues[2])
+  ELSE
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation',
+                                      'task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed')
+        self.assertEqual(result['text_output'],' 5 8')
+
+    def test_queue_copy_and_empty_get_preserve_unwritten_outputs(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR q:QUEUE_TYPE backing,dest:ARRAY[3] OF INTEGER
+    first,last,count,s,item,removed,unused:INTEGER
+ROUTINE skip_one:INTEGER
+BEGIN
+  PAUSE
+  RETURN 1
+END skip_one
+BEGIN
+  INIT_QUEUE(q)
+  APPEND_QUEUE(31,q,backing,first,s)
+  APPEND_QUEUE(32,q,backing,last,s)
+  dest[2]=55
+  dest[3]=66
+  COPY_QUEUE(q,backing,first,skip_one(),dest,count,s)
+  IF (count=1) AND (s=0) THEN
+    COPY_QUEUE(q,backing,99,0,dest,count,s)
+    IF (count=0) AND (s=1) THEN
+      DELETE_QUEUE(first,q,backing,s)
+      GET_QUEUE(q,backing,item,removed,s)
+      GET_QUEUE(q,backing,item,removed,s)
+      IF (item=32) AND (removed=2) AND (s=61002) THEN
+        WRITE(dest,'|',backing)
+      ELSE
+        WRITE(unused)
+      ENDIF
+    ELSE
+      WRITE(unused)
+    ENDIF
+  ELSE
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed')
+        self.assertEqual(result['text_output'],' 32 55 66| 0 0 0')
+        self.assertEqual(result['programs']['CHILD']['values']['DEST'],[32,55,66])
+
+    def test_resumed_queue_call_declines_a_different_backing_array(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR q:QUEUE_TYPE backing,other:ARRAY[2] OF INTEGER
+    entry,s:INTEGER item:ARRAY[1] OF INTEGER
+ROUTINE target:INTEGER
+BEGIN
+  PAUSE
+  RETURN 1
+END target
+BEGIN
+  INIT_QUEUE(q)
+  APPEND_QUEUE(7,q,backing,entry,s)
+  GET_QUEUE(q,other,item[target()],entry,s)
+  WRITE(item[1])
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assertIn('condition-source',[row['code'] for row in report['unresolved']])
+        self.assertEqual(result['status'],'failed')
+        self.assertIn('original backing ARRAY',result['error']['message'])
+        self.assertEqual(result['programs']['CHILD']['values']['BACKING'],[7,0])
+        self.assertEqual(result['programs']['CHILD']['values']['ENTRY'],1)
+
     def test_empty_queue_validates_its_format_before_the_later_item(self):
         main="""PROGRAM MAIN
 VAR s:INTEGER
