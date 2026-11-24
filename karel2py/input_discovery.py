@@ -26,10 +26,10 @@ from .input_position_values import (
 )
 from .input_task_segments import (
     FILE_TASK_QUERIES, STRUCTURED_LOOPS, TASK_DATA_AGGREGATES, TASK_ROUTINE_VALUES, bind_repeat_samples, bounded_child,
-    explicit_pause, file_task_procedure, file_task_storage, queue_task_call, repeat_capture_parts, resolve_routine,
+    explicit_pause, file_task_procedure, queue_task_call, queue_task_storage, repeat_capture_parts, resolve_routine,
     scalar_task_operator,
     select_case_labels,
-    structured_child, task_handoff_window,
+    structured_child, task_handoff_window, task_resource_storage,
 )
 from .input_teach_catalog import TEACH_CATALOG_SERVICES, TEACH_EDIT_SERVICES
 from .input_teach_discovery import (
@@ -211,7 +211,7 @@ class _TaskArguments:
 
     call: dict
     consumer: '_TaskValueConsumer | None'
-    actuals: tuple[_Location | _Value, ...] = ()
+    actuals: 'tuple[_Location | _Value | _TaskQueueArgument, ...]' = ()
 
 
 @dataclass(frozen=True)
@@ -231,7 +231,7 @@ class _TaskSelection:
     node: dict
     location: _Location
     selectors: tuple[dict, ...]
-    consumer: '_TaskValueConsumer'
+    consumer: '_TaskValueConsumer | _TaskQueueUninit'
     reading: bool = False
     assignment: _Value | None = None
     indices: tuple[object, ...] = ()
@@ -285,6 +285,17 @@ class _TaskQueueField:
     snapshot: _TaskQueue
     index: int
     spec = ('INTEGER',)
+
+
+@dataclass(frozen=True)
+class _TaskQueueArgument:
+    spec: list
+    cells: tuple[tuple[tuple, _TaskQueue], ...]
+
+
+@dataclass(frozen=True)
+class _TaskQueueUninit:
+    consumer: '_TaskValueConsumer'
 
 
 @dataclass(frozen=True)
@@ -5693,24 +5704,30 @@ class _Analyzer(TeachDiscovery):
             raise _TaskOrderUnknown()
         return [self.index_child(location, index, node, flow) for index in indexes]
 
-    def task_queue_state(self, loc, flow):
+    def task_queue_state(self, loc, flow, *, allow_uninitialized=False):
         queue = flow.task_queues.get(loc.key)
         if queue is not None:
             return queue
         load = getattr(self.saved_bindings, 'queue_topology', None)
-        if load is None or loc.kind != 'variable' or loc.owner != self.task_roots[-1]:
+        if loc.kind == 'local':
+            topology = None
+        elif loc.kind == 'variable' and loc.owner == self.task_roots[-1] and load is not None:
+            topology = load(loc.owner, loc.root, loc.root_spec, loc.parts, tick=self.tick)
+            if topology is not None:
+                self.binding_storage[loc.owner, loc.root] = loc.root_spec
+        else:
             raise _TaskOrderUnknown()
-        topology = load(loc.owner, loc.root, loc.root_spec, loc.parts, tick=self.tick)
-        if topology is None:
+        if topology is None or not topology[0]:
+            if allow_uninitialized:
+                return None
             raise _TaskOrderUnknown()
-        sequence, entry_ids = topology
+        _, sequence, entry_ids = topology
         self.serial += 1
         queue = _TaskQueue(self.serial, tuple((entry_id, UNKNOWN) for entry_id in entry_ids), sequence)
         flow.task_queues[loc.key] = queue
-        self.binding_storage[loc.owner, loc.root] = loc.root_spec
         return queue
 
-    def task_queue_cells(self, loc, node, flow):
+    def task_queue_cells(self, loc, node, flow, *, allow_uninitialized=False):
         self.tick()
         if loc is None:
             raise _TaskOrderUnknown()
@@ -5719,12 +5736,14 @@ class _Analyzer(TeachDiscovery):
             if type(size) is not int or not 1 <= size <= MAX_FACTS:
                 raise _TaskOrderUnknown()
             for index in range(1, size + 1):
-                yield from self.task_queue_cells(self.child(loc, 'index', index, node), node, flow)
+                yield from self.task_queue_cells(self.child(loc, 'index', index, node), node, flow,
+                                                 allow_uninitialized=allow_uninitialized)
         else:
             if loc.spec != ['QUEUE_TYPE']:
                 raise _TaskOrderUnknown()
-            queue = self.task_queue_state(loc, flow)
-            self.tick(len(queue.entries))
+            queue = self.task_queue_state(loc, flow, allow_uninitialized=allow_uninitialized)
+            if queue is not None:
+                self.tick(len(queue.entries))
             yield loc, queue
 
     def collect_task_queue_fields(self, loc, node, flow, fields):
@@ -5742,6 +5761,24 @@ class _Analyzer(TeachDiscovery):
         if not fields:
             raise _TaskOrderUnknown()
         return tuple(fields)
+
+    def capture_task_queue_argument(self, loc, node, flow, arguments):
+        index = len(arguments.actuals)
+        _, expected = self.plan['routines'][arguments.call['value']]['parameters'][index]
+        source = tuple_spec(loc.spec)
+        if not queue_task_storage(expected) or not queue_task_storage(loc.spec):
+            raise _TaskOrderUnknown()
+        if source[0] == 'ARRAY' and not rt.collection_array_source_accepts(tuple_spec(expected), source):
+            raise _TaskOrderUnknown()
+        cells, units = [], 0
+        for cell, queue in self.task_queue_cells(loc, node, flow, allow_uninitialized=True):
+            units += 1
+            if queue is not None:
+                cells.append((cell.parts[len(loc.parts):], queue))
+                units += 2 * len(queue.entries)
+            if source[0] == 'ARRAY' and units > MAX_FACTS:
+                raise _TaskOrderUnknown()
+        return _TaskQueueArgument(loc.spec, tuple(cells))
 
     def task_data_schema(self, schema, *, max_leaves=MAX_FACTS):
         if not schema or schema[0] not in TASK_DATA_AGGREGATES:
@@ -5835,9 +5872,11 @@ class _Analyzer(TeachDiscovery):
     def task_operand(self, node, flow, scope, blocks, consumer):
         if node['kind'] == 'call' and node['value'] not in self.plan['routines']:
             name, args = node['value'], node['args']
-            file_uninit = (name == 'UNINIT' and len(args) == 1
-                           and scope.reference_schema(args[0], staged=True) == ['FILE'])
-            if name in FILE_TASK_QUERIES or file_uninit:
+            uninit_schema = scope.reference_schema(args[0], staged=True) if name == 'UNINIT' and len(args) == 1 else None
+            if uninit_schema == ['QUEUE_TYPE']:
+                self.start_task_selection(blocks, flow, args[0], _TaskQueueUninit(consumer))
+                return None
+            if name in FILE_TASK_QUERIES or uninit_schema == ['FILE']:
                 if len(args) != 1:
                     raise _TaskOrderUnknown()
                 self.start_task_file(blocks, flow, scope, node, consumer)
@@ -5954,8 +5993,8 @@ class _Analyzer(TeachDiscovery):
             raise _TaskOrderUnknown()
         if selection.reading:
             if isinstance(consumer, _TaskArrayLength):
-                if file_task_storage(loc.spec):
-                    self.checked_task_file_schema(loc.spec)
+                if task_resource_storage(loc.spec):
+                    self.checked_task_resource_schema(loc.spec)
                 value = _Value(spec=loc.spec)
             elif loc.spec[0] in TASK_DATA_AGGREGATES:
                 writing = isinstance(consumer, _TaskWrite)
@@ -5965,9 +6004,17 @@ class _Analyzer(TeachDiscovery):
                 value = self.read_task_scalar(loc, selection.node, flow)
             self.consume_task_value(blocks, flow, consumer, value)
         elif isinstance(consumer, (_TaskArguments, _TaskQueueCall)):
-            if isinstance(consumer, _TaskArguments) and file_task_storage(loc.spec):
-                self.checked_task_file_schema(loc.spec)
-            blocks[-1] = replace(consumer, actuals=(*consumer.actuals, loc))
+            argument = loc
+            if isinstance(consumer, _TaskArguments) and task_resource_storage(loc.spec):
+                self.checked_task_resource_schema(loc.spec)
+                if consumer.call['passing'][len(consumer.actuals)] == 'value':
+                    argument = self.capture_task_queue_argument(loc, selection.node, flow, consumer)
+            blocks[-1] = replace(consumer, actuals=(*consumer.actuals, argument))
+        elif isinstance(consumer, _TaskQueueUninit):
+            if loc.spec != ['QUEUE_TYPE']:
+                raise _TaskOrderUnknown()
+            missing = self.task_queue_state(loc, flow, allow_uninitialized=True) is None
+            self.consume_task_value(blocks, flow, consumer.consumer, _Value(missing, spec=['BOOLEAN']))
         elif isinstance(consumer, _TaskFile):
             if consumer.key is None and loc.spec == ['FILE']:
                 key = loc.root if loc.kind == 'predefined-file' else loc.key
@@ -6072,7 +6119,7 @@ class _Analyzer(TeachDiscovery):
             value = self.task_operand(operands[1], flow, scope, blocks, length)
         else:
             actual = values[0].spec
-            spec = tuple_spec(actual) if file_task_storage(actual) else self.task_data_schema(actual)
+            spec = tuple_spec(actual) if task_resource_storage(actual) else self.task_data_schema(actual)
             if spec[0] != 'ARRAY':
                 raise _TaskOrderUnknown()
             dimensions = rt.array_dimensions(spec) if len(values) == 2 else rt.array_shape(spec)
@@ -6171,7 +6218,7 @@ class _Analyzer(TeachDiscovery):
         if (str(index) in call.get('geometry_arguments', {})
                 and str(index) not in call.get('data_arguments', {})):
             raise _TaskOrderUnknown()
-        if call['passing'][index] == 'reference':
+        if call['passing'][index] == 'reference' or queue_task_storage(expected):
             if expected == ['FILE']:
                 alias = scope.predefined_file_alias(operand)
                 if alias is not None:
@@ -6180,10 +6227,10 @@ class _Analyzer(TeachDiscovery):
                     blocks[-1] = replace(arguments, actuals=(*actuals, location))
                     return
             schema = scope.reference_schema(operand, staged=True)
-            if file_task_storage(expected):
-                if not file_task_storage(schema):
+            if task_resource_storage(expected):
+                if not task_resource_storage(schema):
                     raise _TaskOrderUnknown()
-            elif not schema or schema[0] not in TASK_ROUTINE_VALUES or file_task_storage(schema):
+            elif not schema or schema[0] not in TASK_ROUTINE_VALUES or task_resource_storage(schema):
                 raise _TaskOrderUnknown()
             self.start_task_selection(blocks, flow, operand, arguments)
             return
@@ -6344,12 +6391,14 @@ class _Analyzer(TeachDiscovery):
         except (rt.KarelRuntimeError, ArithmeticError, TypeError, ValueError):
             raise _TaskOrderUnknown() from None
 
-    def checked_task_file_schema(self, schema):
+    def checked_task_resource_schema(self, schema):
         spec = tuple_spec(schema)
         try:
-            if file_storage_cost(spec) is None:
+            cost = file_storage_cost(spec) if rt.file_storage_type(spec) else (
+                collection_array_cost(spec) if spec[0] == 'ARRAY' else 1)
+            if cost is None:
                 raise _TaskOrderUnknown()
-        except ValueError:
+        except (rt.KarelRuntimeError, ValueError):
             raise _TaskOrderUnknown() from None
 
     def checked_task_data_value(self, spec, value, *, result=False):
@@ -6589,13 +6638,14 @@ class _Analyzer(TeachDiscovery):
         self.serial+=1;owner='@'+name+':'+str(self.serial)
         bindings=[]
         for (formal,spec),item in zip(routine['parameters'],actual):
-            source=item.spec if isinstance(item,(_Value,_Location)) else None
+            source=item.spec if isinstance(item,(_Value,_Location,_TaskQueueArgument)) else None
             if (isinstance(item,_Location) and spec[0]=='STRING' and source and source[0]=='STRING'
                     and spec[1] is not None and source[1] is not None and spec[1]!=source[1]):
                 self.unresolved_at('parameter-capacity','Concrete STRING capacity conflicts with routine constraint: '+name+'.'+formal,node)
                 self.opaque(flow);return None
-            if staged and file_task_storage(spec):
-                if not isinstance(item, _Location) or not rt.parameter_accepts(tuple_spec(spec), tuple_spec(source)):
+            if staged and task_resource_storage(spec):
+                if (not isinstance(item, (_Location, _TaskQueueArgument))
+                        or not rt.parameter_accepts(tuple_spec(spec), tuple_spec(source))):
                     raise _TaskOrderUnknown()
                 resolved = source
             elif staged and spec[0] in TASK_DATA_AGGREGATES:
@@ -6642,6 +6692,10 @@ class _Analyzer(TeachDiscovery):
                         flow.path_orders[loc.key] = None
                 elif _path_array_cell_type(resolved):
                     self.publish_private_path_array(loc, item, node, flow)
+                elif isinstance(item, _TaskQueueArgument):
+                    for parts, queue in item.cells:
+                        key = (*loc.key[:3], parts)
+                        flow.task_queues[key] = _TaskQueue(self.serial, queue.entries, queue.sequence)
                 else:
                     self.write(loc,item or _Value(complete=False),flow,node)
         return target_plan, target_routine, frame

@@ -856,6 +856,14 @@ context. Discovery uses saved entry IDs, order, and sequence for queue
 operations and keeps entry values editable. Project refresh retains the
 compatible queue or bank root when discovery uses that saved state.
 
+Checked routine calls preserve queue argument passing across pauses and
+forwarding to pinned modules. Bare queues, whole banks, and separately named
+ARRAY components passed by reference keep their caller's cells. Grouped
+storage and flat row or plane arguments capture private queue values before
+later operands run. Those copies keep initialization, entry IDs, and
+sequence, with their own backing ARRAY binding. `UNINIT` inspects the selected
+queue and `ARRAY_LEN` uses the bound bank's concrete shape.
+
 Discovery retains up to 64 KiB of modified file images per tracked flow.
 Larger writes can still establish size and cursor facts. Reads whose image
 was omitted, PATH reads with unresolved shapes or specialized fields, queues

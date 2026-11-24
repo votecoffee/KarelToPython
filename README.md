@@ -3,7 +3,7 @@
 ![KarelToPython icon](karel2py/assets/icons/karel_to_python_icon_64x64.png)
 
 KarelToPython translates a supported subset of FANUC KAREL into Python for
-offline inspection and execution. The current build is **26.1124.171240**.
+offline inspection and execution. The current build is **26.1124.172222**.
 
 ## Table of Contents
 
@@ -102,7 +102,8 @@ across those calls and assignments. It preserves evaluation order in built-in
 arguments, `ARRAY_LEN` selectors, and loop bounds and tests. Scalar and data
 aggregate `REPEAT UNTIL` captures survive pauses and iterations.
 Linked discovery also follows edits and copies of queues initialized in the
-source or restored from the saved run context.
+source or restored from the saved run context. Queue arguments keep their
+borrowed cells or private values across pauses in pinned routines.
 Console `WRITE` follows pausing PATH and queue selectors and PATH range bounds.
 It preserves the captured records and entries while format routines run.
 Linked discovery also follows text and binary `READ` and `WRITE` on memory files. It

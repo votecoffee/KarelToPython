@@ -92,6 +92,9 @@ Queue reads cover existing entries in initialized queues and bank selections,
 preserving IDs and releasing the previous backing ARRAY. Discovery follows
 saved queue topology through edits and copies and retains the saved root
 through project refresh.
+Pinned routine calls preserve borrowed queues and named bank components.
+Grouped queue arguments and flat bank slices keep private snapshots across
+pauses. Queue initialization and bank shape queries use the bound storage.
 Scalar and ordinary aggregate `REPEAT UNTIL` captures run once before the
 live test and carry their values across pauses and iterations.
 Discovery tracks numbered handler activation within

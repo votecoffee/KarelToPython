@@ -170,8 +170,12 @@ def bind_repeat_samples(node, samples, tick):
     return node
 
 
-def file_task_storage(spec):
-    return array_dimensions(spec)[1] == ['FILE']
+def task_resource_storage(spec):
+    return array_dimensions(spec)[1] in (['FILE'], ['QUEUE_TYPE'])
+
+
+def queue_task_storage(spec):
+    return array_dimensions(spec)[1] == ['QUEUE_TYPE']
 
 
 def _expression_routines(plan, expression, tick, *, procedure=False):
@@ -437,8 +441,9 @@ class _SegmentRules:
         formals = self.plan['routines'][call['value']]['parameters']
         if len(actuals) != len(modes) or len(modes) != len(formals):
             return None
-        return call if all(mode == 'reference' if file_task_storage(spec)
-                           else mode in ('value', 'reference') and spec[0] in TASK_ROUTINE_VALUES
+        return call if all(mode == 'reference' if task_resource_storage(spec) and not queue_task_storage(spec)
+                           else mode in ('value', 'reference') and (spec[0] in TASK_ROUTINE_VALUES
+                                                                   or queue_task_storage(spec))
                            for mode, (_, spec) in zip(modes, formals)) else None
 
     def branch(self, node):

@@ -5239,6 +5239,187 @@ END CHILD
         self.assertEqual(result['status'],'paused',result['error'])
         self.assertEqual(result['programs']['CHILD']['values']['Q']['entries'],[[1,3]])
 
+    def test_named_queue_components_keep_original_cells_through_pinned_forwarding(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+TYPE row_t=ARRAY[2] OF QUEUE_TYPE
+     plane_t=ARRAY[2] OF row_t
+VAR bank:ARRAY[2] OF plane_t backing:ARRAY[3] OF INTEGER
+    selected,entry,item,s,unused:INTEGER
+ROUTINE relay(plane:plane_t; backing:ARRAY[3] OF INTEGER; amount,entry:INTEGER) FROM LIB
+ROUTINE pick_plane:INTEGER
+BEGIN
+  PAUSE
+  RETURN selected
+END pick_plane
+ROUTINE next_amount:INTEGER
+BEGIN
+  selected=2
+  PAUSE
+  RETURN 23
+END next_amount
+BEGIN
+  selected=1
+  relay(bank[pick_plane()],backing,next_amount(),entry)
+  GET_QUEUE(bank[1,2,1],backing,item,entry,s)
+  IF (item=23) AND (entry=1) AND (backing[1]=19) AND UNINIT(bank[2,2,1]) THEN
+    WRITE(item)
+  ELSE
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        library="""PROGRAM LIB
+TYPE row_t=ARRAY[2] OF QUEUE_TYPE
+     plane_t=ARRAY[2] OF row_t
+ROUTINE fill(q:QUEUE_TYPE; backing:ARRAY[3] OF INTEGER; amount,entry:INTEGER)
+VAR stream:FILE s:INTEGER
+BEGIN
+  IF UNINIT(q) THEN
+    INIT_QUEUE(q)
+  ENDIF
+  APPEND_QUEUE(0,q,backing,entry,s)
+  OPEN FILE stream('RWB','out')
+  WRITE stream(amount)
+  SET_FILE_POS(stream,0,s)
+  PAUSE
+  IF NOT UNINIT(q) THEN
+    READ stream(q)
+    APPEND_QUEUE(19,q,backing,entry,s)
+    CLOSE FILE stream
+  ENDIF
+END fill
+ROUTINE forward(row:ARRAY OF QUEUE_TYPE; backing:ARRAY[3] OF INTEGER; amount,entry:INTEGER)
+BEGIN
+  IF ARRAY_LEN(row)=2 THEN
+    fill(row[1],backing,amount,entry)
+  ENDIF
+END forward
+ROUTINE relay(plane:plane_t; backing:ARRAY[3] OF INTEGER; amount,entry:INTEGER)
+BEGIN
+  IF (ARRAY_LEN(plane)=2) AND (ARRAY_LEN(plane,2)=2) THEN
+    forward(plane[2],backing,amount,entry)
+  ENDIF
+END relay
+BEGIN
+END LIB
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child),('LIB',library)],files={})
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling']+['task-wait','task-continuation']*3)
+        self.assertEqual(result['status'],'completed',result['error'])
+        values=result['programs']['CHILD']['values']
+        self.assertEqual(values['BANK'][0][1][0]['entries'],[[2,19]])
+        self.assertFalse(values['BANK'][1][1][0]['initialized'])
+        self.assertEqual(values['BACKING'],[19,0,0])
+        self.assertEqual(result['text_output'],' 23')
+        self.assertEqual(result['context']['files'],{'out':{'hex':'17000000'}})
+
+    def test_queue_prefix_and_grouped_scalar_snapshot_before_later_arguments(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR bank:ARRAY[2,2] OF QUEUE_TYPE backing:ARRAY[2] OF INTEGER
+    first,s,found,unused:INTEGER
+ROUTINE change_original:INTEGER
+BEGIN
+  MODIFY_QUEUE(41,first,bank[1,1],backing,s)
+  PAUSE
+  RETURN 1
+END change_original
+ROUTINE take_private(q:QUEUE_TYPE; found:INTEGER)
+VAR other:ARRAY[2] OF INTEGER entry,status:INTEGER
+BEGIN
+  PAUSE
+  GET_QUEUE(q,other,found,entry,status)
+END take_private
+ROUTINE inspect(row:ARRAY OF QUEUE_TYPE; changed,found:INTEGER)
+BEGIN
+  IF UNINIT(row[2]) AND (ARRAY_LEN(row)=2) AND (changed=1) THEN
+    INIT_QUEUE(row[2])
+    take_private((row[1]),found)
+  ENDIF
+END inspect
+BEGIN
+  INIT_QUEUE(bank[1,1])
+  APPEND_QUEUE(7,bank[1,1],backing,first,s)
+  inspect(bank[1],change_original(),found)
+  IF (found=7) AND (backing[1]=41) AND UNINIT(bank[1,2]) THEN
+    WRITE(found)
+  ELSE
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling']+['task-wait','task-continuation']*2)
+        self.assertEqual(result['status'],'completed',result['error'])
+        values=result['programs']['CHILD']['values']
+        self.assertEqual(values['BANK'][0][0]['entries'],[[1,41]])
+        self.assertFalse(values['BANK'][0][1]['initialized'])
+        self.assertEqual(values['FOUND'],7)
+        self.assertEqual(result['text_output'],' 7')
+
+    def test_borrowed_queue_shape_is_checked_after_pausing_later_argument(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR bank:ARRAY[2] OF QUEUE_TYPE entered:INTEGER
+ROUTINE later_argument:INTEGER
+BEGIN
+  PAUSE
+  RETURN 1
+END later_argument
+ROUTINE fixed(q:ARRAY[3] OF QUEUE_TYPE; flag:INTEGER)
+BEGIN
+  entered=flag
+  INIT_QUEUE(q[1])
+  PAUSE
+END fixed
+ROUTINE relay(q:ARRAY OF QUEUE_TYPE)
+BEGIN
+  fixed(q,later_argument())
+END relay
+BEGIN
+  entered=0
+  relay(bank)
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assertIn('condition-source',[row['code'] for row in report['unresolved']])
+        self.assertEqual(result['status'],'failed')
+        self.assertIn('parameter binding type mismatch',result['error']['message'].lower())
+        values=result['programs']['CHILD']['values']
+        self.assertEqual(values['ENTERED'],0)
+        self.assertFalse(values['BANK'][0]['initialized'])
+
     def test_request_status_is_not_reused_as_prelaunch_task_number(self):
         main="""PROGRAM MAIN
 VAR task_no,s:INTEGER text:STRING[8]
