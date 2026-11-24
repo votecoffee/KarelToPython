@@ -1221,6 +1221,166 @@ END CHILD
                                    for name in ('SUPPLIED','CHOSEN','OTHERWISE')])
         self.assertIn('condition-source',[row['code'] for row in report['unresolved']])
 
+    def test_paused_for_bounds_keep_the_original_counter_and_use_its_post_bound_value(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER text:STRING[8]
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  text='prior'
+  GET_TPE_STR_REG(1,text,s)
+  WRITE(s,':',text,CR)
+  CONTINUE PROGRAM[2]
+  WAIT FOR PAUSE PROGRAM[2]
+  GET_TPE_STR_REG(1,text,s)
+  WRITE(s,':',text,CR)
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR cells:ARRAY[2] OF INTEGER slot,h,s,trace,unused:INTEGER
+ROUTINE seed_value(selected:INTEGER):INTEGER
+BEGIN
+  OPEN_TPE('Shared',TPE_RDACC,TPE_ALLREJ,h,s)
+  selected=2
+  PAUSE
+  RETURN 2
+END seed_value
+ROUTINE end_value(counter:INTEGER):INTEGER
+VAR initialized:INTEGER
+BEGIN
+  initialized=counter
+  counter=1
+  CLOSE_TPE(h,s)
+  PAUSE
+  RETURN initialized
+END end_value
+BEGIN
+  slot=1
+  cells[1]=77
+  cells[2]=99
+  trace=0
+  FOR cells[slot]=(seed_value(slot)) TO end_value(cells[1]) DO
+    trace=trace*10+cells[1]
+  ENDFOR
+  IF UNINIT(cells[1]) AND (trace=12) AND (cells[2]=99) THEN
+    WRITE(trace,':',cells[2])
+  ELSE
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assert_inputs(report,[('teach_string_register','SHARED','1','required')])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation',
+                                     'task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed')
+        blocked,ready,output=result['text_output'].splitlines()
+        first_status,previous=blocked.split(':')
+        next_status,current=ready.split(':')
+        self.assertEqual((int(first_status),previous,int(next_status),current),(4,'prior',0,'ready'))
+        self.assertEqual(tuple(map(int,output.split(':'))),(12,99))
+        self.assertEqual(result['programs']['CHILD']['values']['CELLS'],[{'uninitialized':True},99])
+
+    def test_pausing_while_and_repeat_functions_run_on_their_respective_sides_of_the_body(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        cases=(('WHILE (check_test(n)) DO n=n+1 ENDWHILE','value<1',12,1),
+               ('REPEAT n=n+1 UNTIL check_test(n)','value>=2',23,2))
+        for loop,predicate,trace,count in cases:
+            with self.subTest(loop=loop):
+                child=f"""PROGRAM CHILD
+VAR n,recorded,unused:INTEGER
+ROUTINE check_test(value:INTEGER):BOOLEAN
+BEGIN
+  recorded=recorded*10+value+1
+  PAUSE
+  RETURN {predicate}
+END check_test
+BEGIN
+  n=0
+  recorded=0
+  {loop}
+  IF (recorded={trace}) AND (n={count}) THEN
+    WRITE(recorded,':',n)
+  ELSE
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+                report,result=self.prepare([('MAIN',main),('CHILD',child)])
+                self.assert_inputs(report,[])
+                self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation',
+                                             'task-wait','task-continuation'])
+                self.assertEqual(result['status'],'completed')
+                self.assertEqual(tuple(map(int,result['text_output'].split(':'))),(trace,count))
+
+    def test_invalid_resumed_narrow_final_bound_keeps_the_next_wait_unresolved(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR count:BYTE
+ROUTINE end_value:INTEGER
+BEGIN
+  PAUSE
+  RETURN 256
+END end_value
+BEGIN
+  FOR count=254 TO end_value() DO
+    PAUSE
+  ENDFOR
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assertIn('condition-source',[row['code'] for row in report['unresolved']])
+        self.assertEqual(result['status'],'failed')
+        self.assertIn('BYTE FOR bounds',result['error']['message'])
+        self.assertEqual(result['programs']['CHILD']['values']['COUNT'],{'unknown_byte':True})
+
+    def test_unresolved_resumed_loop_function_preserves_possible_body_reads(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR payload:INTEGER supplied:BOOLEAN
+ROUTINE check_test:BOOLEAN
+BEGIN
+  PAUSE
+  RETURN supplied
+END check_test
+BEGIN
+  WHILE check_test() DO
+    WRITE(payload)
+    PAUSE
+  ENDWHILE
+END CHILD
+"""
+        report,_=self.prepare([('MAIN',main),('CHILD',child)],replay=False)
+        self.assert_inputs(report,[('variable','CHILD','PAYLOAD','conditional'),
+                                   ('variable','CHILD','SUPPLIED','conditional')])
+        self.assertIn('condition-source',[row['code'] for row in report['unresolved']])
+
     def test_request_status_is_not_reused_as_prelaunch_task_number(self):
         main="""PROGRAM MAIN
 VAR task_no,s:INTEGER text:STRING[8]

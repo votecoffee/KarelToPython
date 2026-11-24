@@ -80,15 +80,19 @@ until that loop exits. Discovery follows up to 32 iterations per loop
 activation and examines only the reached segment through each pause.
 A child can also pause within a direct call in its own module or a pinned
 linked module. This includes procedure statements and direct scalar calls in
-assignments, `RETURN`, `IF` conditions, `SELECT` selectors, and `CASE` labels.
+assignments, `RETURN`, `IF` conditions, `SELECT` selectors, `CASE` labels,
+`FOR` bounds, and `WHILE` and `REPEAT` tests.
 For checked scalar value and reference arguments, discovery evaluates
 arguments once and preserves each live invocation and its locals across
 continuations. It uses the callee's source scope and keeps TP ownership with
 the child task. Return values are checked before loop cleanup. An assignment
 selects its target after the function returns. A `SELECT` keeps its captured
 selector across pauses and evaluates every label once, left to right. The
-first matching arm begins only after the last label finishes. Calls can nest
-within the ordinary routine-depth limit.
+first matching arm begins only after the last label finishes. A `FOR` captures
+its counter before the initial-bound call, initializes that cell before the
+final-bound call, and reads the start from the same cell after that call
+returns. A pausing test runs before each `WHILE` body or after each `REPEAT`
+body. Calls can nest within the ordinary routine-depth limit.
 
 The analysis carries TP handles and bank effects across that wait and uses
 the current shared bank when the child resumes. An eligible final launch or
@@ -97,9 +101,9 @@ handles cannot race with the child. Shared operations between the request
 and wait, unresolved branches and loop tests, unsupported or unresolved
 `FOR` targets or bounds, and ambiguous suspended positions still use
 conservative analysis. Checked handoffs leave recursive calls, function
-calls inside compound expressions or loop tests, unresolved linked
-signatures, shared globals in called library modules, and PATH or USING
-counter captures unresolved.
+calls inside compound expressions or other loop-header operands, unresolved
+linked signatures, shared globals in called library modules, and PATH or
+USING counter captures unresolved.
 
 Discovery evaluates signal and wait selectors and can track known pauses
 across a delay or simple event wait. A signal or delay alone does not

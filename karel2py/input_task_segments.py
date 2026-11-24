@@ -125,9 +125,15 @@ def select_case_labels(node):
 
 def _routine_calls(plan, node):
     yield _statement_routine_call(plan, node)
-    if node['kind'] == 'select':
+    kind, args = node['kind'], node['args']
+    if kind == 'select':
         for _, label in select_case_labels(node):
             yield _direct_routine_call(plan, label)
+    elif kind == 'for':
+        for bound in args[1:3]:
+            yield _direct_routine_call(plan, bound)
+    elif kind in ('while', 'repeat'):
+        yield _direct_routine_call(plan, args[0])
 
 
 def _branches(node):
@@ -255,8 +261,8 @@ class _SegmentRules:
                 return None
         return self.checked_routine_call(call)
 
-    def case_routine_call(self, label):
-        return self.checked_routine_call(_direct_routine_call(self.plan, label))
+    def scalar_routine_call(self, operand):
+        return self.checked_routine_call(_direct_routine_call(self.plan, operand))
 
     def checked_routine_call(self, call):
         if call is None:
@@ -283,14 +289,10 @@ class _SegmentRules:
             node['kind'] == 'if' or all(self.operand(label) for _, label in select_case_labels(node)))
 
     def loop(self, node):
-        args = node['args']
-        if node['kind'] == 'repeat':
+        if node['kind'] != 'for':
             return True
-        if node['kind'] == 'while':
-            return self.operand(args[0])
-        target, initial, final, _ = args
-        schema = self.reference_schema(target)
-        return bool(schema and schema[0] in INTEGRAL_TYPES and self.operand(initial) and self.operand(final))
+        schema = self.reference_schema(node['args'][0])
+        return bool(schema and schema[0] in INTEGRAL_TYPES)
 
     def statement(self, node):
         self.tick()

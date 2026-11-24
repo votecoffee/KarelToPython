@@ -158,6 +158,17 @@ class _Handler:
 
 
 @dataclass(frozen=True)
+class _TaskForHeader:
+    node: dict
+    counter: _Location
+    initializing: bool = True
+
+    @property
+    def operand(self):
+        return self.node['args'][1 if self.initializing else 2]
+
+
+@dataclass(frozen=True)
 class _TaskLoop:
     node: dict
     iterations: int = 0
@@ -181,13 +192,13 @@ class _TaskRoutine:
     """Keep bindings alive until the invocation's blocks finish unwinding."""
 
     frame: dict
-    consumer: dict | _TaskSelect | None = None
+    consumer: dict | _TaskSelect | _TaskForHeader | _TaskLoop | None = None
     result: _Value | None = None
 
 
 @dataclass(eq=False, frozen=True)
 class _Suspension:
-    blocks: tuple[tuple[list, int] | _TaskLoop | _TaskRoutine | _TaskSelect, ...]
+    blocks: tuple[tuple[list, int] | _TaskLoop | _TaskRoutine | _TaskSelect | _TaskForHeader, ...]
     flow: '_Flow'
 
 
@@ -4902,13 +4913,14 @@ class _Analyzer(TeachDiscovery):
             if isinstance(frame, _TaskSelect):
                 self.next_task_case(blocks, child, scope, frame)
                 continue
+            if isinstance(frame, _TaskForHeader):
+                self.tick()
+                value = self.task_operand(frame.operand, child, scope, blocks, frame)
+                if value is not None:
+                    self.capture_task_for_bound(blocks, child, frame, value)
+                continue
             if isinstance(frame, _TaskLoop):
-                loop = self.next_task_iteration(frame, child, scope)
-                if loop is None:
-                    blocks.pop()
-                else:
-                    blocks[-1] = loop
-                    blocks.append((frame.node['body'], 0))
+                self.next_task_iteration(blocks, child, scope, frame)
                 continue
             body, index = frame
             if index == len(body):
@@ -4973,13 +4985,9 @@ class _Analyzer(TeachDiscovery):
                 raise _TaskOrderUnknown()
             return
         _, label = selection.labels[selection.index]
-        call = scope.case_routine_call(label)
-        if call is not None:
-            self.start_task_routine(call, flow, blocks, consumer=selection)
-        elif scope.operand(label):
-            self.capture_task_case(blocks, flow, selection, self.expr(label, flow, True))
-        else:
-            raise _TaskOrderUnknown()
+        value = self.task_operand(label, flow, scope, blocks, selection)
+        if value is not None:
+            self.capture_task_case(blocks, flow, selection, value)
 
     def capture_task_case(self, blocks, flow, selection, value):
         if flow.stopped or flow.opaque or value.constant is UNKNOWN:
@@ -4998,6 +5006,15 @@ class _Analyzer(TeachDiscovery):
                 return rt.select_scalar(value, category, node.get('line'))
         except rt.KarelRuntimeError:
             raise _TaskOrderUnknown() from None
+
+    def task_operand(self, node, flow, scope, blocks, consumer):
+        call = scope.scalar_routine_call(node)
+        if call is not None:
+            self.start_task_routine(call, flow, blocks, consumer=consumer)
+            return None
+        if not scope.operand(node):
+            raise _TaskOrderUnknown()
+        return self.expr(node, flow, True)
 
     def start_task_routine(self, call, flow, blocks, *, consumer):
         prepared = self.prepare_routine(call['value'], call['args'], call, flow, True,
@@ -5034,6 +5051,10 @@ class _Analyzer(TeachDiscovery):
             raise _TaskOrderUnknown()
         if isinstance(consumer, _TaskSelect):
             self.capture_task_case(blocks, flow, consumer, value)
+        elif isinstance(consumer, _TaskForHeader):
+            self.capture_task_for_bound(blocks, flow, consumer, value)
+        elif isinstance(consumer, _TaskLoop):
+            self.finish_task_loop_test(blocks, flow, consumer, value)
         elif consumer['kind'] == 'return':
             self.return_from_task_routine(blocks, flow, consumer, value)
         elif consumer['kind'] in ('if', 'select'):
@@ -5068,40 +5089,75 @@ class _Analyzer(TeachDiscovery):
     def start_task_loop(self, node, flow):
         if node['kind'] != 'for':
             return _TaskLoop(node)
-        counter, start, step, count = self.for_bounds(node, flow, True, task=True)
+        counter = self.locate(node['args'][0], flow, True)
+        local_owner = self.frames[-1]['owner'] if self.frames else None
+        owned = (('variable', self.program), ('local', local_owner))
+        if counter is None or (counter.kind, counter.owner) not in owned or counter.spec[0] not in INTEGRAL_TYPES:
+            raise _TaskOrderUnknown()
+        return _TaskForHeader(node, counter)
+
+    def capture_task_for_bound(self, blocks, flow, header, value):
+        if flow.stopped or flow.opaque:
+            raise _TaskOrderUnknown()
+        node, counter = header.node, header.counter
+        try:
+            bound = rt.for_bound(tuple(counter.spec), value.constant, header.operand.get('line'))
+        except rt.KarelRuntimeError:
+            raise _TaskOrderUnknown() from None
+        if header.initializing:
+            initial = self.checked_task_scalar(counter.spec, value, node)
+            self.write(counter, initial, flow, node)
+            blocks[-1] = replace(header, initializing=False)
+            return
+        start, step, count = self.for_range_bounds(node, flow, counter, bound)
         if count is None:
             raise _TaskOrderUnknown()
-        return _TaskLoop(node, counter=counter, values=range(start, start + step * count, step))
+        blocks[-1] = _TaskLoop(node, counter=counter, values=range(start, start + step * count, step))
 
-    def next_task_iteration(self, loop, flow, rules):
+    def next_task_iteration(self, blocks, flow, scope, loop):
         self.tick()
         node, iterations = loop.node, loop.iterations
         kind = node['kind']
-        captured = loop.repeat_predicate
         if kind == 'for':
             try:
                 value = loop.values[iterations]
             except IndexError:
                 self.clear_task_counter(loop.counter, node, flow)
-                return None
-        elif kind == 'while' or iterations:
-            predicate = node['args'][0]
-            if kind == 'repeat':
-                if captured is None:
-                    if not rules.operand(predicate):
-                        raise _TaskOrderUnknown()
-                    captured = self.sample_condition_inputs(predicate, flow, True, ('repeat_eval',))
-                predicate = captured
-            condition = self.expr(predicate, flow, True).constant
-            if type(condition) is not bool:
-                raise _TaskOrderUnknown()
-            if condition == (kind == 'repeat'):
-                return None
-        if iterations == MAX_LOOP_ITERATIONS:
+                blocks.pop()
+                return
+            self.enter_task_loop_body(blocks, loop)
+            value = self.checked_task_scalar(loop.counter.spec, _Value(value), node)
+            self.write(loop.counter, value, flow, node)
+            return
+        if kind == 'repeat' and not iterations:
+            self.enter_task_loop_body(blocks, loop)
+            return
+
+        predicate = node['args'][0]
+        cached = loop.repeat_predicate
+        if kind == 'repeat' and cached is None and scope.operand(predicate):
+            cached = self.sample_condition_inputs(predicate, flow, True, ('repeat_eval',))
+            loop = replace(loop, repeat_predicate=cached)
+        if cached is not None:
+            value = self.expr(cached, flow, True)
+        else:
+            value = self.task_operand(predicate, flow, scope, blocks, loop)
+        if value is not None:
+            self.finish_task_loop_test(blocks, flow, loop, value)
+
+    def finish_task_loop_test(self, blocks, flow, loop, value):
+        if flow.stopped or flow.opaque or type(value.constant) is not bool:
             raise _TaskOrderUnknown()
-        if kind == 'for':
-            self.write(loop.counter, _Value(value), flow, node)
-        return replace(loop, iterations=iterations + 1, repeat_predicate=captured)
+        if value.constant == (loop.node['kind'] == 'repeat'):
+            blocks.pop()
+        else:
+            self.enter_task_loop_body(blocks, loop)
+
+    def enter_task_loop_body(self, blocks, loop):
+        if loop.iterations == MAX_LOOP_ITERATIONS:
+            raise _TaskOrderUnknown()
+        blocks[-1] = replace(loop, iterations=loop.iterations + 1)
+        blocks.append((loop.node['body'], 0))
 
     def clear_task_counter(self, counter, node, flow):
         spec = counter.spec
@@ -5623,21 +5679,15 @@ class _Analyzer(TeachDiscovery):
         default = node['alternate'] if node['has_else'] else None
         return next((body for values, body in cases if selected in values), default), ()
 
-    def for_bounds(self, node, flow, conditional, *, task=False):
-        counter, first, last, direction = node['args']
+    def for_bounds(self, node, flow, conditional):
+        counter, first, last, _ = node['args']
         loc = self.locate(counter, flow, conditional)
-        if task:
-            local_owner = self.frames[-1]['owner'] if self.frames else None
-            owned = (('variable', self.program), ('local', local_owner))
-            if loc is None or (loc.kind, loc.owner) not in owned or loc.spec[0] not in INTEGRAL_TYPES:
-                raise _TaskOrderUnknown()
         initial = self.expr(first, flow, conditional)
-        if task:
-            self.check_task_for_bound(loc, initial.constant, first)
         self.write(loc, initial, flow, node)
         final = self.expr(last, flow, conditional).constant
-        if task:
-            self.check_task_for_bound(loc, final, last)
+        return loc, *self.for_range_bounds(node, flow, loc, final)
+
+    def for_range_bounds(self, node, flow, loc, final):
         # The emitted iterator reads the captured counter after final-bound effects.
         start = UNKNOWN
         if loc and not flow.stopped:
@@ -5647,15 +5697,9 @@ class _Analyzer(TeachDiscovery):
                 self.unresolved_at('for-start',
                                    'Captured counter is not proven initialized after final-bound evaluation: '+loc.path,
                                    node)
-        step = -1 if direction == 'DOWNTO' else 1
+        step = -1 if node['args'][3] == 'DOWNTO' else 1
         count = max(0, (final - start) * step + 1) if type(start) is int and type(final) is int else None
-        return loc, start, step, count
-
-    def check_task_for_bound(self, counter, value, node):
-        try:
-            rt.for_bound(tuple(counter.spec), value, node.get('line'))
-        except rt.KarelRuntimeError:
-            raise _TaskOrderUnknown() from None
+        return start, step, count
 
     def statement(self, node, flow, conditional):
         self.tick();kind=node['kind'];args=node['args']
