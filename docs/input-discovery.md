@@ -876,6 +876,20 @@ the returned cells. An empty page sets count to zero, and a rejected page
 preserves the count and the array. Overlapping count and status outputs
 leave the handoff unresolved.
 
+`MOVE_FILE` follows exact and wildcard moves between RD and FR names in the
+memory bank. It checks the complete batch for open files and destination
+collisions before changing any names. Subsequent opens, listings, and
+`PRINT_FILE` calls see the moved files under their new names, with saved
+dependencies on the original inputs. `PRINT_FILE` verifies the readable
+ASCII snapshot and tracks status without producing output during discovery.
+
+`COMPARE_FILE` captures its result FILE before later operands select the
+count and status. When both closed sources contain known program-written
+bytes, discovery uses the runtime's ASCII or binary report formatter. It
+tracks the report bytes, difference count, and output cursor. A missing or
+busy source updates only status. Comparisons that depend on editable saved
+bytes still require conservative discovery.
+
 A checked routine can borrow a scalar FILE, a whole FILE bank, or a selected
 row or plane, including through pinned source linkage. Argument selection
 captures the original descriptor or cells before later arguments run.

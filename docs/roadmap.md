@@ -97,7 +97,9 @@ overwrite. Memory file copies, renames and deletions track status and update
 the names visible to later opens, including checked wildcard batches. Copies
 and renames retain the original saved byte dependency. Memory `FILE_LIST`
 uses the live namespace for pages in formats 0 through 4, preserving
-unused output cells and captured ARRAY rows across pauses.
+unused output cells and captured ARRAY rows across pauses. RD/FR moves and
+ASCII `PRINT_FILE` use the current memory namespace. `COMPARE_FILE` tracks
+the report, count, and cursor for known program-written sources.
 PATH reads cover whole PATHs, headers, nodes, ordered ranges, and bank
 selections with scalar, vector, joint, configuration, and pose fields.
 Checked memory FILE reads share execution's CONFIG and POSITION validation,

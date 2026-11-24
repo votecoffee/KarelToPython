@@ -6903,6 +6903,230 @@ END CHILD
         values=result['programs']['CHILD']['values']
         self.assertEqual((values['NAMES'][0],values['S']),('old',77))
 
+
+    def test_move_file_recursive_batch_feeds_listing_and_print_after_pause(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR stream:FILE names:ARRAY[2] OF STRING[40] n,s,printed,unused:INTEGER
+ROUTINE move_mask:STRING
+BEGIN
+  PAUSE
+  RETURN 'RD:jobs/**/?.dat'
+END move_mask
+BEGIN
+  OPEN FILE stream('WO','RD:jobs/Cell01/a.dat')
+  WRITE stream('17')
+  CLOSE FILE stream
+  MOVE_FILE(move_mask(),s)
+  FILE_LIST('FR:jobs/**/*.dat',0,0,names,n,printed)
+  IF (s=0) AND (n=2) AND (printed=0) AND (names[2]='FR:jobs/Cell02/b.DAT') THEN
+    PRINT_FILE(names[2],FALSE,printed)
+  ELSE
+    WRITE(unused)
+  ENDIF
+  IF printed<>0 THEN WRITE(unused) ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],files={'rd:jobs/Cell02/b.DAT':'29'})
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation'])
+        self.assertIn({'service':'files','address':'rd:jobs/Cell02/b.DAT'},report['context_requirements'])
+        self.assertEqual(result['status'],'completed',result['error'])
+        self.assertEqual(result['context']['files'],{
+            'FR:jobs/Cell01/a.dat':{'hex':'3137'},'FR:jobs/Cell02/b.DAT':{'hex':'3239'},
+        })
+        self.assertEqual(result['text_output'],'29')
+
+    def test_move_file_busy_precedes_collision_and_failed_batch_keeps_sources(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child=r"""PROGRAM CHILD
+VAR stream:FILE busy,collision,missing,invalid,value,unused:INTEGER
+BEGIN
+  OPEN FILE stream('RO','fr:\sub\b.KL')
+  MOVE_FILE('RD:sub/*.KL',busy)
+  CLOSE FILE stream
+  MOVE_FILE('RD:sub/*.KL',collision)
+  MOVE_FILE('RD:absent/*.KL',missing)
+  MOVE_FILE('UD1:*.KL',invalid)
+  PAUSE
+  OPEN FILE stream('RO','RD:sub/a.KL')
+  READ stream(value)
+  IF (busy=3) AND (collision=2) AND (missing=1) AND (invalid=4) AND NOT UNINIT(value) THEN
+    CLOSE FILE stream
+  ELSE
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        seed={'RD:sub/a.KL':'17','RD:sub/b.KL':'29',r'fr:\sub\b.KL':'old'}
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],files=seed)
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed',result['error'])
+        values=result['programs']['CHILD']['values']
+        self.assertEqual((values['BUSY'],values['COLLISION'],values['MISSING'],values['INVALID']),(3,2,1,4))
+        self.assertEqual(result['context']['files'],{key:{'hex':data.encode('ascii').hex()} for key,data in seed.items()})
+
+    def test_compare_file_captures_result_handle_before_pausing_count_selector(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR tmp:FILE reports:ARRAY[2] OF FILE chosen:INTEGER
+    differences:ARRAY[2] OF INTEGER s,unused:INTEGER prefix:STRING[7]
+ROUTINE count_cell:INTEGER
+BEGIN
+  chosen=1
+  PAUSE
+  RETURN 2
+END count_cell
+BEGIN
+  chosen=2
+  differences[1]=77
+  OPEN FILE tmp('WO','left')
+  WRITE tmp('same',CR,'before',CR)
+  CLOSE FILE tmp
+  OPEN FILE tmp('WO','right')
+  WRITE tmp('same',CR,'after',CR)
+  CLOSE FILE tmp
+  SET_FILE_ATR(reports[2],ATR_EOL,124)
+  OPEN FILE reports[2]('RW','comparison')
+  COMPARE_FILE('left','right',reports[chosen],TRUE,differences[count_cell()],s)
+  IF (s=0) AND (differences[2]=1) AND (differences[1]=77) THEN
+    SET_FILE_POS(reports[2],0,s)
+    READ reports[2](prefix::7)
+    IF prefix='{"mode"' THEN CLOSE FILE reports[2] ELSE WRITE(unused) ENDIF
+  ELSE
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],files={})
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed',result['error'])
+        values=result['programs']['CHILD']['values']
+        self.assertEqual((values['DIFFERENCES'],values['PREFIX']),([77,1],'{"mode"'))
+        data=bytes.fromhex(result['context']['files']['comparison']['hex'])
+        self.assertEqual(data,b'{"mode":"ascii","left":"left","right":"right","different_lines":1}|'
+                              b'{"line":2,"left":"before","right":"after"}|')
+
+    def test_binary_compare_file_keeps_report_and_count_when_next_source_is_missing(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR stream:FILE n,s,cursor,unused:INTEGER
+BEGIN
+  OPEN FILE stream('WB','left')
+  WRITE stream(1::1,2::1,3::1)
+  CLOSE FILE stream
+  OPEN FILE stream('WB','right')
+  WRITE stream(1::1,4::1,3::1)
+  CLOSE FILE stream
+  OPEN FILE stream('WO','report')
+  COMPARE_FILE('left','right',stream,FALSE,n,s)
+  cursor=GET_FILE_POS(stream)
+  PAUSE
+  COMPARE_FILE('left','missing',stream,FALSE,n,s)
+  IF (n=2) AND (s=1) AND (GET_FILE_POS(stream)=cursor) THEN
+    CLOSE FILE stream
+  ELSE
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],files={})
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed',result['error'])
+        data=bytes.fromhex(result['context']['files']['report']['hex'])
+        self.assertEqual(data,b'{"mode":"binary","left":"left","right":"right","first_difference":2,'
+                              b'"left_byte":2,"right_byte":4}\n')
+
+
+    def test_compare_file_predefined_output_keeps_cursor_through_another_pause(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR stream:FILE n,s,cursor,unused:INTEGER
+BEGIN
+  OPEN FILE stream('WB','source')
+  WRITE stream(7::1)
+  CLOSE FILE stream
+  COPY_FILE('source','copy',FALSE,FALSE,s)
+  COMPARE_FILE('source','copy',OUTPUT,FALSE,n,s)
+  cursor=GET_FILE_POS(OUTPUT)
+  PAUSE
+  IF (s=0) AND (n=0) AND (cursor=GET_FILE_POS(OUTPUT)) AND (cursor>0) THEN
+    CLOSE FILE OUTPUT
+  ELSE
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],files={},
+                                   predefined_files={'OUTPUT':{'name':'report','mode':'WO'}})
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation'])
+        self.assertIn({'service':'predefined_files','address':'OUTPUT'},report['context_requirements'])
+        self.assertEqual(result['status'],'completed',result['error'])
+        data=bytes.fromhex(result['context']['files']['report']['hex'])
+        self.assertEqual(data,b'{"mode":"binary","left":"source","right":"copy","first_difference":0,'
+                              b'"left_byte":null,"right_byte":null}\n')
+
+    def test_compare_file_with_saved_content_keeps_following_pause_unresolved(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR stream:FILE n,s:INTEGER
+BEGIN
+  OPEN FILE stream('WO','report')
+  COMPARE_FILE('left','right',stream,TRUE,n,s)
+  CLOSE FILE stream
+  PAUSE
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],files={'left':'a','right':'b'})
+        self.assertIn('condition-source',[row['code'] for row in report['unresolved']])
+        self.assertEqual(result['status'],'paused',result['error'])
+        self.assertEqual(result['programs']['CHILD']['values']['N'],1)
+
     def test_large_seeded_binary_file_reads_overlay_and_saved_neighbors_across_pause(self):
         main="""PROGRAM MAIN
 VAR s:INTEGER

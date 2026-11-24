@@ -990,20 +990,90 @@ def move_specification(value,*,pattern=True,directories=False):
     return device,'/'.join(parts[:-1]),parts[-1]
 
 
+def _move_selection(specification):
+    parsed = move_specification(specification, directories=True)
+    if parsed is None:
+        return None
+    device, parent, pattern = parsed
+    peer = 'FR' if device == 'RD' else 'RD'
+    recursive = any(char in parent for char in '*?')
+    if recursive:
+        prefix, pattern = _wildcard_source(device + ':' + (parent + '/' if parent else '') + pattern)
+        parent = prefix.split(':', 1)[1].rstrip('/')
+    return device, peer, parent, pattern, recursive
+
+
+def _move_matches(name, pattern, recursive, check):
+    if recursive:
+        return _wildcard_path_match(name, pattern, check=check)
+    return fnmatch.fnmatchcase(name.casefold(), pattern.casefold())
+
+
+def _logical_move_name(name):
+    try:
+        parsed = move_specification(name, pattern=False)
+    except ValueError:
+        parsed = None
+    if parsed is None:
+        return name.casefold()
+    device, folder, basename = parsed
+    return (device + ':' + (folder + '/' if folder else '') + basename).casefold()
+
+
+def _logical_move_plan(selection, names, open_names, check):
+    device, peer, parent, pattern, recursive = selection
+    if len(names) > WILDCARD_FILE_LIMIT:
+        raise ValueError('MOVE_FILE scan exceeds 32767 entries')
+    plan = []
+    for name in sorted(names):
+        check()
+        try:
+            candidate = move_specification(name, pattern=False)
+        except ValueError:
+            continue
+        if candidate is None:
+            continue
+        found, folder, basename = candidate
+        if found != device:
+            continue
+        suffix = (folder + '/' if folder else '') + basename
+        if recursive:
+            relative = _wildcard_relative(found + ':' + suffix, device + ':' + (parent + '/' if parent else ''))
+            if relative is None or not _move_matches(relative, pattern, recursive, check):
+                continue
+        elif folder.casefold() != parent.casefold() or not _move_matches(basename, pattern, recursive, check):
+            continue
+        plan.append((name, peer + ':' + suffix))
+    if not plan:
+        return 1, ()
+    busy = {_logical_move_name(name) for name in open_names}
+    if any(_logical_move_name(name) in busy for pair in plan for name in pair):
+        return 3, ()
+    existing = {_logical_move_name(name) for name in names}
+    targets = {target.casefold() for _, target in plan}
+    if len(targets) != len(plan) or targets & existing:
+        return 2, ()
+    return 0, plan
+
+
+def memory_move_plan(specification, names, open_names, *, check):
+    """Plan RD/FR moves from logical names without accessing a backing file."""
+    selection = _move_selection(specification)
+    if selection is None:
+        return 4, ()
+    return _logical_move_plan(selection, names, open_names, check)
+
+
 def move_files(files,specification,*,check=None):
     """Preflight a bounded RD/FR batch, then perform ordered per-file moves."""
     from .storage import DirectoryFiles
-    parsed=move_specification(specification,directories=True)
-    if parsed is None: return 4
-    device,parent,pattern=parsed;peer='FR' if device=='RD' else 'RD'
-    recursive=any(c in parent for c in '*?')
-    if recursive:
-        prefix,pattern=_wildcard_source(device+':'+(parent+'/' if parent else '')+pattern)
-        parent=prefix.split(':',1)[1].rstrip('/')
+    selection = _move_selection(specification)
+    if selection is None: return 4
+    device, peer, parent, pattern, recursive = selection
     byte_check=check
     check=check or (lambda:None);directory=isinstance(files,DirectoryFiles)
     plan=[];existing=set()
-    def selected(name): return _wildcard_path_match(name,pattern,check=check) if recursive else fnmatch.fnmatchcase(name.casefold(),pattern.casefold())
+    def selected(name): return _move_matches(name, pattern, recursive, check)
     if directory:
         if device not in files.devices or peer not in files.devices: return 4
         source_root=files._path('/'.join(part for part in (files.devices[device],parent) if part) or '.',directory=True)
@@ -1044,41 +1114,22 @@ def move_files(files,specification,*,check=None):
             for path in _listing_entries(entries,check,operation='MOVE_FILE target'):
                 key=path.relative_to(files.root).as_posix().casefold()
                 if key in wanted:existing.add(key)
-    else:
-        if len(files.files)>WILDCARD_FILE_LIMIT:raise ValueError('MOVE_FILE scan exceeds 32767 entries')
-        for name in sorted(files.files):
-            check()
-            try: candidate=move_specification(name,pattern=False)
-            except ValueError: continue
-            if candidate is None: continue
-            found,folder,base=candidate
-            relative=_wildcard_relative(found+':'+(folder+'/' if folder else '')+base,device+':'+(parent+'/' if parent else '')) if recursive else None
-            if found==device and (relative is not None and selected(relative) if recursive else folder.casefold()==parent.casefold() and selected(base)):
-                target=peer+':'+(folder+'/' if folder else '')+base
-                plan.append((name,target))
-                if len(plan)>32767: raise ValueError('MOVE_FILE batch exceeds 32767 files')
-        def logical_name(name):
-            try: parsed=move_specification(name,pattern=False)
-            except ValueError: parsed=None
-            if parsed is None: return name.casefold()
-            found,folder,base=parsed
-            return (found+':'+(folder+'/' if folder else '')+base).casefold()
-        existing={logical_name(name) for name in files.files}
-    if not plan: return 1
-    if directory:
+        if not plan: return 1
         rooted_keys=[name for pair in plan for name in pair]
         if files._busy_keys(rooted_keys,casefold=True):return 3
+        if recursive:
+            identities=set()
+            for source,_ in plan:
+                info=files._path(source).stat();identity=(info.st_dev,info.st_ino)
+                if identity in identities:return 2
+                identities.add(identity)
+        targets={target.casefold() for _,target in plan}
+        if len(targets)!=len(plan) or targets & existing: return 2
     else:
-        busy={logical_name(handle.name) for handle in files.handles if handle.owner is files}
-        if any(logical_name(source) in busy or logical_name(target) in busy for source,target in plan):return 3
-    if directory and recursive:
-        identities=set()
-        for source,_ in plan:
-            info=files._path(source).stat();identity=(info.st_dev,info.st_ino)
-            if identity in identities:return 2
-            identities.add(identity)
-    targets=[target.casefold() for _,target in plan]
-    if len(set(targets))!=len(targets) or any(target in existing for target in targets): return 2
+        open_names = (handle.name for handle in files.handles if handle.owner is files)
+        status, plan = _logical_move_plan(selection, files.files, open_names, check)
+        if status:
+            return status
     # Charge both validation and publication before starting any backend moves.
     for _ in range(2*len(plan)):
         check()
@@ -1177,6 +1228,35 @@ def _plan_snapshot(files,name,*,plain_pipe_only=False):
     return 0,len(data),lambda:(0,data)
 
 
+def comparison_report(left_name, right_name, left, right, ascii_flag, capacity, eol, line, *, check):
+    """Render the portable comparison report before any destination changes."""
+    records=bytearray();eol=bytes((eol,))
+    def record(value):
+        data=json.dumps(value,ensure_ascii=True,separators=(',',':')).encode('ascii')+eol
+        if len(records)+len(data)>capacity: raise rt().KarelRuntimeError('Comparison report exceeds remaining FILE capacity',line)
+        return data
+    if ascii_flag:
+        left_text=left.decode('ascii');right_text=right.decode('ascii');count=0
+        for number,(a,b) in enumerate(zip_longest(ascii_lines(left_text),ascii_lines(right_text)),1):
+            check()
+            if a!=b:
+                count+=1;records.extend(record(dict(line=number,left=a,right=b)))
+        summary=dict(mode='ascii',left=left_name,right=right_name,different_lines=count)
+    else:
+        count=0;a=b=None
+        for offset in range(0,max(len(left),len(right)),4096):
+            check();first=left[offset:offset+4096];second=right[offset:offset+4096]
+            if first!=second:
+                local=next((index for index,(x,y) in enumerate(zip(first,second)) if x!=y),min(len(first),len(second)))
+                index=offset+local;count=index+1
+                a=left[index] if index<len(left) else None;b=right[index] if index<len(right) else None
+                break
+        summary=dict(mode='binary',left=left_name,right=right_name,first_difference=count,left_byte=a,right_byte=b)
+    header=record(summary)
+    count=rt().checked(('INTEGER',),count,line)
+    return count, header+records
+
+
 def compare_files(state,files,left_name,right_name,handle,ascii_flag,line=None):
     runtime=rt();ascii_flag=runtime.boolean(ascii_flag,line)
     handle.require_open(line)
@@ -1199,38 +1279,16 @@ def compare_files(state,files,left_name,right_name,handle,ascii_flag,line=None):
     if right_code:return right_code,None
     start = size if handle.appends_at_end else position
     end_limit = size if handle.mode == 'UD' else limit
-    capacity=end_limit-start;records=bytearray();eol=bytes((handle.eol,))
-    def record(value):
-        data=json.dumps(value,ensure_ascii=True,separators=(',',':')).encode('ascii')+eol
-        if len(records)+len(data)>capacity: raise runtime.KarelRuntimeError('Comparison report exceeds remaining FILE capacity',line)
-        return data
-    if ascii_flag:
-        left_text=left.decode('ascii');right_text=right.decode('ascii');count=0
-        for number,(a,b) in enumerate(zip_longest(ascii_lines(left_text),ascii_lines(right_text)),1):
-            state.tick(line)
-            if a!=b:
-                count+=1;records.extend(record(dict(line=number,left=a,right=b)))
-        summary=dict(mode='ascii',left=left_name,right=right_name,different_lines=count)
-    else:
-        count=0;a=b=None
-        for offset in range(0,max(len(left),len(right)),4096):
-            state.tick(line);first=left[offset:offset+4096];second=right[offset:offset+4096]
-            if first!=second:
-                local=next((index for index,(x,y) in enumerate(zip(first,second)) if x!=y),min(len(first),len(second)))
-                index=offset+local;count=index+1
-                a=left[index] if index<len(left) else None;b=right[index] if index<len(right) else None
-                break
-        summary=dict(mode='binary',left=left_name,right=right_name,first_difference=count,left_byte=a,right_byte=b)
-    header=record(summary)
-    count=runtime.checked(('INTEGER',),count,line)
+    count, report = comparison_report(left_name, right_name, left, right, ascii_flag,
+                                      end_limit-start, handle.eol, line, check=lambda:state.tick(line))
     if (state.execution.files is not files or runtime._file_identity(handle)!=identity
             or handle.position!=position or files.files.get(handle.name) is not buffer
             or len(buffer)!=size or files.limit!=limit):
         raise runtime.KarelRuntimeError('Comparison result FILE changed during preparation',line)
     if type(files) is runtime.DirectoryFiles:
-        files.write(handle,header+records,line,check=lambda:state.tick(line))
+        files.write(handle,report,line,check=lambda:state.tick(line))
     else:
-        files.write(handle,header+records,line)
+        files.write(handle,report,line)
     return 0,count
 
 

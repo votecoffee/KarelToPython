@@ -3,7 +3,7 @@
 ![KarelToPython icon](karel2py/assets/icons/karel_to_python_icon_64x64.png)
 
 KarelToPython translates a supported subset of FANUC KAREL into Python for
-offline inspection and execution. The current build is **26.1124.195656**.
+offline inspection and execution. The current build is **26.1124.200352**.
 
 ## Table of Contents
 
@@ -131,8 +131,10 @@ Discovery retains modified byte ranges so bounded reads can use known
 bytes in large files. `COPY_FILE`, `RENAME_FILE`, and `DELETE_FILE`
 track exact names and wildcard batches on in-memory files across pauses.
 `FILE_LIST` follows the current file names and sizes and fills only the
-returned cells of the selected array row. Copied or renamed saved files
-retain their original input address.
+returned cells of the selected array row. Discovery follows `MOVE_FILE`
+between in-memory RD and FR names, `PRINT_FILE` on readable ASCII snapshots,
+and `COMPARE_FILE` reports from known program-written bytes. Copied, renamed,
+and moved saved files retain their original input address.
 Input discovery also tracks the status and handle for each possible TP open
 outcome. Inputs and results share one JSON file.
 Use `runner refresh` to carry compatible inputs to a new translation.

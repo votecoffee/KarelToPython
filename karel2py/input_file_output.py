@@ -6,7 +6,7 @@ from . import runtime as rt
 from .communications import message_address
 from .extended import MemoryFiles
 from .file_io import FileHandle, binary_read_fields, set_file_attribute
-from .fileops import memory_file_list_page
+from .fileops import comparison_report, memory_file_list_page, memory_move_plan
 from .input_file_patterns import memory_wildcard_plan
 from .serial_io import serial_address
 
@@ -208,6 +208,10 @@ class MemoryOutputs:
     def manage(self, backend, operation, operands, *, tick):
         if type(backend) is not MemoryFiles:
             return None
+        if operation == 'MOVE_FILE':
+            return self.move(backend, operands[0], tick=tick)
+        if operation == 'PRINT_FILE':
+            return self.print_file(backend, *operands, tick=tick)
         deleting = operation == 'DELETE_FILE'
         copying = operation == 'COPY_FILE'
         names = operands[:1] if deleting else operands[:2]
@@ -262,6 +266,82 @@ class MemoryOutputs:
         dependencies = (None, *self.saved_dependencies(backend, names))
         updated = self.apply_file_changes(backend, changes, copying=operation == 'COPY_FILE', tick=tick)
         return updated, 0, dependencies
+
+    def move(self, backend, specification, *, tick):
+        if type(specification) is not str:
+            return None
+        namespace = self.namespace(backend, tick=tick)
+        open_names = [handle.name for handle in self.handles.values() if not handle.closed]
+        tick(len(self.handles))
+        code, changes = memory_move_plan(specification, namespace, open_names, check=tick)
+        if code:
+            return self, code, (None,)
+        for source, target in changes:
+            backend._check(source, b'')
+            backend._check(target, b'')
+        dependencies = (None, *self.saved_dependencies(backend, (source for source, _ in changes)))
+        return self.apply_file_changes(backend, changes, copying=False, tick=tick), 0, dependencies
+
+    def named_snapshot(self, backend, name):
+        if not _memory_name(name):
+            return None
+        backend._check(name, b'')
+        if self.busy(name):
+            return 3, None, None
+        size = self.size_of(backend, name)
+        if size is None:
+            return 1, None, None
+        image = self.images.get(name, _MemoryImage(saved_name=name, saved_size=size))
+        return 0, size, image
+
+    def print_file(self, backend, name, nowait, *, tick):
+        if type(nowait) is not bool:
+            return None
+        snapshot = self.named_snapshot(backend, name)
+        if snapshot is None:
+            return None
+        code, size, image = snapshot
+        if code:
+            return self, code, ()
+        data = image.read_range(backend.files.get(image.saved_name), 0, size, tick=tick)
+        if data is None or not data.isascii():
+            return None
+        # Discovery validates the text without making any console or FILE writes.
+        tick((len(data) + 253) // 254)
+        dependencies = (image.saved_name,) if image.saved_name is not None else ()
+        return self, 0, dependencies
+
+    def compare(self, backend, left, right, file_key, ascii_flag, line, *, tick):
+        if type(backend) is not MemoryFiles or type(ascii_flag) is not bool:
+            return None
+        output = self.descriptor(file_key)
+        if output.closed or output.mode == 'R':
+            return None
+        sources = []
+        for name in (left, right):
+            snapshot = self.named_snapshot(backend, name)
+            if snapshot is None:
+                return None
+            code, size, image = snapshot
+            if code:
+                return self, code, None
+            sources.append((size, image))
+        data = []
+        for size, image in sources:
+            # An editable saved input can change the report length and cursor.
+            if image.saved_name is not None:
+                return None
+            snapshot = image.read_range(None, 0, size, tick=tick)
+            if snapshot is None:
+                return None
+            data.append(snapshot)
+        size = self.sizes[output.name]
+        start = size if output.appends_at_end else output.position
+        limit = size if output.mode == 'UD' else backend.limit
+        count, report = comparison_report(left, right, *data, ascii_flag, limit - start,
+                                          output.format_handle().eol, line, check=tick)
+        updated = self.write(file_key, backend, [report], line, tick=tick)
+        return updated, 0, count
 
     def saved_dependencies(self, backend, names):
         # A copy or rename keeps the original saved input address.

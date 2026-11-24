@@ -5491,7 +5491,15 @@ class _Analyzer(TeachDiscovery):
         args = node['args']
         index = len(values)
         if index < len(args):
-            if node['signature'][index][0] in ('r', 'o'):
+            mode, kind = node['signature'][index]
+            if kind == 'FILE':
+                alias = scope.predefined_file_alias(args[index])
+                if alias is None:
+                    self.start_task_selection(blocks, flow, args[index], pending)
+                else:
+                    flow.task_file_outputs = self.capture_task_file(flow, alias, args[index])
+                    blocks[-1] = replace(pending, values=(*values, alias))
+            elif mode in ('r', 'o'):
                 self.start_task_selection(blocks, flow, args[index], pending)
             else:
                 value = self.task_operand(args[index], flow, scope, blocks, pending)
@@ -5512,6 +5520,8 @@ class _Analyzer(TeachDiscovery):
                 backend = getattr(self.saved_bindings, 'memory_files', None)
                 if node['value'] == 'FILE_LIST':
                     code = self.apply_task_file_list(node, operands, status, flow, backend, outputs)
+                elif node['value'] == 'COMPARE_FILE':
+                    code = self.apply_task_file_comparison(node, operands, status, flow, backend, outputs)
                 else:
                     self.tick(len(outputs.handles) + len(outputs.sizes))
                     result = outputs.manage(backend, node['value'], operands, tick=self.tick)
@@ -5539,6 +5549,19 @@ class _Analyzer(TeachDiscovery):
         if code == 0:
             self.write_task_array_prefix(names, values, flow, node)
             self.write(count, _Value(len(values), spec=['INTEGER']), flow, node)
+        return code
+
+    def apply_task_file_comparison(self, node, operands, status, flow, backend, outputs):
+        left, right, handle, ascii_flag, count = operands
+        if status.key == count.key:
+            raise _TaskOrderUnknown()
+        self.tick(len(outputs.handles) + len(outputs.sizes))
+        result = outputs.compare(backend, left, right, handle, ascii_flag, node.get('line'), tick=self.tick)
+        if result is None:
+            raise _TaskOrderUnknown()
+        flow.task_file_outputs, code, differences = result
+        if code == 0:
+            self.write(count, _Value(differences, spec=['INTEGER']), flow, node)
         return code
 
     def apply_task_file_procedure(self, flow, pending, outputs):
@@ -6624,10 +6647,14 @@ class _Analyzer(TeachDiscovery):
                 raise _TaskOrderUnknown()
         elif isinstance(consumer, _TaskNamedFile):
             position = len(consumer.values)
-            expects_array = tuple(consumer.node['signature'][position]) == ('r', 'STRING_ARRAY')
-            if (expects_array and self.catalog_buffer(loc) is None) or (not expects_array and loc.spec != ['INTEGER']):
+            _, kind = consumer.node['signature'][position]
+            if kind == 'STRING_ARRAY':
+                if self.catalog_buffer(loc) is None:
+                    raise _TaskOrderUnknown()
+            elif loc.spec != [kind]:
                 raise _TaskOrderUnknown()
-            blocks[-1] = replace(consumer, values=(*consumer.values, loc))
+            captured = loc.key if kind == 'FILE' else loc
+            blocks[-1] = replace(consumer, values=(*consumer.values, captured))
         elif isinstance(consumer, _TaskRead):
             _, root = _array_dimensions(loc.root_spec)
             _, terminal = _array_dimensions(loc.spec)
