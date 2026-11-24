@@ -1809,6 +1809,188 @@ END LIB
         self.assertEqual(result['status'],'completed',result['error'])
         self.assertEqual(result['text_output'],' 7')
 
+    def test_using_path_bank_node_survives_deletion_during_later_selector_and_pinned_call(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE
+     route_t=PATH NODEDATA=row_t
+     option_t=STRUCTURE bonus:INTEGER ENDSTRUCTURE
+VAR routes:ARRAY[2] OF route_t options:ARRAY[1] OF option_t
+    s,result,unused:INTEGER
+ROUTINE bump(cell:INTEGER) FROM LIB
+ROUTINE choose_option:INTEGER
+BEGIN
+  PAUSE
+  DELETE_NODE(routes[2],1,s)
+  RETURN 1
+END choose_option
+BEGIN
+  APPEND_NODE(routes[2],s)
+  APPEND_NODE(routes[2],s)
+  routes[2,1].amount=11
+  routes[2,2].amount=22
+  options[1].bonus=3
+  USING routes[2,1],options[choose_option()] DO
+    bump(amount)
+    result=amount+bonus
+  ENDUSING
+  IF (result=19) AND (routes[2,1].amount=22) THEN WRITE(result) ELSE WRITE(unused) ENDIF
+END CHILD
+"""
+        library="""PROGRAM LIB
+ROUTINE bump(cell:INTEGER)
+BEGIN
+  PAUSE
+  cell=cell+5
+END bump
+BEGIN
+END LIB
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child),('LIB',library)])
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling']+['task-wait','task-continuation']*2)
+        self.assertEqual(result['status'],'completed',result['error'])
+        self.assertEqual(result['text_output'],' 19')
+        self.assertEqual(result['programs']['CHILD']['values']['ROUTES'][1]['nodes'],[{'AMOUNT':22}])
+
+    def test_using_path_header_follows_assignment_and_keeps_old_record_after_copy_path(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        for selector in ('route', '(route[0])'):
+            with self.subTest(selector=selector):
+                child=f"""PROGRAM CHILD
+TYPE node_t=STRUCTURE mark:INTEGER ENDSTRUCTURE
+     head_t=STRUCTURE amount:INTEGER ENDSTRUCTURE
+     route_t=PATH NODEDATA=node_t PATHHEADER=head_t
+VAR route,replacement:route_t observed,total,result,s,unused:INTEGER
+BEGIN
+  route.amount=11
+  replacement.amount=7
+  total=0
+  USING {selector} DO
+    route=replacement
+    observed=amount
+    FOR amount=1 TO 2 DO
+      total=total+amount
+      IF amount=1 THEN PAUSE ENDIF
+    ENDFOR
+    amount=observed
+    COPY_PATH(replacement,0,0,route,s)
+    amount=amount+1
+    result=amount
+  ENDUSING
+  IF (observed=7) AND (total=3) AND (result=8) AND (route.amount=7) THEN WRITE(result) ELSE WRITE(unused) ENDIF
+END CHILD
+"""
+                report,result=self.prepare([('MAIN',main),('CHILD',child)])
+                self.assert_inputs(report,[])
+                self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation'])
+                self.assertEqual(result['status'],'completed',result['error'])
+                self.assertEqual(result['text_output'],' 8')
+                self.assertEqual(result['programs']['CHILD']['values']['ROUTE']['data'],{'AMOUNT':7})
+
+    def test_using_header_from_pinned_path_bank_result_is_private_across_pauses(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        types="""TYPE node_t=STRUCTURE mark:INTEGER ENDSTRUCTURE
+     head_t=STRUCTURE amount:INTEGER missing:INTEGER ENDSTRUCTURE
+     route_t=PATH NODEDATA=node_t PATHHEADER=head_t
+"""
+        child=f"""PROGRAM CHILD
+{types}VAR total,selected,unused:INTEGER
+ROUTINE make_bank:ARRAY OF route_t FROM LIB
+ROUTINE pick:INTEGER
+BEGIN
+  PAUSE
+  RETURN 2
+END pick
+BEGIN
+  total=0
+  USING make_bank()[pick()] DO
+    selected=amount
+    FOR amount=1 TO 2 DO
+      total=total+amount
+      IF amount=1 THEN PAUSE ENDIF
+    ENDFOR
+  ENDUSING
+  IF (selected=55) AND (total=3) THEN WRITE(selected,total) ELSE WRITE(unused) ENDIF
+END CHILD
+"""
+        library=f"""PROGRAM LIB
+{types}ROUTINE make_bank:ARRAY OF route_t
+VAR routes:ARRAY[2] OF route_t
+BEGIN
+  routes[2].amount=55
+  PAUSE
+  RETURN routes
+END make_bank
+BEGIN
+END LIB
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child),('LIB',library)])
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling']+['task-wait','task-continuation']*3)
+        self.assertEqual(result['status'],'completed',result['error'])
+        self.assertEqual(result['text_output'],' 55 3')
+
+    def test_detached_using_path_node_cannot_establish_a_for_bound_pause(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+END MAIN
+"""
+        child="""PROGRAM CHILD
+TYPE node_t=STRUCTURE amount:INTEGER ENDSTRUCTURE
+     route_t=PATH NODEDATA=node_t
+VAR route:route_t s,reached:INTEGER
+ROUTINE lower_bound:INTEGER
+BEGIN
+  reached=1
+  PAUSE
+  RETURN 1
+END lower_bound
+BEGIN
+  reached=0
+  APPEND_NODE(route,s)
+  USING route[1] DO
+    DELETE_NODE(route,1,s)
+    FOR amount=lower_bound() TO 2 DO ENDFOR
+  ENDUSING
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assertIn('condition-source',[row['code'] for row in report['unresolved']])
+        self.assertEqual(result['status'],'failed')
+        self.assertIn('current owned root',result['error']['message'])
+        self.assertEqual(result['programs']['CHILD']['values']['REACHED'],0)
+
     def test_nested_using_borrows_each_selected_record_once_across_pauses(self):
         main="""PROGRAM MAIN
 VAR s:INTEGER

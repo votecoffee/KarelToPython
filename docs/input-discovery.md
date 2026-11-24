@@ -153,6 +153,15 @@ results from pinned routines. Nested scopes retain their lexical bindings
 through pauses, and an integral field may serve as a `FOR` counter. A return
 clears active counters before releasing private bindings. Re-translate
 existing modules to include the selector capture modes.
+
+`USING` also binds known PATH headers and nodes, including PATH ARRAY cells.
+A captured node retains its identity when a later selector, a routine, or the
+body shifts or deletes that node. A PATH assignment updates a captured header
+in place. `COPY_PATH` publishes a replacement header and keeps earlier aliases
+on the original record. A computed PATH from a pinned routine supplies a
+private header. Starting a `FOR` on a borrowed PATH field requires that the
+selected field still belong to the live owned PATH.
+
 A pausing test runs before each `WHILE` body or after each `REPEAT` body.
 At the first `REPEAT` test, scalar, ordinary aggregate, and scalar PATH `EVAL`
 operands run in source order, with nested captures evaluated before their
@@ -178,7 +187,8 @@ data conversions, other FILE transports and selectors, and pausing `EVAL`
 captures for resource banks, queues, and FILEs unresolved.
 Unproven PATH topology, ambiguous PATH descriptor changes, and saved
 queue contents also use conservative analysis. Shared globals in called
-library modules and `USING` bindings into PATH storage still require review.
+library modules and retained `USING` aliases in deferred callbacks still
+require review.
 
 Discovery evaluates signal and wait selectors and can track known pauses
 across a delay or simple event wait. A signal or delay alone does not
