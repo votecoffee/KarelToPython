@@ -6062,6 +6062,188 @@ END CHILD
         self.assertEqual((values['N'],values['V'],values['STREAM']['position']),
                          (77,{'X':4.0,'Y':5.0,'Z':6.0},0))
 
+    def test_path_range_file_read_validates_position_and_extended_pose_across_pause(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+TYPE node_t=STRUCTURE pose:XYZWPREXT ENDSTRUCTURE
+     header_t=STRUCTURE frame:POSITION ENDSTRUCTURE
+VAR route:PATH NODEDATA=node_t PATHHEADER=header_t stream:FILE s,unused:INTEGER valid:BOOLEAN
+ROUTINE bound:INTEGER
+BEGIN
+  PAUSE
+  RETURN 1
+END bound
+BEGIN
+  APPEND_NODE(route,s)
+  OPEN FILE stream('RW','data')
+  WRITE stream('1 2 3 4 5 6 -8 0 7 T F T F 11 12 13',CR)
+  WRITE stream('1.0000001 0 0 0 1 0 0 0 1 14 15 16 1 2 3 F T F T')
+  SET_FILE_POS(stream,0,s)
+  READ stream(route[bound()..0])
+  valid=(route[1].pose.ext3=13.0) AND (route[1].pose.config_data.cfg_turn_no1=-8)
+  IF valid AND (route.frame.NORMAL.X=1.0) AND (route.frame.location.Z=16.0) AND (BYTES_LEFT(stream)=0) THEN
+    CLOSE FILE stream
+  ELSE
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],files={})
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed',result['error'])
+        route=result['programs']['CHILD']['values']['ROUTE']
+        self.assertEqual(route['nodes'][0]['POSE']['EXT3'],13.0)
+        frame=route['data']['FRAME']
+        self.assertEqual(frame['NORMAL'],{'X':1.0,'Y':0.0,'Z':0.0})
+        self.assertEqual(frame['LOCATION'],{'X':14.0,'Y':15.0,'Z':16.0})
+
+    def test_binary_file_read_checks_captured_config_field_after_format_pause(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR poses:ARRAY[2] OF XYZWPR stream:FILE slot,first,last,s,unused:INTEGER valid:BOOLEAN
+ROUTINE pick:INTEGER
+BEGIN
+  PAUSE
+  RETURN slot
+END pick
+ROUTINE width:INTEGER
+BEGIN
+  slot=1
+  PAUSE
+  RETURN 1
+END width
+BEGIN
+  slot=2
+  poses[1].config_data.cfg_turn_no2=4
+  OPEN FILE stream('RWB','data')
+  WRITE stream(24::2,-8::1,31::2)
+  SET_FILE_POS(stream,0,s)
+  READ stream(first::2,poses[pick()].config_data.cfg_turn_no2::width(),last::2)
+  valid=(first=24) AND (last=31) AND (poses[2].config_data.cfg_turn_no2=-8)
+  IF valid AND (poses[1].config_data.cfg_turn_no2=4) AND (GET_FILE_POS(stream)=5) THEN
+    CLOSE FILE stream
+  ELSE
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],files={})
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling']+['task-wait','task-continuation']*2)
+        self.assertEqual(result['status'],'completed',result['error'])
+        poses=result['programs']['CHILD']['values']['POSES']
+        self.assertEqual([pose['CONFIG_DATA']['CFG_TURN_NO2'] for pose in poses],[4,-8])
+
+    def test_binary_file_read_keeps_position_cohorts_separate_in_selected_row(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR bank:ARRAY[2,2] OF POSITION stream:FILE valid:BOOLEAN s,tail,unused:INTEGER
+ROUTINE row:INTEGER
+BEGIN
+  PAUSE
+  RETURN 2
+END row
+BEGIN
+  bank[1,1].location.X=99.0
+  OPEN FILE stream('RWB','data')
+  WRITE stream(1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0,11.0,12.0,13.0,0,1,2,TRUE,FALSE,TRUE,FALSE)
+  WRITE stream(0.0,1.0,0.0,-1.0,0.0,0.0,0.0,0.0,1.0,21.0,22.0,23.0,-8,0,7,FALSE,TRUE,FALSE,TRUE)
+  WRITE stream(55::2)
+  SET_FILE_POS(stream,0,s)
+  READ stream(bank[row()],tail::2)
+  valid=(bank[2,1].NORMAL.X=1.0) AND (bank[2,2].NORMAL.Y=1.0) AND (bank[2,2].ORIENT.X=-1.0)
+  IF valid AND (bank[1,1].location.X=99.0) AND (tail=55) AND (BYTES_LEFT(stream)=0) THEN
+    CLOSE FILE stream
+  ELSE
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],files={})
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed',result['error'])
+        first,second=result['programs']['CHILD']['values']['BANK'][1]
+        self.assertEqual((first['LOCATION']['X'],second['LOCATION']['X']),(11.0,21.0))
+        self.assertEqual((first['CONFIG_DATA']['CFG_TURN_NO1'],second['CONFIG_DATA']['CFG_TURN_NO1']),(0,-8))
+
+    def test_invalid_file_config_turn_keeps_prior_destination_and_cursor(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR pose:XYZWPR stream:FILE first:INTEGER
+BEGIN
+  first=77
+  pose.config_data.cfg_turn_no1=2
+  OPEN FILE stream('RO','data')
+  READ stream(first,pose.config_data.cfg_turn_no1)
+  PAUSE
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],files={'data':'9 8'})
+        self.assertIn('condition-source',[row['code'] for row in report['unresolved']])
+        self.assertEqual(result['status'],'failed')
+        self.assertIn('CONFIG turn numbers',result['error']['message'])
+        values=result['programs']['CHILD']['values']
+        self.assertEqual((values['FIRST'],values['POSE']['CONFIG_DATA']['CFG_TURN_NO1'],
+                          values['STREAM']['position']),(77,2,0))
+
+    def test_invalid_file_position_cohort_keeps_prior_destination_and_cursor(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR pose:POSITION stream:FILE first:INTEGER
+BEGIN
+  first=77
+  pose.location.X=4.0
+  OPEN FILE stream('RO','data')
+  READ stream(first,pose)
+  PAUSE
+END CHILD
+"""
+        bad_pose='9 1 0 0 0 1 0 0 0 -1 13 14 15 0 0 0 F F F F'
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],files={'data':bad_pose})
+        self.assertIn('condition-source',[row['code'] for row in report['unresolved']])
+        self.assertEqual(result['status'],'failed')
+        self.assertIn('right-handed orientation',result['error']['message'])
+        values=result['programs']['CHILD']['values']
+        self.assertEqual((values['FIRST'],values['POSE']['LOCATION']['X'],values['STREAM']['position']),
+                         (77,4.0,0))
+
     def test_idle_file_cancel_retains_selected_descriptor_through_pinned_pause(self):
         main="""PROGRAM MAIN
 VAR s:INTEGER

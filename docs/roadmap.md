@@ -93,9 +93,10 @@ Text and binary reads from memory files can capture scalar and ordinary
 aggregate destinations and update the cursor across pauses. Bounded file
 images track published bytes through overwrites, truncation, and reopen.
 PATH reads cover whole PATHs, headers, nodes, ordered ranges, and bank
-selections with ordinary data, VECTOR, and JOINTPOS fields. Idle cancellation
-on open memory FILEs preserves the descriptor and cursor through bounded
-child execution.
+selections with scalar, vector, joint, configuration, and pose fields.
+Checked memory FILE reads share execution's CONFIG and POSITION validation,
+including batches with multiple positions. Idle cancellation on open memory
+FILEs preserves the descriptor and cursor through bounded child execution.
 Pinned calls preserve borrowed PATHs and bank components. Whole node and
 header arguments retain their slots through pausing calls and later operands,
 and field arguments retain the selected records. A forwarded vacant node
@@ -135,8 +136,7 @@ document and reports changed, omitted and unresolved inputs.
 
 1. **Expand linked discovery.** Extend child pause tracking to additional
    resource arguments and selectors, model-backed or unproven aggregate
-   conversions, FILE reads of untracked data and PATH fields that need special
-   validation such as CONFIG and POSITION, additional FILE transports, and
+   conversions, FILE reads of untracked data, additional FILE transports, and
    unresolved FILE capture selectors.
    Model shared storage in called library
    modules, track retained `USING` aliases in deferred callbacks, and model

@@ -257,6 +257,7 @@ class _TaskSelection:
     assignment: '_Value | _TaskQueueValue | None' = None
     indices: tuple[object, ...] = ()
     path_generation: int | None = None
+    read_record_field: tuple[str, str] | None = None
 
 
 @dataclass(frozen=True)
@@ -325,6 +326,17 @@ class _TaskQueueField:
 
 
 @dataclass(frozen=True)
+class _TaskReadField:
+    location: _Location
+    # Detached references carry runtime validators, including whole POSITION membership.
+    target: rt.Reference | rt._PositionReadField
+
+    @property
+    def spec(self):
+        return self.location.spec
+
+
+@dataclass(frozen=True)
 class _TaskQueueValue:
     spec: list
     cells: tuple[tuple[tuple, _TaskQueue | None], ...]
@@ -340,9 +352,9 @@ class _TaskRead:
     node: dict
     file_key: FileKey
     index: int = 0
-    leaves: tuple[_Location | _TaskQueueField, ...] = ()
+    leaves: tuple[_TaskReadField | _TaskQueueField, ...] = ()
     formats: tuple[object, ...] = ()
-    fields: tuple[tuple[_Location | _TaskQueueField, tuple[int, ...]], ...] = ()
+    fields: tuple[tuple[_TaskReadField | _TaskQueueField, tuple[int, ...]], ...] = ()
     line_breaks: tuple[int, ...] = ()
 
 
@@ -1014,8 +1026,8 @@ class _Analyzer(TeachDiscovery):
             for frame in blocks:
                 if isinstance(frame, _TaskRead):
                     self.tick(len(frame.fields) + len(frame.leaves))
-                    pending.extend(loc for loc, _ in frame.fields if isinstance(loc, _Location))
-                    pending.extend(loc for loc in frame.leaves if isinstance(loc, _Location))
+                    pending.extend(field.location for field, _ in frame.fields if isinstance(field, _TaskReadField))
+                    pending.extend(field.location for field in frame.leaves if isinstance(field, _TaskReadField))
                 elif isinstance(frame, _TaskPathCopy):
                     if frame.source_generation is not None:
                         self.pending_path_values.append((frame.operands[0].key, frame.source_generation))
@@ -5646,10 +5658,11 @@ class _Analyzer(TeachDiscovery):
         if flow.opaque or flow.stopped:
             raise _TaskOrderUnknown()
 
-    def capture_task_read_leaves(self, blocks, records, flow):
+    def capture_task_read_leaves(self, blocks, records, flow, *, record_field=None):
         leaves = []
+        line = blocks[-1].node.get('line')
         for loc in records:
-            if (loc is None or not self.plain_task_read_storage(loc.spec)
+            if (loc is None or not self.task_read_data_storage(loc.spec)
                     or self.variable_path_storage(loc, flow, False) is not True):
                 raise _TaskOrderUnknown()
             self.retain_selected_path_storage(loc, flow, False)
@@ -5658,18 +5671,37 @@ class _Analyzer(TeachDiscovery):
             selected = self.leaves(loc)
             if not selected or any(self.variable_path_storage(leaf, flow, False) is not True for leaf in selected):
                 raise _TaskOrderUnknown()
-            leaves.extend(selected)
+            try:
+                with rt._numeric_scope('pythonic'):
+                    targets = self.task_read_targets(loc, line, record_field)
+            except rt.KarelRuntimeError:
+                raise _TaskOrderUnknown() from None
+            if len(selected) != len(targets) or any(
+                tuple_spec(leaf.spec) != target.spec for leaf, target in zip(selected, targets)
+            ):
+                raise _TaskOrderUnknown()
+            leaves.extend(_TaskReadField(leaf, target) for leaf, target in zip(selected, targets))
         if not 1 <= len(leaves) <= MAX_PATH_IO_FIELDS:
             raise _TaskOrderUnknown()
         blocks[-1] = replace(blocks[-1], leaves=tuple(leaves))
 
-    def plain_task_read_storage(self, spec):
+    def task_read_targets(self, loc, line, record_field):
+        spec = tuple_spec(loc.spec)
+        if record_field is not None:
+            parent, name = record_field
+            return [rt.field_reference(rt.Structure((parent,)), name, line)]
+        target = rt.Reference(spec, {'value': rt.initial_value(spec)}, 'value')
+        if spec[0] in SCALARS:
+            return [target]
+        return [field for field, _ in rt.capture_aggregate_read_target(target, (), line)]
+
+    def task_read_data_storage(self, spec):
         kind = spec[0]
         if kind == 'ARRAY':
-            return self.plain_task_read_storage(spec[2])
+            return self.task_read_data_storage(spec[2])
         if kind == 'STRUCTURE':
-            return all(self.plain_task_read_storage(field) for _, field in spec[2])
-        return kind in SCALARS or kind in ('VECTOR', 'JOINTPOS')
+            return all(self.task_read_data_storage(field) for _, field in spec[2])
+        return kind in SCALARS or kind in ('JOINTPOS', *rt.DATA_RECORD_TYPES)
 
     def finish_task_read(self, read, flow):
         outputs = flow.task_file_outputs
@@ -5677,11 +5709,14 @@ class _Analyzer(TeachDiscovery):
             raise _TaskOrderUnknown()
         queue_groups = self.validate_task_read_fields(read, flow)
         backend = getattr(self.saved_bindings, 'memory_files', None)
-        specs = [tuple_spec(loc.spec) for loc, _ in read.fields]
+        # Queue captures were checked against the abstract binding above. The decoder
+        # only needs an ordinary INTEGER field for each entry.
+        targets = [field.target if isinstance(field, _TaskReadField) else rt.Reference(rt.INTEGER, {}, 'value')
+                   for field, _ in read.fields]
         formats = [controls for _, controls in read.fields]
         try:
             with rt._numeric_scope('pythonic'):
-                prepared = outputs.read(read.file_key, backend, specs, formats, read.line_breaks,
+                prepared = outputs.read(read.file_key, backend, targets, formats, read.line_breaks,
                                         read.node.get('line'), tick=self.tick)
         except (rt.KarelRuntimeError, UnicodeError):
             raise _TaskOrderUnknown() from None
@@ -5698,9 +5733,10 @@ class _Analyzer(TeachDiscovery):
             # READ updates the logical entries and releases the buffer binding.
             flow.task_queues[key] = replace(snapshot, entries=entries, buffer=None)
         # Bytes derived from saved input remain editable even after an overwrite.
-        for (loc, _), value in zip(read.fields, values):
-            if isinstance(loc, _TaskQueueField):
+        for (field, _), value in zip(read.fields, values):
+            if isinstance(field, _TaskQueueField):
                 continue
+            loc = field.location
             uninitialized = value is rt.UNINITIALIZED
             constant = UNKNOWN if depends_on_saved or uninitialized else value
             fact = _Value(constant, complete=not uninitialized, spec=loc.spec, uninitialized=uninitialized)
@@ -5709,8 +5745,8 @@ class _Analyzer(TeachDiscovery):
     def validate_task_read_fields(self, read, flow):
         groups = {}
         for offset, (field, _) in enumerate(read.fields):
-            if isinstance(field, _Location):
-                if self.variable_path_storage(field, flow, False) is not True:
+            if isinstance(field, _TaskReadField):
+                if self.variable_path_storage(field.location, flow, False) is not True:
                     raise _TaskOrderUnknown()
             elif field.index == 0:
                 key, snapshot = field.location.key, field.snapshot
@@ -6370,8 +6406,12 @@ class _Analyzer(TeachDiscovery):
 
         node, *tail = selection.selectors
         location = selection.location
+        record_field = None
         if node['kind'] == 'field':
-            if location.spec[0] == 'PATH' and self.known_path_count(location, flow, False) is None:
+            kind = location.spec[0]
+            if not tail and isinstance(selection.consumer, _TaskRead) and kind in ('CONFIG', *rt.ASSOCIATION_TYPES):
+                record_field = kind, node['value']
+            if kind == 'PATH' and self.known_path_count(location, flow, False) is None:
                 raise _TaskOrderUnknown()
             location = self.checked_task_selection(self.field_child(location, node['value'], node, flow))
         else:
@@ -6407,7 +6447,8 @@ class _Analyzer(TeachDiscovery):
         if (tail and tail[0]['kind'] == 'index' and not location.retains_path_record
                 and path_task_storage(location.root_spec) and not path_task_storage(location.spec)):
             location = self.retain_task_path_record(location, node, flow)
-        blocks[-1] = replace(selection, location=location, selectors=tuple(tail), indices=(), path_generation=None)
+        blocks[-1] = replace(selection, location=location, selectors=tuple(tail), indices=(),
+                             path_generation=None, read_record_field=record_field)
 
     def select_task_path_record(self, path, index, node, flow, *, archived, borrow):
         count = len(archived.nodes) if archived is not None else self.known_path_count(path, flow, False)
@@ -6517,13 +6558,13 @@ class _Analyzer(TeachDiscovery):
                 return
             if root and root[0] == 'PATH':
                 records = self.path_transfer_records(loc, selection.node, flow, False) if terminal[0] == 'PATH' else [loc]
-            elif self.plain_task_read_storage(loc.root_spec):
+            elif self.task_read_data_storage(loc.root_spec):
                 records = [loc]
             else:
                 raise _TaskOrderUnknown()
             if not records:
                 raise _TaskOrderUnknown()
-            self.capture_task_read_leaves(blocks, records, flow)
+            self.capture_task_read_leaves(blocks, records, flow, record_field=selection.read_record_field)
         elif isinstance(consumer, _TaskPathRead):
             if loc.spec[0] != 'PATH':
                 raise _TaskOrderUnknown()

@@ -912,11 +912,16 @@ sources, and bounded `WRITE` transfers. Selectors and `PATH_LEN` or
 after another pause. A returned PATH can carry shaped records whose scalar
 fields are filled later by a FILE read.
 
-Checked memory FILE reads cover VECTOR components and JOINTPOS axes in PATH
-records, as well as standalone values and ARRAY selections. Whole values
-consume components in declaration or axis order. A destination captured
-before a later selector pauses keeps its original cells. If bytes cannot be
-decoded or checked, the batch leaves the cursor and its destinations intact.
+Checked memory FILE reads cover writable CONFIG fields, VECTOR components,
+JOINTPOS axes, XYZWPR and XYZWPREXT records, and complete POSITION records.
+They can appear in standalone variables, ARRAY selections, or PATH headers
+and nodes. Whole values consume fields in declaration or axis order. A
+destination captured before a selector or format expression pauses keeps its
+original cells. Discovery applies the runtime's CONFIG turn limits and checks
+each POSITION orientation together, including in a batch with multiple poses.
+It tracks the same normalized orientation for values read from
+program-written bytes. Values from saved bytes stay editable. A failed decode
+or validation leaves the cursor and all destinations intact.
 
 In a checked child, `CANCEL FILE` can target an idle, open memory descriptor,
 including a cell selected by a pausing expression or a configured predefined

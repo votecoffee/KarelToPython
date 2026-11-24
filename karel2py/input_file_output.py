@@ -1,7 +1,6 @@
 """Plan checked memory FILE transfers without opening or writing a backend."""
 from dataclasses import dataclass, field, replace
 import struct
-from types import SimpleNamespace
 
 from . import runtime as rt
 from .communications import message_address
@@ -134,7 +133,7 @@ class MemoryOutputs:
         handle = replace(output, position=end, append_ready=output.append_ready or (output.mode == 'AP' and payload.size > 0))
         return MemoryOutputs(self.handles | {key: handle}, self.sizes | {name: size}, images)
 
-    def read(self, key, backend, specs, formats, breaks, line, *, tick):
+    def read(self, key, backend, targets, formats, breaks, line, *, tick):
         """Validate a batch and retain its values, provenance, and cursor."""
         output = self.descriptor(key)
         if (type(backend) is not MemoryFiles or output.closed or output.mode in ('W', 'A')
@@ -144,12 +143,12 @@ class MemoryOutputs:
         data = backend.files.get(output.name) if image is None else image.data
         if data is None or len(data) != self.sizes[output.name]:
             return None
-        rt._read_line_breaks(len(specs), breaks, line)
+        rt._read_line_breaks(len(targets), breaks, line)
         start = output.position
         if output.binary:
             if breaks:
                 return None
-            fields = binary_read_fields([SimpleNamespace(spec=spec) for spec in specs], formats, line)
+            fields = binary_read_fields(targets, formats, line)
             end = start + sum(width for width, _ in fields)
             if end > len(data):
                 return None
@@ -167,11 +166,14 @@ class MemoryOutputs:
             attributes = dict(output.attributes)
             reader = rt.TextInput(data[start:].decode('ascii'), terminator=attributes.get('eol'),
                                   field_mode=attributes.get('field', False))
-            fields = [dict(type=spec[0], type_spec=spec, format_specifiers=controls)
-                      for spec, controls in zip(specs, formats)]
+            fields = [dict(type=target.spec[0], type_spec=target.spec, format_specifiers=controls)
+                      for target, controls in zip(targets, formats)]
             values = reader(dict(targets=fields, line_breaks=breaks))
             end = start + reader.offset
-        checked = tuple(rt.checked(spec, value, line) for spec, value in zip(specs, values))
+        for target, value in zip(targets, values):
+            rt._validate_read_value(target, value, line)
+        values = rt._prepare_read_values(targets, values, line)
+        checked = tuple(rt.checked(target.spec, value, line) for target, value in zip(targets, values))
         updated = replace(self, handles=self.handles | {key: replace(output, position=end)})
         return updated, checked, image is None or image.depends_on_saved
 
