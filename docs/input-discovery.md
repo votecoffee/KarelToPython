@@ -132,8 +132,9 @@ arrays initialized in the child source with `INIT_QUEUE`. Discovery follows
 arguments and selected references while later operands pause. Queue entry IDs,
 the backing ARRAY, and status outputs carry across pauses. An empty get
 preserves its value and ID outputs, and a copy writes just the copied prefix
-and its count and status. Saved queue contents and FILE queue transfers still
-use conservative discovery.
+and its count and status. The same capture order applies when a checked
+`WRITE` targets a predefined memory FILE. Saved queue contents and queue
+transfers through FILE `READ` still use conservative discovery.
 Discovery uses the emitted item types and does not produce output. Re-translate
 older modules to add any missing item types or collection schemas for
 paused `WRITE` discovery.
@@ -161,7 +162,8 @@ and wait, unresolved branches and loop tests, unsupported or unresolved
 `FOR` targets or bounds, and ambiguous suspended positions still use
 conservative analysis. Checked handoffs also leave recursive calls,
 other resource arguments and selectors, model-backed or unproven
-data conversions, FILE output, and pausing resource captures unresolved.
+data conversions, other FILE transports and selectors, and pausing resource
+captures unresolved.
 Unproven PATH topology, PATH replacement while evaluating bounds, and saved
 queue contents also use conservative analysis. Shared globals in called library modules and
 PATH or USING counter captures still require review.
@@ -782,10 +784,22 @@ possible writes from that READ.
 An explicit predefined name such as `READ INPUT(n)` or `WRITE OUTPUT(n)`
 reports the matching alias under `predefined_files`. Context preparation checks
 whether that alias is bound. A declared FILE with the same name uses its normal
-scope. FILE transfers can invalidate prior value facts. Linked analysis also
-retains uncertainty about task and handler effects across FILE lifecycle
-operations. Configure the endpoint and supply any PATH storage and input
-stream data through the run context.
+scope.
+
+In checked linked child segments, `WRITE` resolves an explicit predefined
+alias or the module's default alias through the saved `files` memory backend.
+It resolves the alias before evaluating items and keeps it across pauses in
+item and format routines. Text and binary formatting use the configured
+attributes. Discovery tracks byte lengths, the shared cursor, and explicit
+`CLOSE FILE` for those aliases without opening a file or changing its bytes.
+The file's byte capacity applies at publication, including the existing
+length restriction for update mode. Close the predefined FILE in the source
+to include its bytes in the saved run results.
+
+Unchecked FILE access can invalidate prior facts. Declared FILE handles,
+other backends, and FILE `READ` still require conservative analysis.
+Configure the endpoint and supply any PATH storage and input stream data
+through the run context.
 
 ### PATH records
 

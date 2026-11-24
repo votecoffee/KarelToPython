@@ -77,6 +77,8 @@ bounded PATH transfers and source-initialized queue entries. PATH and queue
 ARRAY selectors and PATH bounds can pause before the output captures its
 records or entries. Queue calls retain evaluated operands through pauses and
 track edits, removals, and copies, including entry IDs and partial output writes.
+Predefined memory FILE aliases support text and binary output in checked child
+slices, with shared cursors and explicit close.
 Scalar and ordinary aggregate `REPEAT UNTIL` captures run once before the
 live test and carry their values across pauses and iterations.
 Discovery tracks numbered handler activation within
@@ -89,8 +91,8 @@ document and reports changed, omitted and unresolved inputs.
 
 1. **Expand linked discovery.** Extend child pause tracking to additional
    resource arguments and selectors, model-backed or unproven aggregate
-   conversions, saved queues and queue FILE transfers, FILE output, and
-   resource `EVAL` captures.
+   conversions, saved queues and queue FILE reads, additional FILE transports
+   and lifecycle operations, and resource `EVAL` captures.
    Model shared storage in called library modules, extend resumable
    `FOR` capture to PATH and USING storage, and model
    additional synchronization and handler rearming where order and targets

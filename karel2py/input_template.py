@@ -155,7 +155,8 @@ class _SavedBindings:
         self.pose_tolerance = execution.pose_tolerance
         self.external_tolerance = execution.external_tolerance
         self.config_text = execution.config_text
-        self.predefined_files = frozenset(execution.predefined_files)
+        self.predefined_files = execution.predefined_files
+        self.memory_files = execution.files if type(execution.files) is rt.MemoryFiles else None
         self.teach_programs = execution.teach_programs
         self.creation_storage = None
         self.namespaces = None

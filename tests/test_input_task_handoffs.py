@@ -14,7 +14,7 @@ class TaskHandoffTests(unittest.TestCase):
         self.addCleanup(folder.cleanup)
         self.root=Path(folder.name)
 
-    def prepare(self, sources, *, replay=True, callers=None, predefined_files=None):
+    def prepare(self, sources, *, replay=True, callers=None, predefined_files=None, files=None):
         case_folder=Path(mkdtemp(dir=self.root))
         paths=[]
         for name, source in sources:
@@ -29,6 +29,8 @@ class TaskHandoffTests(unittest.TestCase):
         }}
         if predefined_files is not None:
             context['predefined_files']=predefined_files
+        if files is not None:
+            context['files']=files
         saved=create_project_document(paths,document,entry='MAIN',context=context,max_cycles=100,discover=True)
         result=runner.run_document(document)['results'] if replay else None
         return saved['inputs']['template']['discovery'],result
@@ -3670,6 +3672,197 @@ END CHILD
                     self.assertIn('condition-source',[row['code'] for row in report['unresolved']])
                 else:
                     self.assert_task_gaps(report,['task-scheduling','task-wait'])
+
+    def test_pausing_default_memory_file_write_can_exceed_the_console_limit(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child=f"""PROGRAM CHILD
+%CRTDEVICE
+ROUTINE value_now:INTEGER
+BEGIN
+  PAUSE
+  RETURN 7
+END value_now
+BEGIN
+  WRITE('{'a'*130}','{'b'*130}',value_now(),CR)
+  CLOSE FILE OUTPUT
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],
+                                   predefined_files={'OUTPUT':{'name':'out','mode':'WO',
+                                                               'attributes':{'eol':13}}},
+                                   files={'out':'old'})
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation'])
+        self.assertIn({'service':'predefined_files','address':'OUTPUT'},report['context_requirements'])
+        self.assertEqual(result['status'],'completed')
+        self.assertEqual(result['text_output'],'')
+        self.assertEqual(result['context']['files']['out']['hex'],(b'a'*130+b'b'*130+b' 7\r').hex())
+
+    def test_explicit_binary_file_preserves_queue_capture_across_format_pause(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR q:QUEUE_TYPE backing:ARRAY[2] OF INTEGER first,last,s,unused:INTEGER
+ROUTINE word_width:INTEGER
+BEGIN
+  MODIFY_QUEUE(42,first,q,backing,s)
+  PAUSE
+  RETURN 2
+END word_width
+BEGIN
+  INIT_QUEUE(q)
+  APPEND_QUEUE(258,q,backing,first,s)
+  APPEND_QUEUE(-2,q,backing,last,s)
+  WRITE OUTPUT(q::word_width(),CR)
+  WRITE OUTPUT(q::2)
+  CLOSE FILE OUTPUT
+  WRITE TPDISPLAY(9::1)
+  CLOSE FILE TPDISPLAY
+  IF s<>0 THEN
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],
+                                   predefined_files={'OUTPUT':{'name':'out','mode':'WB',
+                                                               'attributes':{'reverse':True}},
+                                                     'TPDISPLAY':{'name':'out','mode':'APB'}},files={})
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed')
+        self.assertEqual(result['text_output'],'')
+        self.assertEqual(result['context']['files']['out']['hex'],'0102fffe0a002afffe09')
+
+    def test_invalid_binary_format_prevents_later_item_from_reaching_pause(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR entered:INTEGER
+ROUTINE bad_width:INTEGER
+BEGIN
+  PAUSE
+  RETURN 3
+END bad_width
+ROUTINE later:INTEGER
+BEGIN
+  entered=1
+  PAUSE
+  RETURN 7
+END later
+BEGIN
+  entered=0
+  WRITE OUTPUT(9::bad_width(),later())
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],
+                                   predefined_files={'OUTPUT':{'name':'out','mode':'WB'}},files={})
+        self.assertIn('condition-source',[row['code'] for row in report['unresolved']])
+        self.assertEqual(result['status'],'failed')
+        self.assertIn('binary field type/width',result['error']['message'])
+        self.assertEqual(result['programs']['CHILD']['values']['ENTERED'],0)
+        self.assertIn('Close predefined FILE handles',result['capture_errors']['context']['message'])
+
+    def test_competing_predefined_file_alias_cannot_open_during_a_write_pause(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  RUN_TASK('PEER',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[3]
+END MAIN
+"""
+        child="""PROGRAM CHILD
+ROUTINE value_now:INTEGER
+BEGIN
+  PAUSE
+  RETURN 17
+END value_now
+BEGIN
+  WRITE OUTPUT(value_now())
+END CHILD
+"""
+        peer="""PROGRAM PEER
+VAR entered:INTEGER
+ROUTINE value_now:INTEGER
+BEGIN
+  entered=1
+  PAUSE
+  RETURN 19
+END value_now
+BEGIN
+  entered=0
+  WRITE TPDISPLAY(value_now())
+END PEER
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child),('PEER',peer)],
+                                   predefined_files={'OUTPUT':{'name':'out','mode':'WO'},
+                                                     'TPDISPLAY':{'name':'out','mode':'WO'}},files={})
+        self.assertIn('condition-source',[row['code'] for row in report['unresolved']])
+        self.assertEqual(result['status'],'failed')
+        self.assertIn('already open',result['error']['message'])
+        self.assertEqual(result['programs']['PEER']['values']['ENTERED'],0)
+        self.assertIn('Close predefined FILE handles',result['capture_errors']['context']['message'])
+
+    def test_pending_memory_write_rechecks_shared_update_cursor_on_resume(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  RUN_TASK('PEER',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[3]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR entered:INTEGER
+ROUTINE value_now:INTEGER
+BEGIN
+  PAUSE
+  RETURN 17
+END value_now
+BEGIN
+  entered=0
+  WRITE OUTPUT(value_now()::2)
+  entered=1
+  PAUSE
+END CHILD
+"""
+        peer="""PROGRAM PEER
+BEGIN
+  WRITE OUTPUT(9::2,11::1)
+  PAUSE
+END PEER
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child),('PEER',peer)],
+                                   predefined_files={'OUTPUT':{'name':'out','mode':'UDB'}},
+                                   files={'out':'0000'})
+        self.assertIn('condition-source',[row['code'] for row in report['unresolved']])
+        self.assertEqual(result['status'],'failed')
+        self.assertIn('UD FILE WRITE must replace bytes',result['error']['message'])
+        self.assertEqual(result['programs']['CHILD']['values']['ENTERED'],0)
 
     def test_request_status_is_not_reused_as_prelaunch_task_number(self):
         main="""PROGRAM MAIN

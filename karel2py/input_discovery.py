@@ -18,6 +18,7 @@ from .extended import (
 )
 from .file_io import MAX_PATH_IO_FIELDS, path_io_field_count, path_io_indexes
 from .input_contract import extract, InputContractError
+from .input_file_output import MemoryOutputs
 from .input_model_transfers import evaluate_model_paths, evaluate_model_variables
 from .input_position_values import (
     POSITION_CLEARED, POSITION_GETTERS, POSITION_MODIFIED, POSITION_SERVICES, POSITION_SETTERS,
@@ -251,6 +252,7 @@ class _TaskArrayLength:
 @dataclass(frozen=True)
 class _TaskWrite:
     node: dict
+    file_alias: str | None = None
     index: int = 0
     values: tuple[_Value, ...] = ()
     aggregate: rt._AggregateWriteValue | None = None
@@ -371,6 +373,7 @@ class _Flow:
     teach: TeachFacts = field(default_factory=TeachFacts)
     scalar_choices: dict = field(default_factory=dict)
     task_queues: dict = field(default_factory=dict)
+    task_file_outputs: MemoryOutputs | None = field(default_factory=MemoryOutputs)
 
     def copy(self):
         return _Flow(self.defined.copy(),self.assigned.copy(),self.maybe.copy(),
@@ -382,7 +385,7 @@ class _Flow:
                      self.named_bindings.copy(),self.creation_counts.copy(),self.allocated_variable_units,
                      self.program_attributes.copy(),self.numeric_kinds.copy(),self.port_simulation.copy(),
                      self.position_cells.copy(),self.position_order_unknown,self.robot_tables.copy(),
-                     self.teach.copy(), self.scalar_choices.copy(), self.task_queues.copy())
+                     self.teach.copy(), self.scalar_choices.copy(), self.task_queues.copy(), self.task_file_outputs)
 
     def take(self, other):
         self.handlers = other.handlers
@@ -408,6 +411,7 @@ class _Flow:
         self.teach = other.teach
         self.scalar_choices = other.scalar_choices
         self.task_queues = other.task_queues
+        self.task_file_outputs = other.task_file_outputs
 
 
 def _merge(flows):
@@ -490,6 +494,9 @@ def _merge(flows):
         simulation[key] = value if all(other.port_simulation.get(key) is value for other in live[1:]) else UNKNOWN
     queues = {key: queue for key, queue in first.task_queues.items()
               if all(flow.task_queues.get(key) == queue for flow in live[1:])}
+    files = first.task_file_outputs
+    if any(other.task_file_outputs != files for other in live[1:]):
+        files = None
     return _Flow(set.intersection(*(flow.defined for flow in live)),
                  set.intersection(*(flow.assigned for flow in live)),
                  set.union(*(flow.maybe for flow in live)),constants,False,any(flow.opaque for flow in live),
@@ -502,7 +509,7 @@ def _merge(flows):
                  merge_positions([flow.position_cells for flow in live], _merged_value),
                  any(flow.position_order_unknown for flow in live),
                  RobotTableFacts.merge([flow.robot_tables for flow in live]),
-                 TeachFacts.merge([flow.teach for flow in live], _merged_value), choices, queues)
+                 TeachFacts.merge([flow.teach for flow in live], _merged_value), choices, queues, files)
 
 
 def _path_record_identity(part):
@@ -627,6 +634,7 @@ class _Analyzer(TeachDiscovery):
         if self.track_tasks and flow.paused_tasks:
             raise _TaskOrderUnknown()
         flow.task_order_unknown = True
+        flow.task_file_outputs = None
 
     def opaque(self, flow, *, activation=True, task_order=True):
         if activation:
@@ -636,6 +644,7 @@ class _Analyzer(TeachDiscovery):
         flow.opaque=True;flow.defined.clear();flow.assigned.clear();flow.constants.clear()
         flow.scalar_choices.clear()
         flow.task_queues.clear()
+        flow.task_file_outputs = None
         flow.uninitialized.clear()
         flow.changed_path_aggregates.clear()
         flow.record_storage.clear()
@@ -4924,7 +4933,9 @@ class _Analyzer(TeachDiscovery):
     def bounded_task_segment(self, plan, segment=None):
         key = plan['program'], segment
         if key not in self.segmentable:
-            self.segmentable[key] = bounded_child(plan, self.linked_plans, self.tick, segment=segment)
+            self.segmentable[key] = bounded_child(
+                plan, self.linked_plans, self.tick, segment=segment,
+                predefined_files=getattr(self.saved_bindings, 'predefined_files', ()))
         return self.segmentable[key]
 
     def terminal_task_handoff(self, flow):
@@ -4953,7 +4964,8 @@ class _Analyzer(TeachDiscovery):
             synchronized = target is not None and self.bounded_task_segment(plan, target) is not None
             if not synchronized and (handoff.waiter is not None
                                      or suspension is not None and self.terminal_task_handoff(flow)):
-                rules = structured_child(plan, self.linked_plans, self.tick)
+                rules = structured_child(
+                    plan, self.linked_plans, self.tick, predefined_files=getattr(self.saved_bindings, 'predefined_files', ()))
                 synchronized = rules is not None
         if synchronized or segment and not nested and self.bounded_task_segment(plan) == 'scalar':
             caller = flow if synchronized else None
@@ -4965,6 +4977,7 @@ class _Analyzer(TeachDiscovery):
                     raise _TaskOrderUnknown()
                 flow.teach = child.teach
                 flow.program_attributes = child.program_attributes
+                flow.task_file_outputs = child.task_file_outputs
                 if cursor is None:
                     self.tick(len(flow.teach.handles or ()))
                     flow.teach.release_owner(name)
@@ -4999,6 +5012,7 @@ class _Analyzer(TeachDiscovery):
                 child.teach = shared.teach.copy()
                 child.program_attributes = shared.program_attributes.copy()
                 child.requested_tasks = shared.requested_tasks.copy()
+                child.task_file_outputs = shared.task_file_outputs
             blocks = list(suspension.blocks) if suspension is not None else [(plan['body'], 0)]
             self.frames = [block.frame for block in blocks if isinstance(block, _TaskRoutine)]
             self.plan = self.task_frame_plan()
@@ -5092,12 +5106,15 @@ class _Analyzer(TeachDiscovery):
                 raise _TaskOrderUnknown()
             blocks.append(_TaskArguments(call, None))
             return
-        if kind == 'write_items':
-            device = self.plan.get('default_write_file')
-            bindings = getattr(self.saved_bindings, 'predefined_files', None)
-            if device is None or bindings is None or device in bindings:
+        if kind in ('write_items', 'file_write'):
+            self.start_task_write(blocks, flow, scope, node)
+            return
+        if kind == 'file_close' and args[0] is not None:
+            alias = self.task_predefined_file_alias(scope, args[0])
+            outputs = self.capture_task_file(flow, alias, node).close(alias)
+            if outputs is None:
                 raise _TaskOrderUnknown()
-            blocks.append(_TaskWrite(node))
+            flow.task_file_outputs = outputs
             return
         if kind in STRUCTURED_LOOPS and scope.loop(node):
             if kind == 'for':
@@ -5133,11 +5150,62 @@ class _Analyzer(TeachDiscovery):
         if value is not None:
             self.consume_task_value(blocks, flow, consumer, value)
 
+    def task_predefined_file_alias(self, scope, selector):
+        alias = selector['value']
+        if selector['kind'] != 'name' or alias in scope.types or alias not in PREDEFINED_FILE_NAMES:
+            raise _TaskOrderUnknown()
+        return alias
+
+    def capture_task_file(self, flow, alias, node):
+        self.context('predefined_files', alias)
+        bindings = getattr(self.saved_bindings, 'predefined_files', ())
+        outputs = flow.task_file_outputs
+        if outputs is None or alias not in bindings:
+            raise _TaskOrderUnknown()
+        try:
+            captured = outputs.capture(alias, self.saved_bindings.memory_files, bindings[alias], node.get('line'))
+        except rt.KarelRuntimeError:
+            raise _TaskOrderUnknown() from None
+        if captured is None:
+            raise _TaskOrderUnknown()
+        return captured
+
+    def start_task_write(self, blocks, flow, scope, node):
+        if node['kind'] == 'file_write':
+            selector, node = node['args']
+            alias = self.task_predefined_file_alias(scope, selector)
+        else:
+            alias = self.plan.get('default_write_file')
+            bindings = getattr(self.saved_bindings, 'predefined_files', None)
+            if alias is None or bindings is None:
+                raise _TaskOrderUnknown()
+            if alias not in bindings:
+                alias = None
+        if alias is not None:
+            flow.task_file_outputs = self.capture_task_file(flow, alias, node)
+        blocks.append(_TaskWrite(node, file_alias=alias))
+
     def next_task_write_item(self, blocks, flow, scope, write):
         self.tick()
+        outputs, output = flow.task_file_outputs, None
+        if write.file_alias is not None:
+            if outputs is None:
+                raise _TaskOrderUnknown()
+            output = outputs.aliases[write.file_alias]
         items = write.node['args']
         if write.index == len(items):
-            if not 1 <= write.rendered_pieces <= 1024 or write.rendered_length > 254:
+            if not 1 <= write.rendered_pieces <= 1024:
+                raise _TaskOrderUnknown()
+            if output is not None:
+                try:
+                    updated = outputs.write(write.file_alias, self.saved_bindings.memory_files,
+                                            write.rendered_length, write.node.get('line'))
+                except rt.KarelRuntimeError:
+                    raise _TaskOrderUnknown() from None
+                if updated is None:
+                    raise _TaskOrderUnknown()
+                flow.task_file_outputs = updated
+            elif write.rendered_length > 254:
                 raise _TaskOrderUnknown()
             blocks.pop()
             return
@@ -5167,7 +5235,7 @@ class _Analyzer(TeachDiscovery):
                     self.consume_task_value(blocks, flow, write, value)
                 return
 
-            count, length = self.render_task_write_item(item, write)
+            count, length = self.render_task_write_item(item, write, output)
         # Runtime checks the expanded batch only after rendering every item.
         blocks[-1] = replace(write, index=write.index + 1, values=(), aggregate=None,
                              rendered_pieces=write.rendered_pieces + count, rendered_length=write.rendered_length + length)
@@ -5366,7 +5434,7 @@ class _Analyzer(TeachDiscovery):
             raise _TaskOrderUnknown() from None
         blocks[-1] = replace(write, aggregate=captured)
 
-    def render_task_write_item(self, item, write):
+    def render_task_write_item(self, item, write, output):
         if any(value.constant is UNKNOWN or value.uninitialized for value in write.values):
             raise _TaskOrderUnknown()
         values = [slot.constant for slot in write.values]
@@ -5374,10 +5442,12 @@ class _Analyzer(TeachDiscovery):
         try:
             with rt._numeric_scope('pythonic'):
                 if write.aggregate is not None:
-                    pieces = rt.format_aggregate_write(write.aggregate, values, line)
+                    pieces = rt.format_aggregate_write(write.aggregate, values, line, file=output)
                     return len(pieces), sum(map(len, pieces))
                 value, *formats = values
-                return 1, len(rt.format_write_item(item['write_type'], value, formats, line))
+                kind = item['write_type']
+                piece = rt.optional_file_piece(output, kind, value, formats, line)
+                return 1, len(piece)
         except rt.KarelRuntimeError:
             raise _TaskOrderUnknown() from None
 
@@ -6486,6 +6556,14 @@ class _Analyzer(TeachDiscovery):
         if self.linked_plans is not None:
             self.opaque(flow)
 
+    def lose_unchecked_default_file(self, flow, *, reading=False):
+        bindings = getattr(self.saved_bindings, 'predefined_files', ())
+        alias = self.plan.get('default_write_file')
+        if reading and alias == 'OUTPUT':
+            alias = 'INPUT'
+        if alias in bindings or alias is None and bindings:
+            flow.task_file_outputs = None
+
     def read_statement(self, node, flow, conditional):
         """Capture PATH fields before later selectors or format controls can edit them."""
         destinations = []
@@ -6721,12 +6799,14 @@ class _Analyzer(TeachDiscovery):
                 self.exits.append((flow.copy(),value))
             flow.stopped=True;return
         if kind=='write_items':
+            self.lose_unchecked_default_file(flow)
             for argument in args:
                 if flow.stopped and not flow.opaque:
                     return
                 self.expr(argument,flow,conditional)
             return
         if kind=='read':
+            self.lose_unchecked_default_file(flow, reading=True)
             self.read_statement(node, flow, conditional)
             return
         if kind=='abort' or kind=='task_control' and args[0] in ('ABORT','STOP') and len(args)==1:

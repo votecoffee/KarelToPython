@@ -202,6 +202,8 @@ def _routine_calls(plan, node, tick):
                 yield from _expression_routines(plan, operand, tick)
         else:
             yield from _expression_routines(plan, call, tick, procedure=True)
+    elif kind == 'file_write':
+        yield from _routine_calls(plan, args[1], tick)
     elif kind == 'write_items':
         for item in args:
             for operand in item['args']:
@@ -227,7 +229,7 @@ def _branches(node):
     return ()
 
 
-def structured_child(plan, linked_plans, tick):
+def structured_child(plan, linked_plans, tick, *, predefined_files=()):
     """Find an isolated child with a pause within or alongside structured flow."""
     pending = [(plan, iter(plan['body']), False)]
     found_control = found_pause = False
@@ -243,7 +245,9 @@ def structured_child(plan, linked_plans, tick):
         found_pause = found_pause or pause
         found_control = (found_control or node['kind'] in STRUCTURED_LOOPS
                          or aggregate_task_write(node) or node.get('data_assignment') is True
-                         or node['kind'] == 'call' and queue_task_call(owner, node['args'][0]))
+                         or node['kind'] == 'call' and queue_task_call(owner, node['args'][0])
+                         or node['kind'] in ('file_write', 'file_close')
+                         or node['kind'] == 'write_items' and owner.get('default_write_file') in predefined_files)
         pending.extend((owner, iter(body), True) for body in _branches(node) if body)
         for call in _routine_calls(owner, node, tick):
             name = call['value']
@@ -255,15 +259,17 @@ def structured_child(plan, linked_plans, tick):
                     visited_routines.add(key)
                     pending.append((target, iter(routine['body']), True))
         if (nested and pause) or (found_control and found_pause):
-            return _SegmentRules(plan, tick, structured=True) if _isolated(plan, linked_plans, tick) else None
+            return (_SegmentRules(plan, tick, structured=True, predefined_files=predefined_files)
+                    if _isolated(plan, linked_plans, tick) else None)
     return None
 
 
 class _SegmentRules:
-    def __init__(self, plan, tick, *, structured=False, routine=None):
+    def __init__(self, plan, tick, *, structured=False, routine=None, predefined_files=()):
         self.plan = plan
         self.tick = tick
         self.structured = structured
+        self.predefined_files = predefined_files
         self.types = plan['types'] if routine is None else plan['types'] | routine['types']
         self.constants = plan['constants'] if routine is None else plan['constants'] | routine['constants']
         self.routine_scopes = {}
@@ -274,7 +280,8 @@ class _SegmentRules:
         key = plan['program'], name
         if key not in self.routine_scopes:
             self.routine_scopes[key] = _SegmentRules(plan, self.tick, structured=True,
-                                                     routine=plan['routines'][name])
+                                                     routine=plan['routines'][name],
+                                                     predefined_files=self.predefined_files)
         return self.routine_scopes[key]
 
     def reference_schema(self, node, *, staged=False):
@@ -428,16 +435,17 @@ class _SegmentRules:
             return args[0]['kind'] == 'call' and self.call(args[0])
         if kind in ('if', 'select'):
             return self.branch(node) and all(self.statement(row) for body in _branches(node) for row in body)
-        if aggregate_task_write(node):
+        if (aggregate_task_write(node)
+                or kind == 'write_items' and self.plan.get('default_write_file') in self.predefined_files):
             return False
         return kind in ('write_items', 'signal_event') and all(self.operand(arg) for arg in args)
 
 
-def bounded_child(plan, linked_plans, tick, *, segment=None):
+def bounded_child(plan, linked_plans, tick, *, segment=None, predefined_files=()):
     """Check an isolated child body or its requested execution segment."""
     if not _isolated(plan, linked_plans, tick):
         return None
-    rules = _SegmentRules(plan, tick)
+    rules = _SegmentRules(plan, tick, predefined_files=predefined_files)
     body = plan['body'] if segment is None else plan['body'][slice(*segment)]
     if not all(rules.statement(node) or explicit_pause(node) for node in body):
         return None
