@@ -72,7 +72,8 @@ linked modules. Ordinary aggregate results can feed another call, console
 `WRITE`, an assignment, or a field or array selection. Checked data conversions
 follow the declared argument, return, or concrete ARRAY receiver schema.
 Ordinary ARRAY subscripts, pure scalar built-ins, `ARRAY_LEN`, and console
-`WRITE` for scalars and data aggregates keep evaluated operands across a pause.
+`WRITE` keep evaluated operands across a pause. Console output includes
+bounded PATH transfers and source-initialized queue entries.
 Scalar and ordinary aggregate `REPEAT UNTIL` captures run once before the
 live test and carry their values across pauses and iterations.
 Discovery tracks numbered handler activation within
@@ -85,7 +86,8 @@ document and reports changed, omitted and unresolved inputs.
 
 1. **Expand linked discovery.** Extend child pause tracking to resource
    arguments and selectors, model-backed or unproven aggregate conversions,
-   PATH and QUEUE `WRITE` operands, FILE output, and resource `EVAL` captures.
+   additional queue mutations and saved queues, FILE output, and resource
+   `EVAL` captures.
    Model shared storage in called library modules, extend resumable
    `FOR` capture to PATH and USING storage, and model
    additional synchronization and handler rearming where order and targets

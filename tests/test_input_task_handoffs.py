@@ -3152,6 +3152,147 @@ END CHILD
         self.assertIn('WRITE combined output',result['error']['message'])
         self.assertEqual(result['text_output'],'')
 
+    def test_path_range_write_captures_reverse_nodes_and_header_before_a_pausing_edit(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+TYPE node_t=STRUCTURE amount:INTEGER ENDSTRUCTURE
+     header_t=STRUCTURE total:INTEGER ENDSTRUCTURE
+VAR route:PATH NODEDATA=node_t PATHHEADER=header_t seed:node_t s:INTEGER
+ROUTINE width_value:INTEGER
+BEGIN
+  route[1].amount=44
+  DELETE_NODE(route,2,s)
+  PAUSE
+  RETURN 3
+END width_value
+BEGIN
+  route.total=2
+  seed.amount=7
+  APPEND_NODE(route,seed,s)
+  seed.amount=9
+  APPEND_NODE(route,seed,s)
+  WRITE(route[2..0]::width_value(),'|',route)
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed')
+        self.assertEqual(result['text_output'],'  9  7  2| 2 44')
+        route=result['programs']['CHILD']['values']['ROUTE']
+        self.assertEqual(route,{'data':{'TOTAL':2},'nodes':[{'AMOUNT':44}]})
+
+    def test_missing_path_leaf_prevents_the_format_pause(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+END MAIN
+"""
+        child="""PROGRAM CHILD
+TYPE node_t=STRUCTURE amount:INTEGER ENDSTRUCTURE
+VAR route:PATH NODEDATA=node_t s,entered:INTEGER
+ROUTINE width_value:INTEGER
+BEGIN
+  entered=1
+  PAUSE
+  RETURN 3
+END width_value
+BEGIN
+  entered=0
+  APPEND_NODE(route,s)
+  WRITE(route::width_value())
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assertIn('condition-source',[row['code'] for row in report['unresolved']])
+        self.assertEqual(result['status'],'failed')
+        self.assertIn('uninitialized',result['error']['message'])
+        self.assertEqual(result['programs']['CHILD']['values']['ENTERED'],0)
+
+    def test_queue_array_capture_preserves_entry_order_across_a_pausing_append(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR queues:ARRAY[2] OF QUEUE_TYPE left_buf,right_buf:ARRAY[2] OF INTEGER
+    entry,s,unused:INTEGER
+ROUTINE width_value:INTEGER
+BEGIN
+  APPEND_QUEUE(11,queues[2],right_buf,entry,s)
+  PAUSE
+  RETURN 3
+END width_value
+BEGIN
+  INIT_QUEUE(queues[1])
+  INIT_QUEUE(queues[2])
+  APPEND_QUEUE(7,queues[1],left_buf,entry,s)
+  APPEND_QUEUE(9,queues[1],left_buf,entry,s)
+  APPEND_QUEUE(88,queues[1],left_buf,entry,s)
+  IF (s=2) AND (entry=2) THEN
+    WRITE(queues::width_value(),'|',queues[2])
+  ELSE
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed')
+        self.assertEqual(result['text_output'],'  7  9| 11')
+        self.assertEqual(result['programs']['CHILD']['values']['LEFT_BUF'],[7,9])
+        self.assertEqual(result['programs']['CHILD']['values']['RIGHT_BUF'],[11,0])
+
+    def test_empty_queue_validates_its_format_before_the_later_item(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR data:QUEUE_TYPE entered:INTEGER
+ROUTINE width_value:INTEGER
+BEGIN
+  PAUSE
+  RETURN 255
+END width_value
+ROUTINE later:INTEGER
+BEGIN
+  entered=1
+  PAUSE
+  RETURN 7
+END later
+BEGIN
+  entered=0
+  INIT_QUEUE(data)
+  WRITE(data::width_value(),later())
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assertIn('condition-source',[row['code'] for row in report['unresolved']])
+        self.assertEqual(result['status'],'failed')
+        self.assertIn('WRITE width',result['error']['message'])
+        self.assertEqual(result['text_output'],'')
+        self.assertEqual(result['programs']['CHILD']['values']['ENTERED'],0)
+
     def test_pausing_write_uses_the_default_route_from_its_own_module(self):
         main="""PROGRAM MAIN
 VAR s:INTEGER

@@ -137,6 +137,8 @@ class StatementIOLowering:
             value, spec = self.expression(operand, collection_io=True)
             data_type = spec[0]
             self.write_item_types[id(item)] = data_type
+            if data_type == 'PATH' or rt.path_array_io_type(spec) or rt.queue_io_type(spec):
+                self.write_collection_types[id(item)] = spec
             aggregate=data_type not in ('STRING','BOOLEAN','INTEGER','REAL',*NARROW_TYPES)
             if aggregate and (self.mode!='pythonic' or not rt.aggregate_write_type(spec)):
                 self.error('E_TYPE',f'WRITE requires scalar or resource-free aggregate data, found {data_type}',item.token)

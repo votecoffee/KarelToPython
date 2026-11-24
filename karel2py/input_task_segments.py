@@ -13,6 +13,8 @@ STRUCTURED_LOOPS = frozenset(('for', 'while', 'repeat'))
 SCALAR_BINARY_OPERATORS = frozenset(('+', '-', '*', '/', 'DIV', 'MOD', '=', '<>', '<', '<=', '>', '>=', 'AND', 'OR'))
 TASK_DATA_AGGREGATES = frozenset(('ARRAY', 'JOINTPOS', *RECORD_TYPES))
 TASK_ROUTINE_VALUES = frozenset(SCALARS) | TASK_DATA_AGGREGATES
+PATH_TASK_EDITS = frozenset(('APPEND_NODE', 'INSERT_NODE', 'DELETE_NODE'))
+QUEUE_TASK_EDITS = frozenset(('INIT_QUEUE', 'APPEND_QUEUE'))
 _REPEAT_SAMPLE = object()
 
 
@@ -126,7 +128,7 @@ def select_case_labels(node):
 
 def aggregate_task_write(node):
     return node['kind'] == 'write_items' and any(
-        item.get('write_type') in TASK_DATA_AGGREGATES for item in node['args'])
+        item.get('write_type') in TASK_DATA_AGGREGATES or 'write_collection' in item for item in node['args'])
 
 
 def repeat_capture_parts(predicate, tick):
@@ -273,6 +275,12 @@ class _SegmentRules:
         schema = self.reference_schema(receiver, staged=staged)
         if schema is None:
             return None
+        if schema[0] == 'PATH':
+            if kind == 'field':
+                return dict(schema[2][2]).get(node['value']) if schema[2] else None
+            if len(indices) != 1 or not (staged or self.operand(indices[0])):
+                return None
+            return schema[2] if node.get('static_zero_subscript') else schema[1] or self.plan.get('default_path_node')
         if kind == 'field':
             return dict(schema[2]).get(node['value']) if schema[0] == 'STRUCTURE' else None
         if schema[0] != 'ARRAY':
@@ -304,6 +312,8 @@ class _SegmentRules:
         if kind == 'call':
             return self.call(node)
         if kind in ('field', 'index'):
+            if self.path_storage(node):
+                return False
             schema = self.reference_schema(node)
             if schema and schema[0] in SCALARS:
                 return True
@@ -325,6 +335,31 @@ class _SegmentRules:
 
     def procedure_call(self, node):
         return self.checked_routine_call(_direct_routine_call(self.plan, node, procedure=True))
+
+    def storage_operand(self, node):
+        kind, args = node['kind'], node['args']
+        if kind == 'name':
+            return node['value'] in self.types
+        return (kind in ('group', 'field', 'index') and self.storage_operand(args[0])
+                and all(self.operand(arg) for arg in args[1:]))
+
+    def path_storage(self, node):
+        while node['kind'] in ('group', 'field', 'index'):
+            node = node['args'][0]
+        if node['kind'] != 'name':
+            return False
+        _, terminal = array_dimensions(self.types.get(node['value']))
+        return bool(terminal and terminal[0] == 'PATH')
+
+    def collection_call(self, node):
+        name = node['value']
+        if name in self.plan['routines'] or name not in PATH_TASK_EDITS | QUEUE_TASK_EDITS:
+            return False
+        args, signature = node['args'], node.get('signature', ())
+        return len(args) == len(signature) and all(
+            self.storage_operand(arg) or spec[0] == 'i' and self.operand(arg)
+            for arg, spec in zip(args, signature)
+        )
 
     def scalar_routine_call(self, operand):
         return self.checked_routine_call(_direct_routine_call(self.plan, operand, results=SCALARS))
@@ -361,6 +396,8 @@ class _SegmentRules:
             if node.get('data_assignment') is True:
                 return False
             target, value = args
+            if self.path_storage(target):
+                return False
             if target['kind'] == 'name':
                 return self.operand(target) and self.operand(value)
             schema = self.reference_schema(target)

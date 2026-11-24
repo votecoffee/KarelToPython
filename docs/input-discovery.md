@@ -117,8 +117,17 @@ positions, discovery captures known scalar leaves after any supported
 subscripts finish and before evaluating formats. This also covers checked
 values from pure constructors such as `VEC`. Items format left to right. The
 expanded piece count and combined length are checked after the last item.
+Console `WRITE` also captures known PATH and queue contents before formats
+run. Whole PATHs and checked ranges follow record order, including the declared
+header when selected. Discovery follows supported `APPEND_NODE`,
+`INSERT_NODE`, and `DELETE_NODE` operations and reads the captured records
+before any later edit. Queue writes preserve entry order for source-initialized
+queues and queue arrays whose contents are known from `INIT_QUEUE` and
+`APPEND_QUEUE`. The backing ARRAY, entry number, and status retain their
+modeled effects across a pause.
 Discovery uses the emitted item types and does not produce output. Re-translate
-older modules to add any missing item types for paused `WRITE` discovery.
+older modules to add any missing item types or collection schemas for
+paused `WRITE` discovery.
 A `SELECT` keeps its captured selector across pauses and evaluates every
 label once, left to right. The
 first matching arm begins only after the last label finishes. A `FOR` captures
@@ -142,11 +151,11 @@ handles cannot race with the child. Shared operations between the request
 and wait, unresolved branches and loop tests, unsupported or unresolved
 `FOR` targets or bounds, and ambiguous suspended positions still use
 conservative analysis. Checked handoffs also leave recursive calls,
-resource arguments or selectors, model-backed or unproven data conversions,
-FILE output, PATH or QUEUE `WRITE` operands, and pausing resource captures
-unresolved. Unknown rendered items and unresolved linked signatures use
-the same conservative analysis. Shared globals in called library modules and PATH or USING counter
-captures also require review.
+resource arguments or pausing resource selectors, model-backed or unproven
+data conversions, FILE output, and pausing resource captures unresolved.
+Unproven PATH topology, saved queue contents, and other queue mutations also
+use conservative analysis. Shared globals in called library modules and
+PATH or USING counter captures still require review.
 
 Discovery evaluates signal and wait selectors and can track known pauses
 across a delay or simple event wait. A signal or delay alone does not

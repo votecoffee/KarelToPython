@@ -68,6 +68,7 @@ class Emitter(DeclarationPasses, TypeQueries, ExpressionLowering, AssignmentLowe
         self.geometry_argument_conversions = {}
         self.geometry_expression_types = {}
         self.write_item_types = {}
+        self.write_collection_types = {}
         self.repeat_capture_types = {}
         self.geometry_return_conversions = {}
         self.path_array_conversion_schemas = {}

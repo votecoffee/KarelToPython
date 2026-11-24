@@ -24,8 +24,8 @@ from .input_position_values import (
     checked_position_facts, merge_positions, position_register_result,
 )
 from .input_task_segments import (
-    STRUCTURED_LOOPS, TASK_DATA_AGGREGATES, TASK_ROUTINE_VALUES, bind_repeat_samples, bounded_child, explicit_pause,
-    repeat_capture_parts, resolve_routine, scalar_task_operator, select_case_labels, structured_child,
+    PATH_TASK_EDITS, STRUCTURED_LOOPS, TASK_DATA_AGGREGATES, TASK_ROUTINE_VALUES, bind_repeat_samples, bounded_child,
+    explicit_pause, repeat_capture_parts, resolve_routine, scalar_task_operator, select_case_labels, structured_child,
     task_handoff_window,
 )
 from .input_teach_catalog import TEACH_CATALOG_SERVICES, TEACH_EDIT_SERVICES
@@ -251,6 +251,12 @@ class _TaskWrite:
     rendered_length: int = 0
 
 
+@dataclass(frozen=True)
+class _TaskQueue:
+    entries: tuple[int, ...] = ()
+    buffer: tuple | None = None
+
+
 _TaskValueConsumer = (dict | _TaskSelect | _TaskForHeader | _TaskLoop | _TaskExpression |
                       _TaskArguments | _TaskAssignment | _TaskSelection | _TaskResultSelection |
                       _TaskArrayLength | _TaskWrite | _TaskRepeatCapture)
@@ -345,6 +351,7 @@ class _Flow:
     robot_tables: RobotTableFacts = field(default_factory=RobotTableFacts)
     teach: TeachFacts = field(default_factory=TeachFacts)
     scalar_choices: dict = field(default_factory=dict)
+    task_queues: dict = field(default_factory=dict)
 
     def copy(self):
         return _Flow(self.defined.copy(),self.assigned.copy(),self.maybe.copy(),
@@ -356,7 +363,7 @@ class _Flow:
                      self.named_bindings.copy(),self.creation_counts.copy(),self.allocated_variable_units,
                      self.program_attributes.copy(),self.numeric_kinds.copy(),self.port_simulation.copy(),
                      self.position_cells.copy(),self.position_order_unknown,self.robot_tables.copy(),
-                     self.teach.copy(), self.scalar_choices.copy())
+                     self.teach.copy(), self.scalar_choices.copy(), self.task_queues.copy())
 
     def take(self, other):
         self.handlers = other.handlers
@@ -381,6 +388,7 @@ class _Flow:
         self.robot_tables = other.robot_tables
         self.teach = other.teach
         self.scalar_choices = other.scalar_choices
+        self.task_queues = other.task_queues
 
 
 def _merge(flows):
@@ -461,6 +469,8 @@ def _merge(flows):
     for key in set().union(*(flow.port_simulation for flow in live)):
         value = first.port_simulation.get(key)
         simulation[key] = value if all(other.port_simulation.get(key) is value for other in live[1:]) else UNKNOWN
+    queues = {key: queue for key, queue in first.task_queues.items()
+              if all(flow.task_queues.get(key) == queue for flow in live[1:])}
     return _Flow(set.intersection(*(flow.defined for flow in live)),
                  set.intersection(*(flow.assigned for flow in live)),
                  set.union(*(flow.maybe for flow in live)),constants,False,any(flow.opaque for flow in live),
@@ -473,7 +483,7 @@ def _merge(flows):
                  merge_positions([flow.position_cells for flow in live], _merged_value),
                  any(flow.position_order_unknown for flow in live),
                  RobotTableFacts.merge([flow.robot_tables for flow in live]),
-                 TeachFacts.merge([flow.teach for flow in live], _merged_value), choices)
+                 TeachFacts.merge([flow.teach for flow in live], _merged_value), choices, queues)
 
 
 def _path_record_identity(part):
@@ -606,6 +616,7 @@ class _Analyzer(TeachDiscovery):
             self.lose_task_order(flow)
         flow.opaque=True;flow.defined.clear();flow.assigned.clear();flow.constants.clear()
         flow.scalar_choices.clear()
+        flow.task_queues.clear()
         flow.uninitialized.clear()
         flow.changed_path_aggregates.clear()
         flow.record_storage.clear()
@@ -747,7 +758,7 @@ class _Analyzer(TeachDiscovery):
             return None
         return replace(loc, parts=(*loc.parts, (kind, value)), spec=selected, path_slot=None)
 
-    def path_io_locations(self, expr, flow, conditional, *, reading=False):
+    def path_io_locations(self, expr, flow, conditional, *, reading=False, require_known_shape=False):
         """Resolve a bounded transfer's ordered records before publishing any writes."""
         while expr['kind'] == 'group':
             expr = expr['args'][0]
@@ -789,6 +800,8 @@ class _Analyzer(TeachDiscovery):
             self.unresolved_at('path-topology', 'PATH range descriptor is unresolved after bound evaluation: '+path.path, expr)
             return [None]
         count = len(archived.nodes) if archived is not None else self.known_path_count(path, flow, conditional)
+        if require_known_shape and count is None:
+            return [None]
         indexes = self.path_range_indexes(spec, 32767 if count is None else count, first, last, expr)
         if indexes is None:
             return [None]
@@ -1338,7 +1351,7 @@ class _Analyzer(TeachDiscovery):
             elif loc.kind=='local':
                 if not partial_copy:self.unresolved_at('local-value','Fresh routine-local value is read before initialization: '+loc.path,node)
             else:
-                uncertain=conditional or flow.opaque or bool(missing & flow.maybe)
+                uncertain=conditional or self.checked_child_segment or flow.opaque or bool(missing & flow.maybe)
                 key=loc.key;certainty='conditional' if uncertain else 'required'
                 if key not in self.inputs:
                     if len(self.inputs)>=MAX_INPUTS:raise _Limit('Analysis input limit reached')
@@ -1940,7 +1953,7 @@ class _Analyzer(TeachDiscovery):
             return None
         return self.complete_path_record(converted)
 
-    def path_edit(self, node, flow, conditional):
+    def path_edit(self, node, flow, conditional, *, task_segment=False):
         name = node['value']
         path_arg, *operands = node['args']
         path = self.locate(path_arg, flow, conditional)
@@ -1975,10 +1988,11 @@ class _Analyzer(TeachDiscovery):
         if flow.stopped and not flow.opaque:
             return _Value(complete=False)
 
-        overlap = self.path_service_overlap(path, status, flow, conditional)
+        conditional_effect = conditional and not task_segment
+        overlap = self.path_service_overlap(path, status, flow, conditional_effect)
         if overlap is True:
             return self.reject_service_overlap(node, flow)
-        count = self.known_path_count(path, flow, conditional) if path is not None and path.spec[0] == 'PATH' else None
+        count = self.known_path_count(path, flow, conditional_effect) if path is not None and path.spec[0] == 'PATH' else None
         if count is not None and overlap is False and not self.repeat_depth:
             removing = name == 'DELETE_NODE'
             last = count if removing else count + 1
@@ -2002,7 +2016,9 @@ class _Analyzer(TeachDiscovery):
                 removed = order.nodes[offset] if removing else None
                 if layout == 'kinematic':
                     self.context('robot', None)
-                if (self.can_publish_path(path, flow, conditional, argument_edit=True)
+                owned_child_path = (task_segment and path.kind == 'variable' and path.owner == self.task_roots[-1]
+                                    and self.definite_path_effect(flow, conditional_effect))
+                if ((owned_child_path or self.can_publish_path(path, flow, conditional_effect, argument_edit=True))
                         and self.node_edit_preserves_borrows(path, order, prefix, shifted, removed)):
                     detached = order.detached
                     inserted = order.inserted
@@ -5039,6 +5055,9 @@ class _Analyzer(TeachDiscovery):
         self.tick()
         kind, args = node['kind'], node['args']
         if kind == 'call':
+            if args[0]['kind'] == 'call' and scope.collection_call(args[0]):
+                self.task_collection_call(args[0], flow)
+                return
             call = scope.procedure_call(args[0])
             if call is None:
                 raise _TaskOrderUnknown()
@@ -5099,14 +5118,19 @@ class _Analyzer(TeachDiscovery):
             count = length = 1
         else:
             kind = item.get('write_type')
-            aggregate = kind in TASK_DATA_AGGREGATES
+            collection = item.get('write_collection')
+            aggregate = kind in TASK_DATA_AGGREGATES or collection is not None
             if not aggregate and kind not in ('INTEGER', 'REAL', 'BYTE', 'SHORT', 'BOOLEAN', 'STRING'):
                 raise _TaskOrderUnknown()
             operands = item['args']
             if aggregate and write.aggregate is None:
-                value = self.task_data_operand(operands[0], flow, scope, blocks, write)
-                if value is not None:
-                    self.consume_task_value(blocks, flow, write, value)
+                if collection is not None:
+                    captured = self.capture_task_collection(operands[0], collection, flow, scope)
+                    blocks[-1] = replace(write, aggregate=captured)
+                else:
+                    value = self.task_data_operand(operands[0], flow, scope, blocks, write)
+                    if value is not None:
+                        self.consume_task_value(blocks, flow, write, value)
                 return
             index = len(write.values) + int(aggregate)
             if index < len(operands):
@@ -5119,6 +5143,108 @@ class _Analyzer(TeachDiscovery):
         # Runtime checks the expanded batch only after rendering every item.
         blocks[-1] = replace(write, index=write.index + 1, values=(), aggregate=None,
                              rendered_pieces=write.rendered_pieces + count, rendered_length=write.rendered_length + length)
+
+    def task_collection_call(self, node, flow):
+        name, args = node['value'], node['args']
+        if name in PATH_TASK_EDITS:
+            self.path_edit(node, flow, True, task_segment=True)
+            if flow.opaque or flow.stopped:
+                raise _TaskOrderUnknown()
+            return
+        if name == 'INIT_QUEUE':
+            queue = self.locate(args[0], flow, True)
+            if queue is None or queue.spec != ['QUEUE_TYPE']:
+                raise _TaskOrderUnknown()
+            flow.task_queues[queue.key] = _TaskQueue()
+            return
+        self.append_task_queue(node, flow)
+
+    def append_task_queue(self, node, flow):
+        value_arg, queue_arg, buffer_arg, id_arg, status_arg = node['args']
+        value = self.expr(value_arg, flow, True).constant
+        queue, buffer, entry, status = (self.locate(arg, flow, True)
+                                        for arg in (queue_arg, buffer_arg, id_arg, status_arg))
+        locations = (queue, buffer, entry, status)
+        if (flow.opaque or flow.stopped or any(loc is None or loc.kind not in ('variable', 'local')
+                                              or loc.named_data or loc.path_slot is not None for loc in locations)):
+            raise _TaskOrderUnknown()
+        previous = flow.task_queues.get(queue.key)
+        shape, member = _array_dimensions(buffer.spec)
+        if (previous is None or previous.buffer not in (None, buffer.key)
+                or len(shape) != 1 or type(shape[0]) is not int or not 1 <= shape[0] <= MAX_FACTS
+                or member != ['INTEGER'] or entry.spec != ['INTEGER'] or status.spec != ['INTEGER']
+                or len(previous.entries) > shape[0]
+                or entry.key == status.key or any(self.path_contains_reference(buffer, output)
+                                                 for output in (entry, status))):
+            raise _TaskOrderUnknown()
+        try:
+            with rt._numeric_scope('pythonic'):
+                value = rt.checked(('INTEGER',), value)
+        except rt.KarelRuntimeError:
+            raise _TaskOrderUnknown() from None
+        entries, size = previous.entries, shape[0]
+        full = len(entries) == size
+        if not full:
+            entries = (*entries, value)
+        self.tick(size)
+        for index in range(1, size + 1):
+            cell = self.child(buffer, 'index', index, node)
+            self.write(cell, _Value(entries[index - 1] if index <= len(entries) else 0, spec=['INTEGER']), flow, node)
+        if not full:
+            self.write(entry, _Value(len(entries), spec=['INTEGER']), flow, node)
+        self.write(status, _Value(2 if full else 0, spec=['INTEGER']), flow, node)
+        flow.task_queues[queue.key] = _TaskQueue(entries, buffer.key)
+
+    def capture_task_collection(self, operand, schema, flow, scope):
+        spec = tuple_spec(schema)
+        while operand['kind'] == 'group':
+            operand = operand['args'][0]
+        fields = []
+        try:
+            with rt._numeric_scope('pythonic'):
+                if rt.queue_io_type(spec):
+                    if not scope.storage_operand(operand):
+                        raise _TaskOrderUnknown()
+                    queue = self.locate(operand, flow, False)
+                    self.collect_task_queue_fields(queue, operand, flow, fields)
+                else:
+                    if operand['kind'] == 'path_io_range':
+                        receiver, *bounds = operand['args']
+                        if not scope.storage_operand(receiver) or not all(scope.operand(arg) for arg in bounds):
+                            raise _TaskOrderUnknown()
+                    elif not scope.storage_operand(operand):
+                        raise _TaskOrderUnknown()
+                    records = self.path_io_locations(operand, flow, False, require_known_shape=True)
+                    for loc in records:
+                        if loc is None or self.variable_path_storage(loc, flow, False) is not True:
+                            raise _TaskOrderUnknown()
+                        schema = self.task_data_schema(loc.spec, max_leaves=1024 - len(fields))
+                        raw = materialized_value(self.read(loc, operand, flow, True))
+                        if raw is UNKNOWN:
+                            raise _TaskOrderUnknown()
+                        fields.extend(rt.capture_aggregate_write(schema, raw, operand.get('line')).fields)
+        except rt.KarelRuntimeError:
+            raise _TaskOrderUnknown() from None
+        if flow.opaque or flow.stopped:
+            raise _TaskOrderUnknown()
+        return rt._AggregateWriteValue(spec, fields)
+
+    def collect_task_queue_fields(self, loc, node, flow, fields):
+        self.tick()
+        if loc is None:
+            raise _TaskOrderUnknown()
+        if loc.spec[0] == 'ARRAY':
+            size = loc.spec[1][0] if type(loc.spec[1]) is list else loc.spec[1]
+            if type(size) is not int or not 1 <= size <= MAX_FACTS:
+                raise _TaskOrderUnknown()
+            for index in range(1, size + 1):
+                self.collect_task_queue_fields(self.child(loc, 'index', index, node), node, flow, fields)
+        else:
+            queue = flow.task_queues.get(loc.key) if loc.spec == ['QUEUE_TYPE'] else None
+            if queue is None or len(fields) + len(queue.entries) > 1024:
+                raise _TaskOrderUnknown()
+            self.tick(len(queue.entries))
+            fields.extend((('INTEGER',), value) for value in queue.entries)
 
     def task_data_schema(self, schema, *, max_leaves=MAX_FACTS):
         if not schema or schema[0] not in TASK_DATA_AGGREGATES:
@@ -5276,6 +5402,9 @@ class _Analyzer(TeachDiscovery):
         if (loc is None or loc.kind not in ('variable', 'local') or loc.named_data
                 or loc.path_slot is not None or flow.stopped or flow.opaque):
             raise _TaskOrderUnknown()
+        _, root_type = _array_dimensions(loc.root_spec)
+        if root_type and root_type[0] == 'PATH' and not reading and assignment is None:
+            raise _TaskOrderUnknown()
         blocks.append(_TaskSelection(node, loc, tuple(reversed(selectors)), consumer,
                                      reading=reading, assignment=assignment))
 
@@ -5289,6 +5418,8 @@ class _Analyzer(TeachDiscovery):
         node, *tail = selection.selectors
         location = selection.location
         if node['kind'] == 'field':
+            if location.spec[0] == 'PATH' and self.known_path_count(location, flow, False) is None:
+                raise _TaskOrderUnknown()
             location = self.checked_task_selection(self.field_child(location, node['value'], node, flow))
         else:
             operands = node['args'][1:]
@@ -5302,11 +5433,18 @@ class _Analyzer(TeachDiscovery):
             for index in selection.indices:
                 if type(index) is not int:
                     raise _TaskOrderUnknown()
+                if location.spec[0] == 'PATH':
+                    count = self.known_path_count(location, flow, False)
+                    minimum = 0 if node.get('static_zero_subscript') and location.spec[2] is not None else 1
+                    if count is None or not minimum <= index <= count:
+                        raise _TaskOrderUnknown()
                 location = self.checked_task_selection(self.index_child(location, index, node, flow))
         blocks[-1] = replace(selection, location=location, selectors=tuple(tail), indices=())
 
     def finish_task_selection(self, blocks, flow, selection):
         loc, consumer = selection.location, selection.consumer
+        if self.variable_path_storage(loc, flow, False) is not True:
+            raise _TaskOrderUnknown()
         if selection.reading:
             if isinstance(consumer, _TaskArrayLength):
                 value = _Value(spec=loc.spec)
@@ -5937,6 +6075,7 @@ class _Analyzer(TeachDiscovery):
         flow.scalar_choices = {key: values for key, values in flow.scalar_choices.items() if key[1] != owner}
         flow.path_orders = {key: order for key, order in flow.path_orders.items() if key is None or key[1] != owner}
         flow.retired_paths = {key: order for key, order in flow.retired_paths.items() if key[0][1] != owner}
+        flow.task_queues = {key: queue for key, queue in flow.task_queues.items() if key[1] != owner}
 
     def routine(self, name, args, node, flow, conditional, *, statement_call=False, argument_path_edits=False):
         external = bool(self.plan['routines'][name]['external'])
