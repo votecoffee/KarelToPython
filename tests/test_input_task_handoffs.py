@@ -922,6 +922,123 @@ END LIB
                 self.assertIn('routine',codes)
                 self.assertIn('condition-source',codes)
 
+    def test_function_resume_assigns_to_the_cell_selected_after_forwarded_return(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER text:STRING[8]
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  text='prior'
+  GET_TPE_STR_REG(1,text,s)
+  WRITE(s,':',text,CR)
+  CONTINUE PROGRAM[2]
+  WAIT FOR PAUSE PROGRAM[2]
+  GET_TPE_STR_REG(1,text,s)
+  WRITE(s,':',text,CR)
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR cells:ARRAY[2] OF INTEGER slot,unused:INTEGER
+ROUTINE relay(selected:INTEGER):REAL FROM LIB
+BEGIN
+  slot=1
+  cells[1]=99
+  cells[2]=88
+  cells[slot]=(relay(slot))
+  PAUSE
+  IF (cells[1]=99) AND (cells[2]=6) THEN
+    WRITE(cells[1],':',cells[2])
+  ELSE
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        library="""PROGRAM LIB
+ROUTINE work(selected:INTEGER):REAL
+VAR h,s:INTEGER i:SHORT
+BEGIN
+  FOR i=3 TO 3 DO
+    OPEN_TPE('Shared',TPE_RDACC,TPE_ALLREJ,h,s)
+    PAUSE
+    CLOSE_TPE(h,s)
+    selected=2
+    RETURN i+3.75
+  ENDFOR
+  RETURN 0.0
+END work
+ROUTINE relay(selected:INTEGER):REAL
+BEGIN
+  RETURN (work(selected))
+END relay
+BEGIN
+END LIB
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child),('LIB',library)])
+        self.assert_inputs(report,[('teach_string_register','SHARED','1','required')])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation',
+                                     'task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed')
+        blocked,ready,output=result['text_output'].splitlines()
+        first_status,previous=blocked.split(':')
+        next_status,current=ready.split(':')
+        self.assertEqual((int(first_status),previous,int(next_status),current),(4,'prior',0,'ready'))
+        self.assertEqual(tuple(map(int,output.split(':'))),(99,6))
+
+    def test_invalid_narrow_function_return_cannot_establish_a_later_pause(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR n:SHORT
+ROUTINE work:SHORT
+BEGIN
+  PAUSE
+  RETURN 32767
+END work
+BEGIN
+  n=17
+  n=work()
+  PAUSE
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assertIn('condition-source',[row['code'] for row in report['unresolved']])
+        self.assertEqual(result['status'],'failed')
+        self.assertIn('uninitialized',result['error']['message'].lower())
+        self.assertEqual(result['programs']['CHILD']['values']['N'],17)
+
+    def test_function_in_larger_expression_leaves_wait_and_possible_reads_unresolved(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR before_pause,after_pause,n:INTEGER
+ROUTINE work:INTEGER
+BEGIN
+  WRITE(before_pause)
+  PAUSE
+  RETURN after_pause
+END work
+BEGIN
+  n=1+work()
+END CHILD
+"""
+        report,_=self.prepare([('MAIN',main),('CHILD',child)],replay=False)
+        self.assert_inputs(report,[('variable','CHILD','BEFORE_PAUSE','conditional'),
+                                   ('variable','CHILD','AFTER_PAUSE','conditional')])
+        self.assertIn('condition-source',[row['code'] for row in report['unresolved']])
+
     def test_request_status_is_not_reused_as_prelaunch_task_number(self):
         main="""PROGRAM MAIN
 VAR task_no,s:INTEGER text:STRING[8]

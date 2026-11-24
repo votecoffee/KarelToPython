@@ -170,6 +170,8 @@ class _TaskRoutine:
     """Keep bindings alive until the invocation's blocks finish unwinding."""
 
     frame: dict
+    consumer: dict | None = None
+    result: _Value | None = None
 
 
 @dataclass(eq=False, frozen=True)
@@ -4883,9 +4885,7 @@ class _Analyzer(TeachDiscovery):
         while blocks and not (child.stopped and not child.opaque):
             frame = blocks[-1]
             if isinstance(frame, _TaskRoutine):
-                self.clear_routine_storage(child, self.frames.pop()['owner'])
-                self.plan = self.task_frame_plan()
-                blocks.pop()
+                self.finish_task_routine(blocks, child)
                 continue
             scope = rules.routine_scope(self.plan, self.frames[-1]['name']) if rules and self.frames else rules
             if isinstance(frame, _TaskLoop):
@@ -4909,16 +4909,18 @@ class _Analyzer(TeachDiscovery):
                 self.statement(node, child, True)
                 continue
             kind = node['kind']
-            if kind == 'call':
-                call = scope.procedure_call(node)
-                if call is not None:
-                    self.tick()
-                    self.start_task_routine(call, child, blocks)
-                    continue
-            if kind == 'return' and self.frames and node['args'] == [None]:
+            call = scope.routine_call(node)
+            if call is not None:
                 self.tick()
-                self.unwind_task_routine(blocks, child)
+                self.start_task_routine(call, node, child, blocks)
                 continue
+            if kind == 'return' and self.frames:
+                operand = node['args'][0]
+                if operand is None or scope.operand(operand):
+                    self.tick()
+                    value = self.expr(operand, child, True) if operand is not None else None
+                    self.return_from_task_routine(blocks, child, node, value)
+                    continue
             if kind in STRUCTURED_LOOPS and scope.loop(node):
                 self.tick()
                 blocks.append(self.start_task_loop(node, child))
@@ -4941,20 +4943,66 @@ class _Analyzer(TeachDiscovery):
             blocks.append((branch, 0))
         return None
 
-    def start_task_routine(self, call, flow, blocks):
-        prepared = self.prepare_routine(call['value'], call['args'], call, flow, True, statement_call=True)
+    def start_task_routine(self, call, node, flow, blocks):
+        procedure = node['kind'] == 'call'
+        prepared = self.prepare_routine(call['value'], call['args'], call, flow, True, statement_call=procedure)
         if prepared is None:
             raise _TaskOrderUnknown()
         self.plan, routine, frame = prepared
         self.frames.append(frame)
-        blocks.extend((_TaskRoutine(frame), (routine['body'], 0)))
+        blocks.extend((_TaskRoutine(frame, None if procedure else node), (routine['body'], 0)))
 
-    def unwind_task_routine(self, blocks, flow):
+    def return_from_task_routine(self, blocks, flow, node, value):
+        spec = self.frames[-1]['result']
+        if (value is None) != (spec is None) or flow.stopped or flow.opaque:
+            raise _TaskOrderUnknown()
+        # The return expression is evaluated and checked before loop cleanup.
+        if spec is not None:
+            value = self.checked_task_scalar(spec, value, node, result=True)
         while not isinstance(blocks[-1], _TaskRoutine):
             self.tick()
             frame = blocks.pop()
             if isinstance(frame, _TaskLoop) and frame.counter is not None:
                 self.clear_task_counter(frame.counter, frame.node, flow)
+        blocks[-1] = replace(blocks[-1], result=value)
+
+    def finish_task_routine(self, blocks, flow):
+        boundary = blocks.pop()
+        self.clear_routine_storage(flow, self.frames.pop()['owner'])
+        self.plan = self.task_frame_plan()
+        node = boundary.consumer
+        if node is None:
+            return
+        value = boundary.result
+        if value is None:
+            raise _TaskOrderUnknown()
+        if node['kind'] == 'return':
+            self.return_from_task_routine(blocks, flow, node, value)
+        else:
+            # The function can change an index used by the assignment target.
+            target = self.locate(node['args'][0], flow, True)
+            if target is None or flow.stopped or flow.opaque:
+                raise _TaskOrderUnknown()
+            self.write(target, self.checked_task_scalar(target.spec, value, node), flow, node)
+
+    def checked_task_scalar(self, spec, value, node, *, result=False):
+        if value.uninitialized:
+            raise _TaskOrderUnknown()
+        if value.constant is UNKNOWN:
+            return _stored_value(spec, value)
+        target, raw, line = tuple(spec), value.constant, node.get('line')
+        try:
+            with rt._numeric_scope('pythonic'):
+                if type(raw) is float and rt.real_integral_kind(target, ('REAL',)):
+                    raw = rt.real_integral_value(target, raw, line)
+                raw = rt.checked(target, raw, line)
+                if result:
+                    rt.require(raw, line)
+        except rt.KarelRuntimeError:
+            raise _TaskOrderUnknown() from None
+        if raw is rt.UNINITIALIZED:
+            return _Value(complete=False, spec=spec, uninitialized=True)
+        return _Value(raw, spec=spec)
 
     def start_task_loop(self, node, flow):
         if node['kind'] != 'for':

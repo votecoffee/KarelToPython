@@ -21,10 +21,15 @@ class TaskHandoff:
     reached: bool = False
 
 
+def _ungroup(node):
+    while node is not None and node['kind'] == 'group' and len(node['args']) == 1:
+        node = node['args'][0]
+    return node
+
+
 def task_scalar_operand(node):
     """Unwrap expressions that read one scalar or contain a literal."""
-    while node['kind'] == 'group' and len(node['args']) == 1:
-        node = node['args'][0]
+    node = _ungroup(node)
     return node if node['kind'] in ('name', 'literal', 'real_literal', 'predefined') else None
 
 
@@ -93,12 +98,17 @@ def resolve_routine(plan, linked_plans, name, interface):
     return target, routine
 
 
-def _procedure_call(plan, node):
-    if node['kind'] != 'call':
+def _direct_routine_call(plan, node):
+    kind, args = node['kind'], node['args']
+    if kind not in ('call', 'assign', 'return') or not args:
         return None
-    call = node['args'][0]
-    routine = plan['routines'].get(call['value']) if call['kind'] == 'call' else None
-    return call if routine is not None and routine['result'] is None else None
+    call = _ungroup(args[-1])
+    routine = plan['routines'].get(call['value']) if call is not None and call['kind'] == 'call' else None
+    if routine is None:
+        return None
+    result = routine['result']
+    valid = result is None if kind == 'call' else result and result[0] in SCALARS
+    return call if valid else None
 
 
 def _branches(node):
@@ -125,7 +135,7 @@ def structured_child(plan, linked_plans, tick):
         tick()
         pause = explicit_pause(node)
         found_pause = found_pause or pause
-        call = _procedure_call(owner, node)
+        call = _direct_routine_call(owner, node)
         found_control = found_control or node['kind'] in STRUCTURED_LOOPS
         pending.extend((owner, iter(body), True) for body in _branches(node) if body)
         if call is not None:
@@ -217,10 +227,14 @@ class _SegmentRules:
             return False
         return all(self.operand(arg) for arg in node['args'])
 
-    def procedure_call(self, node):
-        call = _procedure_call(self.plan, node)
+    def routine_call(self, node):
+        call = _direct_routine_call(self.plan, node)
         if call is None:
             return None
+        if node['kind'] == 'assign':
+            target = self.reference_schema(node['args'][0])
+            if not target or target[0] not in SCALARS:
+                return None
         actuals = call['args']
         modes = call.get('passing', ())
         formals = self.plan['routines'][call['value']]['parameters']
