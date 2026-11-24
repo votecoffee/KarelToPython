@@ -24,8 +24,8 @@ from .input_position_values import (
     checked_position_facts, merge_positions, position_register_result,
 )
 from .input_task_segments import (
-    STRUCTURED_LOOPS, bounded_child, explicit_pause, resolve_routine, select_case_labels, structured_child,
-    task_handoff_window,
+    STRUCTURED_LOOPS, bounded_child, explicit_pause, resolve_routine, scalar_task_operator, select_case_labels,
+    structured_child, task_handoff_window,
 )
 from .input_teach_catalog import TEACH_CATALOG_SERVICES, TEACH_EDIT_SERVICES
 from .input_teach_discovery import (
@@ -188,17 +188,24 @@ class _TaskSelect:
 
 
 @dataclass(frozen=True)
+class _TaskExpression:
+    node: dict
+    consumer: 'dict | _TaskSelect | _TaskForHeader | _TaskLoop | _TaskExpression'
+    values: tuple[_Value, ...] = ()
+
+
+@dataclass(frozen=True)
 class _TaskRoutine:
     """Keep bindings alive until the invocation's blocks finish unwinding."""
 
     frame: dict
-    consumer: dict | _TaskSelect | _TaskForHeader | _TaskLoop | None = None
+    consumer: dict | _TaskSelect | _TaskForHeader | _TaskLoop | _TaskExpression | None = None
     result: _Value | None = None
 
 
 @dataclass(eq=False, frozen=True)
 class _Suspension:
-    blocks: tuple[tuple[list, int] | _TaskLoop | _TaskRoutine | _TaskSelect | _TaskForHeader, ...]
+    blocks: tuple[tuple[list, int] | _TaskLoop | _TaskRoutine | _TaskSelect | _TaskForHeader | _TaskExpression, ...]
     flow: '_Flow'
 
 
@@ -4910,6 +4917,9 @@ class _Analyzer(TeachDiscovery):
                 self.finish_task_routine(blocks, child)
                 continue
             scope = rules.routine_scope(self.plan, self.frames[-1]['name']) if rules and self.frames else rules
+            if isinstance(frame, _TaskExpression):
+                self.next_task_expression(blocks, child, scope, frame)
+                continue
             if isinstance(frame, _TaskSelect):
                 self.next_task_case(blocks, child, scope, frame)
                 continue
@@ -4934,30 +4944,38 @@ class _Analyzer(TeachDiscovery):
             if scope is None or scope.statement(node):
                 self.statement(node, child, True)
                 continue
-            kind = node['kind']
-            call = scope.routine_call(node)
-            if call is not None:
-                self.tick()
-                consumer = None if kind == 'call' else node
-                self.start_task_routine(call, child, blocks, consumer=consumer)
-                continue
-            if kind == 'return' and self.frames:
-                operand = node['args'][0]
-                if operand is None or scope.operand(operand):
-                    self.tick()
-                    value = self.expr(operand, child, True) if operand is not None else None
-                    self.return_from_task_routine(blocks, child, node, value)
-                    continue
-            if kind in STRUCTURED_LOOPS and scope.loop(node):
-                self.tick()
-                blocks.append(self.start_task_loop(node, child))
-                continue
-            if kind not in ('if', 'select') or not scope.operand(node['args'][0]):
-                raise _TaskOrderUnknown()
-            self.tick()
-            value = self.expr(node['args'][0], child, True)
-            self.start_task_branch(blocks, child, node, value)
+            self.start_task_statement(blocks, child, scope, node)
         return None
+
+    def start_task_statement(self, blocks, flow, scope, node):
+        self.tick()
+        kind, args = node['kind'], node['args']
+        if kind == 'call':
+            call = scope.procedure_call(args[0])
+            if call is None:
+                raise _TaskOrderUnknown()
+            self.start_task_routine(call, flow, blocks, consumer=None)
+            return
+        if kind in STRUCTURED_LOOPS and scope.loop(node):
+            blocks.append(self.start_task_loop(node, flow))
+            return
+        if kind == 'assign':
+            target = scope.reference_schema(args[0])
+            if not target or target[0] not in SCALARS:
+                raise _TaskOrderUnknown()
+            operand = args[1]
+        elif kind in ('if', 'select'):
+            operand = args[0]
+        elif kind == 'return' and self.frames:
+            operand = args[0]
+            if operand is None:
+                self.return_from_task_routine(blocks, flow, node, None)
+                return
+        else:
+            raise _TaskOrderUnknown()
+        value = self.task_operand(operand, flow, scope, blocks, node)
+        if value is not None:
+            self.consume_task_value(blocks, flow, node, value)
 
     def start_task_branch(self, blocks, flow, node, value):
         selected = value.constant
@@ -5012,9 +5030,55 @@ class _Analyzer(TeachDiscovery):
         if call is not None:
             self.start_task_routine(call, flow, blocks, consumer=consumer)
             return None
-        if not scope.operand(node):
+        if scalar_task_operator(node):
+            blocks.append(_TaskExpression(node, consumer))
+            return None
+        if node['kind'] == 'repeat_eval' or not scope.operand(node):
             raise _TaskOrderUnknown()
         return self.expr(node, flow, True)
+
+    def next_task_expression(self, blocks, flow, scope, expression):
+        self.tick()
+        node, values = expression.node, expression.values
+        kind, operator, operands = node['kind'], node['value'], node['args']
+        if kind == 'binary' and operator in ('AND', 'OR'):
+            evaluation = node.get('evaluation')
+            if evaluation not in ('short-circuit', 'eager'):
+                raise _TaskOrderUnknown()
+            if values and evaluation == 'short-circuit':
+                left = values[0].constant
+                if type(left) is not bool:
+                    raise _TaskOrderUnknown()
+                if left == (operator == 'OR'):
+                    blocks.pop()
+                    self.consume_task_value(blocks, flow, expression.consumer, values[0])
+                    return
+        if len(values) < len(operands):
+            value = self.task_operand(operands[len(values)], flow, scope, blocks, expression)
+            if value is not None:
+                self.consume_task_value(blocks, flow, expression, value)
+            return
+        value = values[0] if kind == 'group' else self.checked_task_operator(node, values)
+        blocks.pop()
+        self.consume_task_value(blocks, flow, expression.consumer, value)
+
+    def checked_task_operator(self, node, values):
+        if any(value.uninitialized or value.spec and value.spec[0] not in SCALARS for value in values):
+            raise _TaskOrderUnknown()
+        operands = tuple(value.constant for value in values)
+        if any(value is UNKNOWN for value in operands):
+            return _Value(complete=all(value.complete for value in values))
+        if any(type(value) not in (bool, int, float, str) for value in operands):
+            raise _TaskOrderUnknown()
+        operation = rt.unary if node['kind'] == 'unary' else rt.binary
+        try:
+            with rt._numeric_scope('pythonic'):
+                result = operation(node['value'], *operands, node.get('line'))
+        except rt.KarelRuntimeError:
+            raise _TaskOrderUnknown() from None
+        if type(result) is str and len(result) > 254:
+            raise _TaskOrderUnknown()
+        return _Value(result)
 
     def start_task_routine(self, call, flow, blocks, *, consumer):
         prepared = self.prepare_routine(call['value'], call['args'], call, flow, True,
@@ -5049,7 +5113,14 @@ class _Analyzer(TeachDiscovery):
         value = boundary.result
         if value is None:
             raise _TaskOrderUnknown()
-        if isinstance(consumer, _TaskSelect):
+        self.consume_task_value(blocks, flow, consumer, value)
+
+    def consume_task_value(self, blocks, flow, consumer, value):
+        if flow.stopped or flow.opaque:
+            raise _TaskOrderUnknown()
+        if isinstance(consumer, _TaskExpression):
+            blocks[-1] = replace(consumer, values=(*consumer.values, value))
+        elif isinstance(consumer, _TaskSelect):
             self.capture_task_case(blocks, flow, consumer, value)
         elif isinstance(consumer, _TaskForHeader):
             self.capture_task_for_bound(blocks, flow, consumer, value)
@@ -5135,9 +5206,13 @@ class _Analyzer(TeachDiscovery):
 
         predicate = node['args'][0]
         cached = loop.repeat_predicate
-        if kind == 'repeat' and cached is None and scope.operand(predicate):
-            cached = self.sample_condition_inputs(predicate, flow, True, ('repeat_eval',))
-            loop = replace(loop, repeat_predicate=cached)
+        if kind == 'repeat' and cached is None:
+            if scope.operand(predicate):
+                cached = self.sample_condition_inputs(predicate, flow, True, ('repeat_eval',))
+                loop = replace(loop, repeat_predicate=cached)
+            elif self.legacy_capture(predicate, 'repeat_eval') is not None:
+                # REPEAT samples EVAL operands before any part of its predicate.
+                raise _TaskOrderUnknown()
         if cached is not None:
             value = self.expr(cached, flow, True)
         else:

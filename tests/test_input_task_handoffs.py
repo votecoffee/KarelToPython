@@ -1014,7 +1014,7 @@ END CHILD
         self.assertIn('uninitialized',result['error']['message'].lower())
         self.assertEqual(result['programs']['CHILD']['values']['N'],17)
 
-    def test_function_in_larger_expression_leaves_wait_and_possible_reads_unresolved(self):
+    def test_compound_assignment_stops_before_the_unreached_function_suffix(self):
         main="""PROGRAM MAIN
 VAR s:INTEGER
 BEGIN
@@ -1035,9 +1035,8 @@ BEGIN
 END CHILD
 """
         report,_=self.prepare([('MAIN',main),('CHILD',child)],replay=False)
-        self.assert_inputs(report,[('variable','CHILD','BEFORE_PAUSE','conditional'),
-                                   ('variable','CHILD','AFTER_PAUSE','conditional')])
-        self.assertIn('condition-source',[row['code'] for row in report['unresolved']])
+        self.assert_inputs(report,[('variable','CHILD','BEFORE_PAUSE','conditional')])
+        self.assert_task_gaps(report,['task-scheduling','task-wait'])
 
     def test_if_uses_the_completed_function_value_then_resumes_in_the_selected_arm(self):
         main="""PROGRAM MAIN
@@ -1379,6 +1378,188 @@ END CHILD
         report,_=self.prepare([('MAIN',main),('CHILD',child)],replay=False)
         self.assert_inputs(report,[('variable','CHILD','PAYLOAD','conditional'),
                                    ('variable','CHILD','SUPPLIED','conditional')])
+        self.assertIn('condition-source',[row['code'] for row in report['unresolved']])
+
+    def test_compound_assignment_captures_left_values_and_keeps_integer_and_eager(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER text:STRING[8]
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  text='prior'
+  GET_TPE_STR_REG(1,text,s)
+  WRITE(s,':',text,CR)
+  CONTINUE PROGRAM[2]
+  WAIT FOR PAUSE PROGRAM[2]
+  GET_TPE_STR_REG(1,text,s)
+  WRITE(s,':',text,CR)
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR prior,h,s,answer,unused:INTEGER
+ROUTINE first_value:INTEGER
+BEGIN
+  OPEN_TPE('Shared',TPE_RDACC,TPE_ALLREJ,h,s)
+  prior=70
+  PAUSE
+  RETURN 2
+END first_value
+ROUTINE second_value:INTEGER
+BEGIN
+  CLOSE_TPE(h,s)
+  prior=90
+  PAUSE
+  RETURN 255
+END second_value
+BEGIN
+  prior=4
+  answer=(prior+first_value())*10+(0 AND second_value())+(6 DIV 2)
+  IF (answer=63) AND (prior=90) THEN WRITE(answer) ELSE WRITE(unused) ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assert_inputs(report,[('teach_string_register','SHARED','1','required')])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation',
+                                     'task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed')
+        blocked,ready,answer=result['text_output'].splitlines()
+        first_status,previous=blocked.split(':')
+        next_status,current=ready.split(':')
+        self.assertEqual((int(first_status),previous,int(next_status),current),(4,'prior',0,'ready'))
+        self.assertEqual(int(answer),63)
+
+    def test_paused_boolean_short_circuits_a_routine_and_continues_at_the_next_operand(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR trace,unused:INTEGER
+ROUTINE gate:BOOLEAN
+BEGIN
+  trace=trace*10+1
+  PAUSE
+  RETURN TRUE
+END gate
+ROUTINE unused_operand:BOOLEAN
+BEGIN
+  WRITE(unused)
+  PAUSE
+  RETURN FALSE
+END unused_operand
+ROUTINE last_test:BOOLEAN
+BEGIN
+  trace=trace*10+2
+  PAUSE
+  RETURN FALSE
+END last_test
+BEGIN
+  trace=0
+  IF (gate() OR unused_operand()) AND NOT last_test() THEN WRITE(trace) ELSE WRITE(unused) ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation',
+                                     'task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed')
+        self.assertEqual(int(result['text_output']),12)
+
+    def test_unknown_boolean_keeps_the_possible_pausing_operand_visible(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR supplied:BOOLEAN optional:INTEGER
+ROUTINE gate:BOOLEAN
+BEGIN
+  PAUSE
+  RETURN supplied
+END gate
+ROUTINE alternate:BOOLEAN
+BEGIN
+  WRITE(optional)
+  PAUSE
+  RETURN TRUE
+END alternate
+BEGIN
+  IF gate() OR alternate() THEN WRITE('done') ENDIF
+END CHILD
+"""
+        report,_=self.prepare([('MAIN',main),('CHILD',child)],replay=False)
+        self.assert_inputs(report,[('variable','CHILD','SUPPLIED','conditional'),
+                                   ('variable','CHILD','OPTIONAL','conditional')])
+        self.assertIn('condition-source',[row['code'] for row in report['unresolved']])
+
+    def test_compound_repeat_test_resumes_at_the_call_each_iteration(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR n,unused:INTEGER
+ROUTINE endpoint:INTEGER
+BEGIN
+  PAUSE
+  RETURN 3
+END endpoint
+BEGIN
+  n=0
+  REPEAT
+    n=n+1
+  UNTIL (n+1=endpoint()) AND (n>=2)
+  IF n=2 THEN WRITE(n) ELSE WRITE(unused) ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation',
+                                     'task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed')
+        self.assertEqual(int(result['text_output']),2)
+
+    def test_repeat_eval_sample_preceding_a_pausing_operand_stays_visible(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR sampled:INTEGER
+ROUTINE gate:BOOLEAN
+BEGIN
+  PAUSE
+  RETURN TRUE
+END gate
+BEGIN
+  REPEAT
+    WRITE('begin')
+  UNTIL gate() OR (EVAL(sampled)=1)
+END CHILD
+"""
+        report,_=self.prepare([('MAIN',main),('CHILD',child)],replay=False)
+        self.assert_inputs(report,[('variable','CHILD','SAMPLED','conditional')])
         self.assertIn('condition-source',[row['code'] for row in report['unresolved']])
 
     def test_request_status_is_not_reused_as_prelaunch_task_number(self):

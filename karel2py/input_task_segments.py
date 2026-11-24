@@ -10,6 +10,7 @@ from .teach import TPE_NAMES
 
 SHARED_TEACH_CALLS = TPE_NAMES | {'GET_ATTR_PRG', 'SET_ATTR_PRG', 'LOAD_STATUS'}
 STRUCTURED_LOOPS = frozenset(('for', 'while', 'repeat'))
+SCALAR_BINARY_OPERATORS = frozenset(('+', '-', '*', '/', 'DIV', 'MOD', '=', '<>', '<', '<=', '>', '>=', 'AND', 'OR'))
 
 
 @dataclass
@@ -108,13 +109,10 @@ def _direct_routine_call(plan, operand, *, procedure=False):
     return call if valid else None
 
 
-def _statement_routine_call(plan, node):
-    kind, args = node['kind'], node['args']
-    if kind in ('call', 'return', 'if', 'select') and args:
-        return _direct_routine_call(plan, args[0], procedure=kind == 'call')
-    if kind == 'assign':
-        return _direct_routine_call(plan, args[1])
-    return None
+def scalar_task_operator(node):
+    kind, operator = node['kind'], node['value']
+    return (kind == 'group' or kind == 'unary' and operator in ('+', '-', 'NOT')
+            or kind == 'binary' and operator in SCALAR_BINARY_OPERATORS)
 
 
 def select_case_labels(node):
@@ -123,17 +121,36 @@ def select_case_labels(node):
             yield index, label
 
 
-def _routine_calls(plan, node):
-    yield _statement_routine_call(plan, node)
+def _expression_routines(plan, expression, tick):
+    if expression is None:
+        return
+    tick()
+    if scalar_task_operator(expression):
+        for operand in expression['args']:
+            yield from _expression_routines(plan, operand, tick)
+    else:
+        call = _direct_routine_call(plan, expression)
+        if call is not None:
+            yield call
+
+
+def _routine_calls(plan, node, tick):
     kind, args = node['kind'], node['args']
-    if kind == 'select':
+    if kind == 'call':
+        call = _direct_routine_call(plan, args[0], procedure=True)
+        if call is not None:
+            yield call
+    elif kind == 'select':
+        yield from _expression_routines(plan, args[0], tick)
         for _, label in select_case_labels(node):
-            yield _direct_routine_call(plan, label)
+            yield from _expression_routines(plan, label, tick)
     elif kind == 'for':
         for bound in args[1:3]:
-            yield _direct_routine_call(plan, bound)
-    elif kind in ('while', 'repeat'):
-        yield _direct_routine_call(plan, args[0])
+            yield from _expression_routines(plan, bound, tick)
+    elif kind == 'assign':
+        yield from _expression_routines(plan, args[1], tick)
+    elif kind in ('if', 'return', 'while', 'repeat') and args:
+        yield from _expression_routines(plan, args[0], tick)
 
 
 def _branches(node):
@@ -162,9 +179,7 @@ def structured_child(plan, linked_plans, tick):
         found_pause = found_pause or pause
         found_control = found_control or node['kind'] in STRUCTURED_LOOPS
         pending.extend((owner, iter(body), True) for body in _branches(node) if body)
-        for call in _routine_calls(owner, node):
-            if call is None:
-                continue
+        for call in _routine_calls(owner, node, tick):
             name = call['value']
             target, routine = resolve_routine(owner, linked_plans, name, owner['routines'][name])
             if routine is not None:
@@ -253,13 +268,8 @@ class _SegmentRules:
             return False
         return all(self.operand(arg) for arg in node['args'])
 
-    def routine_call(self, node):
-        call = _statement_routine_call(self.plan, node)
-        if call is not None and node['kind'] == 'assign':
-            target = self.reference_schema(node['args'][0])
-            if not target or target[0] not in SCALARS:
-                return None
-        return self.checked_routine_call(call)
+    def procedure_call(self, node):
+        return self.checked_routine_call(_direct_routine_call(self.plan, node, procedure=True))
 
     def scalar_routine_call(self, operand):
         return self.checked_routine_call(_direct_routine_call(self.plan, operand))

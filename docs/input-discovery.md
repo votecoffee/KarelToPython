@@ -78,10 +78,13 @@ for `INTEGER` and `SHORT`.
 evaluates its predicate after the body and keeps its first `EVAL` sample
 until that loop exits. Discovery follows up to 32 iterations per loop
 activation and examines only the reached segment through each pause.
-A child can also pause within a direct call in its own module or a pinned
-linked module. This includes procedure statements and direct scalar calls in
+A child can also pause within a call in its own module or a pinned
+linked module. This includes procedure statements and scalar calls in
 assignments, `RETURN`, `IF` conditions, `SELECT` selectors, `CASE` labels,
-`FOR` bounds, and `WHILE` and `REPEAT` tests.
+`FOR` bounds, and `WHILE` and `REPEAT` tests. Grouped, unary, and binary
+scalar expressions keep evaluated operands across a pause and evaluate the
+rest left to right. A known Boolean `AND` or `OR` can skip its right-hand
+operand. Integer `AND` and `OR` evaluate both operands.
 For checked scalar value and reference arguments, discovery evaluates
 arguments once and preserves each live invocation and its locals across
 continuations. It uses the callee's source scope and keeps TP ownership with
@@ -100,10 +103,12 @@ continuation can also reach natural completion when cleanup of the entry task's
 handles cannot race with the child. Shared operations between the request
 and wait, unresolved branches and loop tests, unsupported or unresolved
 `FOR` targets or bounds, and ambiguous suspended positions still use
-conservative analysis. Checked handoffs leave recursive calls, function
-calls inside compound expressions or other loop-header operands, unresolved
-linked signatures, shared globals in called library modules, and PATH or
-USING counter captures unresolved.
+conservative analysis. Checked handoffs also leave recursive calls,
+pausing calls inside routine arguments, storage selectors or `WRITE`
+operands, and unresolved linked signatures unresolved. `REPEAT` tests
+that combine a pausing call with `EVAL` use conservative analysis because
+capture precedes the test. Shared globals in called library modules and PATH
+or USING counter captures also require review.
 
 Discovery evaluates signal and wait selectors and can track known pauses
 across a delay or simple event wait. A signal or delay alone does not
