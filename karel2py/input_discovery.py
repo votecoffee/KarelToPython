@@ -24,8 +24,9 @@ from .input_position_values import (
     checked_position_facts, merge_positions, position_register_result,
 )
 from .input_task_segments import (
-    STRUCTURED_LOOPS, bind_repeat_samples, bounded_child, explicit_pause, repeat_capture_parts, resolve_routine,
-    scalar_task_operator, select_case_labels, structured_child, task_handoff_window,
+    STRUCTURED_LOOPS, TASK_WRITE_AGGREGATES, bind_repeat_samples, bounded_child, explicit_pause,
+    repeat_capture_parts, resolve_routine, scalar_task_operator, select_case_labels, structured_child,
+    task_handoff_window,
 )
 from .input_teach_catalog import TEACH_CATALOG_SERVICES, TEACH_EDIT_SERVICES
 from .input_teach_discovery import (
@@ -231,6 +232,8 @@ class _TaskWrite:
     node: dict
     index: int = 0
     values: tuple[_Value, ...] = ()
+    aggregate: rt._AggregateWriteValue | None = None
+    rendered_pieces: int = 0
     rendered_length: int = 0
 
 
@@ -5054,34 +5057,83 @@ class _Analyzer(TeachDiscovery):
         self.tick()
         items = write.node['args']
         if write.index == len(items):
-            if not 1 <= len(items) <= 1024 or write.rendered_length > 254:
+            if not 1 <= write.rendered_pieces <= 1024 or write.rendered_length > 254:
                 raise _TaskOrderUnknown()
             blocks.pop()
             return
 
         item = items[write.index]
         if item['kind'] == 'write_cr':
-            length = 1
+            count = length = 1
         else:
             kind = item.get('write_type')
-            if kind not in ('INTEGER', 'REAL', 'BYTE', 'SHORT', 'BOOLEAN', 'STRING'):
+            aggregate = kind in TASK_WRITE_AGGREGATES
+            if not aggregate and kind not in ('INTEGER', 'REAL', 'BYTE', 'SHORT', 'BOOLEAN', 'STRING'):
                 raise _TaskOrderUnknown()
             operands = item['args']
-            if len(write.values) < len(operands):
-                value = self.task_operand(operands[len(write.values)], flow, scope, blocks, write)
+            if aggregate and write.aggregate is None:
+                operand = operands[0]
+                schema = scope.reference_schema(operand, staged=True)
+                if schema and schema[0] == kind:
+                    self.start_task_selection(blocks, flow, operand, write, reading=True)
+                elif scope.operand(operand):
+                    value = self.expr(operand, flow, True)
+                    spec = self.task_write_aggregate_schema(value.spec)
+                    self.capture_task_write_aggregate(blocks, write, spec, value)
+                else:
+                    raise _TaskOrderUnknown()
+                return
+            index = len(write.values) + int(aggregate)
+            if index < len(operands):
+                value = self.task_operand(operands[index], flow, scope, blocks, write)
                 if value is not None:
                     self.consume_task_value(blocks, flow, write, value)
                 return
-            if any(value.constant is UNKNOWN or value.uninitialized for value in write.values):
+
+            count, length = self.render_task_write_item(item, write)
+        # Runtime checks the expanded batch only after rendering every item.
+        blocks[-1] = replace(write, index=write.index + 1, values=(), aggregate=None,
+                             rendered_pieces=write.rendered_pieces + count, rendered_length=write.rendered_length + length)
+
+    def task_write_aggregate_schema(self, schema):
+        if not schema or schema[0] not in TASK_WRITE_AGGREGATES:
+            raise _TaskOrderUnknown()
+        spec = tuple_spec(schema)
+        try:
+            if rt._validate_data_schema(spec) > 1024:
                 raise _TaskOrderUnknown()
-            value, *formats = (slot.constant for slot in write.values)
-            try:
-                with rt._numeric_scope('pythonic'):
-                    length = len(rt.format_write_item(kind, value, formats, item.get('line')))
-            except rt.KarelRuntimeError:
-                raise _TaskOrderUnknown() from None
-        # The runtime enforces the batch limit only after rendering every item.
-        blocks[-1] = replace(write, index=write.index + 1, values=(), rendered_length=write.rendered_length + length)
+        except rt.KarelRuntimeError:
+            raise _TaskOrderUnknown() from None
+        return spec
+
+    def capture_task_write_aggregate(self, blocks, write, spec, value):
+        item = write.node['args'][write.index]
+        if spec[0] != item['write_type']:
+            raise _TaskOrderUnknown()
+        try:
+            with rt._numeric_scope('pythonic'):
+                raw = materialized_value(value)
+                if raw is UNKNOWN:
+                    raise _TaskOrderUnknown()
+                captured = rt.capture_aggregate_write(spec, raw, item.get('line'))
+        except rt.KarelRuntimeError:
+            raise _TaskOrderUnknown() from None
+        blocks[-1] = replace(write, aggregate=captured)
+
+    def render_task_write_item(self, item, write):
+        if any(value.constant is UNKNOWN or value.uninitialized for value in write.values):
+            raise _TaskOrderUnknown()
+        values = [slot.constant for slot in write.values]
+        line = item.get('line')
+        try:
+            with rt._numeric_scope('pythonic'):
+                if write.aggregate is not None:
+                    pieces = rt.format_aggregate_write(write.aggregate, values, line)
+                    return len(pieces), sum(map(len, pieces))
+                value, *formats = values
+                return 1, len(rt.format_write_item(item['write_type'], value, formats, line))
+        except rt.KarelRuntimeError:
+            raise _TaskOrderUnknown() from None
 
     def start_task_branch(self, blocks, flow, node, value):
         selected = value.constant
@@ -5204,7 +5256,12 @@ class _Analyzer(TeachDiscovery):
     def finish_task_selection(self, blocks, flow, selection):
         loc, consumer = selection.location, selection.consumer
         if selection.reading:
-            self.consume_task_value(blocks, flow, consumer, self.read_task_scalar(loc, selection.node, flow))
+            if isinstance(consumer, _TaskWrite) and loc.spec[0] in TASK_WRITE_AGGREGATES:
+                spec = self.task_write_aggregate_schema(loc.spec)
+                value = self.read(loc, selection.node, flow, True)
+                self.capture_task_write_aggregate(blocks, consumer, spec, value)
+            else:
+                self.consume_task_value(blocks, flow, consumer, self.read_task_scalar(loc, selection.node, flow))
         elif isinstance(consumer, _TaskArguments):
             blocks[-1] = replace(consumer, actuals=(*consumer.actuals, loc))
         elif isinstance(consumer, _TaskAssignment):

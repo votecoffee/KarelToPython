@@ -2179,6 +2179,186 @@ END CHILD
         self.assertEqual(result['text_output'],'')
         self.assertEqual(result['programs']['CHILD']['values']['REACHED'],0)
 
+    def test_aggregate_write_captures_nested_record_fields_before_two_pausing_formats(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER text:STRING[8]
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  text='prior'
+  GET_TPE_STR_REG(1,text,s)
+  WRITE(s,':',text,CR)
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  GET_TPE_STR_REG(1,text,s)
+  WRITE(s,':',text,CR)
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+TYPE pair_t=STRUCTURE first:INTEGER second:ARRAY[1] OF INTEGER ENDSTRUCTURE
+VAR numbers:pair_t h,s:INTEGER
+ROUTINE width_value:INTEGER
+BEGIN
+  OPEN_TPE('Shared',TPE_RDACC,TPE_ALLREJ,h,s)
+  numbers.first=88
+  PAUSE
+  RETURN 4
+END width_value
+ROUTINE base_value:INTEGER
+BEGIN
+  CLOSE_TPE(h,s)
+  numbers.second[1]=99
+  PAUSE
+  RETURN 16
+END base_value
+BEGIN
+  numbers.first=10
+  numbers.second[1]=15
+  WRITE('V=',numbers::width_value()::base_value(),'/',numbers.second[1],CR)
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assert_inputs(report,[('teach_string_register','SHARED','1','required')])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation',
+                                     'task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed')
+        blocked,ready,output=result['text_output'].splitlines()
+        first_status,previous=blocked.split(':')
+        next_status,current=ready.split(':')
+        self.assertEqual((int(first_status),previous,int(next_status),current),(4,'prior',0,'ready'))
+        self.assertEqual(output,'V= 00A 00F/ 99')
+        self.assertEqual(result['programs']['CHILD']['values']['NUMBERS'],{'FIRST':88,'SECOND':[99]})
+
+    def test_pausing_aggregate_selector_finishes_before_the_fields_are_captured(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR grid:ARRAY[2,2] OF INTEGER
+ROUTINE choose_row:INTEGER
+BEGIN
+  PAUSE
+  grid[1,1]=7
+  RETURN 1
+END choose_row
+ROUTINE width_value:INTEGER
+BEGIN
+  grid[1,1]=55
+  grid[1,2]=66
+  PAUSE
+  RETURN 3
+END width_value
+BEGIN
+  grid[1,1]=1
+  grid[1,2]=9
+  WRITE(grid[choose_row()]::width_value(),'|',VEC(1,2,3)::0::1)
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation',
+                                     'task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed')
+        self.assertEqual(result['text_output'],'  7  9| 1.0 2.0 3.0')
+
+    def test_missing_aggregate_field_prevents_a_pause_in_the_format(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+END MAIN
+"""
+        child="""PROGRAM CHILD
+TYPE row_t=STRUCTURE number:INTEGER label:STRING[8] ENDSTRUCTURE
+VAR row:row_t entered:INTEGER
+ROUTINE width_value:INTEGER
+BEGIN
+  entered=1
+  PAUSE
+  RETURN 4
+END width_value
+BEGIN
+  entered=0
+  row.number=7
+  WRITE(row::width_value())
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assert_inputs(report,[('variable','CHILD','ROW','conditional')])
+        self.assertIn('condition-source',[row['code'] for row in report['unresolved']])
+        self.assertEqual(result['status'],'failed')
+        self.assertIn('uninitialized',result['error']['message'])
+        self.assertEqual(result['programs']['CHILD']['values']['ENTERED'],0)
+
+    def test_plain_aggregate_write_can_precede_a_top_level_pause(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR row:ARRAY[2] OF INTEGER
+BEGIN
+  row[1]=7
+  row[2]=9
+  WRITE(row)
+  PAUSE
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait'])
+        self.assertEqual(result['status'],'paused')
+        self.assertEqual(result['text_output'],' 7 9')
+
+    def test_aggregate_write_checks_expanded_batch_count_after_the_last_item(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  WRITE('waiting')
+END MAIN
+"""
+        items=','.join(['letters']*32+['last_item()'])
+        child=f"""PROGRAM CHILD
+VAR letters:ARRAY[32] OF STRING[1] i:INTEGER
+ROUTINE last_item:STRING[1]
+BEGIN
+  PAUSE
+  RETURN ''
+END last_item
+BEGIN
+  FOR i=1 TO 32 DO letters[i]='' ENDFOR
+  WRITE({items})
+  PAUSE
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait'])
+        self.assertEqual(result['status'],'paused')
+        self.assertEqual(result['text_output'],'waiting')
+
+        main=main.replace("  WRITE('waiting')", """  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]""")
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assertIn('condition-source',[row['code'] for row in report['unresolved']])
+        self.assertEqual(result['status'],'failed')
+        self.assertIn('1024 expanded scalar items',result['error']['message'])
+        self.assertEqual(result['text_output'],'')
+
     def test_write_batch_length_is_checked_after_pausing_in_a_later_item(self):
         main="""PROGRAM MAIN
 VAR s:INTEGER

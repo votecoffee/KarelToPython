@@ -98,11 +98,14 @@ pause during scalar reads, assignments, reference arguments, and `FOR` counter
 selection. Discovery saves the receiver and earlier subscripts while later
 ones evaluate. A flat subscript list checks bounds after all its indices
 finish. Assignment evaluates the right-hand value before selecting its
-target. A scalar console `WRITE` retains each item value while width, base,
-precision, or alignment expressions run. Items format left to right, and
-the combined length is checked after the last item. Discovery models that
-order using the emitted item types and does not produce output. Re-translate
-older modules to add the item types needed for paused `WRITE` discovery.
+target. Console `WRITE` retains each scalar value while width, base, precision,
+or alignment expressions run. For ordinary arrays, data records, and joint
+positions, discovery captures known scalar leaves after any supported
+subscripts finish and before evaluating formats. This also covers checked
+values from pure constructors such as `VEC`. Items format left to right. The
+expanded piece count and combined length are checked after the last item.
+Discovery uses the emitted item types and does not produce output. Re-translate
+older modules to add any missing item types for paused `WRITE` discovery.
 A `SELECT` keeps its captured selector across pauses and evaluates every
 label once, left to right. The
 first matching arm begins only after the last label finishes. A `FOR` captures
@@ -124,7 +127,7 @@ and wait, unresolved branches and loop tests, unsupported or unresolved
 `FOR` targets or bounds, and ambiguous suspended positions still use
 conservative analysis. Checked handoffs also leave recursive calls,
 pausing calls inside aggregate or resource arguments, selectors for resources
-or computed results, aggregate or FILE `WRITE` operands, and pausing
+or computed results, FILE and PATH or QUEUE `WRITE` operands, and pausing
 non-scalar captures unresolved. Unknown rendered items and unresolved linked
 signatures use the same conservative analysis. Shared globals in called library
 modules and PATH or USING counter captures also require review.

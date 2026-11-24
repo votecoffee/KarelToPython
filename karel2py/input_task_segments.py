@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from .compiler_language import CONSTANT_BUILTINS, INTEGRAL_TYPES
+from .compiler_language import CONSTANT_BUILTINS, INTEGRAL_TYPES, RECORD_TYPES
 from .input_robot_values import POSE_CONSTRUCTORS
 from .input_value_conversions import SCALARS, Value, array_dimensions
 from .teach import TPE_NAMES
@@ -11,6 +11,7 @@ from .teach import TPE_NAMES
 SHARED_TEACH_CALLS = TPE_NAMES | {'GET_ATTR_PRG', 'SET_ATTR_PRG', 'LOAD_STATUS'}
 STRUCTURED_LOOPS = frozenset(('for', 'while', 'repeat'))
 SCALAR_BINARY_OPERATORS = frozenset(('+', '-', '*', '/', 'DIV', 'MOD', '=', '<>', '<', '<=', '>', '>=', 'AND', 'OR'))
+TASK_WRITE_AGGREGATES = frozenset(('ARRAY', 'JOINTPOS', *RECORD_TYPES))
 _REPEAT_SAMPLE = object()
 
 
@@ -122,6 +123,11 @@ def select_case_labels(node):
             yield index, label
 
 
+def aggregate_task_write(node):
+    return node['kind'] == 'write_items' and any(
+        item.get('write_type') in TASK_WRITE_AGGREGATES for item in node['args'])
+
+
 def repeat_capture_parts(predicate, tick):
     """Split captures in evaluation order, including captures nested in others."""
     captures = []
@@ -217,7 +223,7 @@ def structured_child(plan, linked_plans, tick):
         tick()
         pause = explicit_pause(node)
         found_pause = found_pause or pause
-        found_control = found_control or node['kind'] in STRUCTURED_LOOPS
+        found_control = found_control or node['kind'] in STRUCTURED_LOOPS or aggregate_task_write(node)
         pending.extend((owner, iter(body), True) for body in _branches(node) if body)
         for call in _routine_calls(owner, node, tick):
             name = call['value']
@@ -355,6 +361,8 @@ class _SegmentRules:
             return args[0]['kind'] == 'call' and self.call(args[0])
         if kind in ('if', 'select'):
             return self.branch(node) and all(self.statement(row) for body in _branches(node) for row in body)
+        if aggregate_task_write(node):
+            return False
         return kind in ('write_items', 'signal_event') and all(self.operand(arg) for arg in args)
 
 
