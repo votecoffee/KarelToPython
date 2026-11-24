@@ -219,6 +219,8 @@ def build(program, emitter):
             else:
                 row.update(body=encode(value.body, depth + 1), alternate=encode(value.alternate, depth + 1), has_else=value.has_else)
                 if value.kind == 'assign':
+                    if id(value.args[0]) in emitter.staged_data_assignments:
+                        row['data_assignment'] = True
                     conversion = emitter.geometry_assignment_conversions.get(id(value.args[0]))
                     if conversion is not None:
                         row['geometry_assignment'] = encode(conversion, depth + 1)

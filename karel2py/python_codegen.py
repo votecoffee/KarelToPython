@@ -61,6 +61,7 @@ class Emitter(DeclarationPasses, TypeQueries, ExpressionLowering, AssignmentLowe
         self.short_circuit_expressions=set()
         self.node_size_schemas = {}
         self.path_assignment_schemas = {}
+        self.staged_data_assignments = set()
         self.geometry_assignment_conversions = {}
         self.geometry_argument_conversions = {}
         self.geometry_expression_types = {}

@@ -93,15 +93,18 @@ The callee starts after all arguments finish, and reference shape constraints
 are checked on entry. The tracker preserves each live invocation, including
 its locals, the defining module's source scope, and the child task's TP
 ownership. Ordinary aggregate returns preserve their fields before frame
-cleanup when passed directly to a supported routine or console `WRITE`. Pure
+cleanup. They can feed a supported routine, console `WRITE`, an exact-shape
+assignment, or a field or array selection. Pure
 scalar math and string built-ins also keep earlier arguments while later
 arguments pause. Discovery checks a supported built-in after its arguments
-finish. Calls in ordinary ARRAY subscripts can
-pause during scalar reads, assignments, reference arguments, and `FOR` counter
-selection. Discovery saves the receiver and earlier subscripts while later
-ones evaluate. A flat subscript list checks bounds after all its indices
-finish. Assignment evaluates the right-hand value before selecting its
-target. Console `WRITE` retains each scalar value while width, base, precision,
+finish. Calls in ordinary ARRAY subscripts can pause during scalar reads,
+assignments, reference arguments, and `FOR` counter selection. Discovery saves
+the receiver and earlier subscripts while later ones evaluate, including
+subscripts on a detached aggregate result. A flat subscript list checks bounds
+after all its indices finish. An exact-shape aggregate assignment captures its
+right-hand value before selecting the target and retains partial field facts.
+Re-translate older generated modules to add the assignment metadata needed for
+this check. Console `WRITE` retains each scalar value while width, base, precision,
 or alignment expressions run. For ordinary arrays, data records, and joint
 positions, discovery captures known scalar leaves after any supported
 subscripts finish and before evaluating formats. This also covers checked
@@ -129,9 +132,8 @@ handles cannot race with the child. Shared operations between the request
 and wait, unresolved branches and loop tests, unsupported or unresolved
 `FOR` targets or bounds, and ambiguous suspended positions still use
 conservative analysis. Checked handoffs also leave recursive calls,
-resource arguments, aggregate schema conversions, selected members of
-computed results, aggregate result assignments, FILE and PATH or QUEUE
-`WRITE` operands, and pausing non-scalar captures unresolved. Unknown
+resource arguments or selectors, aggregate schema conversions, FILE output,
+PATH or QUEUE `WRITE` operands, and pausing non-scalar captures unresolved. Unknown
 rendered items and unresolved linked signatures use the same conservative
 analysis. Shared globals in called library modules and PATH or USING counter
 captures also require review.

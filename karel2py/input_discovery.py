@@ -228,6 +228,13 @@ class _TaskSelection:
 
 
 @dataclass(frozen=True)
+class _TaskResultSelection:
+    node: dict
+    consumer: '_TaskValueConsumer'
+    values: tuple[_Value, ...] = ()
+
+
+@dataclass(frozen=True)
 class _TaskWrite:
     node: dict
     index: int = 0
@@ -238,7 +245,8 @@ class _TaskWrite:
 
 
 _TaskValueConsumer = (dict | _TaskSelect | _TaskForHeader | _TaskLoop | _TaskExpression |
-                      _TaskArguments | _TaskAssignment | _TaskSelection | _TaskWrite | _TaskRepeatCapture)
+                      _TaskArguments | _TaskAssignment | _TaskSelection | _TaskResultSelection |
+                      _TaskWrite | _TaskRepeatCapture)
 
 
 @dataclass(frozen=True)
@@ -4975,6 +4983,9 @@ class _Analyzer(TeachDiscovery):
             if isinstance(frame, _TaskSelection):
                 self.next_task_selection(blocks, child, scope, frame)
                 continue
+            if isinstance(frame, _TaskResultSelection):
+                self.next_task_result_selection(blocks, child, scope, frame)
+                continue
             if isinstance(frame, _TaskArguments):
                 self.next_task_argument(blocks, child, scope, frame)
                 continue
@@ -5034,11 +5045,13 @@ class _Analyzer(TeachDiscovery):
                 blocks.append(_TaskLoop(node))
             return
         consumer = node
+        spec = None
         if kind == 'assign':
-            target = scope.reference_schema(args[0], staged=True)
-            if not target or target[0] not in SCALARS:
+            spec = scope.reference_schema(args[0], staged=True)
+            if (not spec or spec[0] not in TASK_ROUTINE_VALUES
+                    or spec[0] in TASK_DATA_AGGREGATES and node.get('data_assignment') is not True):
                 raise _TaskOrderUnknown()
-            consumer = _TaskAssignment(node, target)
+            consumer = _TaskAssignment(node, spec)
             operand = args[1]
         elif kind in ('if', 'select'):
             operand = args[0]
@@ -5047,10 +5060,10 @@ class _Analyzer(TeachDiscovery):
             if operand is None:
                 self.return_from_task_routine(blocks, flow, node, None)
                 return
+            spec = self.frames[-1]['result']
         else:
             raise _TaskOrderUnknown()
-        result = self.frames[-1]['result'] if kind == 'return' else None
-        if result and result[0] in TASK_DATA_AGGREGATES:
+        if spec and spec[0] in TASK_DATA_AGGREGATES:
             if node.get('geometry_return'):
                 raise _TaskOrderUnknown()
             value = self.task_data_operand(operand, flow, scope, blocks, consumer)
@@ -5197,6 +5210,9 @@ class _Analyzer(TeachDiscovery):
             blocks.append(_TaskExpression(node, consumer))
             return None
         if node['kind'] in ('index', 'field'):
+            if self.selects_routine_result(node):
+                blocks.append(_TaskResultSelection(node, consumer))
+                return None
             spec = scope.reference_schema(node, staged=True)
             if spec and spec[0] in SCALARS:
                 self.start_task_selection(blocks, flow, node, consumer, reading=True)
@@ -5210,9 +5226,14 @@ class _Analyzer(TeachDiscovery):
         return self.expr(node, flow, True)
 
     def task_data_operand(self, node, flow, scope, blocks, consumer):
+        while node['kind'] == 'group':
+            node = node['args'][0]
         call = scope.data_routine_call(node)
         if call is not None:
             blocks.append(_TaskArguments(call, consumer))
+            return None
+        if node['kind'] in ('field', 'index') and self.selects_routine_result(node):
+            blocks.append(_TaskResultSelection(node, consumer))
             return None
         schema = scope.reference_schema(node, staged=True)
         if schema and schema[0] in TASK_DATA_AGGREGATES:
@@ -5279,7 +5300,12 @@ class _Analyzer(TeachDiscovery):
         elif isinstance(consumer, _TaskArguments):
             blocks[-1] = replace(consumer, actuals=(*consumer.actuals, loc))
         elif isinstance(consumer, _TaskAssignment):
-            value = self.checked_task_scalar(loc.spec, selection.assignment, consumer.node)
+            value = selection.assignment
+            if consumer.spec[0] in TASK_DATA_AGGREGATES:
+                if self.task_data_schema(loc.spec) != tuple_spec(value.spec):
+                    raise _TaskOrderUnknown()
+            else:
+                value = self.checked_task_scalar(loc.spec, value, consumer.node)
             self.write(loc, value, flow, consumer.node)
         else:
             local_owner = self.frames[-1]['owner'] if self.frames else None
@@ -5287,6 +5313,40 @@ class _Analyzer(TeachDiscovery):
             if (loc.kind, loc.owner) not in owned or loc.spec[0] not in INTEGRAL_TYPES:
                 raise _TaskOrderUnknown()
             blocks.append(_TaskForHeader(consumer, loc))
+
+    def next_task_result_selection(self, blocks, flow, scope, selection):
+        self.tick()
+        node, values = selection.node, selection.values
+        operands = node['args']
+        index = len(values)
+        if not values:
+            value = self.task_data_operand(operands[0], flow, scope, blocks, selection)
+        elif index < len(operands):
+            value = self.task_operand(operands[index], flow, scope, blocks, selection)
+        else:
+            value = values[0]
+            if node['kind'] == 'field':
+                value = self.checked_task_result_member(value, 'field', node['value'], node)
+            else:
+                # Each flat subscript is evaluated before any bounds are checked.
+                for subscript in values[1:]:
+                    if type(subscript.constant) is not int:
+                        raise _TaskOrderUnknown()
+                    value = self.checked_task_result_member(value, 'index', subscript.constant, node)
+            if value.spec[0] in SCALARS and value.uninitialized:
+                raise _TaskOrderUnknown()
+            blocks.pop()
+            self.consume_task_value(blocks, flow, selection.consumer, value)
+            return
+        if value is not None:
+            self.consume_task_value(blocks, flow, selection, value)
+
+    def checked_task_result_member(self, value, kind, selector, node):
+        self.tick(len(value.facts or ()))
+        result = self.select_result_member(value, kind, selector, node)
+        if not result.spec or result.spec[0] not in TASK_ROUTINE_VALUES:
+            raise _TaskOrderUnknown()
+        return result
 
     def next_task_expression(self, blocks, flow, scope, expression):
         self.tick()
@@ -5446,6 +5506,10 @@ class _Analyzer(TeachDiscovery):
             blocks[-1] = replace(consumer, samples=(*consumer.samples, value))
         elif isinstance(consumer, _TaskSelection):
             blocks[-1] = replace(consumer, indices=(*consumer.indices, value.constant))
+        elif isinstance(consumer, _TaskResultSelection):
+            if not consumer.values:
+                self.checked_task_data_capture(value)
+            blocks[-1] = replace(consumer, values=(*consumer.values, value))
         elif isinstance(consumer, _TaskArguments):
             self.capture_task_argument(blocks, consumer, value)
         elif isinstance(consumer, _TaskExpression):
@@ -5458,9 +5522,11 @@ class _Analyzer(TeachDiscovery):
             self.finish_task_loop_test(blocks, flow, consumer, value)
         elif isinstance(consumer, _TaskAssignment):
             node, spec = consumer.node, consumer.spec
-            if value.uninitialized:
+            if spec[0] in TASK_DATA_AGGREGATES:
+                self.checked_task_data_capture(value)
+            elif value.uninitialized:
                 raise _TaskOrderUnknown()
-            if type(value.constant) is float and rt.real_integral_kind(tuple(spec), ('REAL',)):
+            elif type(value.constant) is float and rt.real_integral_kind(tuple(spec), ('REAL',)):
                 try:
                     with rt._numeric_scope('pythonic'):
                         raw = rt.real_integral_value(tuple(spec), value.constant, node.get('line'))
@@ -5473,10 +5539,16 @@ class _Analyzer(TeachDiscovery):
         else:
             self.start_task_branch(blocks, flow, consumer, value)
 
-    def checked_task_data_value(self, spec, value, *, result=False):
+    def checked_task_data_capture(self, value):
         source = self.task_data_schema(value.spec)
+        if value.facts is None or value.whole_record_missing:
+            raise _TaskOrderUnknown()
+        return source
+
+    def checked_task_data_value(self, spec, value, *, result=False):
+        source = self.checked_task_data_capture(value)
         expected = tuple_spec(spec)
-        if value.facts is None or value.whole_record_missing or not rt.parameter_accepts(expected, source):
+        if not rt.parameter_accepts(expected, source):
             raise _TaskOrderUnknown()
         if result and expected[0] == 'ARRAY':
             # ARRAY results require matching nominal outer storage and exact elements.

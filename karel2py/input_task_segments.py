@@ -224,7 +224,8 @@ def structured_child(plan, linked_plans, tick):
         tick()
         pause = explicit_pause(node)
         found_pause = found_pause or pause
-        found_control = found_control or node['kind'] in STRUCTURED_LOOPS or aggregate_task_write(node)
+        found_control = (found_control or node['kind'] in STRUCTURED_LOOPS
+                         or aggregate_task_write(node) or node.get('data_assignment') is True)
         pending.extend((owner, iter(body), True) for body in _branches(node) if body)
         for call in _routine_calls(owner, node, tick):
             name = call['value']
@@ -356,6 +357,8 @@ class _SegmentRules:
         self.tick()
         kind, args = node['kind'], node['args']
         if kind == 'assign':
+            if node.get('data_assignment') is True:
+                return False
             target, value = args
             if target['kind'] == 'name':
                 return self.operand(target) and self.operand(value)
