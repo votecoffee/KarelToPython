@@ -4022,6 +4022,170 @@ END CHILD
         self.assertEqual(result['status'],'completed')
         self.assertEqual(result['context']['files']['out']['hex'],'203137')
 
+    def test_file_attributes_keep_the_selected_handle_across_a_pause_and_reopen(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR streams:ARRAY[2] OF FILE selected:INTEGER
+ROUTINE pick_stream:INTEGER
+BEGIN
+  PAUSE
+  RETURN selected
+END pick_stream
+ROUTINE end_code:INTEGER
+BEGIN
+  selected=2
+  PAUSE
+  RETURN 124
+END end_code
+BEGIN
+  selected=1
+  SET_FILE_ATR(streams[pick_stream()],ATR_EOL,end_code())
+  OPEN FILE streams[1]('WO','text')
+  WRITE streams[1]('A',CR)
+  CLOSE FILE streams[1]
+  SET_FILE_ATR(streams[2],ATR_UF)
+  SET_FILE_ATR(streams[2],ATR_REVERSE)
+  OPEN FILE streams[2]('WO','binary')
+  WRITE streams[2](258::2)
+  CLOSE FILE streams[2]
+  OPEN FILE streams[1]('A','text')
+  WRITE streams[1]('B',CR)
+  CLOSE FILE streams[1]
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],files={})
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation',
+                                      'task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed',result['error'])
+        self.assertEqual(result['context']['files'],{'text':{'hex':'417c427c'},'binary':{'hex':'0102'}})
+
+    def test_file_seek_and_availability_keep_captured_outputs_across_pauses(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR stream:FILE statuses:ARRAY[2] OF INTEGER
+    inner,remaining,s,unused:INTEGER accepted:BOOLEAN
+ROUTINE target_pos:INTEGER
+BEGIN
+  PAUSE
+  RETURN 2
+END target_pos
+ROUTINE status_cell:INTEGER
+BEGIN
+  SET_FILE_POS(stream,5,inner)
+  PAUSE
+  RETURN 2
+END status_cell
+BEGIN
+  statuses[1]=77
+  OPEN FILE stream('UD','out')
+  SET_FILE_POS(stream,target_pos(),statuses[status_cell()])
+  BYTES_AHEAD(stream,remaining,s)
+  accepted=(statuses[1]=77) AND (statuses[2]=0) AND (inner=0) AND (s=0) AND (remaining=4)
+  WRITE stream('xy')
+  SET_FILE_POS(stream,7,s)
+  accepted=accepted AND (s=2) AND (GET_FILE_POS(stream)=4)
+  SET_FILE_POS(stream,-1,s)
+  accepted=accepted AND (s=0) AND (BYTES_LEFT(stream)=0)
+  CLR_IO_STAT(stream)
+  IF accepted AND (IO_STATUS(stream)=0) THEN
+    CLOSE FILE stream
+  ELSE
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],files={'out':'ABCDEF'})
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation',
+                                      'task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed',result['error'])
+        self.assertEqual(result['context']['files']['out']['hex'],'414278794546')
+
+    def test_file_availability_validates_output_overlap_after_selector_pause(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  WRITE('waiting')
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR stream:FILE cells:ARRAY[1] OF INTEGER
+ROUTINE same_cell:INTEGER
+BEGIN
+  PAUSE
+  RETURN 1
+END same_cell
+BEGIN
+  cells[1]=77
+  OPEN FILE stream('RO','out')
+  BYTES_AHEAD(stream,cells[1],cells[same_cell()])
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],files={'out':'ABC'})
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait'])
+        self.assertEqual(result['status'],'paused')
+        self.assertEqual(result['text_output'],'waiting')
+
+        main=main.replace("WRITE('waiting')", "CONT_TASK('CHILD',s) WAIT FOR PAUSE PROGRAM[2]")
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],files={'out':'ABC'})
+        self.assertIn('condition-source',[row['code'] for row in report['unresolved']])
+        self.assertEqual(result['status'],'failed')
+        self.assertIn('references must not overlap',result['error']['message'])
+        self.assertEqual(result['programs']['CHILD']['values']['CELLS'],[77])
+
+    def test_file_attribute_change_can_pause_before_rejecting_an_open_handle(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR stream:FILE entered:INTEGER
+ROUTINE ending:INTEGER
+BEGIN
+  PAUSE
+  RETURN 124
+END ending
+BEGIN
+  entered=0
+  OPEN FILE stream('WO','out')
+  SET_FILE_ATR(stream,ATR_EOL,ending())
+  entered=1
+  PAUSE
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],files={})
+        self.assertIn('condition-source',[row['code'] for row in report['unresolved']])
+        self.assertEqual(result['status'],'failed')
+        self.assertIn('attributes must be set before OPEN',result['error']['message'])
+        self.assertEqual(result['programs']['CHILD']['values']['ENTERED'],0)
+
     def test_request_status_is_not_reused_as_prelaunch_task_number(self):
         main="""PROGRAM MAIN
 VAR task_no,s:INTEGER text:STRING[8]

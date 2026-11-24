@@ -26,7 +26,8 @@ from .input_position_values import (
 )
 from .input_task_segments import (
     FILE_TASK_QUERIES, STRUCTURED_LOOPS, TASK_DATA_AGGREGATES, TASK_ROUTINE_VALUES, bind_repeat_samples, bounded_child,
-    explicit_pause, queue_task_call, repeat_capture_parts, resolve_routine, scalar_task_operator, select_case_labels,
+    explicit_pause, file_task_procedure, queue_task_call, repeat_capture_parts, resolve_routine, scalar_task_operator,
+    select_case_labels,
     structured_child, task_handoff_window,
 )
 from .input_teach_catalog import TEACH_CATALOG_SERVICES, TEACH_EDIT_SERVICES
@@ -5113,6 +5114,9 @@ class _Analyzer(TeachDiscovery):
             if queue_task_call(self.plan, builtin):
                 blocks.append(_TaskQueueCall(builtin))
                 return
+            if file_task_procedure(self.plan, builtin):
+                self.start_task_file(blocks, flow, scope, builtin)
+                return
             call = scope.procedure_call(builtin)
             if call is None:
                 raise _TaskOrderUnknown()
@@ -5164,7 +5168,7 @@ class _Analyzer(TeachDiscovery):
         outputs = flow.task_file_outputs
         if outputs is None or alias not in bindings:
             raise _TaskOrderUnknown()
-        self.tick(len(outputs.handles))
+        self.tick(len(outputs.handles) + len(outputs.sizes))
         try:
             captured = outputs.capture(alias, self.saved_bindings.memory_files, bindings[alias], node.get('line'))
         except rt.KarelRuntimeError:
@@ -5197,15 +5201,24 @@ class _Analyzer(TeachDiscovery):
         if kind == 'file_write':
             blocks[-1] = _TaskWrite(args[1], file_key=key)
             return
-        if kind == 'file_open' and len(pending.values) < 2:
-            value = self.task_operand(args[len(pending.values) + 1], flow, scope, blocks, pending)
-            if value is not None:
-                self.consume_task_value(blocks, flow, pending, value)
+        service = kind == 'call' and pending.consumer is None
+        index = len(pending.values) + 1
+        if (kind == 'file_open' or service) and index < len(args):
+            operand = args[index]
+            if service and node['signature'][index][0] == 'o':
+                self.start_task_selection(blocks, flow, operand, pending)
+            else:
+                value = self.task_operand(operand, flow, scope, blocks, pending)
+                if value is not None:
+                    self.consume_task_value(blocks, flow, pending, value)
             return
         outputs = flow.task_file_outputs
         if outputs is None:
             raise _TaskOrderUnknown()
         blocks.pop()
+        if service:
+            self.apply_task_file_procedure(flow, pending, outputs)
+            return
         if kind == 'call':
             value = outputs.query(key, node['value'])
             if value is None:
@@ -5213,7 +5226,7 @@ class _Analyzer(TeachDiscovery):
             self.consume_task_value(blocks, flow, pending.consumer, _Value(value, spec=['INTEGER']))
             return
 
-        self.tick(len(outputs.handles))
+        self.tick(len(outputs.handles) + len(outputs.sizes))
         if kind == 'file_open':
             mode, name = pending.values
             backend = getattr(self.saved_bindings, 'memory_files', None)
@@ -5226,6 +5239,40 @@ class _Analyzer(TeachDiscovery):
         if outputs is None:
             raise _TaskOrderUnknown()
         flow.task_file_outputs = outputs
+
+    def apply_task_file_procedure(self, flow, pending, outputs):
+        node, key, values = pending.node, pending.key, pending.values
+        name, line = node['value'], node.get('line')
+        if name == 'CLR_IO_STAT':
+            # Checked memory operations leave IO_STATUS at zero.
+            return
+        if name == 'BYTES_AHEAD':
+            available, status = values
+            count = outputs.query(key, 'BYTES_LEFT')
+            if available.key == status.key or count is None:
+                raise _TaskOrderUnknown()
+            self.write(available, _Value(count, spec=['INTEGER']), flow, node)
+            self.write(status, _Value(0, spec=['INTEGER']), flow, node)
+            return
+
+        self.tick(len(outputs.handles))
+        try:
+            if name == 'SET_FILE_ATR':
+                attribute, *argument = values
+                value = rt.integer(argument[0], line) if argument else 0
+                updated = outputs.set_attribute(key, rt.integer(attribute, line), value, line)
+                if updated is None:
+                    raise _TaskOrderUnknown()
+                flow.task_file_outputs = updated
+            else:
+                position, status = values
+                result = outputs.seek(key, rt.integer(position, line))
+                if result is None:
+                    raise _TaskOrderUnknown()
+                flow.task_file_outputs, code = result
+                self.write(status, _Value(code, spec=['INTEGER']), flow, node)
+        except rt.KarelRuntimeError:
+            raise _TaskOrderUnknown() from None
 
     def start_task_write(self, blocks, flow, node):
         alias = self.plan.get('default_write_file')
@@ -5250,7 +5297,7 @@ class _Analyzer(TeachDiscovery):
             if not 1 <= write.rendered_pieces <= 1024:
                 raise _TaskOrderUnknown()
             if output is not None:
-                self.tick(len(outputs.handles))
+                self.tick(len(outputs.handles) + len(outputs.sizes))
                 backend = getattr(self.saved_bindings, 'memory_files', None)
                 try:
                     updated = outputs.write(write.file_key, backend, write.rendered_length, write.node.get('line'))
@@ -5682,9 +5729,12 @@ class _Analyzer(TeachDiscovery):
         elif isinstance(consumer, (_TaskArguments, _TaskQueueCall)):
             blocks[-1] = replace(consumer, actuals=(*consumer.actuals, loc))
         elif isinstance(consumer, _TaskFile):
-            if loc.spec != ['FILE']:
+            if consumer.key is None and loc.spec == ['FILE']:
+                blocks[-1] = replace(consumer, key=loc.key)
+            elif consumer.key is not None and loc.spec == ['INTEGER']:
+                blocks[-1] = replace(consumer, values=(*consumer.values, loc))
+            else:
                 raise _TaskOrderUnknown()
-            blocks[-1] = replace(consumer, key=loc.key)
         elif isinstance(consumer, _TaskCollectionWrite):
             expected, terminal = _array_dimensions(consumer.schema)
             actual, member = _array_dimensions(loc.spec)

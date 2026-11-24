@@ -18,6 +18,7 @@ TASK_ROUTINE_VALUES = frozenset(SCALARS) | TASK_DATA_AGGREGATES
 PATH_TASK_EDITS = frozenset(('APPEND_NODE', 'INSERT_NODE', 'DELETE_NODE'))
 QUEUE_TASK_EDITS = frozenset(QUEUE_EDIT_INPUTS) | {'INIT_QUEUE', 'COPY_QUEUE'}
 FILE_TASK_QUERIES = frozenset(('GET_FILE_POS', 'BYTES_LEFT', 'IO_STATUS'))
+FILE_TASK_PROCEDURES = frozenset(('SET_FILE_ATR', 'SET_FILE_POS', 'BYTES_AHEAD', 'CLR_IO_STAT'))
 _REPEAT_SAMPLE = object()
 
 
@@ -195,11 +196,19 @@ def queue_task_call(plan, node):
     return len(signature) == len(node['args']) and all(spec[0] in ('i', 'r', 'o') for spec in signature)
 
 
+def file_task_procedure(plan, node):
+    if node['kind'] != 'call' or node['value'] not in FILE_TASK_PROCEDURES or node['value'] in plan['routines']:
+        return False
+    arity, signature = len(node['args']), node.get('signature', ())
+    # The compiler retains the full signature when SET_FILE_ATR omits its value.
+    return len(signature) == arity or node['value'] == 'SET_FILE_ATR' and arity == 2 and len(signature) == 3
+
+
 def _routine_calls(plan, node, tick):
     kind, args = node['kind'], node['args']
     if kind == 'call':
         call = args[0]
-        if queue_task_call(plan, call):
+        if queue_task_call(plan, call) or file_task_procedure(plan, call):
             for operand in call['args']:
                 yield from _expression_routines(plan, operand, tick)
         else:
@@ -251,7 +260,8 @@ def structured_child(plan, linked_plans, tick, *, predefined_files=()):
         found_pause = found_pause or pause
         found_control = (found_control or node['kind'] in STRUCTURED_LOOPS
                          or aggregate_task_write(node) or node.get('data_assignment') is True
-                         or node['kind'] == 'call' and queue_task_call(owner, node['args'][0])
+                         or node['kind'] == 'call' and (
+                             queue_task_call(owner, node['args'][0]) or file_task_procedure(owner, node['args'][0]))
                          or node['kind'] in ('file_open', 'file_write', 'file_close')
                          or node['kind'] == 'write_items' and owner.get('default_write_file') in predefined_files)
         pending.extend((owner, iter(body), True) for body in _branches(node) if body)

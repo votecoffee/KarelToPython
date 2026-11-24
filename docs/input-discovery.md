@@ -805,10 +805,18 @@ the batch is written. Explicit CLOSE releases the endpoint for another
 handle. `GET_FILE_POS`, `BYTES_LEFT`, and `IO_STATUS` use the modeled
 descriptor and cursor, including when selecting the FILE cell pauses.
 
+For those memory FILEs, discovery also follows `SET_FILE_ATR`,
+`SET_FILE_POS`, `BYTES_AHEAD`, and `CLR_IO_STAT`. A declared handle retains
+its attributes across close and reopen. A seek to `-1` selects the end, and a seek
+outside the file returns status `2` and preserves the cursor.
+`BYTES_AHEAD` checks that the two output cells are distinct before writing
+the available byte count and status. FILE selection, scalar arguments, and
+output selectors can pause. Each completed operand is retained for the call.
+
 Unchecked FILE access can invalidate prior facts. FILE `READ`, FILE
-arguments to routines, attributes and seeks, and other backends still use
-conservative analysis. Configure the endpoint and supply any PATH storage
-and input stream data through the run context.
+arguments to routines, and other backends still use conservative analysis.
+Configure the endpoint and supply any PATH storage and input stream data
+through the run context.
 
 ### PATH records
 
