@@ -217,6 +217,27 @@ class _SavedBindings:
     def leaf_initialized(self, owner, root, selectors):
         return _supplied(self._selected_value(owner, root, selectors))
 
+    def queue_topology(self, owner, root, root_type, selectors, *, tick):
+        """Read IDs and sequence from one restored queue without copying its bank."""
+        reference = self.references.get((owner, root))
+        if reference is None or reference.spec != tuple_spec(root_type):
+            return None
+        value = reference.raw()
+        if selectors:
+            indices = tuple(index for kind, index in selectors if kind == 'index')
+            if len(indices) != len(selectors):
+                return None
+            try:
+                with rt._numeric_scope('pythonic'):
+                    value = rt.index_reference(value, indices).raw()
+            except rt.KarelRuntimeError:
+                return None
+        if type(value) is not rt.QueueValue or value.initialized is not True or value.buffer is not None:
+            return None
+        # The context loader already checked the queue schema and entry IDs.
+        tick(len(value.entries))
+        return value.sequence, tuple(entry_id for entry_id, _ in value.entries)
+
 
 def _saved_path_count(execution, *, migrate_path=None):
     """Look up the initial topology or materialized record of a saved PATH."""

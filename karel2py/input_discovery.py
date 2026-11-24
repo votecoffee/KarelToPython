@@ -5579,8 +5579,8 @@ class _Analyzer(TeachDiscovery):
             raise _TaskOrderUnknown()
         buffer = actuals[offset + 1]
         capacity = self.task_queue_array_capacity(buffer)
-        previous = flow.task_queues.get(queue.key)
-        if previous is None or previous.buffer not in (None, buffer.key) or len(previous.entries) > capacity:
+        previous = self.task_queue_state(queue, flow)
+        if previous.buffer not in (None, buffer.key) or len(previous.entries) > capacity:
             raise _TaskOrderUnknown()
 
         entries, sequence = previous.entries, previous.sequence
@@ -5693,6 +5693,23 @@ class _Analyzer(TeachDiscovery):
             raise _TaskOrderUnknown()
         return [self.index_child(location, index, node, flow) for index in indexes]
 
+    def task_queue_state(self, loc, flow):
+        queue = flow.task_queues.get(loc.key)
+        if queue is not None:
+            return queue
+        load = getattr(self.saved_bindings, 'queue_topology', None)
+        if load is None or loc.kind != 'variable' or loc.owner != self.task_roots[-1]:
+            raise _TaskOrderUnknown()
+        topology = load(loc.owner, loc.root, loc.root_spec, loc.parts, tick=self.tick)
+        if topology is None:
+            raise _TaskOrderUnknown()
+        sequence, entry_ids = topology
+        self.serial += 1
+        queue = _TaskQueue(self.serial, tuple((entry_id, UNKNOWN) for entry_id in entry_ids), sequence)
+        flow.task_queues[loc.key] = queue
+        self.binding_storage[loc.owner, loc.root] = loc.root_spec
+        return queue
+
     def task_queue_cells(self, loc, node, flow):
         self.tick()
         if loc is None:
@@ -5704,9 +5721,9 @@ class _Analyzer(TeachDiscovery):
             for index in range(1, size + 1):
                 yield from self.task_queue_cells(self.child(loc, 'index', index, node), node, flow)
         else:
-            queue = flow.task_queues.get(loc.key) if loc.spec == ['QUEUE_TYPE'] else None
-            if queue is None:
+            if loc.spec != ['QUEUE_TYPE']:
                 raise _TaskOrderUnknown()
+            queue = self.task_queue_state(loc, flow)
             self.tick(len(queue.entries))
             yield loc, queue
 

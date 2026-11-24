@@ -14,7 +14,7 @@ class TaskHandoffTests(unittest.TestCase):
         self.addCleanup(folder.cleanup)
         self.root=Path(folder.name)
 
-    def prepare(self, sources, *, replay=True, callers=None, predefined_files=None, files=None):
+    def prepare(self, sources, *, replay=True, callers=None, predefined_files=None, files=None, variables=None):
         case_folder=Path(mkdtemp(dir=self.root))
         paths=[]
         for name, source in sources:
@@ -31,6 +31,8 @@ class TaskHandoffTests(unittest.TestCase):
             context['predefined_files']=predefined_files
         if files is not None:
             context['files']=files
+        if variables is not None:
+            context['variables']=variables
         saved=create_project_document(paths,document,entry='MAIN',context=context,max_cycles=100,discover=True)
         result=runner.run_document(document)['results'] if replay else None
         return saved['inputs']['template']['discovery'],result
@@ -5108,6 +5110,134 @@ END CHILD
                 values=result['programs']['CHILD']['values']
                 self.assertEqual((values['VALUE'],values['STREAM']['position']),(77,0))
                 self.assertEqual((values['Q']['entries'],values['BACKING']),([[1,7]],[7,0]))
+
+    def test_restored_queue_keeps_entry_order_and_sequence_through_linked_edits(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR q:QUEUE_TYPE backing,output_values:ARRAY[3] OF INTEGER
+    item,entry,next_id,count,copied,s,unused:INTEGER
+BEGIN
+  output_values[2]=55
+  COPY_QUEUE(q,backing,7,1,output_values,count,s)
+  PAUSE
+  copied=output_values[1]
+  GET_QUEUE(q,backing,item,entry,s)
+  APPEND_QUEUE(88,q,backing,next_id,s)
+  IF (entry=7) AND (next_id=10) AND (count=1) AND (s=0) AND (output_values[2]=55) THEN
+    WRITE(next_id)
+  ELSE
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        queue=dict(initialized=True,sequence=9,entries=[[7,41],[2,53]])
+        seed=dict(program='CHILD',path='Q',type=['QUEUE_TYPE'],value=queue)
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],variables=[seed])
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation'])
+        self.assertEqual(report['binding_storage'],[dict(program='CHILD',path='Q',type=['QUEUE_TYPE'])])
+        self.assertEqual(result['status'],'completed',result['error'])
+        values=result['programs']['CHILD']['values']
+        self.assertEqual((values['ITEM'],values['COPIED'],values['ENTRY'],values['NEXT_ID']),(41,53,7,10))
+        self.assertEqual(values['Q']['entries'],[[2,53],[10,88]])
+        self.assertEqual(values['BACKING'],[53,88,0])
+
+        child=child.replace('s,unused:INTEGER','s,unused,other:INTEGER').replace(
+            "IF (entry=7) AND (next_id=10) AND (count=1) AND (s=0) AND (output_values[2]=55) THEN\n    WRITE(next_id)",
+            'IF item=41 THEN\n    WRITE(other)')
+        report,_=self.prepare([('MAIN',main),('CHILD',child)],variables=[seed],replay=False)
+        self.assert_inputs(report,[('variable','CHILD','OTHER','conditional'),
+                                   ('variable','CHILD','UNUSED','conditional')])
+
+    def test_restored_queue_bank_file_read_tracks_selected_row_only(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR bank:ARRAY[2,2] OF QUEUE_TYPE backing:ARRAY[2] OF INTEGER
+    stream:FILE entry,item,s,unused:INTEGER
+ROUTINE pick_row:INTEGER
+BEGIN
+  PAUSE
+  RETURN 2
+END pick_row
+BEGIN
+  OPEN FILE stream('RWB','out')
+  WRITE stream(23,29)
+  SET_FILE_POS(stream,0,s)
+  READ stream(bank[pick_row()])
+  GET_QUEUE(bank[2,1],backing,item,entry,s)
+  IF (entry=2) AND (item=23) AND (backing[1]=29) AND (BYTES_LEFT(stream)=0) THEN
+    CLOSE FILE stream
+  ELSE
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        uninitialized=dict(initialized=False,sequence=0,entries=[])
+        occupied=dict(initialized=True,sequence=4,entries=[[2,9],[4,8]])
+        empty=dict(initialized=True,sequence=3,entries=[])
+        schema=['ARRAY',[2,2],['QUEUE_TYPE']]
+        seed=dict(program='CHILD',path='BANK',type=schema,value=[[uninitialized,uninitialized],[occupied,empty]])
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],files={},variables=[seed])
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation'])
+        self.assertEqual(report['binding_storage'],[dict(program='CHILD',path='BANK',type=schema)])
+        self.assertEqual(result['status'],'completed',result['error'])
+        values=result['programs']['CHILD']['values']
+        self.assertEqual((values['ITEM'],values['ENTRY'],values['BACKING']),(23,2,[29,0]))
+        self.assertEqual([queue['entries'] for queue in values['BANK'][1]],[[[4,29]],[]])
+        self.assertEqual(result['context']['files'],{'out':{'hex':'170000001d000000'}})
+
+        uninitialized_row=dict(seed,value=[[uninitialized,uninitialized],[occupied,uninitialized]])
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],files={},variables=[uninitialized_row])
+        self.assertIn('condition-source',[row['code'] for row in report['unresolved']])
+        self.assertEqual(result['status'],'failed')
+        self.assertIn('INIT_QUEUE',result['error']['message'])
+        values=result['programs']['CHILD']['values']
+        self.assertEqual(values['BANK'][1][0]['entries'],[[2,9],[4,8]])
+        self.assertEqual(values['STREAM']['position'],0)
+
+    def test_init_queue_replaces_saved_topology_before_first_use(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR q:QUEUE_TYPE backing:ARRAY[2] OF INTEGER entry,s,unused:INTEGER
+BEGIN
+  INIT_QUEUE(q)
+  APPEND_QUEUE(3,q,backing,entry,s)
+  IF (entry=1) AND (s=0) THEN
+    PAUSE
+  ELSE
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        queue=dict(initialized=True,sequence=9,entries=[[7,41]])
+        seed=dict(program='CHILD',path='Q',type=['QUEUE_TYPE'],value=queue)
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],variables=[seed])
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait'])
+        self.assertNotIn('binding_storage',report)
+        self.assertEqual(result['status'],'paused',result['error'])
+        self.assertEqual(result['programs']['CHILD']['values']['Q']['entries'],[[1,3]])
 
     def test_request_status_is_not_reused_as_prelaunch_task_number(self):
         main="""PROGRAM MAIN

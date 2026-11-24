@@ -3,7 +3,7 @@
 ![KarelToPython icon](karel2py/assets/icons/karel_to_python_icon_64x64.png)
 
 KarelToPython translates a supported subset of FANUC KAREL into Python for
-offline inspection and execution. The current build is **26.1124.170614**.
+offline inspection and execution. The current build is **26.1124.171240**.
 
 ## Table of Contents
 
@@ -101,7 +101,8 @@ field or array selection. Discovery follows checked data schema conversions
 across those calls and assignments. It preserves evaluation order in built-in
 arguments, `ARRAY_LEN` selectors, and loop bounds and tests. Scalar and data
 aggregate `REPEAT UNTIL` captures survive pauses and iterations.
-Linked discovery also follows edits and copies of source-initialized queues.
+Linked discovery also follows edits and copies of queues initialized in the
+source or restored from the saved run context.
 Console `WRITE` follows pausing PATH and queue selectors and PATH range bounds.
 It preserves the captured records and entries while format routines run.
 Linked discovery also follows text and binary `READ` and `WRITE` on memory files. It
@@ -110,9 +111,8 @@ open, seek, availability queries, close, and reopen. Direct FILE arguments
 retain their original descriptors across calls to pinned routines. Reads
 retain selected destinations across pauses, including PATH headers, nodes,
 ranges, and bank selections with ordinary data fields. Reads also cover
-existing entries in source-initialized queues and queue banks. Program-written
-bytes can provide known values for discovery, and saved file inputs remain
-editable.
+existing entries in initialized queues and queue banks. Program-written bytes
+can provide known values for discovery, and saved inputs remain editable.
 Input discovery also tracks the status and handle for each possible TP open
 outcome. Inputs and results share one JSON file.
 Use `runner refresh` to carry compatible inputs to a new translation.

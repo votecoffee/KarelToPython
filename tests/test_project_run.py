@@ -1042,6 +1042,30 @@ class SavedProjectTests(unittest.TestCase):
         route = result['programs']['MAIN']['values']['ROUTE']
         self.assertEqual(route['nodes'], [{'VALUE': 1}, {'VALUE': 25}])
 
+    def test_linked_refresh_retains_saved_queue_used_for_file_read(self):
+        main = self.module('MAIN', "RUN_TASK('CHILD',0,FALSE,FALSE,0,s) WAIT FOR PAUSE PROGRAM[2] CONT_TASK('CHILD',s)")
+        child = self.module('CHILD', "OPEN FILE f('RO','data') READ f(q) CLOSE FILE f PAUSE GET_QUEUE(q,backing,n,entry,s)",
+                            'VAR q:QUEUE_TYPE backing:ARRAY[2] OF INTEGER f:FILE n,entry,s:INTEGER')
+        payload = dict(initialized=True, sequence=7, entries=[[4, 9], [7, 12]])
+        seed = dict(program='CHILD', path='Q', type=['QUEUE_TYPE'], value=payload)
+        unused = dict(program='CHILD', path='UNUSED', type=['QUEUE_TYPE'], value=payload)
+        context = dict(variables=[seed, unused], files={'data': ' 25 35'})
+        original = self.create(main, child, context=context, discover=True)
+        previous = self.document.read_bytes()
+        revised = self.folder / 'revised.run.json'
+        refreshed = runner.refresh_project_document(self.document, revised, [main, child])
+        self.assertEqual(self.document.read_bytes(), previous)
+        self.assertEqual(original['inputs']['context'], context)
+        self.assertEqual(refreshed['inputs']['context']['variables'], [seed])
+        report = refreshed['inputs']['template']['discovery']
+        self.assertEqual(report['binding_storage'], [dict(program='CHILD', path='Q', type=['QUEUE_TYPE'])])
+        self.assertEqual(report['inputs'], [])
+        result = runner.run_document(revised)['results']
+        self.assertEqual(result['status'], 'completed', result['error'])
+        values = result['programs']['CHILD']['values']
+        self.assertEqual((values['N'], values['ENTRY'], values['BACKING']), (25, 4, [35, 0]))
+        self.assertEqual(values['Q']['entries'], [[7, 35]])
+
     def test_linked_whole_path_shape_stays_unproven_after_concurrent_effects(self):
         decl = 'TYPE row_t=STRUCTURE value:INTEGER ENDSTRUCTURE VAR route:PATH NODEDATA=row_t s:INTEGER'
         schema = ['PATH', ['STRUCTURE', 'ROW_T', [['VALUE', ['INTEGER']]]], None]

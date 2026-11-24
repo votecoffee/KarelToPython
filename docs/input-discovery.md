@@ -842,8 +842,8 @@ selected. Discovery keeps those records' captured fields while formats and
 later destinations run. A format routine can remove a node without changing
 which storage receives the previously captured values.
 
-Memory FILE `READ` can also replace values in source-initialized queues and
-selected queue banks. Banks are visited in row-major order, and initialized
+Memory FILE `READ` can also replace values in initialized queues and selected
+queue banks. Banks are visited in row-major order, and initialized
 queues with no entries consume no fields. A batch needs at least one existing
 entry per queue transfer. Each queue capture must still match at publication.
 A successful read preserves entry IDs and sequence, releases the previous
@@ -851,10 +851,15 @@ backing ARRAY binding, and leaves that ARRAY's contents available for ordinary
 reads and writes. Later queue operations can bind a different backing ARRAY.
 Values read from saved files stay editable through queue copies and removals.
 
+Initialization can come from the source or a matching typed queue in the run
+context. Discovery uses saved entry IDs, order, and sequence for queue
+operations and keeps entry values editable. Project refresh retains the
+compatible queue or bank root when discovery uses that saved state.
+
 Discovery retains up to 64 KiB of modified file images per tracked flow.
 Larger writes can still establish size and cursor facts. Reads whose image
 was omitted, PATH reads with unresolved shapes or specialized fields, queues
-without proven source initialization, other backends, and FILE arguments
+without proven initialization, other backends, and FILE arguments
 obtained through `BYNAME` still use conservative analysis.
 Configure the endpoint and supply any PATH storage and input stream data
 through the run context.

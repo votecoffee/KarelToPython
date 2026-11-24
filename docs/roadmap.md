@@ -88,8 +88,10 @@ aggregate destinations and update the cursor across pauses. Bounded file
 images track published bytes through overwrites, truncation, and reopen.
 PATH reads cover whole PATHs, headers, nodes, ordered ranges, and bank
 selections with known ordinary data fields.
-Queue reads cover existing entries in source-initialized queues and bank
-selections, preserving IDs and releasing the previous backing ARRAY.
+Queue reads cover existing entries in initialized queues and bank selections,
+preserving IDs and releasing the previous backing ARRAY. Discovery follows
+saved queue topology through edits and copies and retains the saved root
+through project refresh.
 Scalar and ordinary aggregate `REPEAT UNTIL` captures run once before the
 live test and carry their values across pauses and iterations.
 Discovery tracks numbered handler activation within
@@ -102,7 +104,7 @@ document and reports changed, omitted and unresolved inputs.
 
 1. **Expand linked discovery.** Extend child pause tracking to additional
    resource arguments and selectors, model-backed or unproven aggregate
-   conversions, saved queues, FILE reads of untracked data and specialized
+   conversions, FILE reads of untracked data and specialized
    PATH fields, additional FILE transports, and resource `EVAL` captures.
    Model shared storage in called library modules, extend resumable
    `FOR` capture to PATH and USING storage, and model
