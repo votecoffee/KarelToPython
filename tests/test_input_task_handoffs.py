@@ -14,7 +14,7 @@ class TaskHandoffTests(unittest.TestCase):
         self.addCleanup(folder.cleanup)
         self.root=Path(folder.name)
 
-    def prepare(self, sources, *, replay=True, callers=None):
+    def prepare(self, sources, *, replay=True, callers=None, predefined_files=None):
         case_folder=Path(mkdtemp(dir=self.root))
         paths=[]
         for name, source in sources:
@@ -27,6 +27,8 @@ class TaskHandoffTests(unittest.TestCase):
             'programs':{'Shared':{'string_registers':{'1':'ready'}}},
             'callers':{'MAIN':'Shared', **(callers or {})},
         }}
+        if predefined_files is not None:
+            context['predefined_files']=predefined_files
         saved=create_project_document(paths,document,entry='MAIN',context=context,max_cycles=100,discover=True)
         result=runner.run_document(document)['results'] if replay else None
         return saved['inputs']['template']['discovery'],result
@@ -1907,6 +1909,155 @@ END CHILD
         codes=[row['code'] for row in report['unresolved']]
         self.assertIn('condition-source',codes)
         self.assertIn('dynamic-address',codes)
+
+    def test_scalar_write_retains_the_value_across_width_and_base_pauses(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER text:STRING[8]
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  text='prior'
+  GET_TPE_STR_REG(1,text,s)
+  WRITE(s,':',text,CR)
+  CONTINUE PROGRAM[2]
+  WAIT FOR PAUSE PROGRAM[2]
+  GET_TPE_STR_REG(1,text,s)
+  WRITE(s,':',text,CR)
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR n,h,s,trace:INTEGER
+ROUTINE width_value:INTEGER
+BEGIN
+  OPEN_TPE('Shared',TPE_RDACC,TPE_ALLREJ,h,s)
+  n=32
+  trace=trace*10+1
+  PAUSE
+  RETURN 4
+END width_value
+ROUTINE base_value:INTEGER
+BEGIN
+  CLOSE_TPE(h,s)
+  n=99
+  trace=trace*10+2
+  PAUSE
+  RETURN 16
+END base_value
+BEGIN
+  n=10
+  trace=0
+  WRITE('V=',n::width_value()::base_value(),'/',n,CR)
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assert_inputs(report,[('teach_string_register','SHARED','1','required')])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation',
+                                     'task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed')
+        blocked,ready,output=result['text_output'].splitlines()
+        first_status,previous=blocked.split(':')
+        next_status,current=ready.split(':')
+        self.assertEqual((int(first_status),previous,int(next_status),current),(4,'prior',0,'ready'))
+        self.assertEqual(output,'V= 00A/ 99')
+        self.assertEqual(result['programs']['CHILD']['values']['TRACE'],12)
+
+    def test_failed_write_item_format_does_not_reach_the_following_item(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR reached:INTEGER
+ROUTINE invalid_width:INTEGER
+BEGIN
+  PAUSE
+  RETURN 255
+END invalid_width
+ROUTINE later_item:INTEGER
+BEGIN
+  reached=1
+  PAUSE
+  RETURN 42
+END later_item
+BEGIN
+  reached=0
+  WRITE('earlier',7::invalid_width(),later_item())
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assertIn('condition-source',[row['code'] for row in report['unresolved']])
+        self.assertEqual(result['status'],'failed')
+        self.assertIn('WRITE width',result['error']['message'])
+        self.assertEqual(result['text_output'],'')
+        self.assertEqual(result['programs']['CHILD']['values']['REACHED'],0)
+
+    def test_write_batch_length_is_checked_after_pausing_in_a_later_item(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  WRITE('waiting')
+END MAIN
+"""
+        child=f"""PROGRAM CHILD
+ROUTINE last_item:INTEGER
+BEGIN
+  PAUSE
+  RETURN 1
+END last_item
+BEGIN
+  WRITE('{'a'*130}','{'b'*130}',last_item())
+  PAUSE
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait'])
+        self.assertEqual(result['status'],'paused')
+        self.assertEqual(result['text_output'],'waiting')
+
+        main=main.replace("  WRITE('waiting')", """  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]""")
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assertIn('condition-source',[row['code'] for row in report['unresolved']])
+        self.assertEqual(result['status'],'failed')
+        self.assertIn('WRITE combined output',result['error']['message'])
+        self.assertEqual(result['text_output'],'')
+
+    def test_pausing_write_uses_the_default_route_from_its_own_module(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+END MAIN
+"""
+        child="""PROGRAM CHILD
+%CRTDEVICE
+ROUTINE value_now:INTEGER
+BEGIN
+  PAUSE
+  RETURN 1
+END value_now
+BEGIN
+  WRITE(value_now())
+END CHILD
+"""
+        for alias in ('TPDISPLAY','OUTPUT'):
+            with self.subTest(alias=alias):
+                report,_=self.prepare([('MAIN',main),('CHILD',child)],replay=False,
+                                      predefined_files={alias:{'name':'out','mode':'WO'}})
+                if alias=='OUTPUT':
+                    self.assertIn('condition-source',[row['code'] for row in report['unresolved']])
+                else:
+                    self.assert_task_gaps(report,['task-scheduling','task-wait'])
 
     def test_request_status_is_not_reused_as_prelaunch_task_number(self):
         main="""PROGRAM MAIN

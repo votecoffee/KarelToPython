@@ -141,6 +141,10 @@ def _routine_calls(plan, node, tick):
     kind, args = node['kind'], node['args']
     if kind == 'call':
         yield from _expression_routines(plan, args[0], tick, procedure=True)
+    elif kind == 'write_items':
+        for item in args:
+            for operand in item['args']:
+                yield from _expression_routines(plan, operand, tick)
     elif kind == 'select':
         yield from _expression_routines(plan, args[0], tick)
         for _, label in select_case_labels(node):

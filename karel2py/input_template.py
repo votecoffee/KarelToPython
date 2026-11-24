@@ -155,6 +155,7 @@ class _SavedBindings:
         self.pose_tolerance = execution.pose_tolerance
         self.external_tolerance = execution.external_tolerance
         self.config_text = execution.config_text
+        self.predefined_files = frozenset(execution.predefined_files)
         self.teach_programs = execution.teach_programs
         self.creation_storage = None
         self.namespaces = None

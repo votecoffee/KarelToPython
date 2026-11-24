@@ -220,8 +220,16 @@ class _TaskSelection:
     indices: tuple[object, ...] = ()
 
 
+@dataclass(frozen=True)
+class _TaskWrite:
+    node: dict
+    index: int = 0
+    values: tuple[_Value, ...] = ()
+    rendered_length: int = 0
+
+
 _TaskValueConsumer = (dict | _TaskSelect | _TaskForHeader | _TaskLoop | _TaskExpression |
-                      _TaskArguments | _TaskAssignment | _TaskSelection)
+                      _TaskArguments | _TaskAssignment | _TaskSelection | _TaskWrite)
 
 
 @dataclass(frozen=True)
@@ -236,7 +244,7 @@ class _TaskRoutine:
 @dataclass(eq=False, frozen=True)
 class _Suspension:
     blocks: tuple[tuple[list, int] | _TaskLoop | _TaskRoutine | _TaskSelect |
-                  _TaskForHeader | _TaskExpression | _TaskArguments | _TaskSelection, ...]
+                  _TaskForHeader | _TaskExpression | _TaskArguments | _TaskSelection | _TaskWrite, ...]
     flow: '_Flow'
 
 
@@ -4948,6 +4956,9 @@ class _Analyzer(TeachDiscovery):
                 self.finish_task_routine(blocks, child)
                 continue
             scope = rules.routine_scope(self.plan, self.frames[-1]['name']) if rules and self.frames else rules
+            if isinstance(frame, _TaskWrite):
+                self.next_task_write_item(blocks, child, scope, frame)
+                continue
             if isinstance(frame, _TaskSelection):
                 self.next_task_selection(blocks, child, scope, frame)
                 continue
@@ -4993,6 +5004,13 @@ class _Analyzer(TeachDiscovery):
                 raise _TaskOrderUnknown()
             blocks.append(_TaskArguments(call, None))
             return
+        if kind == 'write_items':
+            device = self.plan.get('default_write_file')
+            bindings = getattr(self.saved_bindings, 'predefined_files', None)
+            if device is None or bindings is None or device in bindings:
+                raise _TaskOrderUnknown()
+            blocks.append(_TaskWrite(node))
+            return
         if kind in STRUCTURED_LOOPS and scope.loop(node):
             if kind == 'for':
                 self.start_task_selection(blocks, flow, args[0], node)
@@ -5018,6 +5036,39 @@ class _Analyzer(TeachDiscovery):
         value = self.task_operand(operand, flow, scope, blocks, consumer)
         if value is not None:
             self.consume_task_value(blocks, flow, consumer, value)
+
+    def next_task_write_item(self, blocks, flow, scope, write):
+        self.tick()
+        items = write.node['args']
+        if write.index == len(items):
+            if not 1 <= len(items) <= 1024 or write.rendered_length > 254:
+                raise _TaskOrderUnknown()
+            blocks.pop()
+            return
+
+        item = items[write.index]
+        if item['kind'] == 'write_cr':
+            length = 1
+        else:
+            kind = item.get('write_type')
+            if kind not in ('INTEGER', 'REAL', 'BYTE', 'SHORT', 'BOOLEAN', 'STRING'):
+                raise _TaskOrderUnknown()
+            operands = item['args']
+            if len(write.values) < len(operands):
+                value = self.task_operand(operands[len(write.values)], flow, scope, blocks, write)
+                if value is not None:
+                    self.consume_task_value(blocks, flow, write, value)
+                return
+            if any(value.constant is UNKNOWN or value.uninitialized for value in write.values):
+                raise _TaskOrderUnknown()
+            value, *formats = (slot.constant for slot in write.values)
+            try:
+                with rt._numeric_scope('pythonic'):
+                    length = len(rt.format_write_item(kind, value, formats, item.get('line')))
+            except rt.KarelRuntimeError:
+                raise _TaskOrderUnknown() from None
+        # The runtime enforces the batch limit only after rendering every item.
+        blocks[-1] = replace(write, index=write.index + 1, values=(), rendered_length=write.rendered_length + length)
 
     def start_task_branch(self, blocks, flow, node, value):
         selected = value.constant
@@ -5250,7 +5301,9 @@ class _Analyzer(TeachDiscovery):
     def consume_task_value(self, blocks, flow, consumer, value):
         if flow.stopped or flow.opaque:
             raise _TaskOrderUnknown()
-        if isinstance(consumer, _TaskSelection):
+        if isinstance(consumer, _TaskWrite):
+            blocks[-1] = replace(consumer, values=(*consumer.values, value))
+        elif isinstance(consumer, _TaskSelection):
             blocks[-1] = replace(consumer, indices=(*consumer.indices, value.constant))
         elif isinstance(consumer, _TaskArguments):
             self.capture_task_argument(blocks, consumer, value)

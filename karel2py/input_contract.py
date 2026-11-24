@@ -152,7 +152,9 @@ def extract(source, *, inspect_entry=False):
                                                 or pair[0] == '%COMMENT' and type(pair[1]) is not str for pair in pairs)):
                 raise InputContractError('Invalid source directives')
             plan = dict(plan, source_comment=next((argument for directive, argument in pairs
-                                                   if directive == '%COMMENT'), None))
+                                                   if directive == '%COMMENT'), None),
+                        default_write_file='OUTPUT' if any(name == '%CRTDEVICE' for name, _ in pairs)
+                        else 'TPDISPLAY')
         return dict(plan, entry_checkpoint=_entry_checkpoint(tree)) if inspect_entry else plan
     except (SyntaxError, TypeError, RecursionError) as error:
         raise InputContractError('Invalid generated analysis contract: ' + str(error)) from error
@@ -182,6 +184,8 @@ def build(program, emitter):
             row['args'] = encode(value.args, depth + 1)
             if kind == 'Expr':
                 row['value'] = encode(value.value, depth + 1)
+                if value.kind == 'write_item' and id(value) in emitter.write_item_types:
+                    row['write_type'] = emitter.write_item_types[id(value)]
                 geometry_type = emitter.geometry_expression_types.get(id(value))
                 if geometry_type is not None:
                     row['geometry_result_type'] = encode(geometry_type, depth + 1)

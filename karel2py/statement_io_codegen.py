@@ -136,6 +136,7 @@ class StatementIOLowering:
             operand = selection.receiver if selection else item.args[0]
             value, spec = self.expression(operand, collection_io=True)
             data_type = spec[0]
+            self.write_item_types[id(item)] = data_type
             aggregate=data_type not in ('STRING','BOOLEAN','INTEGER','REAL',*NARROW_TYPES)
             if aggregate and (self.mode!='pythonic' or not rt.aggregate_write_type(spec)):
                 self.error('E_TYPE',f'WRITE requires scalar or resource-free aggregate data, found {data_type}',item.token)
