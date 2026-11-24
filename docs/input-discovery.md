@@ -850,6 +850,17 @@ outside the file returns status `2` and preserves the cursor.
 the available byte count and status. FILE selection, scalar arguments, and
 output selectors can pause. Each completed operand is retained for the call.
 
+Exact-name `COPY_FILE`, `RENAME_FILE`, and `DELETE_FILE` also run in checked
+child slices with a configured memory bank. The analyzer evaluates all
+inputs and the status selector before applying the operation. It follows
+success, missing source, destination conflict, and open-file status codes.
+Later opens see the updated names, and copies keep the bytes from the time
+of the copy. If retaining a copy would exceed the analysis budget, its size
+remains known. Reads through a copied or renamed saved file retain the
+original input address and keep the saved values editable. `CHECK_NAME`
+uses the runtime's portable name validation. Wildcard operations and other
+backends still require conservative discovery.
+
 A checked routine can borrow a scalar FILE, a whole FILE bank, or a selected
 row or plane, including through pinned source linkage. Argument selection
 captures the original descriptor or cells before later arguments run.

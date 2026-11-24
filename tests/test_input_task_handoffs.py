@@ -6435,6 +6435,211 @@ END CHILD
         self.assertEqual(result['status'],'paused',result['error'])
         self.assertEqual(result['context']['files']['out']['hex'],(b'B'+b'A'*65536).hex())
 
+    def test_named_file_operations_keep_arguments_and_wait_for_status_selector(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR stream:FILE codes:ARRAY[2] OF INTEGER value,s,unused:INTEGER
+    destination:STRING[20] valid:BOOLEAN
+ROUTINE source_name:STRING
+BEGIN
+  PAUSE
+  RETURN 'source'
+END source_name
+ROUTINE status_cell:INTEGER
+BEGIN
+  destination='changed'
+  OPEN FILE stream('RW','source')
+  WRITE stream('24')
+  CLOSE FILE stream
+  PAUSE
+  RETURN 2
+END status_cell
+BEGIN
+  destination='backup'
+  codes[1]=77
+  OPEN FILE stream('WO','source')
+  WRITE stream('17')
+  CLOSE FILE stream
+  COPY_FILE(source_name(),destination,FALSE,FALSE,codes[status_cell()])
+  OPEN FILE stream('UD','source')
+  WRITE stream('31')
+  CLOSE FILE stream
+  RENAME_FILE('backup','rotated',FALSE,s)
+  valid=(codes[2]=0) AND (s=0) AND (codes[1]=77)
+  DELETE_FILE('source',FALSE,s)
+  valid=valid AND (s=0)
+  OPEN FILE stream('RO','rotated')
+  READ stream(value)
+  IF valid AND (value=24) THEN
+    CLOSE FILE stream
+  ELSE
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],files={})
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling']+['task-wait','task-continuation']*2)
+        self.assertEqual(result['status'],'completed',result['error'])
+        self.assertEqual(result['programs']['CHILD']['values']['CODES'],[77,0])
+        self.assertEqual(result['context']['files'],{'rotated':{'hex':'3234'}})
+
+    def test_named_file_copy_and_rename_keep_original_saved_dependency_after_recreation(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR stream:FILE s,first,second,unused:INTEGER valid:BOOLEAN
+BEGIN
+  OPEN FILE stream('UD','seed')
+  WRITE stream('42')
+  CLOSE FILE stream
+  RENAME_FILE('seed','moved',FALSE,s)
+  valid=(s=0)
+  COPY_FILE('moved','snapshot',FALSE,FALSE,s)
+  valid=valid AND (s=0)
+  DELETE_FILE('moved',FALSE,s)
+  valid=valid AND (s=0)
+  OPEN FILE stream('RW','seed')
+  WRITE stream('1')
+  CLOSE FILE stream
+  PAUSE
+  OPEN FILE stream('RO','snapshot')
+  READ stream(first,second)
+  IF valid AND (GET_FILE_POS(stream)=5) AND NOT UNINIT(second) THEN
+    CLOSE FILE stream
+  ELSE
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],files={'seed':'17 29'})
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation'])
+        self.assertEqual([row for row in report['context_requirements'] if row['service']=='files'],
+                         [{'service':'files','address':'seed'}])
+        self.assertEqual(result['status'],'completed',result['error'])
+        values=result['programs']['CHILD']['values']
+        self.assertEqual((values['FIRST'],values['SECOND']),(42,29))
+        self.assertEqual(result['context']['files'],{'seed':{'hex':'31'},'snapshot':{'hex':'3432203239'}})
+
+    def test_exact_file_status_precedence_and_overwrite_preserve_the_namespace(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR stream:FILE codes:ARRAY[9] OF INTEGER s,value,unused:INTEGER valid:BOOLEAN
+BEGIN
+  OPEN FILE stream('WB','target')
+  WRITE stream(11::1)
+  COPY_FILE('missing','target',FALSE,FALSE,codes[1])
+  DELETE_FILE('target',FALSE,codes[2])
+  CLOSE FILE stream
+  COPY_FILE('missing','target',TRUE,FALSE,codes[3])
+  OPEN FILE stream('WB','source')
+  WRITE stream(23::1)
+  CLOSE FILE stream
+  RENAME_FILE('source','target',FALSE,codes[4])
+  COPY_FILE('source','target',FALSE,FALSE,codes[5])
+  COPY_FILE('source','target',TRUE,FALSE,codes[6])
+  DELETE_FILE('source',FALSE,codes[7])
+  DELETE_FILE('source',FALSE,codes[8])
+  CHECK_NAME('bad.ext',codes[9])
+  valid=(codes[1]=3) AND (codes[2]=3) AND (codes[3]=1) AND (codes[4]=2) AND (codes[5]=2)
+  valid=valid AND (codes[6]=0) AND (codes[7]=0) AND (codes[8]=1) AND (codes[9]=2)
+  PAUSE
+  OPEN FILE stream('RB','target')
+  READ stream(value::1)
+  IF valid AND (value=23) THEN
+    CLOSE FILE stream
+  ELSE
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],files={})
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed',result['error'])
+        self.assertEqual(result['programs']['CHILD']['values']['CODES'],[3,3,1,2,2,0,0,1,2])
+        self.assertEqual(result['context']['files'],{'target':{'hex':'17'}})
+
+    def test_named_file_copy_respects_byte_budget_without_dropping_source(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        payload=','.join(['chunk']*170)
+        child=f"""PROGRAM CHILD
+VAR stream:FILE chunk:STRING[254] s,original,value:INTEGER
+BEGIN
+  chunk='{'A'*254}'
+  OPEN FILE stream('WB','source')
+  WRITE stream({payload})
+  CLOSE FILE stream
+  COPY_FILE('source','copy',FALSE,FALSE,s)
+  OPEN FILE stream('RB','source')
+  READ stream(original::1)
+  CLOSE FILE stream
+  IF (s=0) AND (original=65) THEN
+    PAUSE
+  ENDIF
+  OPEN FILE stream('RB','copy')
+  READ stream(value::1)
+  CLOSE FILE stream
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],files={})
+        self.assertIn('task-wait',[row['code'] for row in report['unresolved']])
+        self.assertIn('task-continuation',[row['code'] for row in report['unresolved']])
+        self.assertIn('file-transport',[row['code'] for row in report['unresolved']])
+        self.assertEqual(result['status'],'completed',result['error'])
+        values=result['programs']['CHILD']['values']
+        self.assertEqual((values['ORIGINAL'],values['VALUE']),(65,65))
+
+    def test_wildcard_file_copy_leaves_following_pause_unresolved(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR s:INTEGER
+BEGIN
+  COPY_FILE('*.kl','*.saved',FALSE,FALSE,s)
+  PAUSE
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],files={'one.kl':'A'})
+        self.assertIn('condition-source',[row['code'] for row in report['unresolved']])
+        self.assertEqual(result['status'],'paused',result['error'])
+        self.assertEqual(result['context']['files'],{'one.kl':{'hex':'41'},'one.saved':{'hex':'41'}})
+
     def test_large_seeded_binary_file_reads_overlay_and_saved_neighbors_across_pause(self):
         main="""PROGRAM MAIN
 VAR s:INTEGER

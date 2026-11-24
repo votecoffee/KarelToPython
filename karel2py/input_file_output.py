@@ -16,6 +16,11 @@ _FILE_ATTRIBUTES = ('eol', 'xml', 'field', 'passall', 'noecho', 'interactive',
                     'pipe_wait', 'pipe_overflow', 'read_timeout_ms')
 
 
+def _memory_name(name):
+    return (type(name) is str and not name.upper().startswith(('PIP:', 'KB:', 'WD:'))
+            and not serial_address(name) and not message_address(name))
+
+
 @dataclass(frozen=True)
 class _MemoryOutput:
     name: str
@@ -73,6 +78,7 @@ class _ByteSpan:
 
 @dataclass(frozen=True)
 class _MemoryImage:
+    saved_name: str | None = None
     saved_size: int | None = None
     spans: tuple[_ByteSpan, ...] = ()
     saved_available: bool = True
@@ -145,7 +151,7 @@ class MemoryOutputs:
     """Keep descriptor lifetimes and bounded file images across synchronized slices."""
 
     handles: dict[FileKey, _MemoryOutput] = field(default_factory=dict)
-    sizes: dict[str, int] = field(default_factory=dict)
+    sizes: dict[str, int | None] = field(default_factory=dict)  # None masks a deleted saved name.
     # Unchanged offsets can use the saved bytes. An explicit span with no
     # payload shadows those bytes when a write exceeds the retention budget.
     images: dict[str, _MemoryImage] = field(default_factory=dict)
@@ -157,10 +163,8 @@ class MemoryOutputs:
 
     def open(self, key, backend, name, mode, line, attributes=None):
         prior = self.descriptor(key)
-        if (type(backend) is not MemoryFiles or not prior.closed or type(name) is not str or type(mode) is not str
-                or any(output.name == name and not output.closed for output in self.handles.values())
-                or name.upper().startswith(('PIP:', 'KB:', 'WD:'))
-                or serial_address(name) or message_address(name)):
+        if (type(backend) is not MemoryFiles or not prior.closed or not _memory_name(name)
+                or type(mode) is not str or self.busy(name)):
             return None
         handle = prior.format_handle()
         for attribute, value in (attributes or {}).items():
@@ -169,23 +173,88 @@ class MemoryOutputs:
             return None
         backend._check(name, b'')
         mode, handle.binary = backend._access_mode(handle, mode, line)
-        size = self.sizes.get(name)
-        initial = backend.files.get(name)
-        created = size is None and initial is None
-        if created and mode in ('R', 'UD'):
+        size = self.size_of(backend, name)
+        if size is None and mode in ('R', 'UD'):
             return None
-        if size is None:
-            size = len(initial) if initial is not None else 0
         images = self.images
-        if mode == 'W' or created:
+        if mode == 'W' or size is None:
             size = 0
             images = images | {name: _MemoryImage()}
         elif name not in images:
-            images = images | {name: _MemoryImage(saved_size=size)}
+            images = images | {name: _MemoryImage(saved_name=name, saved_size=size)}
         position = size if mode in ('A', 'AP') else 0
         output = replace(prior, name=name, mode=mode, position=position, closed=False,
                          append_ready=False).with_attributes(handle)
         return MemoryOutputs(self.handles | {key: output}, self.sizes | {name: size}, images)
+
+    def size_of(self, backend, name):
+        if name in self.sizes:
+            return self.sizes[name]
+        initial = backend.files.get(name)
+        return len(initial) if initial is not None else None
+
+    def busy(self, name):
+        return any(output.name == name and not output.closed for output in self.handles.values())
+
+    def image_budget(self, name, *, tick):
+        others = [image for path, image in self.images.items() if path != name]
+        used_spans = sum(len(image.spans) for image in others)
+        tick(used_spans)
+        used_bytes = sum(image.retained_bytes for image in others)
+        return _MAX_IMAGE_BYTES - used_bytes, _MAX_IMAGE_SPANS - used_spans
+
+    def manage(self, backend, operation, operands, *, tick):
+        if type(backend) is not MemoryFiles:
+            return None
+        deleting = operation == 'DELETE_FILE'
+        copying = operation == 'COPY_FILE'
+        names = operands[:1] if deleting else operands[:2]
+        flags = operands[len(names):]
+        if (any(not _memory_name(name) or '*' in name or '?' in name for name in names)
+                or any(type(flag) is not bool for flag in flags)):
+            return None
+        source = names[0]
+        if not deleting:
+            target = names[1]
+            if copying:
+                backend._check(source, b'')
+            backend._check(target, b'')
+        if any(self.busy(name) for name in names):
+            return self, 3, ()
+        source_size = self.size_of(backend, source)
+        if source_size is None:
+            return self, 1, ()
+
+        # The saved name remains the input address even if a file was copied or renamed.
+        dependencies = set()
+        for name in names:
+            image = self.images.get(name)
+            if image is not None:
+                origin = image.saved_name
+            else:
+                origin = name if name not in self.sizes and name in backend.files else None
+            if origin is not None:
+                dependencies.add(origin)
+        dependencies = tuple(sorted(dependencies))
+        if not deleting and self.size_of(backend, target) is not None and not (copying and flags[0]):
+            return self, 2, dependencies
+
+        sizes, images = self.sizes.copy(), self.images.copy()
+        if not deleting:
+            image = images.get(source)
+            if image is None:
+                image = _MemoryImage(saved_name=source, saved_size=source_size)
+            if copying:
+                byte_budget, span_budget = self.image_budget(target, tick=tick)
+                tick(len(image.spans))
+                if image.retained_bytes > byte_budget or len(image.spans) > span_budget:
+                    image = replace(image, spans=(), saved_available=False)
+            images[target] = image
+            sizes[target] = source_size
+        if not copying:
+            sizes[source] = None
+            images.pop(source, None)
+        return replace(self, sizes=sizes, images=images), 0, dependencies
 
     def descriptor(self, key):
         return self.handles.get(key, _FRESH_HANDLE)
@@ -209,11 +278,8 @@ class MemoryOutputs:
         images = self.images
         if payload.size:
             image = images[name]
-            others = [other for path, other in images.items() if path != name]
-            other_spans = sum(len(other.spans) for other in others)
-            tick(other_spans + len(image.spans))
-            byte_budget = _MAX_IMAGE_BYTES - sum(other.retained_bytes for other in others)
-            span_budget = _MAX_IMAGE_SPANS - other_spans
+            byte_budget, span_budget = self.image_budget(name, tick=tick)
+            tick(len(image.spans))
             modified = image.overwrite(start, payload, output.format_handle(), byte_budget, span_budget, tick=tick)
             images = images | {name: modified}
         handle = replace(output, position=end, append_ready=output.append_ready or (output.mode == 'AP' and payload.size > 0))
@@ -226,7 +292,7 @@ class MemoryOutputs:
                 or output.mode == 'AP' and not output.append_ready or dict(output.attributes).get('xml')):
             return None
         image = self.images[output.name]
-        saved = backend.files.get(output.name)
+        saved = backend.files.get(image.saved_name)
         size = self.sizes[output.name]
         rt._read_line_breaks(len(targets), breaks, line)
         start = output.position
@@ -266,7 +332,7 @@ class MemoryOutputs:
         updated = replace(self, handles=self.handles | {key: replace(output, position=end)})
         # A saved file can also determine where an append or an end-relative
         # seek lands. Keep values from those seeded files editable.
-        return updated, checked, image.saved_size is not None
+        return updated, checked, image.saved_name
 
     def set_attribute(self, key, attribute, value, line):
         output = self.descriptor(key)

@@ -17,6 +17,7 @@ from .extended import (
     ZERO_BASED_PORTS, ProgramAttributes, _parse_system_variable_path, path_conversion_layout, path_node_size, port_value,
 )
 from .file_io import MAX_PATH_IO_FIELDS, path_io_field_count, path_io_indexes
+from .fileops import check_name
 from .input_contract import extract, InputContractError
 from .input_file_output import FileKey, MemoryOutputs
 from .input_model_transfers import evaluate_model_paths, evaluate_model_variables
@@ -26,7 +27,8 @@ from .input_position_values import (
 )
 from .input_task_segments import (
     FILE_TASK_QUERIES, STRUCTURED_LOOPS, TASK_DATA_AGGREGATES, TASK_ROUTINE_VALUES, bind_repeat_samples, bounded_child,
-    explicit_pause, file_task_procedure, path_copy_task_call, path_task_storage, queue_task_call, queue_task_storage,
+    explicit_pause, file_task_procedure, named_file_task_procedure, path_copy_task_call, path_task_storage,
+    queue_task_call, queue_task_storage,
     repeat_capture_parts, resolve_routine,
     scalar_task_operator,
     select_case_labels,
@@ -298,6 +300,12 @@ class _TaskFile:
 
 
 @dataclass(frozen=True)
+class _TaskNamedFile:
+    node: dict
+    values: tuple[object, ...] = ()
+
+
+@dataclass(frozen=True)
 class _TaskWrite:
     node: dict
     file_key: FileKey | None = None
@@ -387,7 +395,8 @@ class _TaskCollectionWrite:
 _TaskValueConsumer = (dict | _TaskSelect | _TaskForHeader | _TaskLoop | _TaskExpression |
                       _TaskArguments | _TaskAssignment | _TaskSelection | _TaskResultSelection |
                       _TaskArrayLength | _TaskWrite | _TaskRepeatCapture | _TaskQueueCall | _TaskCollectionWrite |
-                      _TaskFile | _TaskRead | _TaskPathRead | _TaskPathCopy | _TaskPathAssignment | _TaskPathLength |
+                      _TaskFile | _TaskNamedFile | _TaskRead | _TaskPathRead | _TaskPathCopy |
+                      _TaskPathAssignment | _TaskPathLength |
                       _TaskQueueAssignment | _TaskQueueUninit | _TaskScalarUninit | _TaskUsing)
 
 
@@ -404,7 +413,8 @@ class _TaskRoutine:
 class _Suspension:
     blocks: tuple[tuple[list, int] | _TaskLoop | _TaskRoutine | _TaskSelect |
                   _TaskForHeader | _TaskExpression | _TaskArguments | _TaskSelection | _TaskWrite |
-                  _TaskQueueCall | _TaskCollectionWrite | _TaskFile | _TaskRead | _TaskPathRead | _TaskPathCopy |
+                  _TaskQueueCall | _TaskCollectionWrite | _TaskFile | _TaskNamedFile | _TaskRead |
+                  _TaskPathRead | _TaskPathCopy |
                   _TaskUsing, ...]
     flow: '_Flow'
 
@@ -5215,6 +5225,9 @@ class _Analyzer(TeachDiscovery):
             if isinstance(frame, _TaskFile):
                 self.next_task_file(blocks, child, scope, frame)
                 continue
+            if isinstance(frame, _TaskNamedFile):
+                self.next_task_named_file(blocks, child, scope, frame)
+                continue
             if isinstance(frame, _TaskCollectionWrite):
                 self.next_task_collection_write(blocks, child, scope, frame)
                 continue
@@ -5288,6 +5301,9 @@ class _Analyzer(TeachDiscovery):
                 return
             if file_task_procedure(self.plan, builtin):
                 self.start_task_file(blocks, flow, scope, builtin)
+                return
+            if named_file_task_procedure(self.plan, builtin):
+                blocks.append(_TaskNamedFile(builtin))
                 return
             call = scope.procedure_call(builtin)
             if call is None:
@@ -5468,6 +5484,43 @@ class _Analyzer(TeachDiscovery):
         if outputs is None:
             raise _TaskOrderUnknown()
         flow.task_file_outputs = outputs
+
+    def next_task_named_file(self, blocks, flow, scope, pending):
+        self.tick()
+        node, values = pending.node, pending.values
+        args = node['args']
+        index = len(values)
+        if index < len(args) - 1:
+            value = self.task_operand(args[index], flow, scope, blocks, pending)
+            if value is not None:
+                self.consume_task_value(blocks, flow, pending, value)
+            return
+        if index == len(args) - 1:
+            self.start_task_selection(blocks, flow, args[-1], pending)
+            return
+
+        *operands, status = values
+        try:
+            if node['value'] == 'CHECK_NAME':
+                if type(operands[0]) is not str:
+                    raise _TaskOrderUnknown()
+                code = check_name(operands[0], node.get('line'))
+            else:
+                outputs = flow.task_file_outputs
+                if outputs is None:
+                    raise _TaskOrderUnknown()
+                backend = getattr(self.saved_bindings, 'memory_files', None)
+                self.tick(len(outputs.handles) + len(outputs.sizes))
+                result = outputs.manage(backend, node['value'], operands, tick=self.tick)
+                if result is None:
+                    raise _TaskOrderUnknown()
+                flow.task_file_outputs, code, dependencies = result
+                for address in dependencies:
+                    self.context('files', address)
+        except rt.KarelRuntimeError:
+            raise _TaskOrderUnknown() from None
+        self.write(status, _Value(code, spec=['INTEGER']), flow, node)
+        blocks.pop()
 
     def apply_task_file_procedure(self, flow, pending, outputs):
         node, key, values = pending.node, pending.key, pending.values
@@ -5722,9 +5775,10 @@ class _Analyzer(TeachDiscovery):
             raise _TaskOrderUnknown() from None
         if prepared is None:
             raise _TaskOrderUnknown()
-        flow.task_file_outputs, values, depends_on_saved = prepared
+        flow.task_file_outputs, values, saved_name = prepared
+        depends_on_saved = saved_name is not None
         if depends_on_saved:
-            self.context('files', outputs.descriptor(read.file_key).name)
+            self.context('files', saved_name)
         for key, (snapshot, offset) in queue_groups.items():
             entries = tuple(
                 (entry_id, UNKNOWN if depends_on_saved else values[offset + index])
@@ -6549,6 +6603,10 @@ class _Analyzer(TeachDiscovery):
                 blocks[-1] = replace(consumer, values=(*consumer.values, loc))
             else:
                 raise _TaskOrderUnknown()
+        elif isinstance(consumer, _TaskNamedFile):
+            if loc.spec != ['INTEGER']:
+                raise _TaskOrderUnknown()
+            blocks[-1] = replace(consumer, values=(*consumer.values, loc))
         elif isinstance(consumer, _TaskRead):
             _, root = _array_dimensions(loc.root_spec)
             _, terminal = _array_dimensions(loc.spec)
@@ -6942,7 +7000,7 @@ class _Analyzer(TeachDiscovery):
                 raise _TaskOrderUnknown()
             key = value.root if value.kind == 'predefined-file' else value.key
             blocks[-1] = replace(consumer, key=key)
-        elif isinstance(consumer, (_TaskPathRead, _TaskFile)):
+        elif isinstance(consumer, (_TaskPathRead, _TaskFile, _TaskNamedFile)):
             blocks[-1] = replace(consumer, values=(*consumer.values, value.constant))
         elif isinstance(consumer, _TaskRead):
             blocks[-1] = replace(consumer, formats=(*consumer.formats, value.constant))
