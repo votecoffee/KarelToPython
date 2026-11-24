@@ -858,6 +858,14 @@ direction, including a known out-of-range status. A bounded PATH `WRITE` also
 keeps the source descriptor selected before its bounds ran. These transfers
 can follow a descriptor replaced by another checked `COPY_PATH`.
 
+Checked routines can return detached PATHs and PATH ARRAYs with matching
+schemas. The return captures records before the routine's local storage is
+released. These results can feed assignments, value arguments, `COPY_PATH`
+sources, and bounded `WRITE` transfers. Selectors and `PATH_LEN` or
+`ARRAY_LEN` use the returned records and concrete dimensions, including
+after another pause. A returned PATH can carry shaped records whose scalar
+fields are filled later by a FILE read.
+
 Memory FILE `READ` can also replace values in initialized queues and selected
 queue banks. Banks are visited in row-major order, and initialized
 queues with no entries consume no fields. A batch needs at least one existing

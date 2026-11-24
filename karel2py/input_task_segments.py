@@ -109,7 +109,7 @@ def resolve_routine(plan, linked_plans, name, interface):
     return target, routine
 
 
-def _direct_routine_call(plan, operand, *, procedure=False, results=TASK_ROUTINE_VALUES):
+def _direct_routine_call(plan, operand, *, procedure=False, results=TASK_ROUTINE_VALUES | {'PATH'}):
     call = _ungroup(operand)
     routine = plan['routines'].get(call['value']) if call is not None and call['kind'] == 'call' else None
     if routine is None:
@@ -446,6 +446,12 @@ class _SegmentRules:
 
     def data_routine_call(self, operand):
         return self.checked_routine_call(_direct_routine_call(self.plan, operand, results=TASK_DATA_AGGREGATES))
+
+    def path_routine_call(self, operand):
+        call = _direct_routine_call(self.plan, operand, results={'ARRAY', 'PATH'})
+        if call is not None and path_task_storage(self.plan['routines'][call['value']]['result']):
+            return self.checked_routine_call(call)
+        return None
 
     def checked_routine_call(self, call):
         if call is None:

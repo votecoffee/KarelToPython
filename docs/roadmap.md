@@ -94,6 +94,8 @@ bank shape queries use the selected storage.
 PATH assignment and same-schema `COPY_PATH` retain their respective
 snapshots and descriptors across pauses. Bounded PATH `WRITE` follows
 descriptors replaced while its bounds run.
+Detached PATH and PATH ARRAY results feed checked assignments, value
+arguments, selectors, shape queries, and bounded transfers across pauses.
 Queue reads cover existing entries in initialized queues and bank selections,
 preserving IDs and releasing the previous backing ARRAY. Discovery follows
 saved queue topology through edits and copies and retains the saved root

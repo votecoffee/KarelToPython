@@ -5817,6 +5817,224 @@ END CHILD
         self.assertEqual(result['text_output'],' 17')
         self.assertEqual(result['programs']['CHILD']['values']['SOURCE']['nodes'],[{'AMOUNT':88}])
 
+    def test_copy_path_accepts_pausing_pinned_path_result(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+TYPE node_t=STRUCTURE amount:INTEGER ENDSTRUCTURE
+     head_t=STRUCTURE total:INTEGER ENDSTRUCTURE
+     route_t=PATH NODEDATA=node_t PATHHEADER=head_t
+VAR target:route_t s,unused:INTEGER
+ROUTINE make_route:route_t FROM LIB
+ROUTINE first_bound:INTEGER
+BEGIN
+  PAUSE
+  RETURN 2
+END first_bound
+BEGIN
+  COPY_PATH(make_route(),first_bound(),1,target,s)
+  IF (s=0) AND (PATH_LEN(target)=2) AND (target.total=7) AND (target[1].amount=19) THEN
+    WRITE(target[2].amount)
+  ELSE
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        library="""PROGRAM LIB
+TYPE node_t=STRUCTURE amount:INTEGER ENDSTRUCTURE
+     head_t=STRUCTURE total:INTEGER ENDSTRUCTURE
+     route_t=PATH NODEDATA=node_t PATHHEADER=head_t
+ROUTINE make_route:route_t
+VAR route:route_t seed:node_t s:INTEGER
+BEGIN
+  route.total=7
+  seed.amount=17
+  APPEND_NODE(route,seed,s)
+  PAUSE
+  seed.amount=19
+  APPEND_NODE(route,seed,s)
+  RETURN route
+END make_route
+BEGIN
+END LIB
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child),('LIB',library)])
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling']+['task-wait','task-continuation']*2)
+        self.assertEqual(result['status'],'completed',result['error'])
+        self.assertEqual(result['text_output'],' 17')
+        self.assertEqual(result['programs']['CHILD']['values']['TARGET'],
+                         {'data':{'TOTAL':7},'nodes':[{'AMOUNT':19},{'AMOUNT':17}]})
+
+    def test_returned_path_bank_flows_through_call_assignment_and_pausing_selection(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+TYPE node_t=STRUCTURE amount:INTEGER ENDSTRUCTURE
+     head_t=STRUCTURE total:INTEGER ENDSTRUCTURE
+     route_t=PATH NODEDATA=node_t PATHHEADER=head_t
+VAR target:ARRAY[2] OF route_t picked,unused:INTEGER valid:BOOLEAN
+ROUTINE make_bank:ARRAY OF route_t
+VAR local_bank:ARRAY[2] OF route_t seed:node_t s:INTEGER
+BEGIN
+  seed.amount=23
+  local_bank[1].total=7
+  local_bank[2].total=9
+  APPEND_NODE(local_bank[2],seed,s)
+  PAUSE
+  RETURN local_bank
+END make_bank
+ROUTINE forward(bank:ARRAY OF route_t):ARRAY OF route_t
+BEGIN
+  RETURN bank
+END forward
+ROUTINE choose_cell:INTEGER
+BEGIN
+  PAUSE
+  RETURN 2
+END choose_cell
+BEGIN
+  target=forward(make_bank())
+  picked=make_bank()[choose_cell(),1].amount
+  valid=(ARRAY_LEN(forward(target))=2) AND (PATH_LEN(forward(target)[2])=1)
+  IF valid AND (target[2].total=9) AND (picked=23) THEN
+    WRITE(picked)
+  ELSE
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling']+['task-wait','task-continuation']*3)
+        self.assertEqual(result['status'],'completed',result['error'])
+        values=result['programs']['CHILD']['values']
+        self.assertEqual(values['TARGET'],[{'data':{'TOTAL':7},'nodes':[]},
+                                          {'data':{'TOTAL':9},'nodes':[{'AMOUNT':23}]}])
+        self.assertEqual(values['PICKED'],23)
+
+    def test_path_return_assignment_preserves_partial_record_for_binary_read(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+TYPE node_t=STRUCTURE amount:INTEGER ENDSTRUCTURE
+     head_t=STRUCTURE total:INTEGER ENDSTRUCTURE
+     route_t=PATH NODEDATA=node_t PATHHEADER=head_t
+VAR target:route_t stream:FILE s,unused:INTEGER
+ROUTINE make_route:route_t
+VAR route:route_t status:INTEGER
+BEGIN
+  route.total=7
+  APPEND_NODE(route,status)
+  PAUSE
+  RETURN route
+END make_route
+BEGIN
+  target=make_route()
+  OPEN FILE stream('RWB','out')
+  WRITE stream(31)
+  SET_FILE_POS(stream,0,s)
+  READ stream(target[1])
+  CLOSE FILE stream
+  IF (PATH_LEN(target)=1) AND (target.total=7) AND (target[1].amount=31) THEN
+    WRITE(target[1].amount)
+  ELSE
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],files={})
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed',result['error'])
+        self.assertEqual(result['programs']['CHILD']['values']['TARGET'],
+                         {'data':{'TOTAL':7},'nodes':[{'AMOUNT':31}]})
+        self.assertEqual(result['context']['files'],{'out':{'hex':'1f000000'}})
+
+    def test_write_path_result_range_and_bank_keep_detached_values_across_pauses(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+TYPE node_t=STRUCTURE amount:INTEGER ENDSTRUCTURE
+     head_t=STRUCTURE total:INTEGER ENDSTRUCTURE
+     route_t=PATH NODEDATA=node_t PATHHEADER=head_t
+VAR visits,unused:INTEGER
+ROUTINE make_route:route_t
+VAR route:route_t seed:node_t s:INTEGER
+BEGIN
+  route.total=3
+  seed.amount=17
+  APPEND_NODE(route,seed,s)
+  seed.amount=19
+  APPEND_NODE(route,seed,s)
+  PAUSE
+  RETURN route
+END make_route
+ROUTINE first_bound:INTEGER
+BEGIN
+  visits=visits+1
+  PAUSE
+  RETURN 2
+END first_bound
+ROUTINE make_bank:ARRAY OF route_t
+VAR bank:ARRAY[2] OF route_t s:INTEGER
+BEGIN
+  bank[1].total=8
+  bank[2].total=9
+  APPEND_NODE(bank[2],s)
+  bank[2,1].amount=42
+  PAUSE
+  RETURN bank
+END make_bank
+BEGIN
+  visits=0
+  WRITE(make_route()[first_bound()..0],'|',make_bank())
+  IF visits<>1 THEN
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling']+['task-wait','task-continuation']*3)
+        self.assertEqual(result['status'],'completed',result['error'])
+        self.assertEqual(result['text_output'],' 19 17 3| 8 9 42')
+        self.assertEqual(result['programs']['CHILD']['values']['VISITS'],1)
+
     def test_request_status_is_not_reused_as_prelaunch_task_number(self):
         main="""PROGRAM MAIN
 VAR task_no,s:INTEGER text:STRING[8]
