@@ -102,7 +102,10 @@ flat slices keep private snapshots for matching schemas. PATH count and
 bank shape queries use the selected storage.
 PATH assignment and same-schema `COPY_PATH` retain their respective
 snapshots and descriptors across pauses. Bounded PATH `WRITE` follows
-descriptors replaced while its bounds run.
+descriptors replaced while its bounds run. Direct PATH subscripts retain the
+loaded descriptor through pausing indexes and checked `COPY_PATH` replacement.
+A later index into a node's ordinary ARRAY field keeps the selected record
+through known node moves or deletions.
 Detached PATH and PATH ARRAY results feed checked assignments, value
 arguments, selectors, shape queries, and bounded transfers across pauses.
 Queue reads cover existing entries in initialized queues and bank selections,

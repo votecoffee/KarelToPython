@@ -194,8 +194,8 @@ conservative analysis. Checked handoffs also leave recursive calls,
 other resource arguments and selectors, model-backed or unproven
 data conversions, other FILE transports and selectors, and pausing `EVAL`
 captures for resource banks, queues, and FILEs unresolved.
-Unproven PATH topology, ambiguous PATH descriptor changes, and saved
-queue contents also use conservative analysis. Shared globals in called
+Unproven PATH topology or descriptor history, and untracked queue
+contents, use conservative analysis. Shared globals in called
 library modules and retained `USING` aliases in deferred callbacks still
 require review.
 
@@ -888,6 +888,15 @@ flag are evaluated. It follows whole copies and inclusive ranges in either
 direction, including a known out-of-range status. A bounded PATH `WRITE` also
 keeps the source descriptor selected before its bounds ran. These transfers
 can follow a descriptor replaced by another checked `COPY_PATH`.
+
+A direct node subscript keeps the PATH loaded before its index runs. If
+the index pauses and a checked `COPY_PATH` replaces the live descriptor,
+discovery selects from the original list and checks its bounds. A borrowed
+node slot still belongs to that original list. Reads and assignments through
+an old field use that record's storage. A later index into an ordinary ARRAY
+field also keeps the selected record if the PATH node moves or is deleted.
+Flat bank coordinates, including chained coordinates normalized to a flat
+list, select the PATH cell after all their index expressions run.
 
 Checked routines can return detached PATHs and PATH ARRAYs with matching
 schemas. The return captures records before the routine's local storage is

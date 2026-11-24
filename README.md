@@ -3,7 +3,7 @@
 ![KarelToPython icon](karel2py/assets/icons/karel_to_python_icon_64x64.png)
 
 KarelToPython translates a supported subset of FANUC KAREL into Python for
-offline inspection and execution. The current build is **26.1124.183340**.
+offline inspection and execution. The current build is **26.1124.185558**.
 
 ## Table of Contents
 
@@ -114,7 +114,9 @@ their selected records through known edits. PATH assignment and same-schema
 `COPY_PATH` retain their operands across pauses. PATH and queue results, including banks, can feed assignments,
 routine calls, selectors, and output.
 Console `WRITE` follows pausing PATH and queue selectors and PATH range bounds.
-It preserves the captured records and entries while format routines run.
+Direct subscripts retain a PATH already selected before a pausing index.
+The analyzer also preserves captured records and entries while format
+routines run.
 Linked discovery also follows text and binary `READ` and `WRITE` on memory files. It
 tracks predefined routes and source-declared FILE cells through attributes,
 open, seek, availability queries, close, and reopen. Direct FILE arguments
