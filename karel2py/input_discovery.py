@@ -183,6 +183,14 @@ class _TaskLoop:
 
 
 @dataclass(frozen=True)
+class _TaskUsing:
+    node: dict
+    owner: str
+    bindings: tuple[_Location, ...] = ()
+    entered: bool = False
+
+
+@dataclass(frozen=True)
 class _TaskRepeatCapture:
     terms: tuple[dict, ...]
     predicate: dict
@@ -362,7 +370,7 @@ _TaskValueConsumer = (dict | _TaskSelect | _TaskForHeader | _TaskLoop | _TaskExp
                       _TaskArguments | _TaskAssignment | _TaskSelection | _TaskResultSelection |
                       _TaskArrayLength | _TaskWrite | _TaskRepeatCapture | _TaskQueueCall | _TaskCollectionWrite |
                       _TaskFile | _TaskRead | _TaskPathRead | _TaskPathCopy | _TaskPathAssignment | _TaskPathLength |
-                      _TaskQueueAssignment | _TaskQueueUninit)
+                      _TaskQueueAssignment | _TaskQueueUninit | _TaskUsing)
 
 
 @dataclass(frozen=True)
@@ -378,7 +386,8 @@ class _TaskRoutine:
 class _Suspension:
     blocks: tuple[tuple[list, int] | _TaskLoop | _TaskRoutine | _TaskSelect |
                   _TaskForHeader | _TaskExpression | _TaskArguments | _TaskSelection | _TaskWrite |
-                  _TaskQueueCall | _TaskCollectionWrite | _TaskFile | _TaskRead | _TaskPathRead | _TaskPathCopy, ...]
+                  _TaskQueueCall | _TaskCollectionWrite | _TaskFile | _TaskRead | _TaskPathRead | _TaskPathCopy |
+                  _TaskUsing, ...]
     flow: '_Flow'
 
 
@@ -680,6 +689,7 @@ class _Analyzer(TeachDiscovery):
         self.task_roots = (plan['program'],)
         self.suspended_depth = 0
         self.checked_child_segment = False
+        self.task_blocks = ()
         self.capture_values = {}
         self.track_handlers = track_handlers
         self.saw_handler = False
@@ -1319,6 +1329,8 @@ class _Analyzer(TeachDiscovery):
         kind=expr.get('kind');args=expr.get('args',[])
         if 'token' in expr:return self.slot(expr['token'],expr,flow,capture_node=capture_node)
         if kind=='name':return self.slot(expr['value'],expr,flow,capture_node=capture_node)
+        if kind == 'using_ref':
+            return self.task_using_location(expr)
         if kind=='group':
             return self.locate(args[0], flow, conditional, path_io=path_io, capture_node=capture_node,
                                selector_path_edits=selector_path_edits, reading=reading)
@@ -5116,8 +5128,9 @@ class _Analyzer(TeachDiscovery):
         depth = self.suspended_depth + len(self.frames) + 1
         caller_plan, caller_roots, caller_depth = self.plan, self.task_roots, self.suspended_depth
         caller_frames, caller_exits, caller_values = self.frames, self.exits, self.capture_values
-        caller_checked_segment = self.checked_child_segment
+        caller_checked_segment, caller_blocks = self.checked_child_segment, self.task_blocks
         self.checked_child_segment = rules is not None
+        self.task_blocks = ()
         self.plan, self.task_roots, self.suspended_depth = plan, (*caller_roots, plan['program']), depth
         self.frames, self.exits, self.capture_values = [], [], {}
         try:
@@ -5131,6 +5144,7 @@ class _Analyzer(TeachDiscovery):
                 child.requested_tasks = shared.requested_tasks.copy()
                 child.task_file_outputs = shared.task_file_outputs
             blocks = list(suspension.blocks) if suspension is not None else [(plan['body'], 0)]
+            self.task_blocks = blocks
             self.frames = [block.frame for block in blocks if isinstance(block, _TaskRoutine)]
             self.plan = self.task_frame_plan()
             cursor = self.scheduled_segment(blocks, child, rules)
@@ -5138,7 +5152,7 @@ class _Analyzer(TeachDiscovery):
         finally:
             self.plan, self.task_roots, self.suspended_depth = caller_plan, caller_roots, caller_depth
             self.frames, self.exits, self.capture_values = caller_frames, caller_exits, caller_values
-            self.checked_child_segment = caller_checked_segment
+            self.checked_child_segment, self.task_blocks = caller_checked_segment, caller_blocks
 
     def task_frame_plan(self):
         owner = self.frames[-1]['key'][0] if self.frames else self.task_roots[-1]
@@ -5202,6 +5216,9 @@ class _Analyzer(TeachDiscovery):
             if isinstance(frame, _TaskLoop):
                 self.next_task_iteration(blocks, child, scope, frame)
                 continue
+            if isinstance(frame, _TaskUsing):
+                self.next_task_using(blocks, child, scope, frame)
+                continue
             body, index = frame
             if index == len(body):
                 blocks.pop()
@@ -5256,6 +5273,13 @@ class _Analyzer(TeachDiscovery):
             return
         if kind in ('file_open', 'file_read', 'file_write', 'file_close') and args[0] is not None:
             self.start_task_file(blocks, flow, scope, node)
+            return
+        if kind == 'using':
+            captures = node.get('using_captures')
+            if not captures or len(captures) != len(args):
+                raise _TaskOrderUnknown()
+            self.serial += 1
+            blocks.append(_TaskUsing(node, '@USING:' + str(self.serial)))
             return
         if kind in STRUCTURED_LOOPS and scope.loop(node):
             if kind == 'for':
@@ -5478,6 +5502,49 @@ class _Analyzer(TeachDiscovery):
         records = self.task_path_range_records(pending.location, pending.operand, pending.values, flow)
         blocks.pop()
         self.capture_task_read_leaves(blocks, records, flow)
+
+    def task_using_scopes(self):
+        for frame in reversed(self.task_blocks):
+            self.tick()
+            if isinstance(frame, _TaskRoutine):
+                break
+            if isinstance(frame, _TaskUsing) and frame.entered:
+                yield frame
+
+    def task_using_location(self, node):
+        name, spec = node['value'][:2]
+        for frame in self.task_using_scopes():
+            for (binding, _), loc in zip(frame.node['using_captures'], frame.bindings):
+                self.tick()
+                if binding == name:
+                    return self.checked_task_selection(loc if loc.spec == spec else None)
+        return self.checked_task_selection(None)
+
+    def close_task_using(self, flow, using):
+        if any(loc.owner == using.owner for loc in using.bindings):
+            self.clear_routine_storage(flow, using.owner)
+
+    def next_task_using(self, blocks, flow, scope, using):
+        self.tick()
+        if using.entered:
+            blocks.pop()
+            self.close_task_using(flow, using)
+            return
+        index = len(using.bindings)
+        if index == len(using.node['args']):
+            blocks[-1] = replace(using, entered=True)
+            blocks.append((using.node['body'], 0))
+            return
+        selector = using.node['args'][index]
+        _, mode = using.node['using_captures'][index]
+        if mode == 'storage_reference':
+            self.start_task_selection(blocks, flow, selector, using)
+        elif mode == 'computed_value':
+            value = self.task_data_operand(selector, flow, scope, blocks, using)
+            if value is not None:
+                self.consume_task_value(blocks, flow, using, value)
+        else:
+            raise _TaskOrderUnknown()
 
     def next_task_path_copy(self, blocks, flow, scope, pending):
         self.tick()
@@ -6257,6 +6324,11 @@ class _Analyzer(TeachDiscovery):
             else:
                 value = self.read_task_scalar(loc, selection.node, flow)
             self.consume_task_value(blocks, flow, consumer, value)
+        elif isinstance(consumer, _TaskUsing):
+            if loc.spec[0] not in rt.RECORD_TYPES or path_task_storage(loc.root_spec):
+                raise _TaskOrderUnknown()
+            self.task_data_schema(loc.spec)
+            blocks[-1] = replace(consumer, bindings=(*consumer.bindings, loc))
         elif isinstance(consumer, (_TaskArguments, _TaskQueueCall)):
             if isinstance(consumer, _TaskArguments):
                 index = len(consumer.actuals)
@@ -6351,7 +6423,10 @@ class _Analyzer(TeachDiscovery):
         else:
             local_owner = self.frames[-1]['owner'] if self.frames else None
             owned = (('variable', self.program), ('local', local_owner))
-            if (loc.kind, loc.owner) not in owned or loc.spec[0] not in INTEGRAL_TYPES:
+            if loc.spec[0] not in INTEGRAL_TYPES:
+                raise _TaskOrderUnknown()
+            if (loc.kind, loc.owner) not in owned and not (
+                    loc.kind == 'local' and any(scope.owner == loc.owner for scope in self.task_using_scopes())):
                 raise _TaskOrderUnknown()
             blocks.append(_TaskForHeader(consumer, loc))
 
@@ -6597,6 +6672,8 @@ class _Analyzer(TeachDiscovery):
             frame = blocks.pop()
             if isinstance(frame, _TaskLoop) and frame.counter is not None:
                 self.clear_task_counter(frame.counter, frame.node, flow)
+            elif isinstance(frame, _TaskUsing):
+                self.close_task_using(flow, frame)
         blocks[-1] = replace(blocks[-1], result=value)
 
     def finish_task_routine(self, blocks, flow):
@@ -6620,6 +6697,16 @@ class _Analyzer(TeachDiscovery):
                 self.capture_task_write_aggregate(blocks, consumer, value)
             else:
                 blocks[-1] = replace(consumer, values=(*consumer.values, value))
+        elif isinstance(consumer, _TaskUsing):
+            if not isinstance(value, _Value):
+                raise _TaskOrderUnknown()
+            spec = self.checked_task_data_capture(value)
+            if spec[0] not in rt.RECORD_TYPES:
+                raise _TaskOrderUnknown()
+            name, _ = consumer.node['using_captures'][len(consumer.bindings)]
+            loc = _Location('local', consumer.owner, name, spec=value.spec, root_spec=value.spec)
+            self.write(loc, value, flow, consumer.node, shaped_record=True)
+            blocks[-1] = replace(consumer, bindings=(*consumer.bindings, loc))
         elif isinstance(consumer, _TaskRepeatCapture):
             if not isinstance(value, _Value):
                 raise _TaskOrderUnknown()

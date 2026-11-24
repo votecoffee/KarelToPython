@@ -146,6 +146,13 @@ final-bound call, and reads the start from the same cell after that call
 returns. The captured counter can be an integral field in a known PATH
 header or node, including one selected through a PATH ARRAY. Normal loop
 cleanup clears the originally selected field.
+In a checked child, `USING` evaluates selectors once, from left to right.
+Borrowed ordinary data records retain their selected storage. Computed
+records occupy private writable storage, including partially initialized
+results from pinned routines. Nested scopes retain their lexical bindings
+through pauses, and an integral field may serve as a `FOR` counter. A return
+clears active counters before releasing private bindings. Re-translate
+existing modules to include the selector capture modes.
 A pausing test runs before each `WHILE` body or after each `REPEAT` body.
 At the first `REPEAT` test, scalar, ordinary aggregate, and scalar PATH `EVAL`
 operands run in source order, with nested captures evaluated before their
@@ -171,7 +178,7 @@ data conversions, other FILE transports and selectors, and pausing `EVAL`
 captures for resource banks, queues, and FILEs unresolved.
 Unproven PATH topology, ambiguous PATH descriptor changes, and saved
 queue contents also use conservative analysis. Shared globals in called
-library modules and USING counter captures still require review.
+library modules and `USING` bindings into PATH storage still require review.
 
 Discovery evaluates signal and wait selectors and can track known pauses
 across a delay or simple event wait. A signal or delay alone does not

@@ -66,7 +66,9 @@ conditional. Linked discovery follows known paused entries and explicit
 child pauses at the top level, in known `IF` and `SELECT` arms, and in
 bounded `FOR`, `WHILE`, and `REPEAT` iterations. A child can retain an
 integral `FOR` counter in an owned variable, ordinary ARRAY cell, STRUCTURE
-field, or known PATH header or node field. Procedure calls, scalar expressions, and ordinary aggregate
+field, or known PATH header or node field. `USING` also retains borrowed
+and private ordinary record fields, including counters and nested scopes.
+Procedure calls, scalar expressions, and ordinary aggregate
 arguments can retain nested frames across pauses, including calls to pinned
 linked modules. Ordinary aggregate results can feed another call, console
 `WRITE`, an assignment, or a field or array selection. Checked data conversions
@@ -120,7 +122,7 @@ document and reports changed, omitted and unresolved inputs.
    conversions, FILE reads of untracked data and specialized
    PATH fields, additional FILE transports, and `EVAL` captures for
    resource banks, queues, and FILEs. Model shared storage in called library
-   modules, extend resumable `FOR` capture to USING storage, and model
+   modules, track stable `USING` bindings into PATH storage, and model
    additional synchronization and handler rearming where order and targets
    can be determined. Track effects between motion
    callbacks and keep dynamic selections and external effects visible. Extend

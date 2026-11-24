@@ -252,7 +252,7 @@ def _routine_calls(plan, node, tick):
         yield from _expression_routines(plan, args[0], tick)
         for _, label in select_case_labels(node):
             yield from _expression_routines(plan, label, tick)
-    elif kind in ('assign', 'for'):
+    elif kind in ('assign', 'for', 'using'):
         for operand in args[:3] if kind == 'for' else args:
             yield from _expression_routines(plan, operand, tick)
     elif kind in ('if', 'return', 'while', 'repeat') and args:
@@ -264,7 +264,7 @@ def _branches(node):
         return (node['body'], node['alternate'])
     if node['kind'] == 'select':
         return (*(body for _, _, body in node['args'][1]), node['alternate'])
-    if node['kind'] in STRUCTURED_LOOPS:
+    if node['kind'] in STRUCTURED_LOOPS or node['kind'] == 'using':
         return (node['body'],)
     return ()
 
@@ -289,7 +289,7 @@ def structured_child(plan, linked_plans, tick, *, predefined_files=()):
         tick()
         pause = explicit_pause(node)
         found_pause = found_pause or pause
-        found_control = (found_control or node['kind'] in STRUCTURED_LOOPS
+        found_control = (found_control or node['kind'] in STRUCTURED_LOOPS or node['kind'] == 'using'
                          or aggregate_task_write(node) or node.get('data_assignment') is True
                          or node['kind'] == 'assign'
                          and task_resource_storage(_storage_schema(owner['types'], node['args'][0]))
@@ -353,6 +353,8 @@ class _SegmentRules:
             return self.types.get(node['value'])
         if staged and kind == 'group':
             return self.reference_schema(node['args'][0], staged=True)
+        if staged and kind == 'using_ref':
+            return node['value'][1]
         if not self.structured or kind not in ('field', 'index'):
             return None
         receiver, *indices = node['args']
@@ -366,7 +368,10 @@ class _SegmentRules:
                 return None
             return schema[2] if node.get('static_zero_subscript') else schema[1] or self.plan.get('default_path_node')
         if kind == 'field':
-            return dict(schema[2]).get(node['value']) if schema[0] == 'STRUCTURE' else None
+            if schema[0] == 'STRUCTURE':
+                return dict(schema[2]).get(node['value'])
+            fields = self.plan.get('record_fields', {}).get(schema[0], {})
+            return fields.get(node['value']) if staged else None
         if schema[0] != 'ARRAY':
             return None
         dimensions, element = array_dimensions(schema)

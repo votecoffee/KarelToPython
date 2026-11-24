@@ -184,6 +184,8 @@ def build(program, emitter):
             row['args'] = encode(value.args, depth + 1)
             if kind == 'Expr':
                 row['value'] = encode(value.value, depth + 1)
+                if value.kind == 'using_ref':
+                    used_records.add(value.value[1][0])
                 if value.kind == 'write_item' and id(value) in emitter.write_item_types:
                     row['write_type'] = emitter.write_item_types[id(value)]
                     if id(value) in emitter.write_collection_types:
@@ -225,6 +227,8 @@ def build(program, emitter):
                             pass
             else:
                 row.update(body=encode(value.body, depth + 1), alternate=encode(value.alternate, depth + 1), has_else=value.has_else)
+                if value.kind == 'using' and getattr(value, 'using_captures', ()):
+                    row['using_captures'] = encode(tuple(zip(value.using_captures, value.using_capture_kinds)), depth + 1)
                 if value.kind == 'assign':
                     if id(value.args[0]) in emitter.staged_data_assignments:
                         row['data_assignment'] = True

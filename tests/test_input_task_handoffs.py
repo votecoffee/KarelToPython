@@ -1809,6 +1809,153 @@ END LIB
         self.assertEqual(result['status'],'completed',result['error'])
         self.assertEqual(result['text_output'],' 7')
 
+    def test_nested_using_borrows_each_selected_record_once_across_pauses(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+TYPE row_t=STRUCTURE amount:INTEGER ENDSTRUCTURE
+     wrapper_t=STRUCTURE inner:row_t ENDSTRUCTURE
+     options_t=STRUCTURE bonus:INTEGER ENDSTRUCTURE
+VAR rows:ARRAY[2] OF wrapper_t options:ARRAY[2] OF options_t
+    chosen,total,trace,unused:INTEGER
+ROUTINE pick_row:INTEGER
+BEGIN
+  trace=trace*10+1
+  PAUSE
+  RETURN chosen
+END pick_row
+ROUTINE pick_option:INTEGER
+BEGIN
+  trace=trace*10+2
+  chosen=2
+  PAUSE
+  RETURN chosen
+END pick_option
+BEGIN
+  chosen=1
+  total=0
+  trace=0
+  rows[2].inner.amount=79
+  options[2].bonus=3
+  USING rows[pick_row()],options[pick_option()] DO
+    USING inner DO
+      FOR amount=1 TO 2 DO
+        total=total+amount+bonus
+        IF amount=1 THEN PAUSE ENDIF
+      ENDFOR
+    ENDUSING
+  ENDUSING
+  IF (total=9) AND (trace=12) AND (rows[2].inner.amount=79) THEN WRITE(total) ELSE WRITE(unused) ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling']+['task-wait','task-continuation']*3)
+        self.assertEqual(result['status'],'completed',result['error'])
+        self.assertEqual(result['text_output'],' 9')
+        first,second=result['programs']['CHILD']['values']['ROWS']
+        self.assertEqual(first['INNER']['AMOUNT'],{'uninitialized':True})
+        self.assertEqual(second['INNER']['AMOUNT'],79)
+
+    def test_using_private_pinned_result_survives_return_from_paused_for(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        types="TYPE row_t=STRUCTURE amount:INTEGER bonus:INTEGER unused_field:INTEGER ENDSTRUCTURE"
+        child=f"""PROGRAM CHILD
+{types}
+VAR origin:row_t first,second,unused:INTEGER
+ROUTINE snapshot(item:row_t):row_t FROM LIB
+ROUTINE evaluate:INTEGER
+BEGIN
+  USING snapshot((origin)) DO
+    FOR amount=1 TO 2 DO
+      PAUSE
+      RETURN amount+bonus
+    ENDFOR
+  ENDUSING
+  RETURN 0
+END evaluate
+BEGIN
+  origin.amount=77
+  origin.bonus=10
+  origin.unused_field=1
+  first=evaluate()
+  origin.bonus=20
+  second=evaluate()
+  IF (first=11) AND (second=21) AND (origin.amount=77) THEN WRITE(first,second) ELSE WRITE(unused) ENDIF
+END CHILD
+"""
+        library=f"""PROGRAM LIB
+{types}
+ROUTINE snapshot(item:row_t):row_t
+VAR captured:row_t
+BEGIN
+  USING item DO
+    captured.amount=amount
+    captured.bonus=bonus
+    PAUSE
+  ENDUSING
+  RETURN captured
+END snapshot
+BEGIN
+END LIB
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child),('LIB',library)])
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling']+['task-wait','task-continuation']*4)
+        self.assertEqual(result['status'],'completed',result['error'])
+        self.assertEqual(result['text_output'],' 11 21')
+        values=result['programs']['CHILD']['values']
+        self.assertEqual((values['ORIGIN']['AMOUNT'],values['ORIGIN']['BONUS']),(77,20))
+
+    def test_using_computed_vector_follows_the_same_fields_after_a_pause(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR number,unused:INTEGER
+BEGIN
+  USING VEC(1,2,3) DO
+    x=x+5
+    PAUSE
+    IF (x+y+z)=11 THEN number=11 ELSE WRITE(unused) ENDIF
+  ENDUSING
+  WRITE(number)
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed',result['error'])
+        self.assertEqual(result['text_output'],' 11')
+
     def test_for_path_counter_keeps_selected_storage_across_selector_bounds_and_body_pauses(self):
         main="""PROGRAM MAIN
 VAR s:INTEGER
