@@ -9,7 +9,7 @@ import re
 
 from .compiler_language import BUILTIN_SIGNATURES, CONSTANT_BUILTINS, INTEGRAL_TYPES, PREDEFINED_CONSTANTS
 from .dynamic import (
-    BYNAME_PATH, MAX_LEAVES, UNKNOWN_CREATION_TYPE, creation_cost, creation_type, normalized_name,
+    BYNAME_PATH, MAX_LEAVES, UNKNOWN_CREATION_TYPE, creation_cost, creation_type, file_storage_cost, normalized_name,
     rename_names, rename_plan, renamed_key, root_member,
 )
 from .extended import (
@@ -26,7 +26,8 @@ from .input_position_values import (
 )
 from .input_task_segments import (
     FILE_TASK_QUERIES, STRUCTURED_LOOPS, TASK_DATA_AGGREGATES, TASK_ROUTINE_VALUES, bind_repeat_samples, bounded_child,
-    explicit_pause, file_task_procedure, queue_task_call, repeat_capture_parts, resolve_routine, scalar_task_operator,
+    explicit_pause, file_task_procedure, file_task_storage, queue_task_call, repeat_capture_parts, resolve_routine,
+    scalar_task_operator,
     select_case_labels,
     structured_child, task_handoff_window,
 )
@@ -5181,9 +5182,9 @@ class _Analyzer(TeachDiscovery):
         selector = node['args'][0]
         while selector['kind'] == 'group':
             selector = selector['args'][0]
-        alias = selector['value']
+        alias = scope.predefined_file_alias(selector)
         file = _TaskFile(node, consumer)
-        if selector['kind'] == 'name' and alias in PREDEFINED_FILE_NAMES and alias not in scope.types:
+        if alias is not None:
             if node['kind'] == 'file_open':
                 raise _TaskOrderUnknown()
             flow.task_file_outputs = self.capture_task_file(flow, alias, node)
@@ -5220,10 +5221,14 @@ class _Analyzer(TeachDiscovery):
             self.apply_task_file_procedure(flow, pending, outputs)
             return
         if kind == 'call':
-            value = outputs.query(key, node['value'])
-            if value is None:
-                raise _TaskOrderUnknown()
-            self.consume_task_value(blocks, flow, pending.consumer, _Value(value, spec=['INTEGER']))
+            if node['value'] == 'UNINIT':
+                result = _Value(outputs.descriptor(key).closed, spec=['BOOLEAN'])
+            else:
+                value = outputs.query(key, node['value'])
+                if value is None:
+                    raise _TaskOrderUnknown()
+                result = _Value(value, spec=['INTEGER'])
+            self.consume_task_value(blocks, flow, pending.consumer, result)
             return
 
         self.tick(len(outputs.handles) + len(outputs.sizes))
@@ -5601,11 +5606,15 @@ class _Analyzer(TeachDiscovery):
             raise _TaskOrderUnknown() from None
 
     def task_operand(self, node, flow, scope, blocks, consumer):
-        if node['kind'] == 'call' and node['value'] in FILE_TASK_QUERIES and node['value'] not in self.plan['routines']:
-            if len(node['args']) != 1:
-                raise _TaskOrderUnknown()
-            self.start_task_file(blocks, flow, scope, node, consumer)
-            return None
+        if node['kind'] == 'call' and node['value'] not in self.plan['routines']:
+            name, args = node['value'], node['args']
+            file_uninit = (name == 'UNINIT' and len(args) == 1
+                           and scope.reference_schema(args[0], staged=True) == ['FILE'])
+            if name in FILE_TASK_QUERIES or file_uninit:
+                if len(args) != 1:
+                    raise _TaskOrderUnknown()
+                self.start_task_file(blocks, flow, scope, node, consumer)
+                return None
         if node['kind'] == 'call' and node['value'] == 'ARRAY_LEN':
             if len(node['args']) not in (1, 2):
                 raise _TaskOrderUnknown()
@@ -5669,7 +5678,7 @@ class _Analyzer(TeachDiscovery):
                 selectors.append(root)
             root = root['args'][0]
         loc = self.locate(root, flow, True)
-        if (loc is None or loc.kind not in ('variable', 'local') or loc.named_data
+        if (loc is None or loc.kind not in ('variable', 'local', 'predefined-file') or loc.named_data
                 or loc.path_slot is not None or flow.stopped or flow.opaque):
             raise _TaskOrderUnknown()
         _, root_type = _array_dimensions(loc.root_spec)
@@ -5718,6 +5727,8 @@ class _Analyzer(TeachDiscovery):
             raise _TaskOrderUnknown()
         if selection.reading:
             if isinstance(consumer, _TaskArrayLength):
+                if file_task_storage(loc.spec):
+                    self.checked_task_file_schema(loc.spec)
                 value = _Value(spec=loc.spec)
             elif loc.spec[0] in TASK_DATA_AGGREGATES:
                 writing = isinstance(consumer, _TaskWrite)
@@ -5727,10 +5738,13 @@ class _Analyzer(TeachDiscovery):
                 value = self.read_task_scalar(loc, selection.node, flow)
             self.consume_task_value(blocks, flow, consumer, value)
         elif isinstance(consumer, (_TaskArguments, _TaskQueueCall)):
+            if isinstance(consumer, _TaskArguments) and file_task_storage(loc.spec):
+                self.checked_task_file_schema(loc.spec)
             blocks[-1] = replace(consumer, actuals=(*consumer.actuals, loc))
         elif isinstance(consumer, _TaskFile):
             if consumer.key is None and loc.spec == ['FILE']:
-                blocks[-1] = replace(consumer, key=loc.key)
+                key = loc.root if loc.kind == 'predefined-file' else loc.key
+                blocks[-1] = replace(consumer, key=key)
             elif consumer.key is not None and loc.spec == ['INTEGER']:
                 blocks[-1] = replace(consumer, values=(*consumer.values, loc))
             else:
@@ -5810,7 +5824,8 @@ class _Analyzer(TeachDiscovery):
         elif len(values) < len(operands):
             value = self.task_operand(operands[1], flow, scope, blocks, length)
         else:
-            spec = self.task_data_schema(values[0].spec)
+            actual = values[0].spec
+            spec = tuple_spec(actual) if file_task_storage(actual) else self.task_data_schema(actual)
             if spec[0] != 'ARRAY':
                 raise _TaskOrderUnknown()
             dimensions = rt.array_dimensions(spec) if len(values) == 2 else rt.array_shape(spec)
@@ -5910,8 +5925,18 @@ class _Analyzer(TeachDiscovery):
                 and str(index) not in call.get('data_arguments', {})):
             raise _TaskOrderUnknown()
         if call['passing'][index] == 'reference':
+            if expected == ['FILE']:
+                alias = scope.predefined_file_alias(operand)
+                if alias is not None:
+                    flow.task_file_outputs = self.capture_task_file(flow, alias, operand)
+                    location = _Location('predefined-file', '', alias, spec=['FILE'], root_spec=['FILE'])
+                    blocks[-1] = replace(arguments, actuals=(*actuals, location))
+                    return
             schema = scope.reference_schema(operand, staged=True)
-            if not schema or schema[0] not in TASK_ROUTINE_VALUES:
+            if file_task_storage(expected):
+                if not file_task_storage(schema):
+                    raise _TaskOrderUnknown()
+            elif not schema or schema[0] not in TASK_ROUTINE_VALUES or file_task_storage(schema):
                 raise _TaskOrderUnknown()
             self.start_task_selection(blocks, flow, operand, arguments)
             return
@@ -6068,6 +6093,14 @@ class _Analyzer(TeachDiscovery):
                     converted = converter(expected, captured, line)
                 return detached_facts(converted)
         except (rt.KarelRuntimeError, ArithmeticError, TypeError, ValueError):
+            raise _TaskOrderUnknown() from None
+
+    def checked_task_file_schema(self, schema):
+        spec = tuple_spec(schema)
+        try:
+            if file_storage_cost(spec) is None:
+                raise _TaskOrderUnknown()
+        except ValueError:
             raise _TaskOrderUnknown() from None
 
     def checked_task_data_value(self, spec, value, *, result=False):
@@ -6312,7 +6345,11 @@ class _Analyzer(TeachDiscovery):
                     and spec[1] is not None and source[1] is not None and spec[1]!=source[1]):
                 self.unresolved_at('parameter-capacity','Concrete STRING capacity conflicts with routine constraint: '+name+'.'+formal,node)
                 self.opaque(flow);return None
-            if staged and spec[0] in TASK_DATA_AGGREGATES:
+            if staged and file_task_storage(spec):
+                if not isinstance(item, _Location) or not rt.parameter_accepts(tuple_spec(spec), tuple_spec(source)):
+                    raise _TaskOrderUnknown()
+                resolved = source
+            elif staged and spec[0] in TASK_DATA_AGGREGATES:
                 # Reference constraints are checked on frame entry, after all operands finish.
                 if not rt.parameter_accepts(tuple_spec(spec), self.task_data_schema(source)):
                     raise _TaskOrderUnknown()

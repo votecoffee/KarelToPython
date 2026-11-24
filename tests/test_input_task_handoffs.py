@@ -4186,6 +4186,249 @@ END CHILD
         self.assertIn('attributes must be set before OPEN',result['error']['message'])
         self.assertEqual(result['programs']['CHILD']['values']['ENTERED'],0)
 
+    def test_borrowed_file_plane_survives_pause_and_forwarding_into_a_pinned_module(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR bank:ARRAY[2,2,3] OF FILE selected,unused:INTEGER
+ROUTINE relay(plane:ARRAY[*,*] OF FILE; amount:INTEGER) FROM LIB
+ROUTINE choose_plane:INTEGER
+BEGIN
+  PAUSE
+  RETURN selected
+END choose_plane
+ROUTINE next_amount:INTEGER
+BEGIN
+  selected=2
+  PAUSE
+  RETURN 17
+END next_amount
+BEGIN
+  selected=1
+  relay(bank[choose_plane()],next_amount())
+  IF (NOT UNINIT(bank[1,2,3])) OR (NOT UNINIT(bank[2,2,3])) THEN
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        library="""PROGRAM LIB
+ROUTINE emit(stream:FILE; amount:INTEGER)
+BEGIN
+  IF UNINIT(stream) THEN
+    OPEN FILE stream('WO','out')
+    PAUSE
+    IF NOT UNINIT(stream) THEN
+      WRITE stream(amount)
+      CLOSE FILE stream
+    ENDIF
+  ENDIF
+END emit
+ROUTINE write_row(row:ARRAY OF FILE; amount:INTEGER)
+BEGIN
+  IF ARRAY_LEN(row)=3 THEN
+    emit(row[3],amount)
+  ENDIF
+END write_row
+ROUTINE relay(plane:ARRAY[*,*] OF FILE; amount:INTEGER)
+BEGIN
+  IF (ARRAY_LEN(plane)=2) AND (ARRAY_LEN(plane,2)=3) THEN
+    write_row(plane[2],amount)
+  ENDIF
+END relay
+BEGIN
+END LIB
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child),('LIB',library)],files={})
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation',
+                                      'task-wait','task-continuation','task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed',result['error'])
+        self.assertEqual(result['context']['files']['out']['hex'],'203137')
+        bank=result['programs']['CHILD']['values']['BANK']
+        self.assertEqual(bank[0][1][2]['file'],'out')
+        self.assertIsNone(bank[1][1][2]['file'])
+        self.assertFalse(bank[0][1][2]['open'])
+
+    def test_whole_file_bank_retains_named_row_identity_through_forwarding(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+TYPE row_t=ARRAY[2] OF FILE bank_t=ARRAY[2] OF row_t
+VAR streams:bank_t
+ROUTINE work(row:row_t)
+BEGIN
+  OPEN FILE row[1]('WO','out')
+  PAUSE
+  WRITE row[1]('named row')
+  CLOSE FILE row[1]
+END work
+ROUTINE forward(whole:bank_t)
+BEGIN
+  work(whole[2])
+END forward
+BEGIN
+  forward(streams)
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],files={})
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed',result['error'])
+        self.assertEqual(result['context']['files']['out']['hex'],b'named row'.hex())
+        streams=result['programs']['CHILD']['values']['STREAMS']
+        self.assertIsNone(streams[0][0]['file'])
+        self.assertEqual(streams[1][0]['file'],'out')
+
+    def test_predefined_file_reference_keeps_its_alias_through_a_linked_function(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR length_now,unused:INTEGER
+ROUTINE send(stream:FILE):INTEGER FROM LIB
+BEGIN
+  length_now=send(OUTPUT)
+  IF UNINIT(OUTPUT) AND (length_now=3) THEN
+    WRITE(length_now)
+  ELSE
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        library="""PROGRAM LIB
+ROUTINE emit(stream:FILE)
+BEGIN
+  WRITE stream(42)
+END emit
+ROUTINE send(stream:FILE):INTEGER
+VAR pos:INTEGER
+BEGIN
+  emit(stream)
+  PAUSE
+  pos=GET_FILE_POS(stream)
+  CLOSE FILE stream
+  RETURN pos
+END send
+BEGIN
+END LIB
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child),('LIB',library)],files={},
+                                   predefined_files={'OUTPUT':{'name':'out','mode':'WO'}})
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation'])
+        self.assertIn({'service':'predefined_files','address':'OUTPUT'},report['context_requirements'])
+        self.assertEqual(result['status'],'completed',result['error'])
+        self.assertEqual(result['context']['files']['out']['hex'],'203432')
+        self.assertEqual(result['text_output'],' 3')
+
+    def test_borrowed_file_formal_checks_concrete_shape_after_later_operand_pauses(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  WRITE('waiting')
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR streams:ARRAY[3] OF FILE entered:INTEGER
+ROUTINE later:INTEGER
+BEGIN
+  PAUSE
+  RETURN 17
+END later
+ROUTINE fixed(row:ARRAY[2] OF FILE; amount:INTEGER)
+BEGIN
+  entered=1
+  OPEN FILE row[1]('WO','out')
+  WRITE row[1](amount)
+  CLOSE FILE row[1]
+  PAUSE
+END fixed
+ROUTINE forward(generic:ARRAY OF FILE)
+BEGIN
+  fixed(generic,later())
+END forward
+BEGIN
+  entered=0
+  forward(streams)
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],files={})
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait'])
+        self.assertEqual(result['status'],'paused')
+        self.assertEqual(result['text_output'],'waiting')
+
+        main=main.replace("WRITE('waiting')", "CONT_TASK('CHILD',s) WAIT FOR PAUSE PROGRAM[2]")
+        report,result=self.prepare([('MAIN',main),('CHILD',child)],files={})
+        self.assertIn('condition-source',[row['code'] for row in report['unresolved']])
+        self.assertEqual(result['status'],'failed')
+        self.assertIn('Parameter binding type mismatch',result['error']['message'])
+        self.assertEqual(result['programs']['CHILD']['values']['ENTERED'],0)
+        self.assertEqual(result['context']['files'],{})
+
+    def test_file_prefix_length_keeps_its_shape_across_a_pausing_axis(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR streams:ARRAY[2,3,4] OF FILE count_now,unused:INTEGER
+ROUTINE pick_plane:INTEGER
+BEGIN
+  PAUSE
+  RETURN 1
+END pick_plane
+ROUTINE pick_axis:INTEGER
+BEGIN
+  PAUSE
+  RETURN 2
+END pick_axis
+BEGIN
+  count_now=ARRAY_LEN(streams[pick_plane()],pick_axis())
+  IF UNINIT(streams[1,1,1]) AND (count_now=4) THEN
+    WRITE(count_now)
+  ELSE
+    WRITE(unused)
+  ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation',
+                                      'task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed',result['error'])
+        self.assertEqual(result['text_output'],' 4')
+        self.assertNotIn('files',result['context'])
+
     def test_request_status_is_not_reused_as_prelaunch_task_number(self):
         main="""PROGRAM MAIN
 VAR task_no,s:INTEGER text:STRING[8]

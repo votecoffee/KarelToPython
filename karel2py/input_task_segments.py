@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 
 from .compiler_language import CONSTANT_BUILTINS, INTEGRAL_TYPES, RECORD_TYPES
+from .extended import PREDEFINED_FILE_NAMES
 from .input_robot_values import POSE_CONSTRUCTORS
 from .input_teach_discovery import TEACH_POSITION_GETTERS
 from .input_value_conversions import SCALARS, Value, array_dimensions
@@ -169,14 +170,18 @@ def bind_repeat_samples(node, samples, tick):
     return node
 
 
+def file_task_storage(spec):
+    return array_dimensions(spec)[1] == ['FILE']
+
+
 def _expression_routines(plan, expression, tick, *, procedure=False):
     if expression is None:
         return
     tick()
     kind = expression['kind']
-    builtin = (not procedure and kind == 'call'
-               and (expression['value'] == 'ARRAY_LEN' or expression['value'] in CONSTANT_BUILTINS
-                    or expression['value'] in FILE_TASK_QUERIES and expression['value'] not in plan['routines']))
+    builtin = (not procedure and kind == 'call' and expression['value'] not in plan['routines']
+               and (expression['value'] in ('ARRAY_LEN', 'UNINIT')
+                    or expression['value'] in CONSTANT_BUILTINS or expression['value'] in FILE_TASK_QUERIES))
     if builtin or scalar_task_operator(expression) or kind in ('field', 'index', 'path_io_range', 'repeat_eval'):
         for operand in expression['args']:
             yield from _expression_routines(plan, operand, tick, procedure=procedure)
@@ -300,10 +305,22 @@ class _SegmentRules:
                                                      predefined_files=self.predefined_files)
         return self.routine_scopes[key]
 
+    def predefined_file_alias(self, node):
+        node = _ungroup(node)
+        if node['kind'] != 'name':
+            return None
+        name = node['value']
+        if (name in PREDEFINED_FILE_NAMES and name not in self.types and name not in self.constants
+                and name not in self.plan['routines']):
+            return name
+        return None
+
     def reference_schema(self, node, *, staged=False):
         self.tick()
         kind = node['kind']
         if kind == 'name':
+            if staged and self.predefined_file_alias(node) is not None:
+                return ['FILE']
             return self.types.get(node['value'])
         if staged and kind == 'group':
             return self.reference_schema(node['args'][0], staged=True)
@@ -415,7 +432,8 @@ class _SegmentRules:
         formals = self.plan['routines'][call['value']]['parameters']
         if len(actuals) != len(modes) or len(modes) != len(formals):
             return None
-        return call if all(mode in ('value', 'reference') and spec[0] in TASK_ROUTINE_VALUES
+        return call if all(mode == 'reference' if file_task_storage(spec)
+                           else mode in ('value', 'reference') and spec[0] in TASK_ROUTINE_VALUES
                            for mode, (_, spec) in zip(modes, formals)) else None
 
     def branch(self, node):

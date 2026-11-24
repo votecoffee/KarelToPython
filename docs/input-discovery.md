@@ -813,10 +813,19 @@ outside the file returns status `2` and preserves the cursor.
 the available byte count and status. FILE selection, scalar arguments, and
 output selectors can pause. Each completed operand is retained for the call.
 
+A checked routine can borrow a scalar FILE, a whole FILE bank, or a selected
+row or plane, including through pinned source linkage. Argument selection
+captures the original descriptor or cells before later arguments run.
+Open ARRAY formals inherit concrete dimensions, and fixed or named formals
+are checked at call entry. Forwarding retains the same descriptor state and
+cursor. A predefined alias passed directly to a FILE formal retains its
+configured binding. `ARRAY_LEN` can inspect a FILE bank or view without a
+backend, and `UNINIT` tests whether the selected FILE is closed.
+
 Unchecked FILE access can invalidate prior facts. FILE `READ`, FILE
-arguments to routines, and other backends still use conservative analysis.
-Configure the endpoint and supply any PATH storage and input stream data
-through the run context.
+arguments obtained through `BYNAME`, and other backends still use conservative
+analysis. Configure the endpoint and supply any PATH storage and input stream
+data through the run context.
 
 ### PATH records
 

@@ -80,7 +80,9 @@ track edits, removals, and copies, including entry IDs and partial output writes
 Predefined memory FILE aliases and declared FILE cells support text and binary
 output in checked child slices. Declaration-based OPEN captures the receiver
 before its mode and name. Attribute, seek, and availability calls retain
-the selected descriptor and completed operands across pauses.
+the selected descriptor and completed operands across pauses. Direct scalar
+FILE and FILE ARRAY parameters keep their original cells through pinned
+routine calls and forwarding, including borrowed rows and planes.
 Scalar and ordinary aggregate `REPEAT UNTIL` captures run once before the
 live test and carry their values across pauses and iterations.
 Discovery tracks numbered handler activation within
