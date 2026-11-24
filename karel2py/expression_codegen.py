@@ -82,6 +82,8 @@ class ExpressionLowering:
 
     def emit_condition_capture(self, term, originals):
         code, spec = self.expression(term.args[0])
+        if term.kind == 'repeat_eval':
+            self.repeat_capture_types[id(term)] = spec[0]
         temporary = self.fresh()
         self.line(f'{temporary} = _rt.assignment_value({code}, {term.token.line})', term.token)
         self.bind_condition_temporary(term, temporary, spec, originals)

@@ -235,6 +235,13 @@ class _TaskResultSelection:
 
 
 @dataclass(frozen=True)
+class _TaskArrayLength:
+    node: dict
+    consumer: '_TaskValueConsumer'
+    values: tuple[_Value, ...] = ()
+
+
+@dataclass(frozen=True)
 class _TaskWrite:
     node: dict
     index: int = 0
@@ -246,7 +253,7 @@ class _TaskWrite:
 
 _TaskValueConsumer = (dict | _TaskSelect | _TaskForHeader | _TaskLoop | _TaskExpression |
                       _TaskArguments | _TaskAssignment | _TaskSelection | _TaskResultSelection |
-                      _TaskWrite | _TaskRepeatCapture)
+                      _TaskArrayLength | _TaskWrite | _TaskRepeatCapture)
 
 
 @dataclass(frozen=True)
@@ -1517,6 +1524,9 @@ class _Analyzer(TeachDiscovery):
         while receiver['kind'] in ('group', 'field', 'index'):
             receiver = receiver['args'][0]
         kind = receiver['kind']
+        if kind == 'wait_sample':
+            sample = receiver['value']
+            return isinstance(sample, _Value) and sample.spec and sample.spec[0] in TASK_DATA_AGGREGATES
         if kind == 'binary' and receiver['value'] == ':':
             return True
         if kind not in ('call', 'name'):
@@ -4986,6 +4996,9 @@ class _Analyzer(TeachDiscovery):
             if isinstance(frame, _TaskResultSelection):
                 self.next_task_result_selection(blocks, child, scope, frame)
                 continue
+            if isinstance(frame, _TaskArrayLength):
+                self.next_task_array_length(blocks, child, scope, frame)
+                continue
             if isinstance(frame, _TaskArguments):
                 self.next_task_argument(blocks, child, scope, frame)
                 continue
@@ -5197,6 +5210,11 @@ class _Analyzer(TeachDiscovery):
             raise _TaskOrderUnknown() from None
 
     def task_operand(self, node, flow, scope, blocks, consumer):
+        if node['kind'] == 'call' and node['value'] == 'ARRAY_LEN':
+            if len(node['args']) not in (1, 2):
+                raise _TaskOrderUnknown()
+            blocks.append(_TaskArrayLength(node, consumer))
+            return None
         if node['kind'] == 'call' and node['value'] in SCALAR_PURE:
             if len(node['args']) != SCALAR_PURE[node['value']]:
                 raise _TaskOrderUnknown()
@@ -5290,7 +5308,9 @@ class _Analyzer(TeachDiscovery):
     def finish_task_selection(self, blocks, flow, selection):
         loc, consumer = selection.location, selection.consumer
         if selection.reading:
-            if loc.spec[0] in TASK_DATA_AGGREGATES:
+            if isinstance(consumer, _TaskArrayLength):
+                value = _Value(spec=loc.spec)
+            elif loc.spec[0] in TASK_DATA_AGGREGATES:
                 writing = isinstance(consumer, _TaskWrite)
                 self.task_data_schema(loc.spec, max_leaves=1024 if writing else MAX_FACTS)
                 value = self.read(loc, selection.node, flow, True, partial=not writing)
@@ -5350,6 +5370,32 @@ class _Analyzer(TeachDiscovery):
         if not result.spec or result.spec[0] not in TASK_ROUTINE_VALUES:
             raise _TaskOrderUnknown()
         return result
+
+    def next_task_array_length(self, blocks, flow, scope, length):
+        self.tick()
+        operands, values = length.node['args'], length.values
+        if not values:
+            array = operands[0]
+            schema = scope.reference_schema(array, staged=True)
+            if schema and schema[0] == 'ARRAY':
+                self.start_task_selection(blocks, flow, array, length, reading=True)
+                return
+            value = self.task_data_operand(array, flow, scope, blocks, length)
+        elif len(values) < len(operands):
+            value = self.task_operand(operands[1], flow, scope, blocks, length)
+        else:
+            spec = self.task_data_schema(values[0].spec)
+            if spec[0] != 'ARRAY':
+                raise _TaskOrderUnknown()
+            dimensions = rt.array_dimensions(spec) if len(values) == 2 else rt.array_shape(spec)
+            axis = values[1].constant if len(values) == 2 else 1
+            if type(axis) is not int or not 1 <= axis <= len(dimensions):
+                raise _TaskOrderUnknown()
+            blocks.pop()
+            self.consume_task_value(blocks, flow, length.consumer, _Value(dimensions[axis - 1], spec=['INTEGER']))
+            return
+        if value is not None:
+            self.consume_task_value(blocks, flow, length, value)
 
     def next_task_expression(self, blocks, flow, scope, expression):
         self.tick()
@@ -5510,8 +5556,10 @@ class _Analyzer(TeachDiscovery):
             else:
                 blocks[-1] = replace(consumer, values=(*consumer.values, value))
         elif isinstance(consumer, _TaskRepeatCapture):
-            if (not value.complete or value.uninitialized or value.spec and value.spec[0] not in SCALARS
-                    or value.constant is not UNKNOWN and type(value.constant) not in (bool, int, float, str)):
+            if value.spec and value.spec[0] in TASK_DATA_AGGREGATES:
+                self.checked_task_data_capture(value)
+            elif (not value.complete or value.uninitialized or value.spec and value.spec[0] not in SCALARS
+                  or value.constant is not UNKNOWN and type(value.constant) not in (bool, int, float, str)):
                 raise _TaskOrderUnknown()
             blocks[-1] = replace(consumer, samples=(*consumer.samples, value))
         elif isinstance(consumer, _TaskSelection):
@@ -5519,6 +5567,8 @@ class _Analyzer(TeachDiscovery):
         elif isinstance(consumer, _TaskResultSelection):
             if not consumer.values:
                 self.checked_task_data_capture(value)
+            blocks[-1] = replace(consumer, values=(*consumer.values, value))
+        elif isinstance(consumer, _TaskArrayLength):
             blocks[-1] = replace(consumer, values=(*consumer.values, value))
         elif isinstance(consumer, _TaskArguments):
             self.capture_task_argument(blocks, consumer, value)
@@ -5685,9 +5735,13 @@ class _Analyzer(TeachDiscovery):
             blocks.pop()
             blocks[-1] = replace(blocks[-1], repeat_predicate=live, staged_repeat_test=True)
             return
-        operand, = capture.terms[index]['args']
+        term = capture.terms[index]
+        operand, = term['args']
         operand = bind_repeat_samples(operand, capture.samples, self.tick)
-        value = self.task_operand(operand, flow, scope, blocks, capture)
+        if term.get('capture_type') in TASK_DATA_AGGREGATES:
+            value = self.task_data_operand(operand, flow, scope, blocks, capture)
+        else:
+            value = self.task_operand(operand, flow, scope, blocks, capture)
         if value is not None:
             self.consume_task_value(blocks, flow, capture, value)
 

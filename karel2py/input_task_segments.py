@@ -168,7 +168,8 @@ def _expression_routines(plan, expression, tick, *, procedure=False):
         return
     tick()
     kind = expression['kind']
-    builtin = not procedure and kind == 'call' and expression['value'] in CONSTANT_BUILTINS
+    builtin = (not procedure and kind == 'call'
+               and (expression['value'] == 'ARRAY_LEN' or expression['value'] in CONSTANT_BUILTINS))
     if builtin or scalar_task_operator(expression) or kind in ('field', 'index', 'repeat_eval'):
         for operand in expression['args']:
             yield from _expression_routines(plan, operand, tick, procedure=procedure)

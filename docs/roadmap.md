@@ -71,10 +71,10 @@ arguments can retain nested frames across pauses, including calls to pinned
 linked modules. Ordinary aggregate results can feed another call, console
 `WRITE`, an assignment, or a field or array selection. Checked data conversions
 follow the declared argument, return, or concrete ARRAY receiver schema.
-Ordinary ARRAY subscripts, pure scalar built-ins, and console `WRITE` for
-scalars and ordinary data aggregates keep evaluated operands across a pause.
-Scalar `REPEAT UNTIL` captures run once before the live test and carry their
-values across pauses and iterations.
+Ordinary ARRAY subscripts, pure scalar built-ins, `ARRAY_LEN`, and console
+`WRITE` for scalars and data aggregates keep evaluated operands across a pause.
+Scalar and ordinary aggregate `REPEAT UNTIL` captures run once before the
+live test and carry their values across pauses and iterations.
 Discovery tracks numbered handler activation within
 each invocation and follows emitted motion capture order.
 Refreshing a module set carries compatible owner-qualified values into a new
@@ -85,7 +85,7 @@ document and reports changed, omitted and unresolved inputs.
 
 1. **Expand linked discovery.** Extend child pause tracking to resource
    arguments and selectors, model-backed or unproven aggregate conversions,
-   PATH and QUEUE `WRITE` operands, FILE output, and non-scalar `EVAL` captures.
+   PATH and QUEUE `WRITE` operands, FILE output, and resource `EVAL` captures.
    Model shared storage in called library modules, extend resumable
    `FOR` capture to PATH and USING storage, and model
    additional synchronization and handler rearming where order and targets

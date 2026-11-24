@@ -1706,6 +1706,172 @@ END CHILD
                 self.assertIn(error,result['error']['message'])
                 self.assertEqual(result['programs']['CHILD']['values']['REACHED'],0)
 
+    def test_repeat_keeps_record_capture_across_live_test_pauses_and_iterations(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+TYPE row_t=STRUCTURE limit:INTEGER ENDSTRUCTURE
+VAR data:row_t n,unused:INTEGER
+ROUTINE gate:BOOLEAN
+BEGIN
+  data.limit=99
+  PAUSE
+  RETURN TRUE
+END gate
+BEGIN
+  n=0
+  data.limit=2
+  REPEAT
+    n=n+1
+  UNTIL gate() AND (n>=EVAL(data).limit)
+  IF n=2 THEN WRITE(n) ELSE WRITE(unused) ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation',
+                                     'task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed')
+        self.assertEqual(result['text_output'],' 2')
+        self.assertEqual(result['programs']['CHILD']['values']['DATA'],{'LIMIT':99})
+
+    def test_nested_array_capture_and_length_survive_pauses_without_reading_missing_leaves(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR n,calls,unused:INTEGER
+ROUTINE make:ARRAY[1,2] OF INTEGER
+VAR row:ARRAY[1,2] OF INTEGER
+BEGIN
+  row[1,1]=2
+  calls=calls+1
+  PAUSE
+  RETURN row
+END make
+ROUTINE pick:INTEGER
+BEGIN
+  PAUSE
+  RETURN 1
+END pick
+BEGIN
+  n=0
+  calls=0
+  REPEAT
+    n=n+1
+  UNTIL (n>=EVAL(EVAL(make())[1,pick()])) AND (ARRAY_LEN(EVAL(make()),2)=2)
+  IF (n=2) AND (calls=2) THEN WRITE(n,':',calls) ELSE WRITE(unused) ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation',
+                                     'task-wait','task-continuation','task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed')
+        self.assertEqual(tuple(map(int,result['text_output'].split(':'))),(2,2))
+
+    def test_array_length_resumes_its_selector_and_dimension_without_array_cell_reads(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR grid:ARRAY[2,3,4] OF INTEGER n,unused:INTEGER
+ROUTINE pick:INTEGER
+BEGIN
+  PAUSE
+  RETURN 1
+END pick
+ROUTINE axis:INTEGER
+BEGIN
+  PAUSE
+  RETURN 2
+END axis
+BEGIN
+  n=ARRAY_LEN(grid[pick()],axis())
+  IF n=4 THEN WRITE(n) ELSE WRITE(unused) ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation',
+                                     'task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed')
+        self.assertEqual(result['text_output'],' 4')
+        invalid_main=main.replace('END MAIN','  WAIT FOR PAUSE PROGRAM[2]\nEND MAIN')
+        invalid_child=child.replace('RETURN 2','RETURN 3')
+        report,result=self.prepare([('MAIN',invalid_main),('CHILD',invalid_child)])
+        self.assertIn('condition-source',[row['code'] for row in report['unresolved']])
+        self.assertEqual(result['status'],'failed')
+        self.assertIn('ARRAY_LEN dimension 3 outside 1..2',result['error']['message'])
+
+    def test_missing_leaf_in_a_captured_array_fails_after_the_live_subscript_pause(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  WRITE('waiting')
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR attempts,selected:INTEGER
+ROUTINE make:ARRAY OF INTEGER
+VAR row:ARRAY[2] OF INTEGER
+BEGIN
+  row[1]=7
+  RETURN row
+END make
+ROUTINE choose:INTEGER
+BEGIN
+  selected=1
+  PAUSE
+  RETURN 2
+END choose
+BEGIN
+  selected=0
+  attempts=0
+  REPEAT attempts=attempts+1 UNTIL EVAL(make())[choose()]=7
+  PAUSE
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait'])
+        self.assertEqual(result['status'],'paused')
+        self.assertEqual(result['text_output'],'waiting')
+
+        main=main.replace("  WRITE('waiting')", """  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]""")
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assertIn('condition-source',[row['code'] for row in report['unresolved']])
+        self.assertEqual(result['status'],'failed')
+        self.assertIn('uninitialized',result['error']['message'])
+        self.assertEqual(result['programs']['CHILD']['values']['SELECTED'],1)
+
     def test_builtin_keeps_earlier_arguments_across_two_pauses(self):
         main="""PROGRAM MAIN
 VAR s:INTEGER

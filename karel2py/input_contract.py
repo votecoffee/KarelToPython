@@ -186,6 +186,8 @@ def build(program, emitter):
                 row['value'] = encode(value.value, depth + 1)
                 if value.kind == 'write_item' and id(value) in emitter.write_item_types:
                     row['write_type'] = emitter.write_item_types[id(value)]
+                if value.kind == 'repeat_eval' and id(value) in emitter.repeat_capture_types:
+                    row['capture_type'] = emitter.repeat_capture_types[id(value)]
                 geometry_type = emitter.geometry_expression_types.get(id(value))
                 if geometry_type is not None:
                     row['geometry_result_type'] = encode(geometry_type, depth + 1)
