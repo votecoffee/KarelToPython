@@ -2,15 +2,16 @@
 
 from dataclasses import dataclass
 
-from .compiler_language import INTEGRAL_TYPES
+from .compiler_language import CONSTANT_BUILTINS, INTEGRAL_TYPES
 from .input_robot_values import POSE_CONSTRUCTORS
-from .input_value_conversions import SCALARS, array_dimensions
+from .input_value_conversions import SCALARS, Value, array_dimensions
 from .teach import TPE_NAMES
 
 
 SHARED_TEACH_CALLS = TPE_NAMES | {'GET_ATTR_PRG', 'SET_ATTR_PRG', 'LOAD_STATUS'}
 STRUCTURED_LOOPS = frozenset(('for', 'while', 'repeat'))
 SCALAR_BINARY_OPERATORS = frozenset(('+', '-', '*', '/', 'DIV', 'MOD', '=', '<>', '<', '<=', '>', '>=', 'AND', 'OR'))
+_REPEAT_SAMPLE = object()
 
 
 @dataclass
@@ -121,11 +122,47 @@ def select_case_labels(node):
             yield index, label
 
 
+def repeat_capture_parts(predicate, tick):
+    """Split captures in evaluation order, including captures nested in others."""
+    captures = []
+
+    def split(node):
+        if not isinstance(node, dict):
+            return node
+        tick()
+        operands = [split(operand) for operand in node['args']]
+        if node['kind'] == 'repeat_eval':
+            slot = len(captures)
+            captures.append(dict(node, args=operands))
+            return dict(node, kind=_REPEAT_SAMPLE, value=slot, args=[])
+        if any(before is not after for before, after in zip(node['args'], operands)):
+            return dict(node, args=operands)
+        return node
+
+    live = split(predicate)
+    return tuple(captures), live
+
+
+def bind_repeat_samples(node, samples, tick):
+    """Make a test or capture operand refer to its already sampled values."""
+    if not isinstance(node, dict):
+        return node
+    tick()
+    if node['kind'] is _REPEAT_SAMPLE:
+        return dict(node, kind='wait_sample', value=samples[node['value']])
+    operands = [bind_repeat_samples(operand, samples, tick) for operand in node['args']]
+    if any(before is not after for before, after in zip(node['args'], operands)):
+        return dict(node, args=operands)
+    return node
+
+
 def _expression_routines(plan, expression, tick, *, procedure=False):
     if expression is None:
         return
     tick()
-    if scalar_task_operator(expression) or expression['kind'] in ('field', 'index'):
+    kind = expression['kind']
+    builtin = not procedure and kind == 'call' and expression['value'] in CONSTANT_BUILTINS
+    if builtin or scalar_task_operator(expression) or kind in ('field', 'index', 'repeat_eval'):
         for operand in expression['args']:
             yield from _expression_routines(plan, operand, tick, procedure=procedure)
     else:
@@ -253,6 +290,8 @@ class _SegmentRules:
             return schema[0] in SCALARS
         if kind in ('literal', 'real_literal', 'predefined', 'write_cr'):
             return True
+        if kind == 'wait_sample':
+            return isinstance(node['value'], Value)
         if kind == 'call':
             return self.call(node)
         if kind in ('field', 'index'):

@@ -1562,7 +1562,189 @@ END CHILD
 """
         report,_=self.prepare([('MAIN',main),('CHILD',child)],replay=False)
         self.assert_inputs(report,[('variable','CHILD','SAMPLED','conditional')])
-        self.assertIn('condition-source',[row['code'] for row in report['unresolved']])
+        self.assert_task_gaps(report,['task-scheduling','task-wait'])
+
+    def test_nested_repeat_captures_finish_before_live_test_and_are_reused(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER text:STRING[8]
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  text='prior'
+  GET_TPE_STR_REG(1,text,s)
+  WRITE(s,':',text,CR)
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  GET_TPE_STR_REG(1,text,s)
+  WRITE(s,':',text,CR)
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR n,h,s,trace,unused:INTEGER
+ROUTINE first_term:INTEGER
+BEGIN
+  trace=trace*10+1
+  OPEN_TPE('Shared',TPE_RDACC,TPE_ALLREJ,h,s)
+  PAUSE
+  RETURN 1
+END first_term
+ROUTINE second_term:INTEGER
+BEGIN
+  trace=trace*10+2
+  CLOSE_TPE(h,s)
+  PAUSE
+  RETURN 1
+END second_term
+ROUTINE live_gate:BOOLEAN
+BEGIN
+  trace=trace*10+3
+  PAUSE
+  RETURN TRUE
+END live_gate
+BEGIN
+  n=0
+  trace=0
+  REPEAT
+    n=n+1
+  UNTIL live_gate() AND (n>=EVAL(EVAL(first_term())+EVAL(second_term())))
+  IF trace=1233 THEN WRITE(n) ELSE WRITE(unused) ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assert_inputs(report,[('teach_string_register','SHARED','1','required')])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation',
+                                     'task-wait','task-continuation','task-wait','task-continuation',
+                                     'task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed')
+        blocked,ready,output=result['text_output'].splitlines()
+        first_status,previous=blocked.split(':')
+        next_status,current=ready.split(':')
+        self.assertEqual((int(first_status),previous,int(next_status),current),(4,'prior',0,'ready'))
+        self.assertEqual(int(output),2)
+        self.assertEqual(result['programs']['CHILD']['values']['TRACE'],1233)
+
+    def test_repeat_reentry_takes_a_fresh_capture_through_a_linked_routine(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR i,trace:INTEGER
+ROUTINE sample(value:INTEGER; trace:INTEGER):BOOLEAN FROM LIBA
+BEGIN
+  trace=0
+  FOR i=1 TO 2 DO
+    REPEAT
+      WRITE(i)
+    UNTIL TRUE OR EVAL(sample((i),trace))
+  ENDFOR
+END CHILD
+"""
+        library="""PROGRAM LIBA
+ROUTINE sample(value:INTEGER; trace:INTEGER):BOOLEAN
+BEGIN
+  trace=trace*10+value
+  PAUSE
+  RETURN FALSE
+END sample
+BEGIN
+END LIBA
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child),('LIBA',library)])
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation',
+                                     'task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed')
+        self.assertEqual(result['text_output'].split(),['1','2'])
+        self.assertEqual(result['programs']['CHILD']['values']['TRACE'],12)
+
+    def test_invalid_repeat_capture_prevents_a_later_capture_pause(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR zero,reached:INTEGER
+ROUTINE later_sample:REAL
+BEGIN
+  reached=1
+  PAUSE
+  RETURN 1.0
+END later_sample
+BEGIN
+  reached=0
+  REPEAT
+    {body}
+  UNTIL TRUE OR (EVAL({sample})=EVAL(later_sample()))
+END CHILD
+"""
+        cases=(
+            ('zero=0','SQRT(zero-1)','SQRT argument must not be negative'),
+            ('FOR zero=1 TO 1 DO reached=0 ENDFOR','SQRT(zero)','uninitialized'),
+        )
+        for body,sample,error in cases:
+            with self.subTest(sample=sample):
+                source=child.format(body=body,sample=sample)
+                report,result=self.prepare([('MAIN',main),('CHILD',source)])
+                self.assert_inputs(report,[])
+                self.assertIn('condition-source',[row['code'] for row in report['unresolved']])
+                self.assertEqual(result['status'],'failed')
+                self.assertIn(error,result['error']['message'])
+                self.assertEqual(result['programs']['CHILD']['values']['REACHED'],0)
+
+    def test_builtin_keeps_earlier_arguments_across_two_pauses(self):
+        main="""PROGRAM MAIN
+VAR s:INTEGER
+BEGIN
+  RUN_TASK('CHILD',0,FALSE,FALSE,0,s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+  WAIT FOR PAUSE PROGRAM[2]
+  CONT_TASK('CHILD',s)
+END MAIN
+"""
+        child="""PROGRAM CHILD
+VAR source,result:STRING[8] origin,unused:INTEGER
+ROUTINE start_at:INTEGER
+BEGIN
+  source='wxyz'
+  PAUSE
+  RETURN origin
+END start_at
+ROUTINE count_for:INTEGER
+BEGIN
+  origin=4
+  PAUSE
+  RETURN 2
+END count_for
+BEGIN
+  source='abcd'
+  origin=2
+  result=SUB_STR(source,start_at(),count_for())
+  IF result='bc' THEN WRITE(result) ELSE WRITE(unused) ENDIF
+END CHILD
+"""
+        report,result=self.prepare([('MAIN',main),('CHILD',child)])
+        self.assert_inputs(report,[])
+        self.assert_task_gaps(report,['task-scheduling','task-wait','task-continuation',
+                                     'task-wait','task-continuation'])
+        self.assertEqual(result['status'],'completed')
+        self.assertEqual(result['text_output'],'bc')
+        self.assertEqual(result['programs']['CHILD']['values']['ORIGIN'],4)
 
     def test_pausing_arguments_keep_the_original_reference_and_earlier_scalar_value(self):
         main="""PROGRAM MAIN

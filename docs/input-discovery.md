@@ -91,8 +91,10 @@ retains earlier value copies and selected references across a later
 argument's pause. The callee starts after all arguments finish. Discovery
 then preserves each live invocation and its locals, uses the callee's
 source scope, and keeps TP ownership with the child task. Return values are
-checked before loop cleanup. Calls in ordinary ARRAY subscripts can pause
-during scalar reads, assignments, reference arguments, and `FOR` counter
+checked before loop cleanup. Pure scalar math and string built-ins also keep
+earlier arguments while later arguments pause. Discovery checks a supported
+built-in after its arguments finish. Calls in ordinary ARRAY subscripts can
+pause during scalar reads, assignments, reference arguments, and `FOR` counter
 selection. Discovery saves the receiver and earlier subscripts while later
 ones evaluate. A flat subscript list checks bounds after all its indices
 finish. Assignment evaluates the right-hand value before selecting its
@@ -107,7 +109,12 @@ first matching arm begins only after the last label finishes. A `FOR` captures
 its counter before the initial-bound call, initializes that cell before the
 final-bound call, and reads the start from the same cell after that call
 returns. A pausing test runs before each `WHILE` body or after each `REPEAT`
-body. Calls can nest within the ordinary routine-depth limit.
+body. At the first `REPEAT` test, scalar `EVAL` operands run in source order,
+with nested captures evaluated before their enclosing capture. They finish
+before the live test, including captures on a side of a Boolean expression
+the live test later skips. The same samples survive pauses and subsequent
+iterations. A fresh loop activation takes fresh samples. Calls can nest
+within the ordinary routine-depth limit.
 
 The analysis carries TP handles and bank effects across that wait and uses
 the current shared bank when the child resumes. An eligible final launch or
@@ -117,12 +124,10 @@ and wait, unresolved branches and loop tests, unsupported or unresolved
 `FOR` targets or bounds, and ambiguous suspended positions still use
 conservative analysis. Checked handoffs also leave recursive calls,
 pausing calls inside aggregate or resource arguments, selectors for resources
-or computed results, and aggregate or FILE `WRITE` operands unresolved.
-Unknown rendered items and unresolved linked signatures use the same
-conservative analysis. `REPEAT` tests
-that combine a pausing call with `EVAL` use conservative analysis because
-capture precedes the test. Shared globals in called library modules and PATH
-or USING counter captures also require review.
+or computed results, aggregate or FILE `WRITE` operands, and pausing
+non-scalar captures unresolved. Unknown rendered items and unresolved linked
+signatures use the same conservative analysis. Shared globals in called library
+modules and PATH or USING counter captures also require review.
 
 Discovery evaluates signal and wait selectors and can track known pauses
 across a delay or simple event wait. A signal or delay alone does not

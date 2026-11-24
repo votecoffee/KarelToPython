@@ -69,8 +69,10 @@ integral `FOR` counter in an owned variable, ordinary ARRAY cell, or
 STRUCTURE field. Procedure calls and scalar expressions in arguments,
 assignments, returns, branch selectors, loop bounds, and loop tests can
 retain nested frames across pauses, including calls to pinned linked modules.
-Ordinary ARRAY subscripts and scalar console `WRITE` keep their evaluated
-operands across a pause. Discovery tracks numbered handler activation within
+Ordinary ARRAY subscripts, pure scalar built-ins, and scalar console `WRITE`
+keep evaluated operands across a pause. Scalar `REPEAT UNTIL` captures run once
+before the live test and carry their values across pauses and iterations.
+Discovery tracks numbered handler activation within
 each invocation and follows emitted motion capture order.
 Refreshing a module set carries compatible owner-qualified values into a new
 document and reports changed, omitted and unresolved inputs.
@@ -80,8 +82,8 @@ document and reports changed, omitted and unresolved inputs.
 
 1. **Expand linked discovery.** Extend child pause tracking to calls in
    aggregate or resource arguments, selectors for resources or computed
-   results, aggregate or FILE `WRITE` operands, and `REPEAT` tests with
-   `EVAL`. Model shared storage in called library modules, extend resumable
+   results, aggregate or FILE `WRITE` operands, and non-scalar `EVAL` captures.
+   Model shared storage in called library modules, extend resumable
    `FOR` capture to PATH and USING storage, and model
    additional synchronization and handler rearming where order and targets
    can be determined. Track effects between motion
